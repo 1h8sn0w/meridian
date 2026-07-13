@@ -12,8 +12,10 @@
     --accent: #4f9dff;
     --ok: #46c98b;
     --warn: #ffb454;
+    --tabbar-h: 60px;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -21,31 +23,53 @@
     color: var(--text);
     -webkit-text-size-adjust: 100%;
   }
+
+  /* --- Шапка екрана --- */
   header {
-    padding: 20px 16px 12px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding: 18px 16px 12px;
     border-bottom: 1px solid var(--line);
+    z-index: 10;
   }
   header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  header p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+
+  /* --- Контент --- */
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px 16px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom));
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
   .panel {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 14px 16px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
-  .panel h2 { margin: 0 0 10px; font-size: 15px; }
-  pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px;
-    line-height: 1.55;
-    color: var(--text);
+  .panel h2 { margin: 0 0 8px; font-size: 15px; }
+  .panel .hint { color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0; }
+
+  /* --- Список страв --- */
+  .meal-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
   }
-  .row { display: flex; gap: 8px; align-items: baseline; }
+  .meal-item:last-child { border-bottom: none; }
+  .meal-item .name { font-size: 14.5px; }
+  .meal-item .meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .meal-item .kcal { color: var(--accent); font-size: 13.5px; white-space: nowrap; }
+  .empty { color: var(--muted); font-size: 13.5px; text-align: center; padding: 18px 0; }
+
   .tag {
     display: inline-block;
     font-size: 11px;
@@ -54,21 +78,88 @@
     border: 1px solid var(--line);
     color: var(--muted);
   }
+
+  /* --- Нижній таб-бар --- */
+  nav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    display: flex;
+    z-index: 20;
+  }
+  nav button {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11.5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 0;
+  }
+  nav button .icon { font-size: 21px; line-height: 1; }
+  nav button.active { color: var(--accent); }
+
+  /* --- Самоперевірка (лише з ?selftest) --- */
+  pre.selftest {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
   .pass { color: var(--ok); }
   .fail { color: var(--warn); }
 </style>
 
 <header>
-  <h1>Meridian</h1>
-  <p>Персональний планувальник харчування · POC</p>
+  <h1 id="screen-title">Сьогодні</h1>
+  <p id="screen-subtitle"></p>
 </header>
 
 <main>
-  <div class="panel">
-    <h2>MER-6 · Модель даних «Страва» — самоперевірка</h2>
-    <pre id="selftest">Запуск…</pre>
+  <!-- Панель самоперевірки: видима лише з параметром ?selftest -->
+  <div class="panel" id="selftest-panel" hidden>
+    <h2>Самоперевірка</h2>
+    <pre class="selftest" id="selftest-out"></pre>
   </div>
+
+  <!-- Екран «Сьогодні» -->
+  <section class="screen" id="screen-today">
+    <div class="panel">
+      <h2>Годинник дня</h2>
+      <p class="hint">Тут з'явиться круговий годинник прийомів їжі з активною стравою (задача MER-9).</p>
+    </div>
+  </section>
+
+  <!-- Екран «Тиждень» -->
+  <section class="screen" id="screen-week">
+    <div class="panel">
+      <h2>План тижня</h2>
+      <p class="hint">Тут буде згенерований план на 7 днів із денною калорійністю та кнопкою «Перегенерувати» (задачі MER-10, MER-11).</p>
+    </div>
+  </section>
+
+  <!-- Екран «Страви» -->
+  <section class="screen" id="screen-meals">
+    <div class="panel">
+      <h2>Пул страв</h2>
+      <div id="meals-list"></div>
+      <p class="hint" style="margin-top:8px">Додавання й редагування страв — у задачі MER-7. Демо-пул із планів дієтолога — MER-8.</p>
+    </div>
+  </section>
 </main>
+
+<nav id="tabbar"></nav>
 
 <script>
 "use strict";
@@ -228,17 +319,161 @@ const MealStore = (function () {
   return { getAll, getById, save, remove, clear, filterByType, sumCalories };
 })();
 
-/* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore };
+/* ============================================================================
+ * MER-5 — AppState: єдина точка стану застосунку.
+ * ----------------------------------------------------------------------------
+ * Дрібний UI-стан (активна вкладка тощо) тримається одним об'єктом у
+ * localStorage і переживає перезавантаження. Пул страв живе окремо у MealStore;
+ * згенеровані плани тижня додадуться сюди у MER-10.
+ * ========================================================================== */
+const AppState = (function () {
+  const KEY = "meridian.app.v1";
+  const DEFAULTS = Object.freeze({ activeTab: "today" });
+
+  let state = load();
+
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      return Object.assign({}, DEFAULTS, raw && typeof raw === "object" ? raw : {});
+    } catch (e) {
+      console.warn("AppState: не вдалося прочитати стан, використовую типовий.", e);
+      return Object.assign({}, DEFAULTS);
+    }
+  }
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  /** Прочитати значення зі стану. */
+  function get(key) {
+    return state[key];
+  }
+
+  /** Записати значення у стан і одразу зберегти у сховище. */
+  function set(key, value) {
+    state[key] = value;
+    save();
+  }
+
+  return { get, set };
+})();
 
 /* ============================================================================
- * Самоперевірка критеріїв готовності MER-6 (виконується прямо в браузері).
- *   1. Створити тестову страву з усіма полями й зберегти у сховищі.
- *   2. Перечитати її зі сховища (переживає збереження).
- *   3. Відфільтрувати страви за типом.
- *   4. Порахувати сумарні калорії.
+ * MER-5 — Навігація: три екрани + нижній таб-бар.
  * ========================================================================== */
-(function runSelfTest() {
+const TABS = [
+  { id: "today", label: "Сьогодні", icon: "☀️", subtitle: () => todaySubtitle() },
+  { id: "week",  label: "Тиждень",  icon: "📅", subtitle: () => "План на 7 днів" },
+  { id: "meals", label: "Страви",   icon: "🍽️", subtitle: () => mealsSubtitle() },
+];
+
+function todaySubtitle() {
+  return new Date().toLocaleDateString("uk-UA", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+
+/* Українська множина: 1 страва, 2–4 страви, 5+ страв. */
+function pluralUk(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+function mealsSubtitle() {
+  const count = MealStore.getAll().length;
+  return count
+    ? count + " " + pluralUk(count, "страва", "страви", "страв") + " у пулі"
+    : "Пул страв порожній";
+}
+
+/** Перемкнути активний екран, підсвітити вкладку й запам'ятати вибір. */
+function switchTab(tabId) {
+  const tab = TABS.find((t) => t.id === tabId) || TABS[0];
+
+  document.querySelectorAll(".screen").forEach((el) => {
+    el.classList.toggle("active", el.id === "screen-" + tab.id);
+  });
+  document.querySelectorAll("nav button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab.id);
+  });
+
+  document.getElementById("screen-title").textContent = tab.label;
+  document.getElementById("screen-subtitle").textContent = tab.subtitle();
+
+  if (tab.id === "meals") renderMealsList();
+
+  AppState.set("activeTab", tab.id);
+}
+
+/** Побудувати кнопки таб-бара. */
+function renderTabBar() {
+  const nav = document.getElementById("tabbar");
+  nav.innerHTML = "";
+  TABS.forEach((tab) => {
+    const btn = document.createElement("button");
+    btn.dataset.tab = tab.id;
+    btn.innerHTML = '<span class="icon">' + tab.icon + "</span>" + tab.label;
+    btn.addEventListener("click", () => switchTab(tab.id));
+    nav.appendChild(btn);
+  });
+}
+
+/** Список страв на екрані «Страви» (лише перегляд; редагування — MER-7). */
+function renderMealsList() {
+  const box = document.getElementById("meals-list");
+  const meals = MealStore.getAll();
+
+  if (!meals.length) {
+    box.innerHTML = '<div class="empty">Поки що жодної страви. Пул наповниться у задачах MER-7 і MER-8.</div>';
+    return;
+  }
+
+  box.innerHTML = "";
+  meals.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "meal-item";
+
+    const left = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = m.name;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) + (m.source ? " · " + m.source : "");
+    left.appendChild(name);
+    left.appendChild(meta);
+
+    const kcal = document.createElement("div");
+    kcal.className = "kcal";
+    kcal.textContent = m.calories + " ккал";
+
+    row.appendChild(left);
+    row.appendChild(kcal);
+    box.appendChild(row);
+  });
+}
+
+/* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, switchTab };
+
+/* ============================================================================
+ * Старт застосунку: таб-бар + відновлення останньої вкладки зі сховища.
+ * ========================================================================== */
+renderTabBar();
+switchTab(AppState.get("activeTab"));
+
+/* ============================================================================
+ * Самоперевірка MER-6 (запуск: відкрити index.html?selftest).
+ * Робить знімок сховища страв перед тестами й відновлює його після — тести
+ * не чіпають реальні дані користувача.
+ * ========================================================================== */
+(function maybeRunSelfTest() {
+  if (!new URLSearchParams(location.search).has("selftest")) return;
+
   const out = [];
   const check = (label, ok, extra) => {
     out.push((ok ? "  [OK]   " : "  [FAIL] ") + label + (extra ? " — " + extra : ""));
@@ -248,8 +483,9 @@ window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore };
   let allOk = true;
   const mark = (ok) => { allOk = allOk && ok; };
 
+  const SNAPSHOT = localStorage.getItem("meridian.meals.v1"); // знімок реальних даних
+
   try {
-    // Чиста стартова точка для відтворюваності самоперевірки.
     MealStore.clear();
 
     // 1. Тестова страва з усіма полями.
@@ -274,7 +510,7 @@ window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore };
     const reloaded = MealStore.getById(saved.id);
     mark(check("Страва зчитується зі сховища", !!reloaded && reloaded.name === saved.name));
 
-    // Додамо ще дві страви для фільтра й суми.
+    // Ще дві страви для фільтра й суми.
     MealStore.save({ name: "Омлет з овочами", type: "breakfast", calories: 340, ingredients: ["яйця 3 шт", "перець", "олія"], source: "План №1" });
     MealStore.save({ name: "Салат із тунцем", type: "lunch", calories: 410, ingredients: ["тунець", "листя салату", "яйце"], source: "План №3" });
 
@@ -294,16 +530,26 @@ window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore };
     catch (e) { rejected = true; }
     mark(check("Некоректний тип слота відхилено", rejected));
 
+    // 6. MER-5: стан застосунку читається/пишеться.
+    const prevTab = AppState.get("activeTab");
+    AppState.set("activeTab", "week");
+    mark(check("AppState зберігає значення", AppState.get("activeTab") === "week"));
+    AppState.set("activeTab", prevTab);
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
+  } finally {
+    // Відновити реальні дані користувача.
+    if (SNAPSHOT === null) localStorage.removeItem("meridian.meals.v1");
+    else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
   }
 
-  const el = document.getElementById("selftest");
-  const header = allOk
-    ? "УСПІХ — критерії готовності MER-6 виконано.\n"
-    : "Є ПОМИЛКИ — див. нижче.\n";
-  el.textContent = header + "\n" + out.join("\n");
-  el.className = allOk ? "pass" : "fail";
+  const el = document.getElementById("selftest-out");
+  el.textContent = (allOk
+    ? "УСПІХ — критерії готовності виконано.\n\n"
+    : "Є ПОМИЛКИ — див. нижче.\n\n") + out.join("\n");
+  el.className = "selftest " + (allOk ? "pass" : "fail");
+  document.getElementById("selftest-panel").hidden = false;
 })();
 </script>
