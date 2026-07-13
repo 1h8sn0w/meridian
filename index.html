@@ -1,0 +1,309 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meridian</title>
+
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --line: #2a2f3a;
+    --text: #e7e9ee;
+    --muted: #9aa2b1;
+    --accent: #4f9dff;
+    --ok: #46c98b;
+    --warn: #ffb454;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+  header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { margin: 0 0 10px; font-size: 15px; }
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .row { display: flex; gap: 8px; align-items: baseline; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .pass { color: var(--ok); }
+  .fail { color: var(--warn); }
+</style>
+
+<header>
+  <h1>Meridian</h1>
+  <p>Персональний планувальник харчування · POC</p>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>MER-6 · Модель даних «Страва» — самоперевірка</h2>
+    <pre id="selftest">Запуск…</pre>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+/* ============================================================================
+ * MER-6 — Модель даних «Страва» (Meal)
+ * ----------------------------------------------------------------------------
+ * Одна страва — це картка з такими полями:
+ *
+ *   id          string   Ідентифікатор (для посилань і антиповтору).
+ *   name        string   Назва (напр. «Гречка з куркою та овочами»).
+ *   type        string   Тип слота: 'breakfast' | 'lunch' | 'dinner' | 'snack'.
+ *   calories    number   Калорійність, ккал (>= 0).
+ *   protein     number?  Білки, г (необов'язкове).
+ *   fat         number?  Жири, г (необов'язкове).
+ *   carbs       number?  Вуглеводи, г (необов'язкове).
+ *   ingredients string[] Список інгредієнтів (рядки).
+ *   source      string   З якого плану дієтолога (напр. «План №2») — для міксу.
+ *
+ * Модель навмисно проста (vanilla JS), без збірки й залежностей — див. AGENTS.md.
+ * ========================================================================== */
+
+/* Дозволені слоти прийомів їжі. Єдине джерело правди для всього застосунку. */
+const MEAL_TYPES = Object.freeze(["breakfast", "lunch", "dinner", "snack"]);
+
+/* Людські підписи слотів (українською) — для UI. */
+const MEAL_TYPE_LABELS = Object.freeze({
+  breakfast: "Сніданок",
+  lunch: "Обід",
+  dinner: "Вечеря",
+  snack: "Перекус",
+});
+
+/* Простий генератор id: часова мітка + випадковий суфікс. Достатньо для POC. */
+function generateId() {
+  return "meal_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+/* Приведення значення до невід'ємного числа або null (для необов'язкових БЖВ). */
+function toOptionalNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error("Очікувалось невід'ємне число, отримано: " + JSON.stringify(value));
+  }
+  return n;
+}
+
+/**
+ * Створити валідну страву з «сирих» даних.
+ * Кидає помилку з українським повідомленням, якщо дані некоректні.
+ * Повертає нормалізований об'єкт страви.
+ */
+function createMeal(input) {
+  if (!input || typeof input !== "object") {
+    throw new Error("Дані страви мають бути об'єктом.");
+  }
+
+  const name = String(input.name ?? "").trim();
+  if (!name) throw new Error("Назва страви обов'язкова.");
+
+  const type = String(input.type ?? "").trim();
+  if (!MEAL_TYPES.includes(type)) {
+    throw new Error("Невідомий тип слота: «" + type + "». Дозволено: " + MEAL_TYPES.join(", ") + ".");
+  }
+
+  const calories = Number(input.calories);
+  if (!Number.isFinite(calories) || calories < 0) {
+    throw new Error("Калорійність має бути невід'ємним числом.");
+  }
+
+  const ingredients = Array.isArray(input.ingredients)
+    ? input.ingredients.map((s) => String(s).trim()).filter((s) => s.length > 0)
+    : [];
+
+  const source = String(input.source ?? "").trim();
+
+  return {
+    id: input.id ? String(input.id) : generateId(),
+    name,
+    type,
+    calories,
+    protein: toOptionalNumber(input.protein),
+    fat: toOptionalNumber(input.fat),
+    carbs: toOptionalNumber(input.carbs),
+    ingredients,
+    source,
+  };
+}
+
+/* ============================================================================
+ * MealStore — сховище страв поверх localStorage.
+ * Пул страв переживає перезавантаження сторінки. Без акаунтів і БД (див. AGENTS.md).
+ * ========================================================================== */
+const MealStore = (function () {
+  const KEY = "meridian.meals.v1";
+
+  function readRaw() {
+    try {
+      const json = localStorage.getItem(KEY);
+      const arr = json ? JSON.parse(json) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      console.warn("MealStore: не вдалося прочитати сховище, починаю з порожнього.", e);
+      return [];
+    }
+  }
+
+  function writeRaw(meals) {
+    localStorage.setItem(KEY, JSON.stringify(meals));
+  }
+
+  /** Усі страви з пулу. */
+  function getAll() {
+    return readRaw();
+  }
+
+  /** Страва за id або null. */
+  function getById(id) {
+    return readRaw().find((m) => m.id === id) || null;
+  }
+
+  /** Зберегти страву (створити або оновити за id). Повертає збережену страву. */
+  function save(input) {
+    const meal = createMeal(input);
+    const meals = readRaw();
+    const i = meals.findIndex((m) => m.id === meal.id);
+    if (i >= 0) meals[i] = meal;
+    else meals.push(meal);
+    writeRaw(meals);
+    return meal;
+  }
+
+  /** Видалити страву за id. Повертає true, якщо щось видалено. */
+  function remove(id) {
+    const meals = readRaw();
+    const next = meals.filter((m) => m.id !== id);
+    writeRaw(next);
+    return next.length !== meals.length;
+  }
+
+  /** Очистити пул повністю. */
+  function clear() {
+    localStorage.removeItem(KEY);
+  }
+
+  /** Страви заданого типу слота (потрібно генератору й екрану «Страви»). */
+  function filterByType(type, meals) {
+    return (meals || readRaw()).filter((m) => m.type === type);
+  }
+
+  /** Сума калорій набору страв (потрібно перевірці коридору калорійності). */
+  function sumCalories(meals) {
+    return (meals || readRaw()).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
+  }
+
+  return { getAll, getById, save, remove, clear, filterByType, sumCalories };
+})();
+
+/* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore };
+
+/* ============================================================================
+ * Самоперевірка критеріїв готовності MER-6 (виконується прямо в браузері).
+ *   1. Створити тестову страву з усіма полями й зберегти у сховищі.
+ *   2. Перечитати її зі сховища (переживає збереження).
+ *   3. Відфільтрувати страви за типом.
+ *   4. Порахувати сумарні калорії.
+ * ========================================================================== */
+(function runSelfTest() {
+  const out = [];
+  const check = (label, ok, extra) => {
+    out.push((ok ? "  [OK]   " : "  [FAIL] ") + label + (extra ? " — " + extra : ""));
+    return ok;
+  };
+
+  let allOk = true;
+  const mark = (ok) => { allOk = allOk && ok; };
+
+  try {
+    // Чиста стартова точка для відтворюваності самоперевірки.
+    MealStore.clear();
+
+    // 1. Тестова страва з усіма полями.
+    const saved = MealStore.save({
+      name: "Гречка з куркою та овочами",
+      type: "lunch",
+      calories: 520,
+      protein: 38,
+      fat: 14,
+      carbs: 60,
+      ingredients: ["гречка 80 г", "куряче філе 150 г", "морква", "цибуля", "олія 1 ст.л."],
+      source: "План №2",
+    });
+    out.push("Створено страву: " + saved.name + " (id: " + saved.id + ")");
+    mark(check("Усі поля на місці", Boolean(
+      saved.id && saved.name && saved.type === "lunch" &&
+      saved.calories === 520 && saved.protein === 38 && saved.fat === 14 &&
+      saved.carbs === 60 && saved.ingredients.length === 5 && saved.source === "План №2"
+    )));
+
+    // 2. Перечитати зі сховища.
+    const reloaded = MealStore.getById(saved.id);
+    mark(check("Страва зчитується зі сховища", !!reloaded && reloaded.name === saved.name));
+
+    // Додамо ще дві страви для фільтра й суми.
+    MealStore.save({ name: "Омлет з овочами", type: "breakfast", calories: 340, ingredients: ["яйця 3 шт", "перець", "олія"], source: "План №1" });
+    MealStore.save({ name: "Салат із тунцем", type: "lunch", calories: 410, ingredients: ["тунець", "листя салату", "яйце"], source: "План №3" });
+
+    // 3. Фільтр за типом.
+    const lunches = MealStore.filterByType("lunch");
+    mark(check("Фільтр за типом «обід»", lunches.length === 2, lunches.map((m) => m.name).join(", ")));
+
+    // 4. Сума калорій.
+    const total = MealStore.sumCalories();
+    const lunchTotal = MealStore.sumCalories(lunches);
+    mark(check("Сума калорій усіх страв", total === 1270, total + " ккал"));
+    mark(check("Сума калорій обідів", lunchTotal === 930, lunchTotal + " ккал"));
+
+    // 5. Валідація відхиляє некоректний тип.
+    let rejected = false;
+    try { MealStore.save({ name: "X", type: "brunch", calories: 100 }); }
+    catch (e) { rejected = true; }
+    mark(check("Некоректний тип слота відхилено", rejected));
+
+  } catch (e) {
+    allOk = false;
+    out.push("  [FAIL] Виняток: " + e.message);
+  }
+
+  const el = document.getElementById("selftest");
+  const header = allOk
+    ? "УСПІХ — критерії готовності MER-6 виконано.\n"
+    : "Є ПОМИЛКИ — див. нижче.\n";
+  el.textContent = header + "\n" + out.join("\n");
+  el.className = allOk ? "pass" : "fail";
+})();
+</script>
