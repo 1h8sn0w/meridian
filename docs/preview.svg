@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="560" viewBox="0 0 380 560" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <rect width="380" height="560" rx="28" fill="#0f1115"/>
+  <rect x="16" y="16" width="348" height="528" rx="22" fill="#1a1d24" stroke="#2a2f3a"/>
+
+  <text x="40" y="58" fill="#e7e9ee" font-size="22" font-weight="600">Meridian</text>
+  <text x="40" y="82" fill="#9aa2b1" font-size="13">Зараз 13:20 — час обіду</text>
+  <text x="340" y="58" fill="#9aa2b1" font-size="13" text-anchor="end">нд, 12 лип</text>
+
+  <g transform="translate(190,215)">
+    <circle r="78" fill="none" stroke="#2a2f3a" stroke-width="14"/>
+    <circle r="78" fill="none" stroke="#46c98b" stroke-width="14" stroke-linecap="round" stroke-dasharray="95 395" stroke-dashoffset="-6" transform="rotate(-90)"/>
+    <circle r="78" fill="none" stroke="#ffb454" stroke-width="18" stroke-linecap="round" stroke-dasharray="120 370" stroke-dashoffset="-110" transform="rotate(-90)"/>
+    <circle r="78" fill="none" stroke="#d8674f" stroke-width="14" stroke-linecap="round" stroke-dasharray="95 395" stroke-dashoffset="-245" transform="rotate(-90)"/>
+    <circle r="78" fill="none" stroke="#7f77dd" stroke-width="14" stroke-linecap="round" stroke-dasharray="45 445" stroke-dashoffset="-350" transform="rotate(-90)"/>
+    <text y="-6" text-anchor="middle" fill="#9aa2b1" font-size="12">Зараз</text>
+    <text y="18" text-anchor="middle" fill="#e7e9ee" font-size="20" font-weight="600">Обід</text>
+    <text y="38" text-anchor="middle" fill="#9aa2b1" font-size="11">до 15:00</text>
+  </g>
+
+  <g font-size="11">
+    <text x="40" y="330" fill="#46c98b">● Сніданок</text>
+    <text x="130" y="330" fill="#ffb454" font-weight="600">● Обід</text>
+    <text x="205" y="330" fill="#d8674f">● Вечеря</text>
+    <text x="290" y="330" fill="#7f77dd">● Перекус</text>
+  </g>
+
+  <rect x="32" y="352" width="316" height="120" rx="14" fill="#12151b" stroke="#4f9dff" stroke-width="2"/>
+  <rect x="48" y="368" width="118" height="22" rx="11" fill="#16233a"/>
+  <text x="107" y="383" text-anchor="middle" fill="#4f9dff" font-size="11">Активний прийом</text>
+  <text x="332" y="384" text-anchor="end" fill="#9aa2b1" font-size="13">520 ккал</text>
+  <text x="48" y="414" fill="#e7e9ee" font-size="16" font-weight="600">Гречка з куркою та овочами</text>
+  <text x="48" y="436" fill="#9aa2b1" font-size="13">Б 38 · Ж 14 · В 52 · з плану №2</text>
+  <rect x="48" y="448" width="284" height="14" rx="7" fill="none"/>
+  <text x="48" y="459" fill="#4f9dff" font-size="13">Замінити страву →</text>
+
+  <rect x="32" y="490" width="150" height="38" rx="10" fill="#12151b" stroke="#2a2f3a"/>
+  <text x="107" y="514" text-anchor="middle" fill="#e7e9ee" font-size="13">Тиждень</text>
+  <rect x="198" y="490" width="150" height="38" rx="10" fill="#12151b" stroke="#2a2f3a"/>
+  <text x="273" y="514" text-anchor="middle" fill="#e7e9ee" font-size="13">Новий тиждень</text>
+</svg>
