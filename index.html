@@ -638,10 +638,16 @@ const MealsScreen = (function () {
     const meals = filter === "all" ? MealStore.getAll() : MealStore.filterByType(filter);
 
     if (!meals.length) {
-      box.innerHTML = '<div class="empty">' +
-        (filter === "all"
-          ? "Поки що жодної страви. Додайте першу або дочекайтесь демо-пулу (MER-8)."
-          : "Немає страв цього типу.") + "</div>";
+      if (filter === "all") {
+        box.innerHTML = '<div class="empty">Поки що жодної страви. Додайте першу вручну або поверніть демо-пул із плану дієтолога.</div>';
+        const restore = document.createElement("button");
+        restore.className = "btn block";
+        restore.textContent = "Відновити демо-пул";
+        restore.addEventListener("click", () => { DemoPool.seed(); render(); });
+        box.appendChild(restore);
+      } else {
+        box.innerHTML = '<div class="empty">Немає страв цього типу.</div>';
+      }
       return;
     }
 
@@ -940,12 +946,163 @@ const MealClock = (function () {
   return { DEFAULT_WINDOWS, getWindows, setWindow, slotAt, render, renderSettings };
 })();
 
+/* ============================================================================
+ * MER-8 — Демо-пул страв із PDF-плану дієтолога «Меню на 2 тижні» (ГЕРХ, на двох).
+ * ----------------------------------------------------------------------------
+ * Джерело: Menu_2_tyzhni.pdf, прикріплений до задачі MER-8 у Linear.
+ * Страви розкладено за тижнями («Тиждень 1» / «Тиждень 2») — генератору
+ * потрібно кілька джерел для міксу; десерти повторюються в обох тижнях,
+ * тому мають джерело «Тиждень 1–2».
+ *
+ * УВАГА: калорійність — приблизна оцінка порції «Ч» (чоловік) за типовими
+ * таблицями продуктів, бо в PDF цифр немає. БЖВ не вказано (у моделі вони
+ * необов'язкові). Уточнити в дієтолога; після уточнення оновити тут.
+ *
+ * Стабільні id (demo-…) роблять повторне сідування ідемпотентним:
+ * MealStore.save оновлює за id, а не дублює.
+ * ========================================================================== */
+const DemoPool = (function () {
+  const W1 = "Тиждень 1", W2 = "Тиждень 2", WB = "Тиждень 1–2";
+
+  const DEMO_MEALS = [
+    // --- Тиждень 1 · Сніданки ---
+    { id: "demo-w1-b1", type: "breakfast", calories: 570, source: W1,
+      name: "Омлет з лососем і шпинатом + цільнозерновий тост",
+      ingredients: ["яйця", "слабосолений лосось", "шпинат", "оливкова олія", "цільнозерновий хліб", "творожний сир 5%", "огірок"] },
+    { id: "demo-w1-b2", type: "breakfast", calories: 850, source: W1,
+      name: "Гречаний боул з лососем і авокадо",
+      ingredients: ["гречка", "яйця варені", "слабосолений лосось", "авокадо", "огірок", "цільнозерновий хліб", "кріп"] },
+    { id: "demo-w1-b3", type: "breakfast", calories: 530, source: W1,
+      name: "Гречана каша з яйцем пашот та індичкою",
+      ingredients: ["гречка", "оливкова олія", "яйця", "філе індички", "огірок", "листя салату"] },
+    { id: "demo-w1-b4", type: "breakfast", calories: 390, source: W1,
+      name: "Вівсянка з бананом і волоськими горіхами",
+      ingredients: ["вівсяні пластівці", "банан", "волоські горіхи", "натуральний йогурт 2,5%"] },
+    { id: "demo-w1-b5", type: "breakfast", calories: 600, source: W1,
+      name: "Вівсяноблин з начинкою",
+      ingredients: ["вівсяні пластівці", "яйця", "молоко 2,5%", "кисломолочний сир 5%", "слабосолений лосось", "огірок", "кріп"] },
+    { id: "demo-w1-b6", type: "breakfast", calories: 610, source: W1,
+      name: "Кіноа з яйцем, авокадо й лососем",
+      ingredients: ["кіноа", "яйця варені", "авокадо", "слабосолений лосось", "огірок", "кріп"] },
+    { id: "demo-w1-b7", type: "breakfast", calories: 490, source: W1,
+      name: "Ячна каша з курячою грудкою",
+      ingredients: ["ячна крупа", "оливкова олія", "куряче філе", "овочі на вибір"] },
+
+    // --- Тиждень 1 · Обіди ---
+    { id: "demo-w1-l1", type: "lunch", calories: 740, source: W1,
+      name: "Крем-суп з цвітної капусти + куряча грудка + рис",
+      ingredients: ["цвітна капуста", "картопля", "морква", "цибуля", "вершки 10%", "овочевий бульйон", "куряче філе", "нешліфований рис", "оливкова олія", "кріп"] },
+    { id: "demo-w1-l2", type: "lunch", calories: 710, source: W1,
+      name: "Запечений лосось + кіноа + овочі-гриль",
+      ingredients: ["філе лосося", "кіноа", "кабачок", "цукіні", "морква", "оливкова олія", "кріп"] },
+    { id: "demo-w1-l3", type: "lunch", calories: 600, source: W1,
+      name: "Сочевичний суп з куркою",
+      ingredients: ["червона сочевиця", "куряче філе", "морква", "картопля", "цибуля", "лавровий лист", "кріп", "цільнозерновий хліб"] },
+    { id: "demo-w1-l4", type: "lunch", calories: 570, source: W1,
+      name: "Плов з куркою на нешліфованому рисі",
+      ingredients: ["куряче філе", "нешліфований рис", "морква", "цибуля", "куркума", "кмин", "оливкова олія"] },
+
+    // --- Тиждень 1 · Вечері ---
+    { id: "demo-w1-d1", type: "dinner", calories: 490, source: W1,
+      name: "Куряча печінка з овочами + пюре з кабачка і картоплі",
+      ingredients: ["куряча печінка", "морква", "цибуля", "сметана 15%", "кабачок", "картопля", "оливкова олія", "кріп"] },
+    { id: "demo-w1-d2", type: "dinner", calories: 530, source: W1,
+      name: "Креветки з кіноа і брокколі",
+      ingredients: ["креветки", "кіноа", "брокколі", "оливкова олія", "кріп"] },
+    { id: "demo-w1-d3", type: "dinner", calories: 530, source: W1,
+      name: "Мідії у вершковому соусі + рис + шпинат",
+      ingredients: ["м'ясо мідій", "вершки 10%", "цибуля", "нешліфований рис", "шпинат", "оливкова олія", "кріп"] },
+    { id: "demo-w1-d4", type: "dinner", calories: 545, source: W1,
+      name: "Теплий салат з консервованим тунцем",
+      ingredients: ["тунець у власному соку", "яйця варені", "листя салату", "печений кабачок", "оливкова олія", "цільнозерновий хліб", "кріп"] },
+
+    // --- Тиждень 2 · Сніданки ---
+    { id: "demo-w2-b1", type: "breakfast", calories: 460, source: W2,
+      name: "Запечені сирники з йогуртом",
+      ingredients: ["кисломолочний сир 5–9%", "яйце", "вівсяне борошно", "цукор", "ваніль", "натуральний йогурт", "ягоди"] },
+    { id: "demo-w2-b2", type: "breakfast", calories: 590, source: W2,
+      name: "Яйце пашот + тост з авокадо й лососем",
+      ingredients: ["яйця", "слабосолений лосось", "авокадо", "цільнозерновий хліб"] },
+    { id: "demo-w2-b3", type: "breakfast", calories: 370, source: W2,
+      name: "Пшоняна каша з гарбузом + варене яйце",
+      ingredients: ["пшоно", "гарбуз", "сметана 15%", "яйця"] },
+    { id: "demo-w2-b4", type: "breakfast", calories: 650, source: W2,
+      name: "Сирна запіканка з ягодами",
+      ingredients: ["кисломолочний сир 5–9%", "яйця", "рисове борошно", "цукор", "ваніль", "ягоди", "натуральний йогурт 2,5%", "волоські горіхи", "цільнозерновий хліб"] },
+    { id: "demo-w2-b5", type: "breakfast", calories: 510, source: W2,
+      name: "Тост з паштетом з курячої печінки + яйце",
+      ingredients: ["куряча печінка", "морква", "цибуля", "вершкове масло", "цільнозерновий хліб", "яйця", "огірок"] },
+    { id: "demo-w2-b6", type: "breakfast", calories: 700, source: W2,
+      name: "Вівсянка з ягодами, горіхами і яйцем",
+      ingredients: ["вівсяні пластівці", "яйця", "кисломолочний сир 5%", "ягоди", "волоські горіхи", "банан"] },
+    { id: "demo-w2-b7", type: "breakfast", calories: 750, source: W2,
+      name: "Авокадо-тост з яйцем і бананом",
+      ingredients: ["цільнозерновий хліб", "авокадо", "яйця", "кисломолочний сир 5%", "банан", "огірок", "кріп"] },
+
+    // --- Тиждень 2 · Обіди ---
+    { id: "demo-w2-l1", type: "lunch", calories: 630, source: W2,
+      name: "Тефтелі з індички + гречка + тушковані овочі",
+      ingredients: ["фарш індички", "яйце", "варений рис", "сметана 15%", "гречка", "кабачок", "морква", "перець", "кріп"] },
+    { id: "demo-w2-l2", type: "lunch", calories: 690, source: W2,
+      name: "Тушкована яловичина + перлова каша",
+      ingredients: ["яловичина", "морква", "кабачок", "цибуля", "лавровий лист", "перлова крупа", "оливкова олія"] },
+    { id: "demo-w2-l3", type: "lunch", calories: 930, source: W2,
+      name: "Курячі стегна + гречка + свіжий салат",
+      ingredients: ["курячі стегна без шкіри", "гречка", "огірок", "листя салату", "морква", "зелень", "оливкова олія", "цільнозерновий хліб"] },
+
+    // --- Тиждень 2 · Вечері ---
+    { id: "demo-w2-d1", type: "dinner", calories: 540, source: W2,
+      name: "Запечена індичка + нут + овочі",
+      ingredients: ["філе індички", "нут", "морква", "кабачок", "оливкова олія", "кріп"] },
+    { id: "demo-w2-d2", type: "dinner", calories: 690, source: W2,
+      name: "Котлети з лосося + пюре з кабачка + ячна каша",
+      ingredients: ["філе лосося", "яйце", "вівсяні пластівці", "кабачок", "ячна крупа", "оливкова олія", "кріп"] },
+    { id: "demo-w2-d3", type: "dinner", calories: 830, source: W2,
+      name: "Перепілки запечені + картопля з травами + салат",
+      ingredients: ["перепілки", "картопля", "оливкова олія", "розмарин", "чебрець", "огірок", "листя салату", "морква або буряк"] },
+
+    // --- Десерти (обидва тижні) → слот «перекус» ---
+    { id: "demo-wb-s1", type: "snack", calories: 155, source: WB,
+      name: "Сирок «Волошкове поле»",
+      ingredients: ["глазурований сирок 40 г"] },
+    { id: "demo-wb-s2", type: "snack", calories: 185, source: WB,
+      name: "Банановий хліб (скибочка)",
+      ingredients: ["банановий хліб 50 г"] },
+    { id: "demo-wb-s3", type: "snack", calories: 230, source: WB,
+      name: "Морозиво пломбір зі згущенкою",
+      ingredients: ["пломбір зі згущеним молоком 100 г"] },
+    { id: "demo-wb-s4", type: "snack", calories: 280, source: WB,
+      name: "Печиво матча",
+      ingredients: ["печиво матча 2 шт (60 г)"] },
+    { id: "demo-wb-s5", type: "snack", calories: 290, source: WB,
+      name: "Арахісова паста з рисовими хлібцями",
+      ingredients: ["рисові хлібці", "арахісова паста"] },
+  ];
+
+  /** Залити демо-пул у сховище (ідемпотентно — оновлює за стабільними id). */
+  function seed() {
+    DEMO_MEALS.forEach((m) => MealStore.save(m));
+    return DEMO_MEALS.length;
+  }
+
+  /** Перший запуск: якщо пул порожній і ще не сідували — наповнити. */
+  function seedIfFirstRun() {
+    if (!AppState.get("demoSeeded") && MealStore.getAll().length === 0) {
+      seed();
+      AppState.set("demoSeeded", true);
+    }
+  }
+
+  return { DEMO_MEALS, seed, seedIfFirstRun };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, switchTab };
 
 /* ============================================================================
- * Старт застосунку: таб-бар + відновлення останньої вкладки зі сховища.
+ * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
  * ========================================================================== */
+DemoPool.seedIfFirstRun();
 renderTabBar();
 switchTab(AppState.get("activeTab"));
 
@@ -1030,7 +1187,21 @@ switchTab(AppState.get("activeTab"));
     mark(check("23:00 → ніч, далі сніданок о 06:00",
       night.type === null && night.next && night.next.type === "breakfast" && night.next.at === "06:00"));
 
-    // 8. MER-7: оновлення й видалення страви у сховищі.
+    // 8. MER-8: демо-пул валідний (кожна страва проходить модель) і повний.
+    const demo = DemoPool.DEMO_MEALS;
+    let demoValid = true;
+    try { demo.forEach((m) => createMeal(m)); } catch (e) { demoValid = false; }
+    const countBy = (t) => demo.filter((m) => m.type === t).length;
+    mark(check("Демо-пул: усі страви валідні", demoValid, demo.length + " страв"));
+    mark(check("Демо-пул: сніданків ≥ 7", countBy("breakfast") >= 7, countBy("breakfast") + ""));
+    mark(check("Демо-пул: обідів ≥ 7", countBy("lunch") >= 7, countBy("lunch") + ""));
+    mark(check("Демо-пул: вечер ≥ 7", countBy("dinner") >= 7, countBy("dinner") + ""));
+    mark(check("Демо-пул: перекусів ≥ 5", countBy("snack") >= 5, countBy("snack") + ""));
+    mark(check("Демо-пул: два джерела для міксу",
+      new Set(demo.map((m) => m.source)).size >= 2,
+      [...new Set(demo.map((m) => m.source))].join(" / ")));
+
+    // 9. MER-7: оновлення й видалення страви у сховищі.
     const tmp = MealStore.save({ name: "Тимчасова", type: "snack", calories: 100 });
     MealStore.save({ id: tmp.id, name: "Тимчасова (оновлена)", type: "snack", calories: 150 });
     mark(check("Страва оновлюється за id",
