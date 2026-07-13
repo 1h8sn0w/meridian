@@ -79,6 +79,55 @@
     color: var(--muted);
   }
 
+  /* --- Екран «Страви»: фільтр, кнопки, форма (MER-7) --- */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip {
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .chip.active { color: var(--accent); border-color: var(--accent); }
+
+  .btn {
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 14px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; font-weight: 600; }
+  .btn.danger { color: var(--warn); border-color: var(--warn); }
+  .btn.block { display: block; width: 100%; margin-bottom: 12px; }
+
+  #meal-form label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+  #meal-form input, #meal-form select, #meal-form textarea {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 14.5px;
+    color-scheme: dark;
+  }
+  #meal-form textarea { resize: vertical; }
+  .macros { display: flex; gap: 8px; }
+  .macros label { flex: 1; }
+  .form-error { color: var(--warn); font-size: 13px; margin: 4px 0 0; }
+  .form-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .form-actions .spacer { flex: 1; }
+
   /* --- Годинник дня (MER-9) --- */
   .clock-wrap { display: flex; flex-direction: column; align-items: center; }
   .clock-wrap svg { width: 100%; max-width: 320px; height: auto; display: block; }
@@ -210,10 +259,50 @@
 
   <!-- Екран «Страви» -->
   <section class="screen" id="screen-meals">
-    <div class="panel">
-      <h2>Пул страв</h2>
+    <div class="panel" id="meals-list-panel">
+      <div class="chips" id="meals-filter"></div>
+      <button class="btn primary block" id="meal-add-btn">+ Додати страву</button>
       <div id="meals-list"></div>
-      <p class="hint" style="margin-top:8px">Додавання й редагування страв — у задачі MER-7. Демо-пул із планів дієтолога — MER-8.</p>
+    </div>
+
+    <!-- Форма додавання/редагування страви (перекриває список) -->
+    <div class="panel" id="meal-form-panel" hidden>
+      <h2 id="meal-form-title">Нова страва</h2>
+      <form id="meal-form">
+        <label>Назва
+          <input name="name" required placeholder="Гречка з куркою та овочами">
+        </label>
+        <label>Тип слота
+          <select name="type" id="meal-type-select"></select>
+        </label>
+        <label>Калорійність, ккал
+          <input name="calories" type="number" min="0" step="1" required placeholder="520">
+        </label>
+        <div class="macros">
+          <label>Білки, г
+            <input name="protein" type="number" min="0" step="0.1" placeholder="—">
+          </label>
+          <label>Жири, г
+            <input name="fat" type="number" min="0" step="0.1" placeholder="—">
+          </label>
+          <label>Вуглеводи, г
+            <input name="carbs" type="number" min="0" step="0.1" placeholder="—">
+          </label>
+        </div>
+        <label>Інгредієнти (по одному в рядку)
+          <textarea name="ingredients" rows="4" placeholder="гречка 80 г&#10;куряче філе 150 г"></textarea>
+        </label>
+        <label>Джерело (план дієтолога)
+          <input name="source" placeholder="План №2">
+        </label>
+        <p class="form-error" id="meal-form-error" hidden></p>
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Зберегти</button>
+          <button type="button" class="btn" id="meal-cancel-btn">Скасувати</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn danger" id="meal-delete-btn" hidden>Видалити</button>
+        </div>
+      </form>
     </div>
   </section>
 </main>
@@ -463,7 +552,7 @@ function switchTab(tabId) {
   document.getElementById("screen-title").textContent = tab.label;
   document.getElementById("screen-subtitle").textContent = tab.subtitle();
 
-  if (tab.id === "meals") renderMealsList();
+  if (tab.id === "meals") MealsScreen.render();
   if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); }
 
   AppState.set("activeTab", tab.id);
@@ -482,40 +571,178 @@ function renderTabBar() {
   });
 }
 
-/** Список страв на екрані «Страви» (лише перегляд; редагування — MER-7). */
-function renderMealsList() {
-  const box = document.getElementById("meals-list");
-  const meals = MealStore.getAll();
+/* ============================================================================
+ * MER-7 — Екран «Страви»: пул із фільтром за типом та ручне редагування.
+ * ----------------------------------------------------------------------------
+ * Список усіх страв (назва, тип, джерело, ккал) з фільтром-чіпами за типом
+ * слота. «+ Додати страву» відкриває форму з усіма полями моделі; клік по
+ * страві — редагування; у формі редагування є «Видалити». Зміни одразу
+ * зберігаються у MealStore (localStorage).
+ * ========================================================================== */
+const MealsScreen = (function () {
+  let filter = "all";    // активний фільтр типу ("all" або значення з MEAL_TYPES)
+  let editingId = null;  // id страви, відкритої у формі (null — нова)
 
-  if (!meals.length) {
-    box.innerHTML = '<div class="empty">Поки що жодної страви. Пул наповниться у задачах MER-7 і MER-8.</div>';
-    return;
+  const listPanel = document.getElementById("meals-list-panel");
+  const formPanel = document.getElementById("meal-form-panel");
+  const form = document.getElementById("meal-form");
+  const formTitle = document.getElementById("meal-form-title");
+  const formError = document.getElementById("meal-form-error");
+  const deleteBtn = document.getElementById("meal-delete-btn");
+
+  /* Селект типу заповнюємо з моделі — єдине джерело правди. */
+  (function fillTypeSelect() {
+    const sel = document.getElementById("meal-type-select");
+    MEAL_TYPES.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = MEAL_TYPE_LABELS[t];
+      sel.appendChild(opt);
+    });
+  })();
+
+  /** Оновити підзаголовок шапки, якщо відкритий екран «Страви». */
+  function refreshSubtitle() {
+    if (AppState.get("activeTab") === "meals") {
+      document.getElementById("screen-subtitle").textContent = mealsSubtitle();
+    }
   }
 
-  box.innerHTML = "";
-  meals.forEach((m) => {
-    const row = document.createElement("div");
-    row.className = "meal-item";
+  /** Чіпи фільтра: Усі + чотири типи (з кількістю страв). */
+  function renderFilter() {
+    const box = document.getElementById("meals-filter");
+    const meals = MealStore.getAll();
+    box.innerHTML = "";
 
-    const left = document.createElement("div");
-    const name = document.createElement("div");
-    name.className = "name";
-    name.textContent = m.name;
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) + (m.source ? " · " + m.source : "");
-    left.appendChild(name);
-    left.appendChild(meta);
+    const options = [{ id: "all", label: "Усі", count: meals.length }].concat(
+      MEAL_TYPES.map((t) => ({
+        id: t,
+        label: MEAL_TYPE_LABELS[t],
+        count: meals.filter((m) => m.type === t).length,
+      }))
+    );
 
-    const kcal = document.createElement("div");
-    kcal.className = "kcal";
-    kcal.textContent = m.calories + " ккал";
+    options.forEach((o) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip" + (filter === o.id ? " active" : "");
+      chip.textContent = o.label + (o.count ? " · " + o.count : "");
+      chip.addEventListener("click", () => { filter = o.id; render(); });
+      box.appendChild(chip);
+    });
+  }
 
-    row.appendChild(left);
-    row.appendChild(kcal);
-    box.appendChild(row);
+  /** Список страв за активним фільтром. */
+  function renderList() {
+    const box = document.getElementById("meals-list");
+    const meals = filter === "all" ? MealStore.getAll() : MealStore.filterByType(filter);
+
+    if (!meals.length) {
+      box.innerHTML = '<div class="empty">' +
+        (filter === "all"
+          ? "Поки що жодної страви. Додайте першу або дочекайтесь демо-пулу (MER-8)."
+          : "Немає страв цього типу.") + "</div>";
+      return;
+    }
+
+    box.innerHTML = "";
+    meals.forEach((m) => {
+      const row = document.createElement("div");
+      row.className = "meal-item";
+      row.addEventListener("click", () => openForm(m.id));
+
+      const left = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = m.name;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) + (m.source ? " · " + m.source : "");
+      left.appendChild(name);
+      left.appendChild(meta);
+
+      const kcal = document.createElement("div");
+      kcal.className = "kcal";
+      kcal.textContent = m.calories + " ккал";
+
+      row.appendChild(left);
+      row.appendChild(kcal);
+      box.appendChild(row);
+    });
+  }
+
+  /** Показати список (і сховати форму). */
+  function render() {
+    formPanel.hidden = true;
+    listPanel.hidden = false;
+    renderFilter();
+    renderList();
+    refreshSubtitle();
+  }
+
+  /** Відкрити форму: з id — редагування, без — нова страва. */
+  function openForm(id) {
+    const meal = id ? MealStore.getById(id) : null;
+    editingId = meal ? meal.id : null;
+
+    form.reset();
+    formError.hidden = true;
+    form.elements.name.value = meal ? meal.name : "";
+    form.elements.type.value = meal ? meal.type : MEAL_TYPES[0];
+    form.elements.calories.value = meal ? meal.calories : "";
+    form.elements.protein.value = meal && meal.protein !== null ? meal.protein : "";
+    form.elements.fat.value = meal && meal.fat !== null ? meal.fat : "";
+    form.elements.carbs.value = meal && meal.carbs !== null ? meal.carbs : "";
+    form.elements.ingredients.value = meal ? meal.ingredients.join("\n") : "";
+    form.elements.source.value = meal ? meal.source : "";
+
+    formTitle.textContent = meal ? "Редагувати страву" : "Нова страва";
+    deleteBtn.hidden = !meal;
+
+    listPanel.hidden = true;
+    formPanel.hidden = false;
+  }
+
+  function showError(message) {
+    formError.textContent = message;
+    formError.hidden = false;
+  }
+
+  /* Зберегти: створює або оновлює страву через MealStore (з валідацією моделі). */
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    try {
+      MealStore.save({
+        id: editingId || undefined,
+        name: form.elements.name.value,
+        type: form.elements.type.value,
+        calories: form.elements.calories.value,
+        protein: form.elements.protein.value,
+        fat: form.elements.fat.value,
+        carbs: form.elements.carbs.value,
+        ingredients: form.elements.ingredients.value.split("\n"),
+        source: form.elements.source.value,
+      });
+      render();
+    } catch (err) {
+      showError(err.message);
+    }
   });
-}
+
+  document.getElementById("meal-add-btn").addEventListener("click", () => openForm(null));
+  document.getElementById("meal-cancel-btn").addEventListener("click", render);
+
+  deleteBtn.addEventListener("click", () => {
+    if (!editingId) return;
+    const meal = MealStore.getById(editingId);
+    if (meal && confirm("Видалити страву «" + meal.name + "»?")) {
+      MealStore.remove(editingId);
+      render();
+    }
+  });
+
+  return { render, openForm };
+})();
 
 /* ============================================================================
  * MER-9 — Годинник дня: який прийом їжі активний за поточним часом.
@@ -714,7 +941,7 @@ const MealClock = (function () {
 })();
 
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: таб-бар + відновлення останньої вкладки зі сховища.
@@ -802,6 +1029,13 @@ switchTab(AppState.get("activeTab"));
     const night = MealClock.slotAt(23 * 60, W);
     mark(check("23:00 → ніч, далі сніданок о 06:00",
       night.type === null && night.next && night.next.type === "breakfast" && night.next.at === "06:00"));
+
+    // 8. MER-7: оновлення й видалення страви у сховищі.
+    const tmp = MealStore.save({ name: "Тимчасова", type: "snack", calories: 100 });
+    MealStore.save({ id: tmp.id, name: "Тимчасова (оновлена)", type: "snack", calories: 150 });
+    mark(check("Страва оновлюється за id",
+      MealStore.getById(tmp.id).name === "Тимчасова (оновлена)" && MealStore.getById(tmp.id).calories === 150));
+    mark(check("Страва видаляється", MealStore.remove(tmp.id) === true && MealStore.getById(tmp.id) === null));
 
   } catch (e) {
     allOk = false;
