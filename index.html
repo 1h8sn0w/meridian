@@ -79,6 +79,51 @@
     color: var(--muted);
   }
 
+  /* --- Годинник дня (MER-9) --- */
+  .clock-wrap { display: flex; flex-direction: column; align-items: center; }
+  .clock-wrap svg { width: 100%; max-width: 320px; height: auto; display: block; }
+  .clock-caption { margin: 10px 0 2px; font-size: 14.5px; text-align: center; }
+  .clock-caption .accent { color: var(--accent); }
+
+  .clock-track { stroke: var(--line); opacity: .45; }
+  .clock-seg { stroke: #343b49; transition: stroke .2s; }
+  .clock-seg.active { stroke: var(--accent); }
+  .clock-label { fill: var(--muted); font-size: 11px; }
+  .clock-label.active { fill: var(--accent); font-weight: 600; }
+  .clock-hour { fill: var(--muted); font-size: 9px; opacity: .7; }
+  .clock-hand { stroke: var(--warn); stroke-width: 2; stroke-linecap: round; }
+  .clock-dot { fill: var(--warn); }
+  .clock-center-main { fill: var(--text); font-size: 17px; font-weight: 600; }
+  .clock-center-sub { fill: var(--muted); font-size: 11.5px; }
+
+  /* Налаштування часових вікон */
+  details.windows summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13.5px;
+    user-select: none;
+  }
+  .window-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .window-row:last-child { border-bottom: none; }
+  .window-row .wlabel { flex: 1; }
+  .window-row input[type="time"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 7px;
+    font: inherit;
+    font-size: 13.5px;
+    color-scheme: dark;
+  }
+
   /* --- Нижній таб-бар --- */
   nav {
     position: fixed;
@@ -136,8 +181,22 @@
   <!-- Екран «Сьогодні» -->
   <section class="screen" id="screen-today">
     <div class="panel">
-      <h2>Годинник дня</h2>
-      <p class="hint">Тут з'явиться круговий годинник прийомів їжі з активною стравою (задача MER-9).</p>
+      <div class="clock-wrap">
+        <div id="clock-svg"></div>
+        <p class="clock-caption" id="clock-caption"></p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <details class="windows">
+        <summary>Часові вікна прийомів їжі</summary>
+        <div id="windows-form" style="margin-top:8px"></div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>Поточна страва</h2>
+      <p class="hint">Картка активної страви з'явиться тут після генератора (задачі MER-10, MER-11).</p>
     </div>
   </section>
 
@@ -405,6 +464,7 @@ function switchTab(tabId) {
   document.getElementById("screen-subtitle").textContent = tab.subtitle();
 
   if (tab.id === "meals") renderMealsList();
+  if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); }
 
   AppState.set("activeTab", tab.id);
 }
@@ -457,8 +517,204 @@ function renderMealsList() {
   });
 }
 
+/* ============================================================================
+ * MER-9 — Годинник дня: який прийом їжі активний за поточним часом.
+ * ----------------------------------------------------------------------------
+ * Доба — це коло (північ угорі). Вікна прийомів — сегменти на кільці; активний
+ * сегмент підсвічено, стрілка показує поточний час. Уночі (поза всіма вікнами)
+ * активного прийому немає — показуємо найближчий наступний.
+ * Вікна налаштовуються на екрані «Сьогодні» й зберігаються в AppState.
+ * ========================================================================== */
+const MealClock = (function () {
+  /* Розумні дефолти. Ніч 22:00–06:00 — поза вікнами. */
+  const DEFAULT_WINDOWS = Object.freeze({
+    breakfast: Object.freeze({ start: "06:00", end: "11:00" }),
+    lunch:     Object.freeze({ start: "11:00", end: "15:00" }),
+    snack:     Object.freeze({ start: "15:00", end: "18:00" }),
+    dinner:    Object.freeze({ start: "18:00", end: "22:00" }),
+  });
+
+  /* Родовий відмінок для підпису «час обіду». */
+  const GENITIVE = Object.freeze({
+    breakfast: "сніданку", lunch: "обіду", dinner: "вечері", snack: "перекусу",
+  });
+
+  /* Геометрія SVG. */
+  const SIZE = 300, CX = 150, CY = 150;
+  const RING_R = 95, RING_W = 26, LABEL_R = 127;
+
+  /* «HH:MM» → хвилини від півночі. */
+  function toMin(hhmm) {
+    const parts = String(hhmm).split(":");
+    const h = Number(parts[0]) || 0, m = Number(parts[1]) || 0;
+    return ((h % 24) * 60 + m) % 1440;
+  }
+
+  /** Поточні вікна: збережені в AppState поверх дефолтів. */
+  function getWindows() {
+    const saved = AppState.get("mealWindows") || {};
+    const out = {};
+    MEAL_TYPES.forEach((t) => {
+      out[t] = Object.assign({}, DEFAULT_WINDOWS[t], saved[t]);
+    });
+    return out;
+  }
+
+  /** Змінити вікно одного прийому й зберегти. */
+  function setWindow(type, start, end) {
+    const saved = Object.assign({}, AppState.get("mealWindows") || {});
+    saved[type] = { start, end };
+    AppState.set("mealWindows", saved);
+  }
+
+  /**
+   * Чиста функція: який слот активний на заданій хвилині доби.
+   * Початок вікна включно, кінець — ні. Вікно з кінцем не пізніше початку
+   * ігнорується. Повертає { type, until } або { type: null, next: { type, at } }.
+   */
+  function slotAt(minutes, windows) {
+    const w = windows || getWindows();
+    for (const t of MEAL_TYPES) {
+      const s = toMin(w[t].start), e = toMin(w[t].end);
+      if (e > s && minutes >= s && minutes < e) return { type: t, until: w[t].end };
+    }
+    // Поза вікнами: найближчий наступний початок (можливо, вже завтра).
+    let best = null;
+    for (const t of MEAL_TYPES) {
+      const s = toMin(w[t].start), e = toMin(w[t].end);
+      if (e <= s) continue;
+      const delta = (s - minutes + 1440) % 1440 || 1440;
+      if (!best || delta < best.delta) best = { delta, type: t, at: w[t].start };
+    }
+    return { type: null, next: best ? { type: best.type, at: best.at } : null };
+  }
+
+  /* Точка на колі для хвилини доби (північ угорі, за годинниковою стрілкою). */
+  function pt(minutes, r) {
+    const a = (minutes / 1440) * 2 * Math.PI;
+    return [CX + r * Math.sin(a), CY - r * Math.cos(a)];
+  }
+
+  /* Дуга кільця від хвилини m1 до m2 (за годинниковою стрілкою). */
+  function arcPath(m1, m2, r) {
+    const p1 = pt(m1, r), p2 = pt(m2, r);
+    const large = (m2 - m1) > 720 ? 1 : 0;
+    return "M " + p1[0].toFixed(1) + " " + p1[1].toFixed(1) +
+      " A " + r + " " + r + " 0 " + large + " 1 " +
+      p2[0].toFixed(1) + " " + p2[1].toFixed(1);
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  /** Перемалювати годинник і підпис під ним за поточним часом. */
+  function render(now) {
+    now = now || new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    const w = getWindows();
+    const cur = slotAt(minutes, w);
+
+    const parts = [];
+    // Підкладка-кільце: доба цілком.
+    parts.push('<circle class="clock-track" cx="' + CX + '" cy="' + CY + '" r="' + RING_R + '" fill="none" stroke-width="' + RING_W + '"/>');
+
+    // Орієнтири годин.
+    [0, 360, 720, 1080].forEach((m) => {
+      const p = pt(m, LABEL_R);
+      const label = String(m / 60).padStart(2, "0");
+      parts.push('<text class="clock-hour" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + label + "</text>");
+    });
+
+    // Сегменти вікон (з зазором 6 хв з кожного боку — щоб межі читались).
+    MEAL_TYPES.forEach((t) => {
+      const s = toMin(w[t].start), e = toMin(w[t].end);
+      if (e <= s) return;
+      const active = cur.type === t;
+      parts.push('<path class="clock-seg' + (active ? " active" : "") + '" d="' + arcPath(s + 6, e - 6, RING_R) + '" fill="none" stroke-width="' + RING_W + '"/>');
+      const mid = (s + e) / 2;
+      const lp = pt(mid, LABEL_R);
+      parts.push('<text class="clock-label' + (active ? " active" : "") + '" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + esc(MEAL_TYPE_LABELS[t]) + "</text>");
+    });
+
+    // Стрілка поточного часу — риска впоперек кільця.
+    const h1 = pt(minutes, RING_R - RING_W / 2 - 4), h2 = pt(minutes, RING_R + RING_W / 2 + 4);
+    parts.push('<line class="clock-hand" x1="' + h1[0].toFixed(1) + '" y1="' + h1[1].toFixed(1) + '" x2="' + h2[0].toFixed(1) + '" y2="' + h2[1].toFixed(1) + '"/>');
+
+    // Центр: поточний прийом або найближчий наступний.
+    const main = cur.type ? MEAL_TYPE_LABELS[cur.type] : "Ніч";
+    const sub = cur.type
+      ? "до " + cur.until
+      : (cur.next ? MEAL_TYPE_LABELS[cur.next.type].toLowerCase() + " о " + cur.next.at : "");
+    parts.push('<text class="clock-center-main" x="' + CX + '" y="' + (CY - 4) + '" text-anchor="middle">' + esc(main) + "</text>");
+    parts.push('<text class="clock-center-sub" x="' + CX + '" y="' + (CY + 17) + '" text-anchor="middle">' + esc(sub) + "</text>");
+
+    document.getElementById("clock-svg").innerHTML =
+      '<svg viewBox="0 0 ' + SIZE + " " + SIZE + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Годинник прийомів їжі">' + parts.join("") + "</svg>";
+
+    const caption = cur.type
+      ? "Зараз <span class=\"accent\">" + hhmm + "</span> — час " + GENITIVE[cur.type] + "."
+      : "Зараз <span class=\"accent\">" + hhmm + "</span> — нічний час." +
+        (cur.next ? " " + MEAL_TYPE_LABELS[cur.next.type] + " о " + esc(cur.next.at) + "." : "");
+    document.getElementById("clock-caption").innerHTML = caption;
+  }
+
+  /** Форма налаштування вікон (початок–кінець для кожного прийому). */
+  function renderSettings() {
+    const box = document.getElementById("windows-form");
+    const w = getWindows();
+    box.innerHTML = "";
+    MEAL_TYPES.forEach((t) => {
+      const row = document.createElement("div");
+      row.className = "window-row";
+
+      const label = document.createElement("span");
+      label.className = "wlabel";
+      label.textContent = MEAL_TYPE_LABELS[t];
+
+      const start = document.createElement("input");
+      start.type = "time";
+      start.value = w[t].start;
+      const dash = document.createElement("span");
+      dash.textContent = "–";
+      const end = document.createElement("input");
+      end.type = "time";
+      end.value = w[t].end;
+
+      const onChange = () => {
+        if (start.value && end.value) {
+          setWindow(t, start.value, end.value);
+          render();
+        }
+      };
+      start.addEventListener("change", onChange);
+      end.addEventListener("change", onChange);
+
+      row.appendChild(label);
+      row.appendChild(start);
+      row.appendChild(dash);
+      row.appendChild(end);
+      box.appendChild(row);
+    });
+
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.style.marginTop = "8px";
+    hint.textContent = "Вікно, де кінець не пізніше початку, ігнорується.";
+    box.appendChild(hint);
+  }
+
+  /* Оновлення раз на пів хвилини, поки відкритий екран «Сьогодні». */
+  setInterval(() => {
+    if (AppState.get("activeTab") === "today") render();
+  }, 30000);
+
+  return { DEFAULT_WINDOWS, getWindows, setWindow, slotAt, render, renderSettings };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, switchTab };
 
 /* ============================================================================
  * Старт застосунку: таб-бар + відновлення останньої вкладки зі сховища.
@@ -535,6 +791,17 @@ switchTab(AppState.get("activeTab"));
     AppState.set("activeTab", "week");
     mark(check("AppState зберігає значення", AppState.get("activeTab") === "week"));
     AppState.set("activeTab", prevTab);
+
+    // 7. MER-9: розрахунок активного слота (на дефолтних вікнах, чиста функція).
+    const W = MealClock.DEFAULT_WINDOWS;
+    mark(check("08:00 → сніданок", MealClock.slotAt(8 * 60, W).type === "breakfast"));
+    mark(check("11:00 → обід (межа включно)", MealClock.slotAt(11 * 60, W).type === "lunch"));
+    mark(check("13:20 → обід", MealClock.slotAt(13 * 60 + 20, W).type === "lunch"));
+    mark(check("16:00 → перекус", MealClock.slotAt(16 * 60, W).type === "snack"));
+    mark(check("19:00 → вечеря", MealClock.slotAt(19 * 60, W).type === "dinner"));
+    const night = MealClock.slotAt(23 * 60, W);
+    mark(check("23:00 → ніч, далі сніданок о 06:00",
+      night.type === null && night.next && night.next.type === "breakfast" && night.next.at === "06:00"));
 
   } catch (e) {
     allOk = false;
