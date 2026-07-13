@@ -1,0 +1,19 @@
+# Agent / editor
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp
+tmp/
+node_modules/
+
+# Env
+.env
+.env.local
