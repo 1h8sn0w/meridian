@@ -188,6 +188,56 @@
   .slot-row .slot-kcal { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
   .tag.accent { color: var(--accent); border-color: var(--accent); }
 
+  /* --- Заміна страви в слоті (MER-12) --- */
+  .slot-swap {
+    flex: none;
+    align-self: center;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 3px 9px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .slot-swap:hover { color: var(--accent); border-color: var(--accent); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 10, 14, .6);
+    z-index: 30;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  @media (min-width: 520px) { .overlay { align-items: center; } }
+  .sheet {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 78vh;
+    overflow-y: auto;
+    padding: 14px 16px;
+    margin: 10px;
+  }
+  .sheet h2 { margin: 0 0 6px; font-size: 15px; }
+  .sheet .btn.block { margin: 12px 0 0; }
+  .swap-now { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
+  .swap-row { cursor: pointer; }
+  .day-after { font-size: 12.5px; white-space: nowrap; }
+  .day-after.ok { color: var(--ok); }
+  .day-after.out { color: var(--warn); }
+
+  /* Поточна страва на головній (мінімум для MER-12; повна картка — MER-11) */
+  .today-slot { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
+  .today-total { font-size: 13px; color: var(--ok); margin: 8px 0 12px; }
+  .today-total.out { color: var(--warn); }
+
   /* --- Нижній таб-бар --- */
   nav {
     position: fixed;
@@ -260,7 +310,9 @@
 
     <div class="panel">
       <h2>Поточна страва</h2>
-      <p class="hint">Генератор тижня вже працює (MER-10) — картка активної страви з'явиться тут у задачі MER-11.</p>
+      <!-- Мінімальна картка прийому з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
+      <div id="today-meal"></div>
+      <p class="hint">Повна картка страви (БЖВ, інгредієнти, джерело) з'явиться в задачі MER-11.</p>
     </div>
   </section>
 
@@ -572,7 +624,7 @@ function switchTab(tabId) {
   document.getElementById("screen-subtitle").textContent = tab.subtitle();
 
   if (tab.id === "meals") MealsScreen.render();
-  if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); }
+  if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); TodayCard.render(); }
   if (tab.id === "week") WeekScreen.render();
 
   AppState.set("activeTab", tab.id);
@@ -1311,7 +1363,75 @@ const WeekGenerator = (function () {
     };
   }
 
-  return { DEFAULTS, generateWeek };
+  /**
+   * MER-12 — кандидати для ручної заміни страви в слоті збереженого плану.
+   * Пропонує лише страви того ж типу (без поточної). Для кожної рахує
+   * майбутню калорійність дня та чи лишається день у коридорі плану;
+   * страви, вжиті в сусідніх днях (вікно антиповтору в обидва боки),
+   * позначає repeatSoon. Сортування: спершу ті, що тримають коридор,
+   * далі — без повтору поруч, далі — ближчі до цілі.
+   *
+   * @param pool     масив страв (типово — MealStore.getAll()).
+   * @param plan     збережений план (WeekStore.get()).
+   * @param dayIndex індекс дня плану (0-based).
+   * @param slotType слот із MEAL_TYPES.
+   * @returns {ok:true, current, target, corridor,
+   *           candidates:[{meal, dayCalories, withinCorridor, repeatSoon}]}
+   *          або {ok:false, error} з українським поясненням.
+   */
+  function suggestReplacements(pool, plan, dayIndex, slotType) {
+    if (!plan || !Array.isArray(plan.days) || !plan.params) {
+      return { ok: false, error: "Немає збереженого плану тижня — спершу згенеруйте його." };
+    }
+    const i = Number(dayIndex);
+    if (!Number.isInteger(i) || i < 0 || i >= plan.days.length) {
+      return { ok: false, error: "У плані немає дня №" + (Number(dayIndex) + 1) + "." };
+    }
+    if (!MEAL_TYPES.includes(slotType)) {
+      return { ok: false, error: "Невідомий тип слота: «" + slotType + "»." };
+    }
+    const day = plan.days[i];
+    const current = day.meals && day.meals[slotType];
+    if (!current) {
+      return { ok: false, error: "У цьому дні немає слота «" + MEAL_TYPE_LABELS[slotType] + "»." };
+    }
+
+    const target = Number(plan.params.targetCalories);
+    const corridor = Number.isFinite(Number(plan.usedCorridor)) ? Number(plan.usedCorridor) : DEFAULTS.corridor;
+
+    // Сума решти слотів дня: прогноз дня для кандидата = решта + кандидат.
+    const others = MEAL_TYPES.reduce((acc, t) =>
+      acc + (t !== slotType && day.meals[t] ? day.meals[t].calories : 0), 0);
+
+    // Страви сусідніх днів у вікні антиповтору (в обидва боки від дня i).
+    const n = Math.max(1, Math.floor(Number(plan.params.antiRepeatDays)) || 1);
+    const nearIds = new Set();
+    for (let d = Math.max(0, i - n + 1); d <= Math.min(plan.days.length - 1, i + n - 1); d++) {
+      if (d === i) continue;
+      MEAL_TYPES.forEach((t) => { const m = plan.days[d].meals[t]; if (m) nearIds.add(m.id); });
+    }
+
+    const meals = Array.isArray(pool) ? pool : MealStore.getAll();
+    const candidates = meals
+      .filter((m) => m.type === slotType && m.id !== current.id)
+      .map((m) => {
+        const dayCalories = others + m.calories;
+        return {
+          meal: m,
+          dayCalories,
+          withinCorridor: Math.abs(dayCalories - target) <= corridor,
+          repeatSoon: nearIds.has(m.id),
+        };
+      })
+      .sort((a, b) =>
+        (b.withinCorridor - a.withinCorridor) ||
+        (a.repeatSoon - b.repeatSoon) ||
+        (Math.abs(a.dayCalories - target) - Math.abs(b.dayCalories - target)));
+
+    return { ok: true, current, target, corridor, candidates };
+  }
+
+  return { DEFAULTS, generateWeek, suggestReplacements };
 })();
 
 /* ============================================================================
@@ -1357,8 +1477,57 @@ const WeekStore = (function () {
     localStorage.removeItem(KEY);
   }
 
-  return { get, save, clear };
+  /**
+   * MER-12 — замінити страву в слоті дня плану, не чіпаючи решту тижня.
+   * Кандидат нормалізується через createMeal (у план лягає знімок, а не
+   * посилання на пул), тип мусить збігатися зі слотом. Перераховує
+   * калорійність дня та джерела плану й одразу зберігає. Повертає оновлений
+   * план; при некоректних аргументах кидає Error з поясненням українською.
+   */
+  function replaceMeal(dayIndex, slotType, mealInput) {
+    const plan = get();
+    if (!plan) throw new Error("Немає збереженого плану тижня.");
+    const i = Number(dayIndex);
+    if (!Number.isInteger(i) || i < 0 || i >= plan.days.length) {
+      throw new Error("У плані немає дня №" + (Number(dayIndex) + 1) + ".");
+    }
+    if (!MEAL_TYPES.includes(slotType)) {
+      throw new Error("Невідомий тип слота: «" + slotType + "».");
+    }
+    const day = plan.days[i];
+    if (!day.meals || !day.meals[slotType]) {
+      throw new Error("У цьому дні немає слота «" + MEAL_TYPE_LABELS[slotType] + "».");
+    }
+    const meal = createMeal(mealInput);
+    if (meal.type !== slotType) {
+      throw new Error("Страва «" + meal.name + "» має тип «" + MEAL_TYPE_LABELS[meal.type] +
+        "» і не підходить для слота «" + MEAL_TYPE_LABELS[slotType] + "».");
+    }
+
+    day.meals[slotType] = meal;
+    day.calories = MEAL_TYPES.reduce((acc, t) => acc + (day.meals[t] ? day.meals[t].calories : 0), 0);
+
+    // Після заміни набір джерел плану міг змінитися — перерахувати чесно.
+    const sources = new Set();
+    plan.days.forEach((d) => MEAL_TYPES.forEach((t) => {
+      if (d.meals[t] && d.meals[t].source) sources.add(d.meals[t].source);
+    }));
+    plan.sources = Array.from(sources).sort();
+
+    localStorage.setItem(KEY, JSON.stringify(plan));
+    return plan;
+  }
+
+  return { get, save, clear, replaceMeal };
 })();
+
+/* Спільний конструктор DOM-вузла — для екранів «Тиждень», «Сьогодні» й діалогу заміни. */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
 
 /* ============================================================================
  * MER-13 — Екран «Тиждень»: план на 7 днів + кнопка «Перегенерувати».
@@ -1368,7 +1537,7 @@ const WeekStore = (function () {
  * дата генерації); видно, чи день у межах коридору. «Перегенерувати тиждень»
  * збирає новий набір тими самими параметрами; при невдачі старий план
  * лишається, а помилка генератора показується над кнопкою.
- * Ручна заміна окремої страви в слоті — окрема задача MER-12.
+ * Кнопка «⇄» у рядку слота відкриває діалог ручної заміни страви (MER-12).
  * ========================================================================== */
 const WeekScreen = (function () {
   /* Порядок слотів у картці дня — хронологічний, як вікна годинника (MER-9). */
@@ -1376,13 +1545,6 @@ const WeekScreen = (function () {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   let lastError = null; // помилка останньої невдалої генерації (для показу)
-
-  function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined) node.textContent = text;
-    return node;
-  }
 
   /* День 1 плану — північ дати генерації. */
   function planStart(plan) {
@@ -1397,6 +1559,11 @@ const WeekScreen = (function () {
     today.setHours(0, 0, 0, 0);
     const i = Math.round((today - planStart(plan)) / DAY_MS);
     return i >= 0 && i < plan.days.length ? i : -1;
+  }
+
+  /* Дата дня i плану (i — 0-based від дати генерації). */
+  function dayDate(plan, i) {
+    return new Date(planStart(plan).getTime() + i * DAY_MS);
   }
 
   function fmtDayTitle(date) {
@@ -1472,9 +1639,8 @@ const WeekScreen = (function () {
     box.appendChild(top);
 
     // Картки днів.
-    const start = planStart(plan);
     plan.days.forEach((day, i) => {
-      const date = new Date(start.getTime() + i * DAY_MS);
+      const date = dayDate(plan, i);
       const isToday = i === tIdx;
       const card = el("div", "panel day-card" + (isToday ? " today" : ""));
 
@@ -1498,6 +1664,12 @@ const WeekScreen = (function () {
         row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
         row.appendChild(el("span", "slot-name", meal.name));
         row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
+        const swap = el("button", "slot-swap", "⇄");
+        swap.type = "button";
+        swap.title = "Замінити страву";
+        swap.setAttribute("aria-label", "Замінити страву «" + meal.name + "»");
+        swap.addEventListener("click", () => SwapDialog.open(i, t));
+        row.appendChild(swap);
         card.appendChild(row);
       });
 
@@ -1505,7 +1677,7 @@ const WeekScreen = (function () {
     });
 
     const hint = el("div", "panel");
-    hint.appendChild(el("p", "hint", "Заміна окремої страви прямо з цього екрана з'явиться в задачі MER-12."));
+    hint.appendChild(el("p", "hint", "Щоб замінити окрему страву, натисніть «⇄» у її рядку — діалог запропонує страви того ж типу з прогнозом калорій дня."));
     box.appendChild(hint);
 
     renderSubtitle();
@@ -1518,11 +1690,200 @@ const WeekScreen = (function () {
     }
   }
 
-  return { render, regenerate };
+  /* todayIndex/dayDate/fmtDayTitle потрібні також картці «Сьогодні» й діалогу заміни (MER-12). */
+  return { render, regenerate, todayIndex, dayDate, fmtDayTitle };
+})();
+
+/* ============================================================================
+ * MER-12 — Діалог «Замінити страву»: ручна заміна в слоті без перегенерації.
+ * ----------------------------------------------------------------------------
+ * Відкривається з екрана «Тиждень» (кнопка «⇄» у рядку слота) і з головної
+ * (кнопка на картці поточного прийому). Пропонує лише страви того ж типу з
+ * прогнозом денної калорійності (зелений «✓» — день лишається в коридорі
+ * плану); страви із сусідніх днів мають позначку «повтор поруч». Вибір
+ * кандидата зберігає план (WeekStore.replaceMeal) і перемальовує екрани.
+ * ========================================================================== */
+const SwapDialog = (function () {
+  let overlay = null; // поточний відкритий діалог або null
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") close();
+  }
+
+  /** Закрити діалог (якщо відкритий). */
+  function close() {
+    if (!overlay) return;
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeyDown);
+  }
+
+  /* Застосувати вибір: зберегти заміну й перемалювати обидва екрани. */
+  function apply(dayIndex, slotType, meal) {
+    WeekStore.replaceMeal(dayIndex, slotType, meal);
+    close();
+    WeekScreen.render();
+    TodayCard.render();
+  }
+
+  /** Відкрити діалог заміни для слота slotType дня dayIndex збереженого плану. */
+  function open(dayIndex, slotType) {
+    close();
+    const plan = WeekStore.get();
+    const res = WeekGenerator.suggestReplacements(MealStore.getAll(), plan, dayIndex, slotType);
+
+    overlay = el("div", "overlay");
+    overlay.id = "swap-overlay";
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+    const sheet = el("div", "sheet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", "Замінити страву");
+
+    if (!res.ok) {
+      sheet.appendChild(el("h2", null, "Замінити страву"));
+      sheet.appendChild(el("p", "week-warn", res.error));
+    } else {
+      sheet.appendChild(el("h2", null,
+        "Замінити: " + MEAL_TYPE_LABELS[slotType] + " · " +
+        WeekScreen.fmtDayTitle(WeekScreen.dayDate(plan, dayIndex))));
+      sheet.appendChild(el("p", "swap-now",
+        "Зараз: «" + res.current.name + "» — " + res.current.calories + " ккал. " +
+        "Ціль " + res.target + " ± " + res.corridor + " ккал/день."));
+
+      if (!res.candidates.length) {
+        sheet.appendChild(el("div", "empty",
+          "Немає інших страв типу «" + MEAL_TYPE_LABELS[slotType] + "» у пулі. Додайте їх на екрані «Страви»."));
+      }
+      res.candidates.forEach((c) => {
+        const row = el("div", "meal-item swap-row");
+
+        const left = el("div");
+        const name = el("div", "name", c.meal.name);
+        if (c.repeatSoon) {
+          name.appendChild(document.createTextNode(" "));
+          name.appendChild(el("span", "tag", "повтор поруч"));
+        }
+        left.appendChild(name);
+        left.appendChild(el("div", "meta",
+          c.meal.calories + " ккал" + (c.meal.source ? " · " + c.meal.source : "")));
+
+        const after = el("div", "day-after " + (c.withinCorridor ? "ok" : "out"),
+          "день → " + c.dayCalories.toLocaleString("uk-UA") + (c.withinCorridor ? " ✓" : ""));
+
+        row.appendChild(left);
+        row.appendChild(after);
+        row.addEventListener("click", () => apply(dayIndex, slotType, c.meal));
+        sheet.appendChild(row);
+      });
+    }
+
+    const cancel = el("button", "btn block", "Скасувати");
+    cancel.type = "button";
+    cancel.addEventListener("click", close);
+    sheet.appendChild(cancel);
+
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", onKeyDown);
+  }
+
+  function isOpen() { return overlay !== null; }
+
+  return { open, close, isOpen };
+})();
+
+/* ============================================================================
+ * MER-12 — «Поточна страва» на головній: що готувати зараз + заміна.
+ * ----------------------------------------------------------------------------
+ * Мінімальна картка: активний (або найближчий наступний) прийом за годинником
+ * (MER-9), страва з відповідного дня плану (WeekStore), денна калорійність і
+ * кнопка «Замінити страву» — та сама логіка заміни, що й на екрані «Тиждень».
+ * Повна картка з БЖВ та інгредієнтами — задача MER-11.
+ * ========================================================================== */
+const TodayCard = (function () {
+  /** Перемалювати картку. now — для тестів; типово поточний час. */
+  function render(now) {
+    const box = document.getElementById("today-meal");
+    box.innerHTML = "";
+    now = now || new Date();
+
+    const plan = WeekStore.get();
+    if (!plan) {
+      box.appendChild(el("p", "hint",
+        "Плану ще немає — згенеруйте тиждень, і тут з'явиться страва поточного прийому."));
+      const go = el("button", "btn block", "Відкрити екран «Тиждень»");
+      go.type = "button";
+      go.addEventListener("click", () => switchTab("week"));
+      box.appendChild(go);
+      return;
+    }
+
+    // Активний прийом; поза вікнами — найближчий наступний (можливо, вже завтра).
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const cur = MealClock.slotAt(minutes);
+    let slot = cur.type;
+    let dayOffset = 0;
+    let label;
+    if (slot) {
+      label = "Зараз: " + MEAL_TYPE_LABELS[slot] + " (до " + cur.until + ")";
+    } else if (cur.next) {
+      slot = cur.next.type;
+      const p = String(cur.next.at).split(":");
+      const startMin = ((Number(p[0]) || 0) * 60 + (Number(p[1]) || 0)) % 1440;
+      dayOffset = startMin <= minutes ? 1 : 0; // початок не попереду — це вже завтрашній прийом
+      label = "Далі: " + MEAL_TYPE_LABELS[slot] + " о " + cur.next.at + (dayOffset ? " (завтра)" : "");
+    } else {
+      box.appendChild(el("p", "hint", "Усі часові вікна прийомів вимкнено — налаштуйте їх у блоці вище."));
+      return;
+    }
+
+    const tIdx = WeekScreen.todayIndex(plan);
+    const dayIndex = tIdx === -1 ? -1 : tIdx + dayOffset;
+    const day = dayIndex >= 0 && dayIndex < plan.days.length ? plan.days[dayIndex] : null;
+    const meal = day ? day.meals[slot] : null;
+    if (!meal) {
+      box.appendChild(el("p", "hint", tIdx === -1
+        ? "Сьогодні поза періодом збереженого плану — перегенеруйте тиждень."
+        : "Наступний прийом уже поза періодом плану — перегенеруйте тиждень."));
+      return;
+    }
+
+    box.appendChild(el("p", "today-slot", label));
+
+    const row = el("div", "meal-item");
+    const left = el("div");
+    left.appendChild(el("div", "name", meal.name));
+    if (meal.source) left.appendChild(el("div", "meta", meal.source));
+    row.appendChild(left);
+    row.appendChild(el("div", "kcal", meal.calories + " ккал"));
+    box.appendChild(row);
+
+    // Критерій MER-12: після заміни денна калорійність перераховується й показується.
+    const within = Math.abs(day.calories - plan.params.targetCalories) <= plan.usedCorridor;
+    box.appendChild(el("p", "today-total" + (within ? "" : " out"),
+      "Разом за день: " + day.calories.toLocaleString("uk-UA") + " ккал · ціль " +
+      plan.params.targetCalories + " ± " + plan.usedCorridor + " ккал" +
+      (within ? "" : " · поза коридором")));
+
+    const swap = el("button", "btn block", "Замінити страву");
+    swap.type = "button";
+    swap.id = "today-swap-btn";
+    swap.addEventListener("click", () => SwapDialog.open(dayIndex, slot));
+    box.appendChild(swap);
+  }
+
+  /* Час іде — активний прийом змінюється; оновлюємо раз на пів хвилини, як годинник. */
+  setInterval(() => {
+    if (AppState.get("activeTab") === "today") render();
+  }, 30000);
+
+  return { render };
 })();
 
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -1551,6 +1912,7 @@ switchTab(AppState.get("activeTab"));
   // Знімок реальних даних — відновлюється у finally.
   const SNAPSHOT = localStorage.getItem("meridian.meals.v1");
   const WEEK_SNAPSHOT = localStorage.getItem("meridian.week.v1");
+  const WINDOWS_SNAPSHOT = AppState.get("mealWindows");
 
   try {
     MealStore.clear();
@@ -1715,6 +2077,102 @@ switchTab(AppState.get("activeTab"));
         regen.ok === true && !!regenSaved && regenSaved.days.length === 7 &&
         weekBox.querySelectorAll(".day-card").length === 7,
         regen.ok ? "" : regen.error));
+
+      // 12. MER-12: ручна заміна страви в слоті.
+      const plan12 = WeekStore.get();
+      const sug = WeekGenerator.suggestReplacements(MealStore.getAll(), plan12, 0, "lunch");
+      mark(check("Заміна: лише страви того ж типу, без поточної",
+        sug.ok === true && sug.candidates.length > 0 &&
+        sug.candidates.every((c) => c.meal.type === "lunch" && c.meal.id !== sug.current.id),
+        sug.ok ? sug.candidates.length + " кандидатів" : sug.error));
+
+      const day12 = plan12.days[0];
+      const others12 = MEAL_TYPES.reduce((a, t) => a + (t === "lunch" ? 0 : day12.meals[t].calories), 0);
+      mark(check("Заміна: прогноз калорій дня і коридор пораховано правильно",
+        sug.ok && sug.candidates.every((c) =>
+          c.dayCalories === others12 + c.meal.calories &&
+          c.withinCorridor === (Math.abs(c.dayCalories - plan12.params.targetCalories) <= plan12.usedCorridor))));
+
+      let sawOut12 = false, corridorFirst12 = true;
+      sug.candidates.forEach((c) => {
+        if (!c.withinCorridor) sawOut12 = true;
+        else if (sawOut12) corridorFirst12 = false;
+      });
+      mark(check("Заміна: спершу кандидати, що тримають коридор", corridorFirst12));
+
+      // Вікно антиповтору для дня 1 (антиповтор 3) — дні 2 і 3 плану.
+      const near12 = new Set();
+      [1, 2].forEach((d) => MEAL_TYPES.forEach((t) => near12.add(plan12.days[d].meals[t].id)));
+      mark(check("Заміна: позначка «повтор поруч» відповідає вікну антиповтору",
+        sug.ok && sug.candidates.some((c) => c.repeatSoon) &&
+        sug.candidates.every((c) => c.repeatSoon === near12.has(c.meal.id))));
+
+      const pick12 = sug.candidates[0];
+      const updated12 = WeekStore.replaceMeal(0, "lunch", pick12.meal);
+      const stored12 = WeekStore.get();
+      mark(check("Заміна: план оновлено й збережено",
+        updated12.days[0].meals.lunch.id === pick12.meal.id &&
+        !!stored12 && stored12.days[0].meals.lunch.id === pick12.meal.id &&
+        (!pick12.meal.source || stored12.sources.indexOf(pick12.meal.source) >= 0)));
+      mark(check("Заміна: денну калорійність перераховано",
+        stored12.days[0].calories === pick12.dayCalories &&
+        stored12.days[0].calories === day12.calories - sug.current.calories + pick12.meal.calories,
+        stored12.days[0].calories + " ккал"));
+
+      let wrongType12 = false;
+      try { WeekStore.replaceMeal(0, "lunch", MealStore.filterByType("breakfast")[0]); }
+      catch (e) { wrongType12 = true; }
+      mark(check("Заміна: страву іншого типу відхилено", wrongType12));
+
+      const solo12 = WeekGenerator.suggestReplacements([stored12.days[0].meals.lunch], stored12, 0, "lunch");
+      mark(check("Заміна: без альтернатив — порожній список без помилки",
+        solo12.ok === true && solo12.candidates.length === 0));
+
+      // Екран «Тиждень»: кнопка заміни в кожному слоті, діалог працює.
+      WeekScreen.render();
+      mark(check("Екран «Тиждень»: кнопка «⇄» у кожному слоті",
+        weekBox.querySelectorAll(".slot-swap").length === 7 * 4));
+
+      const sugD = WeekGenerator.suggestReplacements(MealStore.getAll(), WeekStore.get(), 1, "dinner");
+      SwapDialog.open(1, "dinner");
+      const dlg12 = document.getElementById("swap-overlay");
+      const rows12 = dlg12 ? dlg12.querySelectorAll(".swap-row") : [];
+      mark(check("Діалог заміни: відкрився зі списком кандидатів",
+        !!dlg12 && sugD.ok && rows12.length === sugD.candidates.length && rows12.length > 0));
+
+      if (rows12.length) rows12[0].click();
+      const afterClick12 = WeekStore.get();
+      mark(check("Діалог заміни: клік застосовує заміну й закриває діалог",
+        !document.getElementById("swap-overlay") &&
+        afterClick12.days[1].meals.dinner.id === sugD.candidates[0].meal.id));
+      const card12 = weekBox.querySelectorAll(".day-card")[1];
+      mark(check("Екран «Тиждень»: показано перераховану калорійність дня",
+        !!card12 && card12.querySelector(".day-kcal").textContent.indexOf(
+          afterClick12.days[1].calories.toLocaleString("uk-UA")) >= 0));
+
+      // Головна: картка поточного прийому (типові вікна + фіксований час для детермінізму).
+      AppState.set("mealWindows", undefined);
+      const todayBox12 = document.getElementById("today-meal");
+      const noon12 = new Date(); noon12.setHours(13, 0, 0, 0);
+      TodayCard.render(noon12);
+      const planT12 = WeekStore.get();
+      mark(check("Головна: показано страву поточного прийому (обід о 13:00)",
+        todayBox12.textContent.indexOf("Зараз: Обід") >= 0 &&
+        todayBox12.textContent.indexOf(planT12.days[0].meals.lunch.name) >= 0));
+      mark(check("Головна: видно перераховану денну калорійність",
+        todayBox12.textContent.indexOf(planT12.days[0].calories.toLocaleString("uk-UA")) >= 0));
+
+      document.getElementById("today-swap-btn").click();
+      const dlgToday12 = document.getElementById("swap-overlay");
+      mark(check("Головна: «Замінити страву» відкриває діалог для поточного слота",
+        !!dlgToday12 && dlgToday12.textContent.indexOf("Обід") >= 0));
+      SwapDialog.close();
+
+      const night12 = new Date(); night12.setHours(23, 30, 0, 0);
+      TodayCard.render(night12);
+      mark(check("Головна: вночі показано наступний прийом (сніданок завтра)",
+        todayBox12.textContent.indexOf("Далі: Сніданок") >= 0 &&
+        todayBox12.textContent.indexOf(planT12.days[1].meals.breakfast.name) >= 0));
     }
 
     // Брак страв → зрозуміле повідомлення, а не виняток.
@@ -1744,15 +2202,18 @@ switchTab(AppState.get("activeTab"));
     else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
     if (WEEK_SNAPSHOT === null) localStorage.removeItem("meridian.week.v1");
     else localStorage.setItem("meridian.week.v1", WEEK_SNAPSHOT);
-    // Повернути екран «Тиждень» до реальних даних після тестових рендерів.
+    AppState.set("mealWindows", WINDOWS_SNAPSHOT);
+    // Прибрати тестовий діалог і повернути екрани до реальних даних.
+    SwapDialog.close();
     WeekScreen.render();
+    TodayCard.render();
   }
 
-  const el = document.getElementById("selftest-out");
-  el.textContent = (allOk
+  const outEl = document.getElementById("selftest-out");
+  outEl.textContent = (allOk
     ? "УСПІХ — критерії готовності виконано.\n\n"
     : "Є ПОМИЛКИ — див. нижче.\n\n") + out.join("\n");
-  el.className = "selftest " + (allOk ? "pass" : "fail");
+  outEl.className = "selftest " + (allOk ? "pass" : "fail");
   document.getElementById("selftest-panel").hidden = false;
 })();
 </script>
