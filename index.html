@@ -253,6 +253,32 @@
   .today-ingredients li { margin: 1px 0; }
   .today-note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
+  /* --- Екран «Календар» (MER-14) --- */
+  .cal-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .cal-range { flex: 1; text-align: center; font-size: 14px; font-weight: 600; }
+  .cal-nav-btn { padding: 6px 13px; font-size: 16px; line-height: 1; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day {
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 7px 2px;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .cal-day:hover { border-color: var(--accent); }
+  .cal-day .dow { font-size: 10.5px; color: var(--muted); }
+  .cal-day .dnum { font-size: 14.5px; font-weight: 600; }
+  .cal-day .dkcal { font-size: 10px; color: var(--muted); }
+  .cal-day.selected { border-color: var(--accent); background: rgba(79, 157, 255, .1); }
+  .cal-day.today .dnum { color: var(--accent); }
+  .btn.block.cal-today { margin: 10px 0 0; }
+
   /* --- Нижній таб-бар --- */
   nav {
     position: fixed;
@@ -333,6 +359,11 @@
   <!-- Екран «Тиждень» (MER-13): вміст будує WeekScreen -->
   <section class="screen" id="screen-week">
     <div id="week-content"></div>
+  </section>
+
+  <!-- Екран «Календар» (MER-14): вміст будує CalendarScreen -->
+  <section class="screen" id="screen-calendar">
+    <div id="calendar-content"></div>
   </section>
 
   <!-- Екран «Страви» -->
@@ -592,6 +623,7 @@ const AppState = (function () {
 const TABS = [
   { id: "today", label: "Сьогодні", icon: "☀️", subtitle: () => todaySubtitle() },
   { id: "week",  label: "Тиждень",  icon: "📅", subtitle: () => weekSubtitle() },
+  { id: "calendar", label: "Календар", icon: "🗓️", subtitle: () => calendarSubtitle() },
   { id: "meals", label: "Страви",   icon: "🍽️", subtitle: () => mealsSubtitle() },
 ];
 
@@ -623,6 +655,13 @@ function weekSubtitle() {
     : "План на 7 днів";
 }
 
+function calendarSubtitle() {
+  const b = CalendarStore.bounds();
+  return b
+    ? "Заплановано " + b.count + " " + pluralUk(b.count, "день", "дні", "днів")
+    : "Історія та плани наперед";
+}
+
 /** Перемкнути активний екран, підсвітити вкладку й запам'ятати вибір. */
 function switchTab(tabId) {
   const tab = TABS.find((t) => t.id === tabId) || TABS[0];
@@ -640,6 +679,7 @@ function switchTab(tabId) {
   if (tab.id === "meals") MealsScreen.render();
   if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); TodayCard.render(); }
   if (tab.id === "week") WeekScreen.render();
+  if (tab.id === "calendar") CalendarScreen.render();
 
   AppState.set("activeTab", tab.id);
 }
@@ -1453,7 +1493,8 @@ const WeekGenerator = (function () {
  * ----------------------------------------------------------------------------
  * Зберігаємо знімок страв (не посилання на пул): якщо страву потім змінять
  * чи видалять, збережений тиждень лишиться цілісним. Звідси читатимуть екран
- * «Тиждень» (MER-13) і картка активної страви на головній (MER-11).
+ * «Тиждень» (MER-13) і картка активної страви на головній (MER-11). Кожне
+ * збереження дзеркалиться в календар (MER-14) — там росте історія по днях.
  * ========================================================================== */
 const WeekStore = (function () {
   const KEY = "meridian.week.v1";
@@ -1483,6 +1524,7 @@ const WeekStore = (function () {
       days: result.days,
     };
     localStorage.setItem(KEY, JSON.stringify(plan));
+    CalendarStore.recordPlan(plan);
     return plan;
   }
 
@@ -1529,6 +1571,7 @@ const WeekStore = (function () {
     plan.sources = Array.from(sources).sort();
 
     localStorage.setItem(KEY, JSON.stringify(plan));
+    CalendarStore.recordPlan(plan);
     return plan;
   }
 
@@ -1922,13 +1965,341 @@ const TodayCard = (function () {
   return { render };
 })();
 
+/* ============================================================================
+ * MER-14 — CalendarStore: плани по днях календаря в localStorage.
+ * ----------------------------------------------------------------------------
+ * Зберігає прийоми їжі за датами: "YYYY-MM-DD" → {meals, calories, target,
+ * corridor}. Кожне збереження плану тижня (WeekStore) дзеркалиться сюди за
+ * реальними датами днів; новіший запис перекриває лише свої дати, тож минулі
+ * дні лишаються незмінною історією. Звідси читає екран «Календар»; сюди ж
+ * лягають тижні, згенеровані наперед.
+ * ========================================================================== */
+const CalendarStore = (function () {
+  const KEY = "meridian.calendar.v1";
+
+  /* Локальна дата → ключ "YYYY-MM-DD" (без UTC-зсувів; сортується як дата). */
+  function dateKey(date) {
+    return date.getFullYear() + "-" +
+      String(date.getMonth() + 1).padStart(2, "0") + "-" +
+      String(date.getDate()).padStart(2, "0");
+  }
+
+  /* Ключ "YYYY-MM-DD" → локальна північ цієї дати. */
+  function keyToDate(key) {
+    const p = String(key).split("-").map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+
+  /* Зсув на n днів через календар (безпечно щодо переведення годинників). */
+  function addDays(date, n) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
+  }
+
+  /* Понеділок тижня, куди належить дата (тиждень в Україні — з понеділка). */
+  function startOfWeek(date) {
+    return addDays(date, -((date.getDay() + 6) % 7));
+  }
+
+  function today0() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function read() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (raw && typeof raw === "object" && raw.days && typeof raw.days === "object") return raw;
+    } catch (e) {
+      console.warn("CalendarStore: не вдалося прочитати календар, починаю з порожнього.", e);
+    }
+    return { days: {} };
+  }
+
+  function write(state) {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  /** День за ключем дати або null. */
+  function getDay(key) {
+    return read().days[key] || null;
+  }
+
+  /* Записати послідовні дні від startDate — перекриває лише ці дати. */
+  function writeDays(startDate, days, target, corridor) {
+    const state = read();
+    days.forEach((day, i) => {
+      state.days[dateKey(addDays(startDate, i))] = {
+        meals: day.meals,
+        calories: day.calories,
+        target,
+        corridor,
+      };
+    });
+    write(state);
+  }
+
+  /** Дзеркало плану тижня: дні лягають за реальними датами (день 1 — дата генерації). */
+  function recordPlan(plan) {
+    if (!plan || !Array.isArray(plan.days)) return;
+    const start = new Date(plan.generatedAt);
+    start.setHours(0, 0, 0, 0);
+    writeDays(start, plan.days,
+      plan.params ? plan.params.targetCalories : null,
+      plan.usedCorridor != null ? plan.usedCorridor : null);
+  }
+
+  /** Межі запланованого: {first, last, count} (ключі дат) або null, якщо порожньо. */
+  function bounds() {
+    const keys = Object.keys(read().days).sort();
+    return keys.length
+      ? { first: keys[0], last: keys[keys.length - 1], count: keys.length }
+      : null;
+  }
+
+  /** Початок наступного вільного тижня: після останнього запланованого дня, але не в минулому. */
+  function nextFreeStart() {
+    const b = bounds();
+    if (!b) return today0();
+    const after = addDays(keyToDate(b.last), 1);
+    return after > today0() ? after : today0();
+  }
+
+  /**
+   * Згенерувати тиждень наперед (параметрами активного плану або типовими).
+   * Тиждень від сьогодні — це просто новий активний план (WeekStore.save сам
+   * дзеркалить його сюди); суто майбутній тиждень лягає лише в календар і
+   * активний план не чіпає. Повертає результат генератора + start (ключ дати).
+   */
+  function generateAhead() {
+    const active = WeekStore.get();
+    const res = WeekGenerator.generateWeek(MealStore.getAll(), active ? active.params : WeekGenerator.DEFAULTS);
+    if (!res.ok) return res;
+    const start = nextFreeStart();
+    if (start.getTime() === today0().getTime()) {
+      WeekStore.save(res);
+    } else {
+      writeDays(start, res.days, res.params.targetCalories, res.usedCorridor);
+    }
+    return Object.assign({ start: dateKey(start) }, res);
+  }
+
+  /** Очистити календар повністю. */
+  function clear() {
+    localStorage.removeItem(KEY);
+  }
+
+  return { dateKey, keyToDate, addDays, startOfWeek, getDay, recordPlan, bounds, nextFreeStart, generateAhead, clear };
+})();
+
+/* ============================================================================
+ * MER-14 — Екран «Календар»: перегляд планів на інші дні.
+ * ----------------------------------------------------------------------------
+ * Сітка одного тижня (пн–нд) із навігацією «‹ / ›»; клік дня показує його
+ * прийоми їжі та калорійність (з CalendarStore). Минулі дні — незмінна
+ * історія; майбутні тижні генеруються наперед — кнопка додає тиждень після
+ * останнього запланованого дня.
+ * ========================================================================== */
+const CalendarScreen = (function () {
+  /* Порядок слотів — хронологічний, як на екрані «Тиждень». */
+  const SLOT_ORDER = ["breakfast", "lunch", "snack", "dinner"];
+  const DOW_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+
+  let viewStart = null;       // понеділок тижня, який показуємо
+  let selectedKey = null;     // вибраний день (ключ дати)
+  let lastAheadError = null;  // помилка останньої генерації наперед (для показу)
+
+  function today0() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /** Повернутись до поточного тижня, вибрати сьогодні (і прибрати повідомлення про невдачу). */
+  function goToday() {
+    lastAheadError = null;
+    viewStart = CalendarStore.startOfWeek(today0());
+    selectedKey = CalendarStore.dateKey(today0());
+    render();
+  }
+
+  /* Гортання тижнів: n = -1 назад, +1 вперед. */
+  function shiftWeek(n) {
+    viewStart = CalendarStore.addDays(viewStart, n * 7);
+    render();
+  }
+
+  /** Вибрати день за ключем дати (вид перескакує на його тиждень). */
+  function select(key) {
+    selectedKey = key;
+    viewStart = CalendarStore.startOfWeek(CalendarStore.keyToDate(key));
+    render();
+  }
+
+  /* «14–20 лип. 2026» або «28 лип. – 3 сер. 2026», якщо місяці різні. */
+  function fmtRange(start, end) {
+    const opts = { day: "numeric", month: "short" };
+    const endStr = end.toLocaleDateString("uk-UA", opts) + " " + end.getFullYear();
+    return start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
+      ? start.getDate() + "–" + endStr
+      : start.toLocaleDateString("uk-UA", opts) + " – " + endStr;
+  }
+
+  function onGenerateAhead() {
+    const res = CalendarStore.generateAhead();
+    if (res.ok) {
+      lastAheadError = null;
+      select(res.start); // одразу показати згенерований тиждень
+    } else {
+      lastAheadError = res.error;
+      render();
+    }
+  }
+
+  /* Панель вибраного дня: прийоми їжі та калорійність або «плану немає». */
+  function renderDayPanel(todayKey) {
+    const panel = el("div", "panel");
+    panel.id = "cal-day-panel";
+
+    const date = CalendarStore.keyToDate(selectedKey);
+    const title = el("h2", null, WeekScreen.fmtDayTitle(date));
+    if (selectedKey === todayKey) {
+      title.appendChild(document.createTextNode(" "));
+      title.appendChild(el("span", "tag accent", "сьогодні"));
+    }
+    panel.appendChild(title);
+
+    const entry = CalendarStore.getDay(selectedKey);
+    if (!entry) {
+      panel.appendChild(el("p", "hint", "На цей день плану немає." +
+        (selectedKey >= todayKey ? " Майбутні дні додає кнопка «Згенерувати тиждень наперед» нижче." : "")));
+      return panel;
+    }
+
+    SLOT_ORDER.forEach((t) => {
+      const meal = entry.meals && entry.meals[t];
+      if (!meal) return;
+      const row = el("div", "slot-row");
+      row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
+      row.appendChild(el("span", "slot-name", meal.name));
+      row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
+      panel.appendChild(row);
+    });
+
+    let total = "Разом: " + entry.calories.toLocaleString("uk-UA") + " ккал";
+    let cls = "week-meta";
+    if (Number.isFinite(entry.target) && Number.isFinite(entry.corridor)) {
+      const within = Math.abs(entry.calories - entry.target) <= entry.corridor;
+      total += " · ціль " + entry.target + " ± " + entry.corridor + " ккал" + (within ? "" : " · поза коридором");
+      if (!within) cls = "week-warn";
+    }
+    panel.appendChild(el("p", cls, total));
+    return panel;
+  }
+
+  /** Перемалювати екран «Календар». */
+  function render() {
+    if (!viewStart) {
+      viewStart = CalendarStore.startOfWeek(today0());
+      selectedKey = CalendarStore.dateKey(today0());
+    }
+    const box = document.getElementById("calendar-content");
+    box.innerHTML = "";
+    const todayKey = CalendarStore.dateKey(today0());
+
+    // Панель тижня: навігація + сітка днів.
+    const weekPanel = el("div", "panel");
+    const nav = el("div", "cal-nav");
+    const prev = el("button", "btn cal-nav-btn", "‹");
+    prev.type = "button";
+    prev.id = "cal-prev";
+    prev.setAttribute("aria-label", "Попередній тиждень");
+    prev.addEventListener("click", () => shiftWeek(-1));
+    const range = el("div", "cal-range", fmtRange(viewStart, CalendarStore.addDays(viewStart, 6)));
+    range.id = "cal-range";
+    const next = el("button", "btn cal-nav-btn", "›");
+    next.type = "button";
+    next.id = "cal-next";
+    next.setAttribute("aria-label", "Наступний тиждень");
+    next.addEventListener("click", () => shiftWeek(1));
+    nav.appendChild(prev);
+    nav.appendChild(range);
+    nav.appendChild(next);
+    weekPanel.appendChild(nav);
+
+    const grid = el("div", "cal-grid");
+    grid.id = "cal-grid";
+    for (let i = 0; i < 7; i++) {
+      const date = CalendarStore.addDays(viewStart, i);
+      const key = CalendarStore.dateKey(date);
+      const entry = CalendarStore.getDay(key);
+      const cell = el("button", "cal-day" +
+        (key === todayKey ? " today" : "") + (key === selectedKey ? " selected" : ""));
+      cell.type = "button";
+      cell.dataset.key = key;
+      cell.setAttribute("aria-label",
+        WeekScreen.fmtDayTitle(date) + (entry ? ", " + entry.calories + " ккал" : ", без плану"));
+      cell.appendChild(el("span", "dow", DOW_LABELS[i]));
+      cell.appendChild(el("span", "dnum", String(date.getDate())));
+      cell.appendChild(el("span", "dkcal", entry ? entry.calories.toLocaleString("uk-UA") : "—"));
+      cell.addEventListener("click", () => { selectedKey = key; render(); });
+      grid.appendChild(cell);
+    }
+    weekPanel.appendChild(grid);
+
+    // «Сьогодні» — лише коли поточний тиждень поза видом.
+    if (todayKey < CalendarStore.dateKey(viewStart) ||
+        todayKey > CalendarStore.dateKey(CalendarStore.addDays(viewStart, 6))) {
+      const back = el("button", "btn block cal-today", "Сьогодні");
+      back.type = "button";
+      back.id = "cal-today-btn";
+      back.addEventListener("click", goToday);
+      weekPanel.appendChild(back);
+    }
+    box.appendChild(weekPanel);
+
+    // Панель вибраного дня.
+    box.appendChild(renderDayPanel(todayKey));
+
+    // Панель генерації наперед.
+    const aheadPanel = el("div", "panel");
+    const aheadBtn = el("button", "btn primary block", "Згенерувати тиждень наперед");
+    aheadBtn.type = "button";
+    aheadBtn.id = "cal-ahead-btn";
+    aheadBtn.addEventListener("click", onGenerateAhead);
+    aheadPanel.appendChild(aheadBtn);
+    if (lastAheadError) aheadPanel.appendChild(el("p", "week-warn", lastAheadError));
+    const freeStart = CalendarStore.nextFreeStart();
+    aheadPanel.appendChild(el("p", "week-meta",
+      "Наступний вільний тиждень: " + fmtRange(freeStart, CalendarStore.addDays(freeStart, 6)) +
+      ". Минулі дні — незмінна історія: генерація їх не чіпає."));
+    box.appendChild(aheadPanel);
+
+    renderSubtitle();
+  }
+
+  /** Оновити підзаголовок шапки, якщо відкритий екран «Календар». */
+  function renderSubtitle() {
+    if (AppState.get("activeTab") === "calendar") {
+      document.getElementById("screen-subtitle").textContent = calendarSubtitle();
+    }
+  }
+
+  return { render, goToday, select };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
  * ========================================================================== */
 DemoPool.seedIfFirstRun();
+/* MER-14: бекфіл — активний план, збережений до появи календаря, теж стає історією. */
+(function backfillCalendar() {
+  const plan = WeekStore.get();
+  if (plan) CalendarStore.recordPlan(plan);
+})();
 renderTabBar();
 switchTab(AppState.get("activeTab"));
 
@@ -1952,6 +2323,7 @@ switchTab(AppState.get("activeTab"));
   // Знімок реальних даних — відновлюється у finally.
   const SNAPSHOT = localStorage.getItem("meridian.meals.v1");
   const WEEK_SNAPSHOT = localStorage.getItem("meridian.week.v1");
+  const CAL_SNAPSHOT = localStorage.getItem("meridian.calendar.v1");
   const WINDOWS_SNAPSHOT = AppState.get("mealWindows");
 
   try {
@@ -2279,6 +2651,122 @@ switchTab(AppState.get("activeTab"));
       relaxed.ok === true && relaxed.usedCorridor === 200 && relaxed.warnings.length > 0,
       relaxed.ok ? relaxed.warnings.join(" ") : relaxed.error));
 
+    // 14. MER-14: календар — історія по днях, синхронізація з планом, генерація наперед.
+    CalendarStore.clear();
+    WeekStore.clear();
+    const cal = CalendarStore;
+    const today14 = new Date(); today14.setHours(0, 0, 0, 0);
+    const key14 = (off) => cal.dateKey(cal.addDays(today14, off));
+
+    mark(check("Календар: dateKey ↔ keyToDate обертаються без зсувів",
+      cal.dateKey(cal.keyToDate("2026-01-05")) === "2026-01-05" &&
+      cal.keyToDate(key14(0)).getTime() === today14.getTime()));
+
+    const gen14 = WeekGenerator.generateWeek(MealStore.getAll(), G);
+    mark(check("Календар: тестовий тиждень зібрано", gen14.ok === true, gen14.ok ? "" : gen14.error));
+
+    if (gen14.ok) {
+      const planA = WeekStore.save(gen14);
+      const entry14 = cal.getDay(key14(0));
+      mark(check("Календар: збережений план заповнив 7 днів від сьогодні",
+        [0, 1, 2, 3, 4, 5, 6].every((off) => !!cal.getDay(key14(off))) &&
+        !cal.getDay(key14(-1)) && !cal.getDay(key14(7))));
+      mark(check("Календар: день дзеркалить страви, калорії і коридор плану",
+        !!entry14 && entry14.meals.lunch.id === planA.days[0].meals.lunch.id &&
+        entry14.calories === planA.days[0].calories &&
+        entry14.target === planA.params.targetCalories &&
+        entry14.corridor === planA.usedCorridor));
+
+      const altLunch14 = MealStore.filterByType("lunch").find((m) => m.id !== planA.days[0].meals.lunch.id);
+      WeekStore.replaceMeal(0, "lunch", altLunch14);
+      mark(check("Календар: ручна заміна страви в плані синхронізує день",
+        cal.getDay(key14(0)).meals.lunch.id === altLunch14.id));
+
+      // Новіший план (з дня +2) перекриває лише свої дати — решта лишається історією.
+      const genB14 = WeekGenerator.generateWeek(MealStore.getAll(), G);
+      if (genB14.ok) {
+        cal.recordPlan({
+          generatedAt: cal.addDays(today14, 2).toISOString(),
+          params: genB14.params, usedCorridor: genB14.usedCorridor,
+          sources: genB14.sources, warnings: genB14.warnings, days: genB14.days,
+        });
+      }
+      mark(check("Календар: новіший план перекриває лише свої дати (історія ціла)",
+        genB14.ok === true &&
+        cal.getDay(key14(0)).meals.lunch.id === altLunch14.id &&
+        cal.getDay(key14(2)).meals.dinner.id === genB14.days[0].meals.dinner.id &&
+        cal.getDay(key14(8)).meals.breakfast.id === genB14.days[6].meals.breakfast.id));
+
+      mark(check("Календар: наступний вільний тиждень — після останнього дня",
+        cal.dateKey(cal.nextFreeStart()) === key14(9)));
+
+      const ahead14 = cal.generateAhead();
+      mark(check("Генерація наперед: майбутній тиждень у календарі, активний план не змінено",
+        ahead14.ok === true && ahead14.start === key14(9) &&
+        !!cal.getDay(key14(9)) && !!cal.getDay(key14(15)) && !cal.getDay(key14(16)) &&
+        WeekStore.get().generatedAt === planA.generatedAt));
+
+      // Без жодного плану генерація наперед починає з сьогодні і стає активним планом.
+      CalendarStore.clear();
+      WeekStore.clear();
+      const fresh14 = cal.generateAhead();
+      const freshPlan14 = WeekStore.get();
+      mark(check("Генерація наперед без планів: тиждень від сьогодні став активним планом",
+        fresh14.ok === true && fresh14.start === key14(0) && !!freshPlan14 &&
+        WeekScreen.todayIndex(freshPlan14) === 0 && !!cal.getDay(key14(6))));
+
+      // Екран «Календар»: сітка, вибір дня, навігація, генерація з кнопки.
+      CalendarScreen.goToday();
+      const calBox = document.getElementById("calendar-content");
+      const cellByKey = (key) => calBox.querySelector('.cal-day[data-key="' + key + '"]');
+      const dayPanel = () => document.getElementById("cal-day-panel");
+      mark(check("Екран «Календар»: сітка з 7 днів, сьогодні позначено і вибрано",
+        calBox.querySelectorAll("#cal-grid .cal-day").length === 7 &&
+        cellByKey(key14(0)).classList.contains("today") &&
+        cellByKey(key14(0)).classList.contains("selected")));
+
+      // Завтра може належати наступному тижню сітки — тоді спершу гортаємо вперед.
+      if (!cellByKey(key14(1))) document.getElementById("cal-next").click();
+      cellByKey(key14(1)).click();
+      mark(check("Клік дня: видно його прийоми їжі та калорійність",
+        cellByKey(key14(1)).classList.contains("selected") &&
+        dayPanel().querySelectorAll(".slot-row").length === 4 &&
+        dayPanel().textContent.indexOf(freshPlan14.days[1].meals.dinner.name) >= 0 &&
+        dayPanel().textContent.indexOf(freshPlan14.days[1].calories.toLocaleString("uk-UA")) >= 0));
+
+      CalendarScreen.goToday();
+      const range0 = document.getElementById("cal-range").textContent;
+      document.getElementById("cal-next").click();
+      const range1 = document.getElementById("cal-range").textContent;
+      document.getElementById("cal-prev").click();
+      mark(check("Навігація: підпис тижня змінюється і повертається",
+        range1 !== range0 && document.getElementById("cal-range").textContent === range0));
+
+      document.getElementById("cal-next").click();
+      document.getElementById("cal-next").click();
+      const backBtn14 = document.getElementById("cal-today-btn");
+      if (backBtn14) backBtn14.click();
+      mark(check("Кнопка «Сьогодні»: поза поточним тижнем є і повертає до нього",
+        !!backBtn14 && !!cellByKey(key14(0)) && !document.getElementById("cal-today-btn")));
+
+      document.getElementById("cal-prev").click();
+      cellByKey(key14(-7)).click();
+      mark(check("Порожній день: «На цей день плану немає»",
+        dayPanel().textContent.indexOf("На цей день плану немає") >= 0));
+
+      document.getElementById("cal-ahead-btn").click();
+      mark(check("Кнопка «наперед»: тиждень +7…+13 у календарі, вид перейшов на нього",
+        !!cal.getDay(key14(7)) && !!cal.getDay(key14(13)) &&
+        !!cellByKey(key14(7)) && cellByKey(key14(7)).classList.contains("selected") &&
+        dayPanel().querySelectorAll(".slot-row").length === 4));
+
+      // Порожній пул страв → зрозуміла помилка, показана на екрані.
+      MealStore.clear();
+      document.getElementById("cal-ahead-btn").click();
+      mark(check("Генерація наперед без страв: помилка з поясненням на екрані",
+        calBox.textContent.indexOf("Недостатньо страв у пулі") >= 0));
+    }
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -2288,11 +2776,14 @@ switchTab(AppState.get("activeTab"));
     else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
     if (WEEK_SNAPSHOT === null) localStorage.removeItem("meridian.week.v1");
     else localStorage.setItem("meridian.week.v1", WEEK_SNAPSHOT);
+    if (CAL_SNAPSHOT === null) localStorage.removeItem("meridian.calendar.v1");
+    else localStorage.setItem("meridian.calendar.v1", CAL_SNAPSHOT);
     AppState.set("mealWindows", WINDOWS_SNAPSHOT);
     // Прибрати тестовий діалог і повернути екрани до реальних даних.
     SwapDialog.close();
     WeekScreen.render();
     TodayCard.render();
+    CalendarScreen.goToday();
   }
 
   const outEl = document.getElementById("selftest-out");
