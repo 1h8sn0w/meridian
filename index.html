@@ -173,6 +173,21 @@
     color-scheme: dark;
   }
 
+  /* --- Екран «Тиждень» (MER-13) --- */
+  .week-meta { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 8px 0 0; }
+  .week-warn { color: var(--warn); font-size: 13px; line-height: 1.5; margin: 8px 0 0; }
+  .day-card.today { border-color: var(--accent); }
+  .day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .day-title { font-size: 14.5px; font-weight: 600; }
+  .day-kcal { color: var(--ok); font-size: 13px; white-space: nowrap; }
+  .day-kcal.out { color: var(--warn); }
+  .slot-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .slot-row:last-child { border-bottom: none; padding-bottom: 2px; }
+  .slot-row .slot-type { flex: none; width: 74px; color: var(--muted); font-size: 12px; }
+  .slot-row .slot-name { flex: 1; font-size: 14px; }
+  .slot-row .slot-kcal { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .tag.accent { color: var(--accent); border-color: var(--accent); }
+
   /* --- Нижній таб-бар --- */
   nav {
     position: fixed;
@@ -249,12 +264,9 @@
     </div>
   </section>
 
-  <!-- Екран «Тиждень» -->
+  <!-- Екран «Тиждень» (MER-13): вміст будує WeekScreen -->
   <section class="screen" id="screen-week">
-    <div class="panel">
-      <h2>План тижня</h2>
-      <p class="hint">Генератор тижня вже працює (MER-10) — екран із планом на 7 днів і кнопкою «Перегенерувати» з'явиться в задачі MER-13.</p>
-    </div>
+    <div id="week-content"></div>
   </section>
 
   <!-- Екран «Страви» -->
@@ -513,7 +525,7 @@ const AppState = (function () {
  * ========================================================================== */
 const TABS = [
   { id: "today", label: "Сьогодні", icon: "☀️", subtitle: () => todaySubtitle() },
-  { id: "week",  label: "Тиждень",  icon: "📅", subtitle: () => "План на 7 днів" },
+  { id: "week",  label: "Тиждень",  icon: "📅", subtitle: () => weekSubtitle() },
   { id: "meals", label: "Страви",   icon: "🍽️", subtitle: () => mealsSubtitle() },
 ];
 
@@ -538,6 +550,13 @@ function mealsSubtitle() {
     : "Пул страв порожній";
 }
 
+function weekSubtitle() {
+  const plan = WeekStore.get();
+  return plan
+    ? "Ціль " + plan.params.targetCalories + " ± " + plan.usedCorridor + " ккал/день"
+    : "План на 7 днів";
+}
+
 /** Перемкнути активний екран, підсвітити вкладку й запам'ятати вибір. */
 function switchTab(tabId) {
   const tab = TABS.find((t) => t.id === tabId) || TABS[0];
@@ -554,6 +573,7 @@ function switchTab(tabId) {
 
   if (tab.id === "meals") MealsScreen.render();
   if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); }
+  if (tab.id === "week") WeekScreen.render();
 
   AppState.set("activeTab", tab.id);
 }
@@ -1340,8 +1360,169 @@ const WeekStore = (function () {
   return { get, save, clear };
 })();
 
+/* ============================================================================
+ * MER-13 — Екран «Тиждень»: план на 7 днів + кнопка «Перегенерувати».
+ * ----------------------------------------------------------------------------
+ * Показує збережений план (WeekStore) картками днів: у кожній — слоти зі
+ * стравами й денна сума калорій. Сьогоднішній день підсвічено (день 1 плану —
+ * дата генерації); видно, чи день у межах коридору. «Перегенерувати тиждень»
+ * збирає новий набір тими самими параметрами; при невдачі старий план
+ * лишається, а помилка генератора показується над кнопкою.
+ * Ручна заміна окремої страви в слоті — окрема задача MER-12.
+ * ========================================================================== */
+const WeekScreen = (function () {
+  /* Порядок слотів у картці дня — хронологічний, як вікна годинника (MER-9). */
+  const SLOT_ORDER = ["breakfast", "lunch", "snack", "dinner"];
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  let lastError = null; // помилка останньої невдалої генерації (для показу)
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  /* День 1 плану — північ дати генерації. */
+  function planStart(plan) {
+    const d = new Date(plan.generatedAt);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /* Індекс сьогодні у плані (0-based) або -1, якщо сьогодні поза планом. */
+  function todayIndex(plan) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const i = Math.round((today - planStart(plan)) / DAY_MS);
+    return i >= 0 && i < plan.days.length ? i : -1;
+  }
+
+  function fmtDayTitle(date) {
+    const s = date.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "short" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function fmtKcal(n) {
+    return n.toLocaleString("uk-UA") + " ккал";
+  }
+
+  /**
+   * Згенерувати новий тиждень (параметрами збереженого плану або типовими)
+   * і зберегти. При невдачі старий план не чіпається. Повертає результат
+   * генератора.
+   */
+  function regenerate() {
+    const plan = WeekStore.get();
+    const params = plan ? plan.params : WeekGenerator.DEFAULTS;
+    const res = WeekGenerator.generateWeek(MealStore.getAll(), params);
+    if (res.ok) {
+      WeekStore.save(res);
+      lastError = null;
+    } else {
+      lastError = res.error;
+    }
+    render();
+    return res;
+  }
+
+  /** Перемалювати екран «Тиждень» за збереженим планом. */
+  function render() {
+    const box = document.getElementById("week-content");
+    box.innerHTML = "";
+    const plan = WeekStore.get();
+
+    // Верхня панель: кнопка генерації + підсумки плану.
+    const top = el("div", "panel");
+    const btn = el("button", "btn primary block", plan ? "Перегенерувати тиждень" : "Згенерувати тиждень");
+    btn.id = "week-generate-btn";
+    btn.addEventListener("click", regenerate);
+    top.appendChild(btn);
+
+    if (lastError) top.appendChild(el("p", "week-warn", lastError));
+
+    if (!plan) {
+      top.appendChild(el("p", "hint",
+        "Плану ще немає. Натисніть кнопку — генератор збере тиждень із пулу страв за правилами дієтолога: " +
+        "тип слота, коридор калорій, антиповтор і мікс планів."));
+      box.appendChild(top);
+      renderSubtitle();
+      return;
+    }
+
+    const total = plan.days.reduce((acc, d) => acc + d.calories, 0);
+    top.appendChild(el("p", "week-meta",
+      "Разом за тиждень: " + fmtKcal(total) +
+      " · у середньому " + fmtKcal(Math.round(total / plan.days.length)) + "/день. " +
+      "Ціль " + plan.params.targetCalories + " ± " + plan.usedCorridor + " ккал." +
+      (plan.sources.length ? " Джерела: " + plan.sources.join(", ") + "." : "")));
+
+    const genAt = new Date(plan.generatedAt);
+    top.appendChild(el("p", "week-meta",
+      "Згенеровано " + genAt.toLocaleDateString("uk-UA", { day: "numeric", month: "long" }) +
+      " о " + genAt.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) + "."));
+
+    (plan.warnings || []).forEach((w) => top.appendChild(el("p", "week-warn", w)));
+
+    const tIdx = todayIndex(plan);
+    if (tIdx === -1) {
+      top.appendChild(el("p", "week-warn", "Сьогодні поза періодом цього плану — перегенеруйте тиждень."));
+    }
+    box.appendChild(top);
+
+    // Картки днів.
+    const start = planStart(plan);
+    plan.days.forEach((day, i) => {
+      const date = new Date(start.getTime() + i * DAY_MS);
+      const isToday = i === tIdx;
+      const card = el("div", "panel day-card" + (isToday ? " today" : ""));
+
+      const head = el("div", "day-head");
+      const title = el("div", "day-title", fmtDayTitle(date));
+      if (isToday) {
+        title.appendChild(document.createTextNode(" "));
+        title.appendChild(el("span", "tag accent", "сьогодні"));
+      }
+      const within = Math.abs(day.calories - plan.params.targetCalories) <= plan.usedCorridor;
+      const kcal = el("div", "day-kcal" + (within ? "" : " out"),
+        fmtKcal(day.calories) + (within ? "" : " · поза коридором"));
+      head.appendChild(title);
+      head.appendChild(kcal);
+      card.appendChild(head);
+
+      SLOT_ORDER.forEach((t) => {
+        const meal = day.meals[t];
+        if (!meal) return;
+        const row = el("div", "slot-row");
+        row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
+        row.appendChild(el("span", "slot-name", meal.name));
+        row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
+        card.appendChild(row);
+      });
+
+      box.appendChild(card);
+    });
+
+    const hint = el("div", "panel");
+    hint.appendChild(el("p", "hint", "Заміна окремої страви прямо з цього екрана з'явиться в задачі MER-12."));
+    box.appendChild(hint);
+
+    renderSubtitle();
+  }
+
+  /** Оновити підзаголовок шапки, якщо відкритий екран «Тиждень». */
+  function renderSubtitle() {
+    if (AppState.get("activeTab") === "week") {
+      document.getElementById("screen-subtitle").textContent = weekSubtitle();
+    }
+  }
+
+  return { render, regenerate };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -1502,6 +1683,40 @@ switchTab(AppState.get("activeTab"));
         !!loaded && loaded.days.length === 7 && loaded.generatedAt === savedPlan.generatedAt));
     }
 
+    // 11. MER-13: екран «Тиждень» — порожній стан, рендер плану, перегенерація.
+    WeekStore.clear();
+    WeekScreen.render();
+    const weekBox = document.getElementById("week-content");
+    mark(check("Екран «Тиждень»: порожній стан із кнопкою генерації",
+      weekBox.querySelectorAll(".day-card").length === 0 &&
+      document.getElementById("week-generate-btn").textContent === "Згенерувати тиждень"));
+
+    if (res.ok) {
+      WeekStore.save(res);
+      WeekScreen.render();
+      const cards = weekBox.querySelectorAll(".day-card");
+      mark(check("Екран «Тиждень»: 7 карток днів", cards.length === 7));
+      mark(check("Екран «Тиждень»: у кожному дні 4 слоти зі стравами",
+        Array.prototype.every.call(cards, (c) => c.querySelectorAll(".slot-row").length === 4)));
+      mark(check("Екран «Тиждень»: сьогодні підсвічено",
+        weekBox.querySelectorAll(".day-card.today").length === 1));
+
+      const weekTotal = res.days.reduce((a, d) => a + d.calories, 0);
+      const metaText = weekBox.querySelector(".week-meta").textContent;
+      mark(check("Екран «Тиждень»: видно суму за тиждень і за день",
+        metaText.indexOf(weekTotal.toLocaleString("uk-UA")) >= 0 &&
+        cards[0].querySelector(".day-kcal") !== null, metaText));
+
+      // Кнопка «Перегенерувати»: новий валідний тиждень (на демо-пулі у сховищі).
+      DemoPool.seed();
+      const regen = WeekScreen.regenerate();
+      const regenSaved = WeekStore.get();
+      mark(check("«Перегенерувати»: новий тиждень зібрано і збережено",
+        regen.ok === true && !!regenSaved && regenSaved.days.length === 7 &&
+        weekBox.querySelectorAll(".day-card").length === 7,
+        regen.ok ? "" : regen.error));
+    }
+
     // Брак страв → зрозуміле повідомлення, а не виняток.
     const noLunch = WeekGenerator.generateWeek(genPool.filter((m) => m.type !== "lunch"), G);
     mark(check("Брак страв: помилка з поясненням",
@@ -1529,6 +1744,8 @@ switchTab(AppState.get("activeTab"));
     else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
     if (WEEK_SNAPSHOT === null) localStorage.removeItem("meridian.week.v1");
     else localStorage.setItem("meridian.week.v1", WEEK_SNAPSHOT);
+    // Повернути екран «Тиждень» до реальних даних після тестових рендерів.
+    WeekScreen.render();
   }
 
   const el = document.getElementById("selftest-out");
