@@ -245,7 +245,7 @@
 
     <div class="panel">
       <h2>Поточна страва</h2>
-      <p class="hint">Картка активної страви з'явиться тут після генератора (задачі MER-10, MER-11).</p>
+      <p class="hint">Генератор тижня вже працює (MER-10) — картка активної страви з'явиться тут у задачі MER-11.</p>
     </div>
   </section>
 
@@ -253,7 +253,7 @@
   <section class="screen" id="screen-week">
     <div class="panel">
       <h2>План тижня</h2>
-      <p class="hint">Тут буде згенерований план на 7 днів із денною калорійністю та кнопкою «Перегенерувати» (задачі MER-10, MER-11).</p>
+      <p class="hint">Генератор тижня вже працює (MER-10) — екран із планом на 7 днів і кнопкою «Перегенерувати» з'явиться в задачі MER-13.</p>
     </div>
   </section>
 
@@ -471,8 +471,8 @@ const MealStore = (function () {
  * MER-5 — AppState: єдина точка стану застосунку.
  * ----------------------------------------------------------------------------
  * Дрібний UI-стан (активна вкладка тощо) тримається одним об'єктом у
- * localStorage і переживає перезавантаження. Пул страв живе окремо у MealStore;
- * згенеровані плани тижня додадуться сюди у MER-10.
+ * localStorage і переживає перезавантаження. Пул страв живе окремо у MealStore,
+ * поточний план тижня — у WeekStore (MER-10).
  * ========================================================================== */
 const AppState = (function () {
   const KEY = "meridian.app.v1";
@@ -1096,8 +1096,252 @@ const DemoPool = (function () {
   return { DEMO_MEALS, seed, seedIfFirstRun };
 })();
 
+/* ============================================================================
+ * MER-10 — Генератор тижня (ядро продукту).
+ * ----------------------------------------------------------------------------
+ * Збирає план на 7 днів із пулу страв: по одній страві на кожен слот дня так,
+ * щоб виконувались чотири правила дієтолога:
+ *
+ *   1. Тип збігався — сніданок лише на сніданок і т.д.
+ *   2. Калорійність дня трималась у коридорі від цілі (типово ±100 ккал).
+ *   3. Антиповтор — страва не частіше, ніж раз на N днів (N налаштовується).
+ *   4. Мікс планів — тиждень поєднує страви з різних джерел, а не копіює одне.
+ *
+ * Підхід: жадібно-переборний із випадковістю (див. AGENTS.md). День збирається
+ * перебором з поверненням по слотах (кандидати перетасовано — звідси
+ * різноманіття між запусками); якщо тиждень не складається — коридор
+ * поступово послаблюється, і про це повідомляється у warnings.
+ * ========================================================================== */
+const WeekGenerator = (function () {
+  /* Параметри за замовчуванням. Ціль і коридор — у ккал. */
+  const DEFAULTS = Object.freeze({
+    targetCalories: 2000, // ціль дієтолога на день
+    corridor: 100,        // допустиме відхилення дня: ±100 ккал
+    antiRepeatDays: 3,    // страва не частіше, ніж раз на 3 дні
+    days: 7,
+  });
+
+  const CORRIDOR_STEP = 50; // крок послаблення коридору
+  const CORRIDOR_MAX = 500; // далі не послаблюємо — чесно повідомляємо про невдачу
+  const WEEK_TRIES = 25;    // спроб зібрати тиждень на кожному рівні коридору
+
+  /* Перетасована копія масиву (Фішер–Єйтс) — джерело випадковості генератора. */
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  /**
+   * Зібрати один день: по страві на слот, сума калорій у [minSum, maxSum],
+   * без страв із bannedIds (антиповтор). Перебір з поверненням по слотах —
+   * вужчі (з меншим вибором) першими; гілки без шансів на суму відсікаються
+   * за мінімально/максимально можливим залишком. Повертає {type: страва}
+   * або null, якщо валідної комбінації не існує.
+   */
+  function pickDay(byType, bannedIds, minSum, maxSum) {
+    const slots = MEAL_TYPES.map((type) => ({
+      type,
+      candidates: shuffle(byType[type].filter((m) => !bannedIds.has(m.id))),
+    }));
+    if (slots.some((s) => s.candidates.length === 0)) return null;
+    slots.sort((a, b) => a.candidates.length - b.candidates.length);
+
+    // Межі суми калорій слотів i..кінець — для відсікання гілок.
+    const minRest = new Array(slots.length + 1).fill(0);
+    const maxRest = new Array(slots.length + 1).fill(0);
+    for (let i = slots.length - 1; i >= 0; i--) {
+      const cals = slots[i].candidates.map((m) => m.calories);
+      minRest[i] = minRest[i + 1] + Math.min.apply(null, cals);
+      maxRest[i] = maxRest[i + 1] + Math.max.apply(null, cals);
+    }
+
+    const chosen = {};
+    function dfs(i, sum) {
+      if (i === slots.length) return sum >= minSum && sum <= maxSum;
+      for (const meal of slots[i].candidates) {
+        const s = sum + meal.calories;
+        if (s + minRest[i + 1] > maxSum) continue; // вже забагато
+        if (s + maxRest[i + 1] < minSum) continue; // вже не доберемо
+        chosen[slots[i].type] = meal;
+        if (dfs(i + 1, s)) return true;
+      }
+      return false;
+    }
+    return dfs(0, 0) ? chosen : null;
+  }
+
+  /**
+   * Одна спроба зібрати тиждень день за днем. Антиповтор: для дня d заборонені
+   * страви днів d-1 … d-(N-1). Повертає масив днів або null.
+   */
+  function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum) {
+    const week = [];
+    for (let d = 0; d < days; d++) {
+      const banned = new Set();
+      for (let b = Math.max(0, d - antiRepeatDays + 1); b < d; b++) {
+        MEAL_TYPES.forEach((t) => banned.add(week[b].meals[t].id));
+      }
+      const meals = pickDay(byType, banned, minSum, maxSum);
+      if (!meals) return null;
+      week.push({
+        meals,
+        calories: MEAL_TYPES.reduce((acc, t) => acc + meals[t].calories, 0),
+      });
+    }
+    return week;
+  }
+
+  /* Джерела (плани), використані в зібраному тижні. Порожні не рахуємо. */
+  function weekSources(week) {
+    const s = new Set();
+    week.forEach((d) => MEAL_TYPES.forEach((t) => {
+      if (d.meals[t].source) s.add(d.meals[t].source);
+    }));
+    return s;
+  }
+
+  /**
+   * Згенерувати тиждень із пулу страв.
+   *
+   * @param pool    масив страв (типово — MealStore.getAll()).
+   * @param options {targetCalories, corridor, antiRepeatDays, days} поверх DEFAULTS.
+   * @returns {ok:true, days:[{meals:{type:страва}, calories}], params,
+   *           usedCorridor, sources, warnings} або {ok:false, error} зі
+   *           зрозумілим українським поясненням.
+   */
+  function generateWeek(pool, options) {
+    const p = Object.assign({}, DEFAULTS, options || {});
+    const target = Number(p.targetCalories);
+    if (!Number.isFinite(target) || target <= 0) {
+      return { ok: false, error: "Цільова калорійність дня має бути додатним числом." };
+    }
+    const days = Math.max(1, Math.floor(Number(p.days)) || DEFAULTS.days);
+    const corridor = Math.max(0, Number.isFinite(Number(p.corridor)) ? Number(p.corridor) : DEFAULTS.corridor);
+    // Антиповтор понад довжину тижня еквівалентний «без повторів узагалі».
+    const n = Math.min(Math.max(1, Math.floor(Number(p.antiRepeatDays)) || 1), days);
+    const meals = Array.isArray(pool) ? pool : MealStore.getAll();
+
+    // Достатність пулу: вікно антиповтору вимагає щонайменше n страв кожного типу.
+    const byType = {};
+    const shortage = [];
+    MEAL_TYPES.forEach((t) => {
+      byType[t] = meals.filter((m) => m.type === t);
+      if (byType[t].length < n) {
+        shortage.push(MEAL_TYPE_LABELS[t] + " — " + byType[t].length + " (потрібно ≥ " + n + ")");
+      }
+    });
+    if (shortage.length) {
+      return {
+        ok: false,
+        error: "Недостатньо страв у пулі. Правило «не частіше, ніж раз на " + n +
+          " дн.» вимагає щонайменше " + n + " страв кожного типу, а зараз: " +
+          shortage.join("; ") + ". Додайте страви на екрані «Страви» або зменшіть антиповтор.",
+      };
+    }
+
+    // Мікс можливий, лише коли в пулі більше одного джерела.
+    const poolSources = new Set(meals.map((m) => m.source || "").filter(Boolean));
+    const mixPossible = poolSources.size >= 2;
+
+    const params = { targetCalories: target, corridor, antiRepeatDays: n, days };
+    const finish = (week, usedCorridor, warnings) => ({
+      ok: true,
+      days: week,
+      params,
+      usedCorridor,
+      sources: Array.from(weekSources(week)).sort(),
+      warnings,
+    });
+
+    // Пробуємо з запитаним коридором; не виходить — послаблюємо крок за кроком.
+    let fallback = null; // валідний, але не зміксований тиждень — про запас
+    for (let c = corridor; c <= Math.max(CORRIDOR_MAX, corridor); c += CORRIDOR_STEP) {
+      for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
+        const week = tryBuildWeek(byType, days, n, target - c, target + c);
+        if (!week) continue;
+        if (mixPossible && weekSources(week).size < 2) {
+          if (!fallback) fallback = { week, usedCorridor: c };
+          continue; // мікс обов'язковий — пробуємо ще
+        }
+        const warnings = [];
+        if (c > corridor) {
+          warnings.push("Не вдалося втриматись у ±" + corridor + " ккал — коридор розширено до ±" + c + " ккал.");
+        }
+        if (!mixPossible) {
+          warnings.push("У пулі лише одне джерело (план) — мікс планів неможливий.");
+        }
+        return finish(week, c, warnings);
+      }
+    }
+    if (fallback) {
+      const warnings = ["Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела."];
+      if (fallback.usedCorridor > corridor) {
+        warnings.push("Коридор розширено до ±" + fallback.usedCorridor + " ккал.");
+      }
+      return finish(fallback.week, fallback.usedCorridor, warnings);
+    }
+    return {
+      ok: false,
+      error: "Не вдалося зібрати тиждень під " + target + " ккал/день навіть із коридором ±" +
+        CORRIDOR_MAX + " ккал. Змініть ціль або поповніть пул страв.",
+    };
+  }
+
+  return { DEFAULTS, generateWeek };
+})();
+
+/* ============================================================================
+ * MER-10 — WeekStore: поточний план тижня в localStorage.
+ * ----------------------------------------------------------------------------
+ * Зберігаємо знімок страв (не посилання на пул): якщо страву потім змінять
+ * чи видалять, збережений тиждень лишиться цілісним. Звідси читатимуть екран
+ * «Тиждень» (MER-13) і картка активної страви на головній (MER-11).
+ * ========================================================================== */
+const WeekStore = (function () {
+  const KEY = "meridian.week.v1";
+
+  /** Поточний збережений план або null. */
+  function get() {
+    try {
+      const plan = JSON.parse(localStorage.getItem(KEY) || "null");
+      return plan && typeof plan === "object" && Array.isArray(plan.days) ? plan : null;
+    } catch (e) {
+      console.warn("WeekStore: не вдалося прочитати план.", e);
+      return null;
+    }
+  }
+
+  /** Зберегти успішний результат generateWeek. Повертає збережений план. */
+  function save(result) {
+    if (!result || result.ok !== true) {
+      throw new Error("WeekStore.save очікує успішний результат генератора.");
+    }
+    const plan = {
+      generatedAt: new Date().toISOString(),
+      params: result.params,
+      usedCorridor: result.usedCorridor,
+      sources: result.sources,
+      warnings: result.warnings,
+      days: result.days,
+    };
+    localStorage.setItem(KEY, JSON.stringify(plan));
+    return plan;
+  }
+
+  /** Прибрати збережений план. */
+  function clear() {
+    localStorage.removeItem(KEY);
+  }
+
+  return { get, save, clear };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -1107,9 +1351,9 @@ renderTabBar();
 switchTab(AppState.get("activeTab"));
 
 /* ============================================================================
- * Самоперевірка MER-6 (запуск: відкрити index.html?selftest).
- * Робить знімок сховища страв перед тестами й відновлює його після — тести
- * не чіпають реальні дані користувача.
+ * Самоперевірка (запуск: відкрити index.html?selftest).
+ * Робить знімок сховищ (страви, план тижня) перед тестами й відновлює його
+ * після — тести не чіпають реальні дані користувача.
  * ========================================================================== */
 (function maybeRunSelfTest() {
   if (!new URLSearchParams(location.search).has("selftest")) return;
@@ -1123,7 +1367,9 @@ switchTab(AppState.get("activeTab"));
   let allOk = true;
   const mark = (ok) => { allOk = allOk && ok; };
 
-  const SNAPSHOT = localStorage.getItem("meridian.meals.v1"); // знімок реальних даних
+  // Знімок реальних даних — відновлюється у finally.
+  const SNAPSHOT = localStorage.getItem("meridian.meals.v1");
+  const WEEK_SNAPSHOT = localStorage.getItem("meridian.week.v1");
 
   try {
     MealStore.clear();
@@ -1208,6 +1454,72 @@ switchTab(AppState.get("activeTab"));
       MealStore.getById(tmp.id).name === "Тимчасова (оновлена)" && MealStore.getById(tmp.id).calories === 150));
     mark(check("Страва видаляється", MealStore.remove(tmp.id) === true && MealStore.getById(tmp.id) === null));
 
+    // 10. MER-10: генератор тижня — критерії готовності на демо-пулі.
+    const genPool = DemoPool.DEMO_MEALS.map((m) => createMeal(m));
+    const G = { targetCalories: 2000, corridor: 100, antiRepeatDays: 3 };
+    const res = WeekGenerator.generateWeek(genPool, G);
+    mark(check("Генератор: тиждень зібрано", res.ok === true && res.days.length === 7,
+      res.ok ? "7 днів" : res.error));
+
+    if (res.ok) {
+      mark(check("Правило 1: тип страви збігається зі слотом",
+        res.days.every((d) => MEAL_TYPES.every((t) => d.meals[t] && d.meals[t].type === t))));
+
+      const sums = res.days.map((d) => d.calories);
+      mark(check("Правило 2: калорії кожного дня в коридорі",
+        res.days.every((d) =>
+          Math.abs(d.calories - G.targetCalories) <= res.usedCorridor &&
+          d.calories === MEAL_TYPES.reduce((a, t) => a + d.meals[t].calories, 0)),
+        sums.join(", ") + " ккал"));
+      mark(check("Коридор ±100 витримано без послаблення",
+        res.usedCorridor === G.corridor && res.warnings.length === 0));
+
+      let repeatOk = true;
+      for (let d = 0; d < res.days.length; d++) {
+        for (let b = Math.max(0, d - G.antiRepeatDays + 1); b < d; b++) {
+          for (const t of MEAL_TYPES) {
+            if (res.days[d].meals[t].id === res.days[b].meals[t].id) repeatOk = false;
+          }
+        }
+      }
+      mark(check("Правило 3: без повторів частіше, ніж раз на " + G.antiRepeatDays + " дні", repeatOk));
+      mark(check("Правило 4: мікс щонайменше двох планів", res.sources.length >= 2,
+        res.sources.join(" / ")));
+
+      // Повторний запуск — інший валідний тиждень (працює міксування).
+      const sig = (r) => r.days.map((d) => MEAL_TYPES.map((t) => d.meals[t].id).join("+")).join("|");
+      let different = false;
+      for (let i = 0; i < 5 && !different; i++) {
+        const again = WeekGenerator.generateWeek(genPool, G);
+        different = again.ok && sig(again) !== sig(res);
+      }
+      mark(check("Повторна генерація дає інший тиждень", different));
+
+      // WeekStore: план зберігається і читається назад.
+      const savedPlan = WeekStore.save(res);
+      const loaded = WeekStore.get();
+      mark(check("WeekStore: план зберігається і читається",
+        !!loaded && loaded.days.length === 7 && loaded.generatedAt === savedPlan.generatedAt));
+    }
+
+    // Брак страв → зрозуміле повідомлення, а не виняток.
+    const noLunch = WeekGenerator.generateWeek(genPool.filter((m) => m.type !== "lunch"), G);
+    mark(check("Брак страв: помилка з поясненням",
+      noLunch.ok === false && noLunch.error.indexOf("Обід") >= 0, noLunch.error));
+
+    // Недосяжний коридор → послаблення з попередженням.
+    // Пул, де сума дня завжди 1300 ккал: ціль 1500 ±100 недосяжна, ±200 — так.
+    const rigidPool = [];
+    [["breakfast", 300], ["lunch", 400], ["dinner", 400], ["snack", 200]].forEach((pair) => {
+      for (let i = 1; i <= 3; i++) {
+        rigidPool.push(createMeal({ name: pair[0] + " " + i, type: pair[0], calories: pair[1], source: "План №" + ((i % 2) + 1) }));
+      }
+    });
+    const relaxed = WeekGenerator.generateWeek(rigidPool, { targetCalories: 1500, corridor: 100, antiRepeatDays: 1 });
+    mark(check("Коридор послаблюється з попередженням",
+      relaxed.ok === true && relaxed.usedCorridor === 200 && relaxed.warnings.length > 0,
+      relaxed.ok ? relaxed.warnings.join(" ") : relaxed.error));
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -1215,6 +1527,8 @@ switchTab(AppState.get("activeTab"));
     // Відновити реальні дані користувача.
     if (SNAPSHOT === null) localStorage.removeItem("meridian.meals.v1");
     else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
+    if (WEEK_SNAPSHOT === null) localStorage.removeItem("meridian.week.v1");
+    else localStorage.setItem("meridian.week.v1", WEEK_SNAPSHOT);
   }
 
   const el = document.getElementById("selftest-out");
