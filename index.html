@@ -233,10 +233,25 @@
   .day-after.ok { color: var(--ok); }
   .day-after.out { color: var(--warn); }
 
-  /* Поточна страва на головній (мінімум для MER-12; повна картка — MER-11) */
+  /* Картка активної страви на головній (MER-11; мінімум і заміна — MER-12) */
   .today-slot { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
-  .today-total { font-size: 13px; color: var(--ok); margin: 8px 0 12px; }
+  .today-total { font-size: 13px; color: var(--ok); margin: 10px 0 12px; }
   .today-total.out { color: var(--warn); }
+  .today-macros { display: flex; gap: 8px; margin: 10px 0 0; }
+  .today-macros .macro {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 8px;
+    text-align: center;
+  }
+  .today-macros .macro-label { color: var(--muted); font-size: 11.5px; }
+  .today-macros .macro-value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .today-sec { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+  .today-ingredients { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; }
+  .today-ingredients li { margin: 1px 0; }
+  .today-note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
   /* --- Нижній таб-бар --- */
   nav {
@@ -310,9 +325,8 @@
 
     <div class="panel">
       <h2>Поточна страва</h2>
-      <!-- Мінімальна картка прийому з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
+      <!-- Картка активного прийому (MER-11) з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
       <div id="today-meal"></div>
-      <p class="hint">Повна картка страви (БЖВ, інгредієнти, джерело) з'явиться в задачі MER-11.</p>
     </div>
   </section>
 
@@ -1795,12 +1809,13 @@ const SwapDialog = (function () {
 })();
 
 /* ============================================================================
- * MER-12 — «Поточна страва» на головній: що готувати зараз + заміна.
+ * MER-11 — картка активної страви на головній (мінімум і заміна — MER-12).
  * ----------------------------------------------------------------------------
- * Мінімальна картка: активний (або найближчий наступний) прийом за годинником
- * (MER-9), страва з відповідного дня плану (WeekStore), денна калорійність і
- * кнопка «Замінити страву» — та сама логіка заміни, що й на екрані «Тиждень».
- * Повна картка з БЖВ та інгредієнтами — задача MER-11.
+ * Активний (або найближчий наступний) прийом за годинником (MER-9), страва з
+ * відповідного дня плану (WeekStore): назва, калорійність, БЖВ, джерело,
+ * список інгредієнтів, денна калорійність і кнопка «Замінити страву» — та сама
+ * логіка заміни, що й на екрані «Тиждень». План — знімок страв, тому БЖВ та
+ * інгредієнти беруться зі збереженого дня, а не з пулу.
  * ========================================================================== */
 const TodayCard = (function () {
   /** Перемалювати картку. now — для тестів; типово поточний час. */
@@ -1859,6 +1874,31 @@ const TodayCard = (function () {
     row.appendChild(left);
     row.appendChild(el("div", "kcal", meal.calories + " ккал"));
     box.appendChild(row);
+
+    // БЖВ страви: три плитки; відсутні значення — «—» (у моделі вони необов'язкові).
+    if (meal.protein != null || meal.fat != null || meal.carbs != null) {
+      const macros = el("div", "today-macros");
+      [["Білки", meal.protein], ["Жири", meal.fat], ["Вуглеводи", meal.carbs]].forEach((pair) => {
+        const cell = el("div", "macro");
+        cell.appendChild(el("div", "macro-label", pair[0]));
+        cell.appendChild(el("div", "macro-value",
+          pair[1] == null ? "—" : pair[1].toLocaleString("uk-UA") + " г"));
+        macros.appendChild(cell);
+      });
+      box.appendChild(macros);
+    } else {
+      box.appendChild(el("p", "today-note", "БЖВ не вказано."));
+    }
+
+    // Список інгредієнтів.
+    if (meal.ingredients && meal.ingredients.length) {
+      box.appendChild(el("p", "today-sec", "Інгредієнти"));
+      const ul = el("ul", "today-ingredients");
+      meal.ingredients.forEach((s) => ul.appendChild(el("li", null, s)));
+      box.appendChild(ul);
+    } else {
+      box.appendChild(el("p", "today-note", "Інгредієнти не вказані."));
+    }
 
     // Критерій MER-12: після заміни денна калорійність перераховується й показується.
     const within = Math.abs(day.calories - plan.params.targetCalories) <= plan.usedCorridor;
@@ -2173,6 +2213,52 @@ switchTab(AppState.get("activeTab"));
       mark(check("Головна: вночі показано наступний прийом (сніданок завтра)",
         todayBox12.textContent.indexOf("Далі: Сніданок") >= 0 &&
         todayBox12.textContent.indexOf(planT12.days[1].meals.breakfast.name) >= 0));
+
+      // 13. MER-11: повна картка активної страви — калорійність, БЖВ, джерело, інгредієнти.
+      TodayCard.render(noon12);
+      const lunch11 = WeekStore.get().days[0].meals.lunch;
+      const items11 = todayBox12.querySelectorAll(".today-ingredients li");
+      mark(check("Картка: калорійність і джерело збігаються зі стравою плану",
+        todayBox12.querySelector(".meal-item .kcal").textContent === lunch11.calories + " ккал" &&
+        (!lunch11.source || todayBox12.textContent.indexOf(lunch11.source) >= 0)));
+      mark(check("Картка: список інгредієнтів збігається зі стравою плану",
+        lunch11.ingredients.length > 0 && items11.length === lunch11.ingredients.length &&
+        Array.prototype.every.call(items11, (li, k) => li.textContent === lunch11.ingredients[k]),
+        items11.length + " інгредієнтів"));
+      mark(check("Картка: страва без БЖВ (демо-пул) — «БЖВ не вказано»",
+        lunch11.protein == null && lunch11.fat == null && lunch11.carbs == null &&
+        todayBox12.textContent.indexOf("БЖВ не вказано") >= 0 &&
+        todayBox12.querySelectorAll(".today-macros").length === 0));
+
+      // Страва з повними БЖВ у слоті поточного прийому.
+      WeekStore.replaceMeal(0, "lunch", {
+        name: "Обід із БЖВ (тест MER-11)", type: "lunch", calories: lunch11.calories,
+        protein: 38, fat: 14.5, carbs: 60,
+        ingredients: ["гречка 80 г", "куряче філе 150 г", "олія 1 ст. л."], source: "План №2",
+      });
+      TodayCard.render(noon12);
+      const vals11 = Array.prototype.map.call(
+        todayBox12.querySelectorAll(".today-macros .macro-value"), (n) => n.textContent);
+      mark(check("Картка: показано саме страву з плану (заміна відобразилась)",
+        todayBox12.textContent.indexOf("Обід із БЖВ (тест MER-11)") >= 0));
+      mark(check("Картка: БЖВ показано трьома значеннями у грамах",
+        vals11.length === 3 && vals11[0] === "38 г" && vals11[1] === "14,5 г" && vals11[2] === "60 г",
+        vals11.join(" · ")));
+
+      // Часткові БЖВ і порожні інгредієнти — «—» та «не вказані».
+      WeekStore.replaceMeal(0, "lunch", {
+        name: "Обід із частковими БЖВ (тест MER-11)", type: "lunch",
+        calories: lunch11.calories, protein: 25, source: "План №1",
+      });
+      TodayCard.render(noon12);
+      const vals11b = Array.prototype.map.call(
+        todayBox12.querySelectorAll(".today-macros .macro-value"), (n) => n.textContent);
+      mark(check("Картка: часткові БЖВ — «—» для відсутніх значень",
+        vals11b.length === 3 && vals11b[0] === "25 г" && vals11b[1] === "—" && vals11b[2] === "—",
+        vals11b.join(" · ")));
+      mark(check("Картка: без інгредієнтів — «Інгредієнти не вказані»",
+        todayBox12.textContent.indexOf("Інгредієнти не вказані") >= 0 &&
+        todayBox12.querySelectorAll(".today-ingredients").length === 0));
     }
 
     // Брак страв → зрозуміле повідомлення, а не виняток.
