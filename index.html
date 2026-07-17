@@ -1223,6 +1223,220 @@ const DemoPool = (function () {
 })();
 
 /* ============================================================================
+ * MER-21 — Профілі: модель даних і сховище (підготовка до «Профіль на двох»).
+ * ----------------------------------------------------------------------------
+ * Профіль — це «для кого плануємо»: власна ціль калорійності дня, ширина
+ * коридору (±ккал), за потреби — цілі БЖВ і своя підмножина спільного пулу
+ * страв (mealIds; null = увесь пул). План тижня й календар ключуються за
+ * profileId (див. WeekStore/CalendarStore), тому плани профілів не змішуються;
+ * сам пул страв лишається спільним (meridian.meals.v1). Активний профіль
+ * зберігається тут-таки і переживає перезавантаження. Допрофільні дані
+ * переносить migrate() на старті. UI перемикання/редагування — MER-17;
+ * тут лише модель і API.
+ * ========================================================================== */
+
+/* Простий генератор id профілю — за аналогією з generateId для страв. */
+function generateProfileId() {
+  return "profile_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * Створити валідний профіль із «сирих» даних (за аналогією з createMeal).
+ * Кидає помилку з українським повідомленням, якщо дані некоректні.
+ * Повертає нормалізований об'єкт профілю.
+ */
+function createProfile(input) {
+  if (!input || typeof input !== "object") {
+    throw new Error("Дані профілю мають бути об'єктом.");
+  }
+
+  const name = String(input.name ?? "").trim();
+  if (!name) throw new Error("Ім'я профілю обов'язкове.");
+
+  const targetCalories = Number(input.targetCalories ?? WeekGenerator.DEFAULTS.targetCalories);
+  if (!Number.isFinite(targetCalories) || targetCalories <= 0) {
+    throw new Error("Цільова калорійність дня має бути додатним числом.");
+  }
+
+  const corridor = Number(input.corridor ?? WeekGenerator.DEFAULTS.corridor);
+  if (!Number.isFinite(corridor) || corridor < 0) {
+    throw new Error("Коридор калорійності має бути невід'ємним числом.");
+  }
+
+  /* Підмножина пулу: null — увесь спільний пул; масив id — лише ці страви. */
+  let mealIds = null;
+  if (Array.isArray(input.mealIds)) {
+    mealIds = input.mealIds.map((id) => String(id)).filter((id) => id.length > 0);
+  } else if (input.mealIds != null) {
+    throw new Error("Підмножина страв профілю (mealIds) має бути масивом id або null (увесь пул).");
+  }
+
+  const goals = input.goals && typeof input.goals === "object" ? input.goals : {};
+
+  return {
+    id: input.id ? String(input.id) : generateProfileId(),
+    name,
+    targetCalories,
+    corridor,
+    goals: {
+      protein: toOptionalNumber(goals.protein),
+      fat: toOptionalNumber(goals.fat),
+      carbs: toOptionalNumber(goals.carbs),
+    },
+    mealIds,
+  };
+}
+
+const ProfileStore = (function () {
+  const KEY = "meridian.profiles.v1";
+  const DEFAULT_ID = "default"; // стабільний id профілю за замовчуванням (міграція, ключі сховищ)
+
+  /* Профіль за замовчуванням; некоректні успадковані параметри не блокують створення. */
+  function defaultProfile(targetCalories, corridor) {
+    try {
+      return createProfile({ id: DEFAULT_ID, name: "Мій профіль", targetCalories, corridor });
+    } catch (e) {
+      return createProfile({ id: DEFAULT_ID, name: "Мій профіль" });
+    }
+  }
+
+  /* Читаємо щоразу зі сховища (без кешу в пам'яті) — щоб самоперевірка і кілька
+   * вкладок бачили актуальний стан. Стан самозцілюється: без жодного профілю
+   * повертається профіль за замовчуванням, битий activeId — перший профіль. */
+  function read() {
+    let state = null;
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (raw && typeof raw === "object" && Array.isArray(raw.profiles) && raw.profiles.length) {
+        state = raw;
+      }
+    } catch (e) {
+      console.warn("ProfileStore: не вдалося прочитати профілі, використовую типовий.", e);
+    }
+    if (!state) state = { profiles: [defaultProfile()], activeId: DEFAULT_ID };
+    if (!state.profiles.some((p) => p.id === state.activeId)) {
+      state.activeId = state.profiles[0].id;
+    }
+    return state;
+  }
+
+  function write(state) {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  /** Усі профілі. */
+  function getAll() {
+    return read().profiles;
+  }
+
+  /** Профіль за id або null. */
+  function getById(id) {
+    return read().profiles.find((p) => p.id === id) || null;
+  }
+
+  /** Зберегти профіль (створити або оновити за id). Повертає збережений профіль. */
+  function save(input) {
+    const profile = createProfile(input);
+    const state = read();
+    const i = state.profiles.findIndex((p) => p.id === profile.id);
+    if (i >= 0) state.profiles[i] = profile;
+    else state.profiles.push(profile);
+    write(state);
+    return profile;
+  }
+
+  /**
+   * Видалити профіль разом з його планами (тиждень + календар). Останній
+   * профіль видалити не можна; якщо видалено активний — активним стає перший
+   * із решти. Повертає true, якщо щось видалено.
+   */
+  function remove(id) {
+    const state = read();
+    if (!state.profiles.some((p) => p.id === id)) return false;
+    if (state.profiles.length === 1) {
+      throw new Error("Не можна видалити останній профіль.");
+    }
+    state.profiles = state.profiles.filter((p) => p.id !== id);
+    if (state.activeId === id) state.activeId = state.profiles[0].id;
+    write(state);
+    WeekStore.clear(id);
+    CalendarStore.clear(id);
+    return true;
+  }
+
+  /** Активний профіль (завжди існує — стан самозцілюється). */
+  function getActive() {
+    const state = read();
+    return state.profiles.find((p) => p.id === state.activeId);
+  }
+
+  /** id активного профілю — ним ключуються плани у WeekStore/CalendarStore. */
+  function getActiveId() {
+    return read().activeId;
+  }
+
+  /** Перемкнути активний профіль. Вибір зберігається й переживає перезавантаження. */
+  function setActive(id) {
+    const state = read();
+    if (!state.profiles.some((p) => p.id === id)) {
+      throw new Error("Профіль не знайдено: «" + id + "».");
+    }
+    state.activeId = id;
+    write(state);
+    return getById(id);
+  }
+
+  /**
+   * Пул страв, видимий профілю: власна підмножина спільного пулу (mealIds)
+   * або весь пул, якщо підмножини немає. Приймає профіль, його id або нічого
+   * (тоді — активний профіль).
+   */
+  function poolFor(profileOrId) {
+    const profile = profileOrId == null
+      ? getActive()
+      : (typeof profileOrId === "string" ? getById(profileOrId) : profileOrId);
+    const meals = MealStore.getAll();
+    if (!profile || !Array.isArray(profile.mealIds)) return meals;
+    const ids = new Set(profile.mealIds);
+    return meals.filter((m) => ids.has(m.id));
+  }
+
+  /* Перенести значення старого ключа на новий (не перекриваючи наявне) і прибрати старий. */
+  function moveLegacyKey(from, to) {
+    const value = localStorage.getItem(from);
+    if (value === null) return;
+    if (localStorage.getItem(to) === null) localStorage.setItem(to, value);
+    localStorage.removeItem(from);
+  }
+
+  /**
+   * Міграція на профілі (виконується на старті застосунку, ідемпотентна):
+   *   1) якщо профілів ще немає — створюється профіль за замовчуванням;
+   *      ціль/коридор беруться з наявного плану тижня (налаштування не
+   *      губляться), інакше — типові значення генератора;
+   *   2) допрофільні глобальні ключі плану тижня та календаря переносяться
+   *      під профіль за замовчуванням — пул і плани доступні без втрат.
+   */
+  function migrate() {
+    if (localStorage.getItem(KEY) === null) {
+      let params = null;
+      try {
+        const legacy = JSON.parse(localStorage.getItem("meridian.week.v1") || "null");
+        if (legacy && typeof legacy === "object" && legacy.params) params = legacy.params;
+      } catch (e) { /* пошкоджений старий план не блокує міграцію */ }
+      write({
+        profiles: [defaultProfile(params && params.targetCalories, params && params.corridor)],
+        activeId: DEFAULT_ID,
+      });
+    }
+    moveLegacyKey("meridian.week.v1", "meridian.week.v1." + DEFAULT_ID);
+    moveLegacyKey("meridian.calendar.v1", "meridian.calendar.v1." + DEFAULT_ID);
+  }
+
+  return { DEFAULT_ID, getAll, getById, save, remove, getActive, getActiveId, setActive, poolFor, migrate };
+})();
+
+/* ============================================================================
  * MER-10 — Генератор тижня (ядро продукту).
  * ----------------------------------------------------------------------------
  * Збирає план на 7 днів із пулу страв: по одній страві на кожен слот дня так,
@@ -1333,14 +1547,39 @@ const WeekGenerator = (function () {
   /**
    * Згенерувати тиждень із пулу страв.
    *
-   * @param pool    масив страв (типово — MealStore.getAll()).
-   * @param options {targetCalories, corridor, antiRepeatDays, days} поверх DEFAULTS.
+   * @param pool    масив страв; якщо не масив — пул профілю з options.profile
+   *                (його підмножина mealIds, якщо задана) або весь MealStore.
+   * @param options {targetCalories, corridor, antiRepeatDays, days, profile}
+   *                поверх DEFAULTS. profile (MER-21) — об'єкт профілю або його
+   *                id: підставляє свої ціль і коридор; явно передані опції
+   *                мають пріоритет над профілем.
    * @returns {ok:true, days:[{meals:{type:страва}, calories}], params,
    *           usedCorridor, sources, warnings} або {ok:false, error} зі
    *           зрозумілим українським поясненням.
    */
   function generateWeek(pool, options) {
-    const p = Object.assign({}, DEFAULTS, options || {});
+    const o = options || {};
+
+    // MER-21: профіль як вхід генератора — ціль/коридор (і, без явного pool, пул).
+    let profile = null;
+    if (o.profile != null) {
+      profile = typeof o.profile === "string" ? ProfileStore.getById(o.profile) : o.profile;
+      if (!profile || typeof profile !== "object") {
+        return { ok: false, error: "Профіль не знайдено: «" + o.profile + "»." };
+      }
+    }
+    const fromProfile = {};
+    if (profile) {
+      if (profile.targetCalories !== undefined) fromProfile.targetCalories = profile.targetCalories;
+      if (profile.corridor !== undefined) fromProfile.corridor = profile.corridor;
+    }
+    // Явні опції поверх профілю; undefined не перекриває нічого.
+    const explicit = {};
+    Object.keys(o).forEach((k) => {
+      if (k !== "profile" && o[k] !== undefined) explicit[k] = o[k];
+    });
+
+    const p = Object.assign({}, DEFAULTS, fromProfile, explicit);
     const target = Number(p.targetCalories);
     if (!Number.isFinite(target) || target <= 0) {
       return { ok: false, error: "Цільова калорійність дня має бути додатним числом." };
@@ -1349,7 +1588,7 @@ const WeekGenerator = (function () {
     const corridor = Math.max(0, Number.isFinite(Number(p.corridor)) ? Number(p.corridor) : DEFAULTS.corridor);
     // Антиповтор понад довжину тижня еквівалентний «без повторів узагалі».
     const n = Math.min(Math.max(1, Math.floor(Number(p.antiRepeatDays)) || 1), days);
-    const meals = Array.isArray(pool) ? pool : MealStore.getAll();
+    const meals = Array.isArray(pool) ? pool : (profile ? ProfileStore.poolFor(profile) : MealStore.getAll());
 
     // Достатність пулу: вікно антиповтору вимагає щонайменше n страв кожного типу.
     const byType = {};
@@ -1425,7 +1664,7 @@ const WeekGenerator = (function () {
    * позначає repeatSoon. Сортування: спершу ті, що тримають коридор,
    * далі — без повтору поруч, далі — ближчі до цілі.
    *
-   * @param pool     масив страв (типово — MealStore.getAll()).
+   * @param pool     масив страв (типово — пул активного профілю, MER-21).
    * @param plan     збережений план (WeekStore.get()).
    * @param dayIndex індекс дня плану (0-based).
    * @param slotType слот із MEAL_TYPES.
@@ -1465,7 +1704,7 @@ const WeekGenerator = (function () {
       MEAL_TYPES.forEach((t) => { const m = plan.days[d].meals[t]; if (m) nearIds.add(m.id); });
     }
 
-    const meals = Array.isArray(pool) ? pool : MealStore.getAll();
+    const meals = Array.isArray(pool) ? pool : ProfileStore.poolFor();
     const candidates = meals
       .filter((m) => m.type === slotType && m.id !== current.id)
       .map((m) => {
@@ -1497,12 +1736,19 @@ const WeekGenerator = (function () {
  * збереження дзеркалиться в календар (MER-14) — там росте історія по днях.
  * ========================================================================== */
 const WeekStore = (function () {
-  const KEY = "meridian.week.v1";
+  const BASE_KEY = "meridian.week.v1";
 
-  /** Поточний збережений план або null. */
-  function get() {
+  /* MER-21: план ключується профілем (типово — активним), щоб плани різних
+   * профілів не змішувались. Допрофільний глобальний ключ переносить міграція
+   * (ProfileStore.migrate) на старті. */
+  function keyFor(profileId) {
+    return BASE_KEY + "." + (profileId || ProfileStore.getActiveId());
+  }
+
+  /** Поточний збережений план профілю (типово — активного) або null. */
+  function get(profileId) {
     try {
-      const plan = JSON.parse(localStorage.getItem(KEY) || "null");
+      const plan = JSON.parse(localStorage.getItem(keyFor(profileId)) || "null");
       return plan && typeof plan === "object" && Array.isArray(plan.days) ? plan : null;
     } catch (e) {
       console.warn("WeekStore: не вдалося прочитати план.", e);
@@ -1510,8 +1756,8 @@ const WeekStore = (function () {
     }
   }
 
-  /** Зберегти успішний результат generateWeek. Повертає збережений план. */
-  function save(result) {
+  /** Зберегти успішний результат generateWeek під профілем (типово — активним). */
+  function save(result, profileId) {
     if (!result || result.ok !== true) {
       throw new Error("WeekStore.save очікує успішний результат генератора.");
     }
@@ -1523,18 +1769,19 @@ const WeekStore = (function () {
       warnings: result.warnings,
       days: result.days,
     };
-    localStorage.setItem(KEY, JSON.stringify(plan));
-    CalendarStore.recordPlan(plan);
+    localStorage.setItem(keyFor(profileId), JSON.stringify(plan));
+    CalendarStore.recordPlan(plan, profileId);
     return plan;
   }
 
-  /** Прибрати збережений план. */
-  function clear() {
-    localStorage.removeItem(KEY);
+  /** Прибрати збережений план профілю (типово — активного). */
+  function clear(profileId) {
+    localStorage.removeItem(keyFor(profileId));
   }
 
   /**
-   * MER-12 — замінити страву в слоті дня плану, не чіпаючи решту тижня.
+   * MER-12 — замінити страву в слоті дня плану активного профілю, не чіпаючи
+   * решту тижня.
    * Кандидат нормалізується через createMeal (у план лягає знімок, а не
    * посилання на пул), тип мусить збігатися зі слотом. Перераховує
    * калорійність дня та джерела плану й одразу зберігає. Повертає оновлений
@@ -1570,7 +1817,7 @@ const WeekStore = (function () {
     }));
     plan.sources = Array.from(sources).sort();
 
-    localStorage.setItem(KEY, JSON.stringify(plan));
+    localStorage.setItem(keyFor(), JSON.stringify(plan));
     CalendarStore.recordPlan(plan);
     return plan;
   }
@@ -1633,14 +1880,18 @@ const WeekScreen = (function () {
   }
 
   /**
-   * Згенерувати новий тиждень (параметрами збереженого плану або типовими)
-   * і зберегти. При невдачі старий план не чіпається. Повертає результат
-   * генератора.
+   * Згенерувати новий тиждень за активним профілем (MER-21: ціль/коридор
+   * і пул — з профілю; антиповтор і довжина тижня — зі збереженого плану,
+   * якщо він є) і зберегти. При невдачі старий план не чіпається.
+   * Повертає результат генератора.
    */
   function regenerate() {
     const plan = WeekStore.get();
-    const params = plan ? plan.params : WeekGenerator.DEFAULTS;
-    const res = WeekGenerator.generateWeek(MealStore.getAll(), params);
+    const res = WeekGenerator.generateWeek(null, {
+      profile: ProfileStore.getActive(),
+      antiRepeatDays: plan ? plan.params.antiRepeatDays : undefined,
+      days: plan ? plan.params.days : undefined,
+    });
     if (res.ok) {
       WeekStore.save(res);
       lastError = null;
@@ -1787,7 +2038,7 @@ const SwapDialog = (function () {
   function open(dayIndex, slotType) {
     close();
     const plan = WeekStore.get();
-    const res = WeekGenerator.suggestReplacements(MealStore.getAll(), plan, dayIndex, slotType);
+    const res = WeekGenerator.suggestReplacements(ProfileStore.poolFor(), plan, dayIndex, slotType);
 
     overlay = el("div", "overlay");
     overlay.id = "swap-overlay";
@@ -1975,7 +2226,12 @@ const TodayCard = (function () {
  * лягають тижні, згенеровані наперед.
  * ========================================================================== */
 const CalendarStore = (function () {
-  const KEY = "meridian.calendar.v1";
+  const BASE_KEY = "meridian.calendar.v1";
+
+  /* MER-21: календар ключується профілем (типово — активним), як і план тижня. */
+  function keyFor(profileId) {
+    return BASE_KEY + "." + (profileId || ProfileStore.getActiveId());
+  }
 
   /* Локальна дата → ключ "YYYY-MM-DD" (без UTC-зсувів; сортується як дата). */
   function dateKey(date) {
@@ -2006,9 +2262,9 @@ const CalendarStore = (function () {
     return d;
   }
 
-  function read() {
+  function read(profileId) {
     try {
-      const raw = JSON.parse(localStorage.getItem(KEY) || "null");
+      const raw = JSON.parse(localStorage.getItem(keyFor(profileId)) || "null");
       if (raw && typeof raw === "object" && raw.days && typeof raw.days === "object") return raw;
     } catch (e) {
       console.warn("CalendarStore: не вдалося прочитати календар, починаю з порожнього.", e);
@@ -2016,18 +2272,18 @@ const CalendarStore = (function () {
     return { days: {} };
   }
 
-  function write(state) {
-    localStorage.setItem(KEY, JSON.stringify(state));
+  function write(state, profileId) {
+    localStorage.setItem(keyFor(profileId), JSON.stringify(state));
   }
 
-  /** День за ключем дати або null. */
-  function getDay(key) {
-    return read().days[key] || null;
+  /** День за ключем дати (в календарі профілю; типово — активного) або null. */
+  function getDay(key, profileId) {
+    return read(profileId).days[key] || null;
   }
 
   /* Записати послідовні дні від startDate — перекриває лише ці дати. */
-  function writeDays(startDate, days, target, corridor) {
-    const state = read();
+  function writeDays(startDate, days, target, corridor, profileId) {
+    const state = read(profileId);
     days.forEach((day, i) => {
       state.days[dateKey(addDays(startDate, i))] = {
         meals: day.meals,
@@ -2036,30 +2292,31 @@ const CalendarStore = (function () {
         corridor,
       };
     });
-    write(state);
+    write(state, profileId);
   }
 
-  /** Дзеркало плану тижня: дні лягають за реальними датами (день 1 — дата генерації). */
-  function recordPlan(plan) {
+  /** Дзеркало плану тижня профілю: дні лягають за реальними датами (день 1 — дата генерації). */
+  function recordPlan(plan, profileId) {
     if (!plan || !Array.isArray(plan.days)) return;
     const start = new Date(plan.generatedAt);
     start.setHours(0, 0, 0, 0);
     writeDays(start, plan.days,
       plan.params ? plan.params.targetCalories : null,
-      plan.usedCorridor != null ? plan.usedCorridor : null);
+      plan.usedCorridor != null ? plan.usedCorridor : null,
+      profileId);
   }
 
   /** Межі запланованого: {first, last, count} (ключі дат) або null, якщо порожньо. */
-  function bounds() {
-    const keys = Object.keys(read().days).sort();
+  function bounds(profileId) {
+    const keys = Object.keys(read(profileId).days).sort();
     return keys.length
       ? { first: keys[0], last: keys[keys.length - 1], count: keys.length }
       : null;
   }
 
   /** Початок наступного вільного тижня: після останнього запланованого дня, але не в минулому. */
-  function nextFreeStart() {
-    const b = bounds();
+  function nextFreeStart(profileId) {
+    const b = bounds(profileId);
     if (!b) return today0();
     const after = addDays(keyToDate(b.last), 1);
     return after > today0() ? after : today0();
@@ -2072,8 +2329,14 @@ const CalendarStore = (function () {
    * активний план не чіпає. Повертає результат генератора + start (ключ дати).
    */
   function generateAhead() {
+    // MER-21: ціль/коридор і пул дає активний профіль; антиповтор і довжина
+    // тижня успадковуються від активного плану (якщо він є).
     const active = WeekStore.get();
-    const res = WeekGenerator.generateWeek(MealStore.getAll(), active ? active.params : WeekGenerator.DEFAULTS);
+    const res = WeekGenerator.generateWeek(null, {
+      profile: ProfileStore.getActive(),
+      antiRepeatDays: active ? active.params.antiRepeatDays : undefined,
+      days: active ? active.params.days : undefined,
+    });
     if (!res.ok) return res;
     const start = nextFreeStart();
     if (start.getTime() === today0().getTime()) {
@@ -2084,9 +2347,9 @@ const CalendarStore = (function () {
     return Object.assign({ start: dateKey(start) }, res);
   }
 
-  /** Очистити календар повністю. */
-  function clear() {
-    localStorage.removeItem(KEY);
+  /** Очистити календар профілю (типово — активного) повністю. */
+  function clear(profileId) {
+    localStorage.removeItem(keyFor(profileId));
   }
 
   return { dateKey, keyToDate, addDays, startOfWeek, getDay, recordPlan, bounds, nextFreeStart, generateAhead, clear };
@@ -2289,12 +2552,15 @@ const CalendarScreen = (function () {
 })();
 
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, createProfile, ProfileStore, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
  * ========================================================================== */
 DemoPool.seedIfFirstRun();
+/* MER-21: міграція на профілі — профіль за замовчуванням і перенесення
+ * допрофільних плану тижня/календаря під нього. До бекфілу й рендера. */
+ProfileStore.migrate();
 /* MER-14: бекфіл — активний план, збережений до появи календаря, теж стає історією. */
 (function backfillCalendar() {
   const plan = WeekStore.get();
@@ -2320,10 +2586,13 @@ switchTab(AppState.get("activeTab"));
   let allOk = true;
   const mark = (ok) => { allOk = allOk && ok; };
 
-  // Знімок реальних даних — відновлюється у finally.
-  const SNAPSHOT = localStorage.getItem("meridian.meals.v1");
-  const WEEK_SNAPSHOT = localStorage.getItem("meridian.week.v1");
-  const CAL_SNAPSHOT = localStorage.getItem("meridian.calendar.v1");
+  // Знімок реальних даних (усі ключі meridian.*, разом із профільними) —
+  // відновлюється у finally.
+  const SNAPSHOT = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf("meridian.") === 0) SNAPSHOT[k] = localStorage.getItem(k);
+  }
   const WINDOWS_SNAPSHOT = AppState.get("mealWindows");
 
   try {
@@ -2767,17 +3036,170 @@ switchTab(AppState.get("activeTab"));
         calBox.textContent.indexOf("Недостатньо страв у пулі") >= 0));
     }
 
+    // 15. MER-21: профілі — модель, активний профіль, ключування планів, міграція.
+    DemoPool.seed();
+    WeekStore.clear();
+    CalendarStore.clear();
+
+    mark(check("Профілі: після міграції активний — профіль за замовчуванням",
+      ProfileStore.getActive().id === ProfileStore.DEFAULT_ID &&
+      ProfileStore.getAll().some((p) => p.id === ProfileStore.DEFAULT_ID)));
+
+    let badProfile21 = 0;
+    try { createProfile({ name: "", targetCalories: 1800 }); } catch (e) { badProfile21++; }
+    try { createProfile({ name: "X", targetCalories: -5 }); } catch (e) { badProfile21++; }
+    try { createProfile({ name: "X", targetCalories: 1800, corridor: -1 }); } catch (e) { badProfile21++; }
+    mark(check("Профілі: некоректні дані відхилено (ім'я, ціль, коридор)", badProfile21 === 3));
+
+    const wife21 = ProfileStore.save({
+      name: "Дружина", targetCalories: 1600, corridor: 150,
+      goals: { protein: 90, fat: 60, carbs: 180 },
+    });
+    mark(check("Профілі: збережено другий профіль із власними ціллю/коридором/БЖВ",
+      !!ProfileStore.getById(wife21.id) && wife21.targetCalories === 1600 &&
+      wife21.corridor === 150 && wife21.goals.protein === 90 &&
+      ProfileStore.getAll().length === 2));
+
+    ProfileStore.setActive(wife21.id);
+    const persisted21 = JSON.parse(localStorage.getItem("meridian.profiles.v1")).activeId;
+    mark(check("Профілі: перемикання активного записано у сховище (переживає перезавантаження)",
+      ProfileStore.getActiveId() === wife21.id && persisted21 === wife21.id));
+
+    let unknown21 = false;
+    try { ProfileStore.setActive("нема-такого"); } catch (e) { unknown21 = true; }
+    mark(check("Профілі: перемикання на невідомий профіль відхилено",
+      unknown21 && ProfileStore.getActiveId() === wife21.id));
+
+    // Генератор приймає профіль як вхід: ціль/коридор — з нього.
+    const resWife21 = WeekGenerator.generateWeek(null, { profile: wife21 });
+    mark(check("Генератор: тиждень за ціллю/коридором профілю (1600 ± 150)",
+      resWife21.ok === true && resWife21.params.targetCalories === 1600 &&
+      resWife21.params.corridor === 150 &&
+      resWife21.days.every((d) => Math.abs(d.calories - 1600) <= resWife21.usedCorridor),
+      resWife21.ok ? resWife21.days.map((d) => d.calories).join(", ") + " ккал" : resWife21.error));
+
+    const resById21 = WeekGenerator.generateWeek(null, { profile: wife21.id });
+    mark(check("Генератор: профіль можна передати за id",
+      resById21.ok === true && resById21.params.targetCalories === 1600));
+    mark(check("Генератор: невідомий id профілю — зрозуміла помилка",
+      WeekGenerator.generateWeek(null, { profile: "нема-такого" }).ok === false));
+
+    const resOverride21 = WeekGenerator.generateWeek(null, { profile: wife21, targetCalories: 2000, corridor: 100 });
+    mark(check("Генератор: явні опції мають пріоритет над профілем",
+      resOverride21.ok === true && resOverride21.params.targetCalories === 2000 &&
+      resOverride21.params.corridor === 100));
+
+    // Плани профілів не змішуються: ключування за profileId.
+    mark(check("Плани: у щойно створеного профілю плану немає", WeekStore.get() === null));
+
+    if (resWife21.ok) {
+      const wifePlan21 = WeekStore.save(resWife21); // під активним профілем (Дружина)
+      mark(check("Плани: план збережено під ключем активного профілю",
+        !!WeekStore.get() && WeekStore.get().generatedAt === wifePlan21.generatedAt &&
+        localStorage.getItem("meridian.week.v1." + wife21.id) !== null));
+      mark(check("Календар: дні профілю пишуться під його ключем",
+        !!CalendarStore.getDay(CalendarStore.dateKey(new Date())) &&
+        localStorage.getItem("meridian.calendar.v1." + wife21.id) !== null));
+
+      ProfileStore.setActive(ProfileStore.DEFAULT_ID);
+      mark(check("Плани: план іншого профілю не видно з активного", WeekStore.get() === null));
+      mark(check("Плани: явний profileId читає план конкретного профілю",
+        !!WeekStore.get(wife21.id) &&
+        WeekStore.get(wife21.id).generatedAt === wifePlan21.generatedAt));
+    }
+
+    // Власна підмножина спільного пулу (mealIds) обмежує видимі страви.
+    const lunchIds21 = MealStore.filterByType("lunch").slice(0, 2).map((m) => m.id);
+    const subset21 = ProfileStore.save({ name: "Обмежений", targetCalories: 1800, mealIds: lunchIds21 });
+    const subPool21 = ProfileStore.poolFor(subset21.id);
+    mark(check("Профілі: підмножина пулу (mealIds) фільтрує страви",
+      subPool21.length === 2 && subPool21.every((m) => lunchIds21.indexOf(m.id) >= 0)));
+    const resSub21 = WeekGenerator.generateWeek(null, { profile: subset21 });
+    mark(check("Генератор: пул профілю без сніданків — зрозуміла помилка",
+      resSub21.ok === false && resSub21.error.indexOf("Недостатньо страв") >= 0));
+
+    // Видалення профілю прибирає його плани; активним стає інший.
+    ProfileStore.setActive(wife21.id);
+    const removedWife21 = ProfileStore.remove(wife21.id);
+    mark(check("Профілі: видалення активного профілю перемикає на інший і чистить його плани",
+      removedWife21 === true && ProfileStore.getById(wife21.id) === null &&
+      ProfileStore.getActiveId() === ProfileStore.DEFAULT_ID &&
+      localStorage.getItem("meridian.week.v1." + wife21.id) === null &&
+      localStorage.getItem("meridian.calendar.v1." + wife21.id) === null));
+    ProfileStore.remove(subset21.id);
+
+    let lastProfile21 = false;
+    try { ProfileStore.remove(ProfileStore.DEFAULT_ID); } catch (e) { lastProfile21 = true; }
+    mark(check("Профілі: останній профіль видалити не можна", lastProfile21));
+
+    // Міграція: допрофільні глобальні ключі переносяться під профіль за
+    // замовчуванням без втрат, а його ціль/коридор беруться зі старого плану.
+    const legacyRes21 = WeekGenerator.generateWeek(MealStore.getAll(),
+      { targetCalories: 1900, corridor: 250, antiRepeatDays: 2 });
+    mark(check("Міграція: тестовий «допрофільний» тиждень зібрано",
+      legacyRes21.ok === true, legacyRes21.ok ? "" : legacyRes21.error));
+
+    if (legacyRes21.ok) {
+      const legacyPlan21 = {
+        generatedAt: new Date().toISOString(),
+        params: legacyRes21.params, usedCorridor: legacyRes21.usedCorridor,
+        sources: legacyRes21.sources, warnings: legacyRes21.warnings, days: legacyRes21.days,
+      };
+      // Відтворити стан «до профілів»: глобальні ключі, запису про профілі немає.
+      localStorage.removeItem("meridian.profiles.v1");
+      localStorage.removeItem("meridian.week.v1." + ProfileStore.DEFAULT_ID);
+      localStorage.removeItem("meridian.calendar.v1." + ProfileStore.DEFAULT_ID);
+      localStorage.setItem("meridian.week.v1", JSON.stringify(legacyPlan21));
+      localStorage.setItem("meridian.calendar.v1", JSON.stringify({
+        days: { "2026-01-05": {
+          meals: legacyPlan21.days[0].meals, calories: legacyPlan21.days[0].calories,
+          target: 1900, corridor: legacyPlan21.usedCorridor,
+        } },
+      }));
+
+      ProfileStore.migrate();
+
+      const migratedPlan21 = WeekStore.get(ProfileStore.DEFAULT_ID);
+      const migratedProfile21 = ProfileStore.getActive();
+      mark(check("Міграція: план перенесено під профіль за замовчуванням без втрат",
+        !!migratedPlan21 && migratedPlan21.generatedAt === legacyPlan21.generatedAt &&
+        migratedPlan21.days.length === legacyPlan21.days.length &&
+        localStorage.getItem("meridian.week.v1") === null));
+      mark(check("Міграція: календар перенесено (історія ціла)",
+        !!CalendarStore.getDay("2026-01-05", ProfileStore.DEFAULT_ID) &&
+        localStorage.getItem("meridian.calendar.v1") === null));
+      mark(check("Міграція: ціль/коридор профілю взято зі старого плану (1900 ± 250)",
+        migratedProfile21.id === ProfileStore.DEFAULT_ID &&
+        migratedProfile21.targetCalories === 1900 && migratedProfile21.corridor === 250));
+
+      ProfileStore.migrate();
+      mark(check("Міграція: повторний запуск нічого не змінює (ідемпотентність)",
+        !!WeekStore.get(ProfileStore.DEFAULT_ID) &&
+        WeekStore.get(ProfileStore.DEFAULT_ID).generatedAt === legacyPlan21.generatedAt &&
+        ProfileStore.getAll().length === 1));
+
+      // Регресія: «Перегенерувати» на екрані «Тиждень» іде від активного профілю.
+      const regen21 = WeekScreen.regenerate();
+      mark(check("Регресія: «Перегенерувати» бере ціль/коридор активного профілю",
+        regen21.ok === true &&
+        regen21.params.targetCalories === ProfileStore.getActive().targetCalories &&
+        WeekStore.get().params.targetCalories === ProfileStore.getActive().targetCalories,
+        regen21.ok ? "ціль " + regen21.params.targetCalories + " ккал" : regen21.error));
+    }
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
   } finally {
-    // Відновити реальні дані користувача.
-    if (SNAPSHOT === null) localStorage.removeItem("meridian.meals.v1");
-    else localStorage.setItem("meridian.meals.v1", SNAPSHOT);
-    if (WEEK_SNAPSHOT === null) localStorage.removeItem("meridian.week.v1");
-    else localStorage.setItem("meridian.week.v1", WEEK_SNAPSHOT);
-    if (CAL_SNAPSHOT === null) localStorage.removeItem("meridian.calendar.v1");
-    else localStorage.setItem("meridian.calendar.v1", CAL_SNAPSHOT);
+    // Відновити реальні дані користувача: прибрати всі ключі meridian.*,
+    // створені тестами, і повернути знімок як був.
+    const testKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("meridian.") === 0) testKeys.push(k);
+    }
+    testKeys.forEach((k) => localStorage.removeItem(k));
+    Object.keys(SNAPSHOT).forEach((k) => localStorage.setItem(k, SNAPSHOT[k]));
     AppState.set("mealWindows", WINDOWS_SNAPSHOT);
     // Прибрати тестовий діалог і повернути екрани до реальних даних.
     SwapDialog.close();
