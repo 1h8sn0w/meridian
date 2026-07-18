@@ -109,7 +109,7 @@
   .btn.block { display: block; width: 100%; margin-bottom: 12px; }
 
   #meal-form label, #profile-form label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
-  #meal-form input, #meal-form select, #meal-form textarea, #profile-form input {
+  #meal-form input, #meal-form select, #meal-form textarea, #profile-form input, #profile-form select {
     display: block;
     width: 100%;
     margin-top: 4px;
@@ -1591,6 +1591,15 @@ function createProfile(input) {
     }
   }
 
+  /* Спільний план (MER-17): id профілю-власника, чий план тижня й календар
+   * використовує цей профіль. Пов'язані профілі (сім'я за одним столом) їдять
+   * ТІ САМІ страви — окремі меню для них були б помилкою; кількості в рецептах
+   * плану вже «на 2-х». null — власний незалежний план. */
+  let sharedPlanWith = null;
+  if (input.sharedPlanWith != null && String(input.sharedPlanWith).trim()) {
+    sharedPlanWith = String(input.sharedPlanWith).trim();
+  }
+
   /* Підмножина пулу: null — увесь спільний пул; масив id — лише ці страви. */
   let mealIds = null;
   if (Array.isArray(input.mealIds)) {
@@ -1607,6 +1616,7 @@ function createProfile(input) {
     targetCalories,
     corridor,
     color,
+    sharedPlanWith,
     goals: {
       protein: toOptionalNumber(goals.protein),
       fat: toOptionalNumber(goals.fat),
@@ -1667,6 +1677,20 @@ const ProfileStore = (function () {
   function save(input) {
     const profile = createProfile(input);
     const state = read();
+
+    // Спільний план (MER-17): посилання має вести на наявний профіль-власник.
+    // Ланцюжки заборонені — власник сам не може користуватись чужим планом.
+    if (profile.sharedPlanWith) {
+      if (profile.sharedPlanWith === profile.id) {
+        throw new Error("Профіль не може ділити план сам із собою.");
+      }
+      const owner = state.profiles.find((p) => p.id === profile.sharedPlanWith);
+      if (!owner) throw new Error("Профіль для спільного плану не знайдено.");
+      if (owner.sharedPlanWith) {
+        throw new Error("Профіль «" + owner.name + "» сам користується спільним планом — оберіть профіль-власник.");
+      }
+    }
+
     const i = state.profiles.findIndex((p) => p.id === profile.id);
     if (i >= 0) state.profiles[i] = profile;
     else state.profiles.push(profile);
@@ -1686,8 +1710,13 @@ const ProfileStore = (function () {
       throw new Error("Не можна видалити останній профіль.");
     }
     state.profiles = state.profiles.filter((p) => p.id !== id);
+    // MER-17: хто ділив план із видаленим — переходить на власний (порожній).
+    state.profiles.forEach((p) => {
+      if (p.sharedPlanWith === id) p.sharedPlanWith = null;
+    });
     if (state.activeId === id) state.activeId = state.profiles[0].id;
     write(state);
+    // Профіль уже видалено, тож keyFor/planOwnerId вкажуть на його ВЛАСНІ ключі.
     WeekStore.clear(id);
     CalendarStore.clear(id);
     return true;
@@ -1713,6 +1742,17 @@ const ProfileStore = (function () {
     state.activeId = id;
     write(state);
     return getById(id);
+  }
+
+  /**
+   * Чий план тижня/календар бачить профіль (MER-17): власник спільного плану
+   * або сам профіль. Ним ключуються WeekStore/CalendarStore — пов'язані
+   * профілі фізично читають і пишуть ОДИН план (ті самі страви для сім'ї).
+   */
+  function planOwnerId(profileId) {
+    const id = profileId || getActiveId();
+    const p = getById(id);
+    return p && p.sharedPlanWith && getById(p.sharedPlanWith) ? p.sharedPlanWith : id;
   }
 
   /**
@@ -1762,7 +1802,7 @@ const ProfileStore = (function () {
     moveLegacyKey("meridian.calendar.v1", "meridian.calendar.v1." + DEFAULT_ID);
   }
 
-  return { DEFAULT_ID, getAll, getById, save, remove, getActive, getActiveId, setActive, poolFor, migrate };
+  return { DEFAULT_ID, getAll, getById, save, remove, getActive, getActiveId, setActive, planOwnerId, poolFor, migrate };
 })();
 
 /* ============================================================================
@@ -2071,7 +2111,8 @@ const WeekStore = (function () {
    * профілів не змішувались. Допрофільний глобальний ключ переносить міграція
    * (ProfileStore.migrate) на старті. */
   function keyFor(profileId) {
-    return BASE_KEY + "." + (profileId || ProfileStore.getActiveId());
+    // MER-17: пов'язані профілі (спільний план) читають і пишуть план власника.
+    return BASE_KEY + "." + ProfileStore.planOwnerId(profileId);
   }
 
   /** Поточний збережений план профілю (типово — активного) або null. */
@@ -2215,6 +2256,14 @@ const WeekScreen = (function () {
    * Повертає результат генератора.
    */
   function regenerate() {
+    // MER-17: спільний план перегенерує лише власник — інакше пов'язані
+    // профілі перезаписували б одне сімейне меню різними цілями.
+    const guard = sharedPlanGuard();
+    if (guard) {
+      lastError = guard;
+      render();
+      return { ok: false, error: guard };
+    }
     const plan = WeekStore.get();
     const res = WeekGenerator.generateWeek(null, {
       profile: ProfileStore.getActive(),
@@ -2245,6 +2294,9 @@ const WeekScreen = (function () {
     top.appendChild(btn);
 
     if (lastError) top.appendChild(el("p", "week-warn", lastError));
+    // MER-17: пов'язаному профілю одразу видно, що меню сімейне — спільне.
+    const sharedNote = sharedPlanGuard();
+    if (sharedNote && !lastError) top.appendChild(el("p", "week-meta", sharedNote));
 
     if (!plan) {
       top.appendChild(el("p", "hint",
@@ -2372,7 +2424,8 @@ const SwapDialog = (function () {
   function open(dayIndex, slotType) {
     close();
     const plan = WeekStore.get();
-    const res = WeekGenerator.suggestReplacements(ProfileStore.poolFor(), plan, dayIndex, slotType);
+    // MER-17: для спільного плану кандидати — з пулу профілю-власника плану.
+    const res = WeekGenerator.suggestReplacements(ProfileStore.poolFor(ProfileStore.planOwnerId()), plan, dayIndex, slotType);
 
     overlay = el("div", "overlay");
     overlay.id = "swap-overlay";
@@ -2766,9 +2819,10 @@ const TodayCard = (function () {
 const CalendarStore = (function () {
   const BASE_KEY = "meridian.calendar.v1";
 
-  /* MER-21: календар ключується профілем (типово — активним), як і план тижня. */
+  /* MER-21: календар ключується профілем (типово — активним), як і план тижня.
+   * MER-17: для пов'язаних профілів (спільний план) — календарем власника. */
   function keyFor(profileId) {
-    return BASE_KEY + "." + (profileId || ProfileStore.getActiveId());
+    return BASE_KEY + "." + ProfileStore.planOwnerId(profileId);
   }
 
   /* Локальна дата → ключ "YYYY-MM-DD" (без UTC-зсувів; сортується як дата). */
@@ -2867,6 +2921,9 @@ const CalendarStore = (function () {
    * активний план не чіпає. Повертає результат генератора + start (ключ дати).
    */
   function generateAhead() {
+    // MER-17: спільним планом (і його календарем) керує лише власник.
+    const guard = sharedPlanGuard();
+    if (guard) return { ok: false, error: guard };
     // MER-21: ціль/коридор і пул дає активний профіль; антиповтор і довжина
     // тижня успадковуються від активного плану (якщо він є).
     const active = WeekStore.get();
@@ -3111,6 +3168,17 @@ function hexToRgba(hex, alpha) {
   return "rgba(" + ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255) + ", " + alpha + ")";
 }
 
+/* Якщо активний профіль користується спільним планом — пояснення, чому
+ * генерацією керує власник. null — план власний, обмежень немає. */
+function sharedPlanGuard() {
+  const active = ProfileStore.getActive();
+  if (!active || !active.sharedPlanWith) return null;
+  const owner = ProfileStore.getById(active.sharedPlanWith);
+  if (!owner) return null;
+  return "План спільний із профілем «" + owner.name + "» — ті самі страви для обох. " +
+    "Перегенерувати його можна лише з профілю «" + owner.name + "».";
+}
+
 /** Акцент інтерфейсу = колір активного профілю (типово — синій, як у POC). */
 function applyProfileAccent() {
   const color = profileColor(ProfileStore.getActive());
@@ -3244,9 +3312,11 @@ const ProfilesScreen = (function () {
         name.appendChild(document.createTextNode(" "));
         name.appendChild(el("span", "tag accent", "активний"));
       }
+      const owner = p.sharedPlanWith ? ProfileStore.getById(p.sharedPlanWith) : null;
       txt.appendChild(name);
       txt.appendChild(el("div", "meta",
         p.targetCalories + " ± " + p.corridor + " ккал/день" +
+        (owner ? " · спільний план з «" + owner.name + "»" : "") +
         (Array.isArray(p.mealIds) ? " · окремий пул" : "")));
       left.appendChild(txt);
       row.appendChild(left);
@@ -3378,8 +3448,46 @@ const ProfilesScreen = (function () {
     });
     form.appendChild(goals);
 
-    // Пул страв: спільний чи власна підмножина (mealIds, MER-21).
-    form.appendChild(el("div", "recipe-sec", "Пул страв"));
+    // План тижня: спільний із профілем-власником (сім'я їсть ті самі страви;
+    // кількості в рецептах — «на 2-х») або власний незалежний план.
+    // Для нового профілю типовий вибір — спільний: окремі меню для людей за
+    // одним столом були б помилкою.
+    form.appendChild(el("div", "recipe-sec", "План тижня"));
+    const linkable = ProfileStore.getAll()
+      .filter((p) => !p.sharedPlanWith && (!profile || p.id !== profile.id));
+    const planChips = el("div", "chips");
+    const sharedPlanChip = el("button", "chip", "Спільний з…");
+    sharedPlanChip.type = "button";
+    sharedPlanChip.dataset.plan = "shared";
+    const ownPlanChip = el("button", "chip", "Власний");
+    ownPlanChip.type = "button";
+    ownPlanChip.dataset.plan = "own";
+    planChips.appendChild(sharedPlanChip);
+    planChips.appendChild(ownPlanChip);
+    form.appendChild(planChips);
+
+    const ownerSelect = document.createElement("select");
+    ownerSelect.name = "sharedPlanWith";
+    linkable.forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      opt.selected = !!(profile && profile.sharedPlanWith === p.id);
+      ownerSelect.appendChild(opt);
+    });
+    form.appendChild(ownerSelect);
+    const planHint = el("p", "swap-now",
+      "Спільний план: ті самі страви для обох, керує ними профіль-власник. " +
+      "Власний план профілю збережеться і повернеться, якщо вимкнути спільний.");
+    form.appendChild(planHint);
+
+    let sharedPlan = profile ? !!profile.sharedPlanWith : linkable.length > 0;
+    if (!linkable.length) { sharedPlan = false; sharedPlanChip.disabled = true; }
+
+    // Пул страв: спільний чи власна підмножина (mealIds, MER-21). Для профілю
+    // зі спільним планом не показується — страви добирає власник плану.
+    const poolBox = el("div");
+    poolBox.appendChild(el("div", "recipe-sec", "Пул страв"));
     const poolChips = el("div", "chips");
     const sharedChip = el("button", "chip", "Спільний");
     sharedChip.type = "button";
@@ -3389,7 +3497,7 @@ const ProfilesScreen = (function () {
     ownChip.dataset.pool = "own";
     poolChips.appendChild(sharedChip);
     poolChips.appendChild(ownChip);
-    form.appendChild(poolChips);
+    poolBox.appendChild(poolChips);
 
     const subset = profile && Array.isArray(profile.mealIds) ? new Set(profile.mealIds) : null;
     const pick = el("div", "pool-pick");
@@ -3407,9 +3515,19 @@ const ProfilesScreen = (function () {
       row.appendChild(txt);
       pick.appendChild(row);
     });
-    form.appendChild(pick);
+    poolBox.appendChild(pick);
+    form.appendChild(poolBox);
 
     let ownPool = !!subset;
+    const refreshPlan = () => {
+      sharedPlanChip.classList.toggle("active", sharedPlan);
+      ownPlanChip.classList.toggle("active", !sharedPlan);
+      ownerSelect.hidden = !sharedPlan;
+      planHint.hidden = !sharedPlan;
+      poolBox.hidden = sharedPlan;
+    };
+    sharedPlanChip.addEventListener("click", () => { sharedPlan = true; refreshPlan(); });
+    ownPlanChip.addEventListener("click", () => { sharedPlan = false; refreshPlan(); });
     const refreshPool = () => {
       sharedChip.classList.toggle("active", !ownPool);
       ownChip.classList.toggle("active", ownPool);
@@ -3417,6 +3535,7 @@ const ProfilesScreen = (function () {
     };
     sharedChip.addEventListener("click", () => { ownPool = false; refreshPool(); });
     ownChip.addEventListener("click", () => { ownPool = true; refreshPool(); });
+    refreshPlan();
     refreshPool();
 
     // Помилка збереження (некоректні дані відхиляє модель createProfile).
@@ -3462,12 +3581,14 @@ const ProfilesScreen = (function () {
           color,
           targetCalories: tInput.value,
           corridor: cInput.value,
+          sharedPlanWith: sharedPlan && ownerSelect.value ? ownerSelect.value : null,
           goals: {
             protein: form.elements.protein.value,
             fat: form.elements.fat.value,
             carbs: form.elements.carbs.value,
           },
-          mealIds: ownPool
+          // Зі спільним планом власна підмножина пулу не має сенсу.
+          mealIds: !sharedPlan && ownPool
             ? Array.from(pick.querySelectorAll("input:checked")).map((cb) => cb.value)
             : null,
         });
@@ -4006,6 +4127,10 @@ switchTab(AppState.get("activeTab"));
 
     // 15. MER-21: профілі — модель, активний профіль, ключування планів, міграція.
     DemoPool.seed();
+    // Від чистого стану профілів: у реальному сховищі їх може бути кілька
+    // (MER-17), а перевірки нижче рахують кількість і активного.
+    localStorage.removeItem("meridian.profiles.v1");
+    ProfileStore.migrate();
     WeekStore.clear();
     CalendarStore.clear();
 
@@ -4365,6 +4490,61 @@ switchTab(AppState.get("activeTab"));
 
     ProfilesScreen.close();
     mark(check("Екран «Профілі»: закривається", !document.getElementById("profiles-overlay")));
+
+    // Пов'язані профілі (спільний план): сім'я за одним столом їсть ті самі
+    // страви — окремі меню для пов'язаних профілів були б помилкою.
+    const own17 = WeekScreen.regenerate(); // план власника (активний — default)
+    mark(check("Спільний план: у профілю-власника є план",
+      own17.ok === true, own17.ok ? "" : own17.error));
+
+    const partner17 = ProfileStore.save({
+      name: "Партнер", targetCalories: 1500, corridor: 100, color: "#e0729c",
+      sharedPlanWith: ProfileStore.DEFAULT_ID,
+    });
+    ProfileStore.setActive(partner17.id);
+    mark(check("Спільний план: пов'язаний профіль бачить ТІ САМІ страви (один план фізично)",
+      !!WeekStore.get() &&
+      WeekStore.get().generatedAt === WeekStore.get(ProfileStore.DEFAULT_ID).generatedAt &&
+      localStorage.getItem("meridian.week.v1." + partner17.id) === null));
+    mark(check("Спільний план: календар теж спільний",
+      !!CalendarStore.getDay(CalendarStore.dateKey(new Date())) &&
+      localStorage.getItem("meridian.calendar.v1." + partner17.id) === null));
+
+    const before17 = WeekStore.get(ProfileStore.DEFAULT_ID).generatedAt;
+    const regenLinked17 = WeekScreen.regenerate();
+    const aheadLinked17 = CalendarStore.generateAhead();
+    mark(check("Спільний план: генерація лише з профілю-власника (план не зачеплено)",
+      regenLinked17.ok === false && regenLinked17.error.indexOf("спільний") >= 0 &&
+      aheadLinked17.ok === false &&
+      WeekStore.get(ProfileStore.DEFAULT_ID).generatedAt === before17));
+
+    let badLink17 = 0;
+    try { ProfileStore.save({ name: "Ланцюг", targetCalories: 1800, sharedPlanWith: partner17.id }); } catch (e) { badLink17++; }
+    try { ProfileStore.save(Object.assign({}, partner17, { sharedPlanWith: partner17.id })); } catch (e) { badLink17++; }
+    try { ProfileStore.save({ name: "Босвіт", targetCalories: 1800, sharedPlanWith: "нема-такого" }); } catch (e) { badLink17++; }
+    mark(check("Спільний план: ланцюжок, само-посилання і невідомий власник відхилені", badLink17 === 3));
+
+    ProfileStore.save(Object.assign({}, partner17, { sharedPlanWith: null }));
+    mark(check("Спільний план: після відв'язування профіль повертається до власного (порожнього) плану",
+      WeekStore.get() === null));
+
+    // Форма нового профілю: типовий вибір — спільний план (не окремі меню).
+    ProfilesScreen.open();
+    document.querySelector("#profiles-overlay .btn.primary").click(); // «+ Додати профіль»
+    const planChips17 = document.getElementById("profile-form").querySelectorAll("[data-plan]");
+    const ownerSel17 = document.getElementById("profile-form").elements.sharedPlanWith;
+    mark(check("Форма: для нового профілю типово вибрано спільний план із власником",
+      planChips17.length === 2 &&
+      document.querySelector('#profile-form [data-plan="shared"]').classList.contains("active") &&
+      !ownerSel17.hidden && ownerSel17.options.length === 2));
+    ProfilesScreen.close();
+
+    // Видалення власника: залежні відв'язуються і живуть далі власним планом.
+    ProfileStore.save(Object.assign({}, partner17, { sharedPlanWith: ProfileStore.DEFAULT_ID }));
+    ProfileStore.remove(ProfileStore.DEFAULT_ID);
+    mark(check("Спільний план: видалення власника відв'язує залежний профіль",
+      ProfileStore.getById(partner17.id).sharedPlanWith === null &&
+      ProfileStore.getActiveId() === partner17.id));
 
   } catch (e) {
     allOk = false;
