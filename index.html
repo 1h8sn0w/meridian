@@ -10,6 +10,7 @@
     --text: #e7e9ee;
     --muted: #9aa2b1;
     --accent: #4f9dff;
+    --accent-soft: rgba(79, 157, 255, .12); /* м'яка підкладка акценту; тінтується профілем (MER-17) */
     --ok: #46c98b;
     --warn: #ffb454;
     --tabbar-h: 60px;
@@ -107,8 +108,8 @@
   .btn.danger { color: var(--warn); border-color: var(--warn); }
   .btn.block { display: block; width: 100%; margin-bottom: 12px; }
 
-  #meal-form label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
-  #meal-form input, #meal-form select, #meal-form textarea {
+  #meal-form label, #profile-form label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+  #meal-form input, #meal-form select, #meal-form textarea, #profile-form input {
     display: block;
     width: 100%;
     margin-top: 4px;
@@ -261,7 +262,7 @@
   .recipe-macros { display: flex; gap: 6px; margin-bottom: 16px; }
   .recipe-macros span {
     flex: 1; text-align: center; font-size: 12.5px; color: var(--muted);
-    background: rgba(79, 157, 255, .12); border-radius: 8px; padding: 6px;
+    background: var(--accent-soft); border-radius: 8px; padding: 6px;
   }
   .recipe-sec {
     font-size: 11px; color: var(--muted); letter-spacing: .04em;
@@ -276,7 +277,7 @@
   .step-row { display: flex; gap: 10px; margin-bottom: 12px; }
   .step-num {
     flex: none; width: 22px; height: 22px; border-radius: 50%;
-    background: rgba(79, 157, 255, .12); color: var(--accent);
+    background: var(--accent-soft); color: var(--accent);
     font-size: 12px; font-weight: 500;
     display: flex; align-items: center; justify-content: center;
   }
@@ -336,9 +337,104 @@
   .cal-day .dow { font-size: 10.5px; color: var(--muted); }
   .cal-day .dnum { font-size: 14.5px; font-weight: 600; }
   .cal-day .dkcal { font-size: 10px; color: var(--muted); }
-  .cal-day.selected { border-color: var(--accent); background: rgba(79, 157, 255, .1); }
+  .cal-day.selected { border-color: var(--accent); background: var(--accent-soft); }
   .cal-day.today .dnum { color: var(--accent); }
   .btn.block.cal-today { margin: 10px 0 0; }
+
+  /* --- Профілі: перемикач на «Сьогодні» + екран профілів (MER-17) --- */
+  .accent { color: var(--accent); }
+  .profile-seg {
+    display: flex;
+    gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 5px;
+    margin-bottom: 14px;
+  }
+  .profile-tab {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 6px 8px;
+    font: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: left;
+  }
+  .profile-tab.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .profile-tab .ptxt { min-width: 0; }
+  .profile-tab .pname {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .profile-tab .pkcal { display: block; font-size: 10.5px; line-height: 1.25; color: var(--muted); }
+  .profile-tab.active .pkcal { color: var(--accent); }
+  .pav {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pav.pav-lg { width: 40px; height: 40px; font-size: 15px; }
+  .profile-manage {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 17px;
+    padding: 0 7px;
+    cursor: pointer;
+    border-radius: 10px;
+  }
+  .profile-manage:hover { color: var(--accent); }
+
+  .profile-row .profile-left { display: flex; align-items: center; gap: 10px; }
+  .profile-name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  #profile-form .profile-name-row input { flex: 1; width: auto; margin-top: 0; }
+  .color-swatches { display: flex; gap: 12px; margin: 4px 0 2px; }
+  .color-swatch { width: 26px; height: 26px; border-radius: 50%; border: none; padding: 0; cursor: pointer; }
+  .pool-pick {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px 10px;
+    margin-top: 8px;
+  }
+  #profile-form .pool-pick label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 6px 0;
+    font-size: 13.5px;
+    color: var(--text);
+    border-bottom: 1px solid var(--line);
+  }
+  #profile-form .pool-pick label:last-child { border-bottom: none; }
+  #profile-form .pool-pick input[type="checkbox"] {
+    display: inline-block;
+    width: auto;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .pool-pick .pmeta { color: var(--muted); font-size: 12px; }
 
   /* --- Нижній таб-бар --- */
   nav {
@@ -396,6 +492,9 @@
 
   <!-- Екран «Сьогодні» -->
   <section class="screen" id="screen-today">
+    <!-- Перемикач профілів (MER-17): наповнює ProfileSwitcher -->
+    <div id="profile-switcher"></div>
+
     <div class="panel">
       <div class="clock-wrap">
         <div id="clock-svg"></div>
@@ -411,7 +510,8 @@
     </div>
 
     <div class="panel">
-      <h2>Поточна страва</h2>
+      <!-- Підпис «· Ім'я» додає ProfileSwitcher, коли профілів кілька (MER-17) -->
+      <h2 id="today-meal-title">Поточна страва</h2>
       <!-- Картка активного прийому (MER-11) з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
       <div id="today-meal"></div>
     </div>
@@ -848,7 +948,7 @@ function switchTab(tabId) {
   document.getElementById("screen-subtitle").textContent = tab.subtitle();
 
   if (tab.id === "meals") MealsScreen.render();
-  if (tab.id === "today") { MealClock.render(); MealClock.renderSettings(); TodayCard.render(); }
+  if (tab.id === "today") { ProfileSwitcher.render(); MealClock.render(); MealClock.renderSettings(); TodayCard.render(); }
   if (tab.id === "week") WeekScreen.render();
   if (tab.id === "calendar") CalendarScreen.render();
 
@@ -1455,6 +1555,10 @@ function generateProfileId() {
   return "profile_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
 }
 
+/* Палітра кольорів профілю (MER-17). Перший — синій POC, тож вигляд
+ * застосунку з одним профілем не змінюється. */
+const PROFILE_COLORS = Object.freeze(["#4f9dff", "#e0729c", "#46c98b", "#ffb454", "#7f77dd"]);
+
 /**
  * Створити валідний профіль із «сирих» даних (за аналогією з createMeal).
  * Кидає помилку з українським повідомленням, якщо дані некоректні.
@@ -1478,6 +1582,15 @@ function createProfile(input) {
     throw new Error("Коридор калорійності має бути невід'ємним числом.");
   }
 
+  /* Колір профілю (MER-17) — акцент інтерфейсу, коли профіль активний. */
+  let color = PROFILE_COLORS[0];
+  if (input.color != null) {
+    color = String(input.color).trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(color)) {
+      throw new Error("Колір профілю має бути у форматі #rrggbb.");
+    }
+  }
+
   /* Підмножина пулу: null — увесь спільний пул; масив id — лише ці страви. */
   let mealIds = null;
   if (Array.isArray(input.mealIds)) {
@@ -1493,6 +1606,7 @@ function createProfile(input) {
     name,
     targetCalories,
     corridor,
+    color,
     goals: {
       protein: toOptionalNumber(goals.protein),
       fat: toOptionalNumber(goals.fat),
@@ -2975,8 +3089,411 @@ const CalendarScreen = (function () {
   return { render, goToday, select };
 })();
 
+/* ============================================================================
+ * MER-17 — Профіль на двох: перемикач на «Сьогодні» + екран «Профілі».
+ * ----------------------------------------------------------------------------
+ * Сегмент-перемикач угорі головної — по вкладці на профіль (ініціал, ім'я,
+ * ціль ккал); дотик перемикає активний профіль, «⚙» відкриває екран
+ * «Профілі». Активний профіль тінтує акценти інтерфейсу своїм кольором
+ * (CSS-змінні --accent/--accent-soft). Екран «Профілі» — аркуш зі списком
+ * і формою редагування: ім'я, колір, ціль, коридор, необов'язкові цілі БЖВ,
+ * спільний чи окремий пул страв. Модель і ключування планів — MER-21.
+ * ========================================================================== */
+
+/* Колір профілю; у профілів, збережених до MER-17, поля ще немає. */
+function profileColor(profile) {
+  return (profile && profile.color) || PROFILE_COLORS[0];
+}
+
+/* "#rrggbb" → "rgba(r, g, b, a)" — для м'яких підкладок у кольорі профілю. */
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return "rgba(" + ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255) + ", " + alpha + ")";
+}
+
+/** Акцент інтерфейсу = колір активного профілю (типово — синій, як у POC). */
+function applyProfileAccent() {
+  const color = profileColor(ProfileStore.getActive());
+  const root = document.documentElement.style;
+  root.setProperty("--accent", color);
+  root.setProperty("--accent-soft", hexToRgba(color, 0.12));
+}
+
+/* Аватар-ініціал у кольорі профілю (перемикач, список, форма). */
+function profileAvatar(profile, large) {
+  const av = el("span", "pav" + (large ? " pav-lg" : ""),
+    (profile.name || "").trim().charAt(0).toUpperCase() || "?");
+  av.style.background = hexToRgba(profileColor(profile), 0.18);
+  av.style.color = profileColor(profile);
+  return av;
+}
+
+const ProfileSwitcher = (function () {
+  /** Намалювати перемикач і підписати картку «Поточна страва» ім'ям активного. */
+  function render() {
+    const box = document.getElementById("profile-switcher");
+    if (!box) return;
+    box.innerHTML = "";
+
+    const profiles = ProfileStore.getAll();
+    const activeId = ProfileStore.getActiveId();
+
+    const seg = el("div", "profile-seg");
+    profiles.forEach((p) => {
+      const tab = el("button", "profile-tab" + (p.id === activeId ? " active" : ""));
+      tab.type = "button";
+      tab.dataset.profile = p.id;
+      tab.title = p.name + " · " + p.targetCalories + " ± " + p.corridor + " ккал/день";
+      tab.appendChild(profileAvatar(p));
+      const txt = el("span", "ptxt");
+      txt.appendChild(el("span", "pname", p.name));
+      txt.appendChild(el("span", "pkcal", p.targetCalories + " ккал"));
+      tab.appendChild(txt);
+      tab.addEventListener("click", () => setActive(p.id));
+      seg.appendChild(tab);
+    });
+
+    const manage = el("button", "profile-manage", "⚙");
+    manage.type = "button";
+    manage.title = "Профілі";
+    manage.setAttribute("aria-label", "Керувати профілями");
+    manage.addEventListener("click", () => ProfilesScreen.open());
+    seg.appendChild(manage);
+    box.appendChild(seg);
+
+    /* Чию страву показує картка нижче — видно й без погляду на перемикач. */
+    const title = document.getElementById("today-meal-title");
+    if (title) {
+      title.textContent = "Поточна страва";
+      if (profiles.length > 1) {
+        const active = profiles.find((p) => p.id === activeId);
+        title.appendChild(el("span", "accent", " · " + active.name));
+      }
+    }
+  }
+
+  /** Перемкнути активний профіль і оновити залежне від нього на головній.
+   *  «Тиждень»/«Календар» перемальовуються самі при вході (switchTab). */
+  function setActive(id) {
+    if (id !== ProfileStore.getActiveId()) ProfileStore.setActive(id);
+    applyProfileAccent();
+    render();
+    TodayCard.render();
+  }
+
+  return { render, setActive };
+})();
+
+const ProfilesScreen = (function () {
+  let overlay = null; // відкритий аркуш або null
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") close();
+  }
+
+  /** Закрити екран «Профілі» (якщо відкритий). */
+  function close() {
+    if (!overlay) return;
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeyDown);
+  }
+
+  function isOpen() { return overlay !== null; }
+
+  /* Аркуш діалогу: створюється при першому виклику, далі лише очищається —
+   * список і форма редагування живуть в одному аркуші. */
+  function sheet() {
+    if (!overlay) {
+      overlay = el("div", "overlay");
+      overlay.id = "profiles-overlay";
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      const s = el("div", "sheet");
+      s.setAttribute("role", "dialog");
+      s.setAttribute("aria-modal", "true");
+      s.setAttribute("aria-label", "Профілі");
+      overlay.appendChild(s);
+      document.body.appendChild(overlay);
+      document.addEventListener("keydown", onKeyDown);
+    }
+    const s = overlay.querySelector(".sheet");
+    s.innerHTML = "";
+    return s;
+  }
+
+  /** Відкрити екран «Профілі» (список). */
+  function open() {
+    showList();
+  }
+
+  /* Список профілів: дотик — редагування; «+ Додати профіль» — нова форма. */
+  function showList() {
+    const s = sheet();
+    s.appendChild(el("h2", null, "Профілі"));
+    s.appendChild(el("p", "swap-now",
+      "У кожного профілю — власні ціль, план тижня й календар. Перемикання — на екрані «Сьогодні»."));
+
+    const activeId = ProfileStore.getActiveId();
+    ProfileStore.getAll().forEach((p) => {
+      const row = el("div", "meal-item profile-row tappable");
+      const left = el("div", "profile-left");
+      left.appendChild(profileAvatar(p));
+      const txt = el("div");
+      const name = el("div", "name", p.name);
+      if (p.id === activeId) {
+        name.appendChild(document.createTextNode(" "));
+        name.appendChild(el("span", "tag accent", "активний"));
+      }
+      txt.appendChild(name);
+      txt.appendChild(el("div", "meta",
+        p.targetCalories + " ± " + p.corridor + " ккал/день" +
+        (Array.isArray(p.mealIds) ? " · окремий пул" : "")));
+      left.appendChild(txt);
+      row.appendChild(left);
+      row.appendChild(el("span", "meal-edit", "✎"));
+      row.addEventListener("click", () => showEdit(p.id));
+      s.appendChild(row);
+    });
+
+    const add = el("button", "btn primary block", "+ Додати профіль");
+    add.type = "button";
+    add.addEventListener("click", () => showEdit(null));
+    s.appendChild(add);
+
+    const done = el("button", "btn block", "Закрити");
+    done.type = "button";
+    done.addEventListener("click", close);
+    s.appendChild(done);
+  }
+
+  /* Перший колір палітри, не зайнятий іншим профілем — для нового. */
+  function nextFreeColor() {
+    const used = ProfileStore.getAll().map(profileColor);
+    return PROFILE_COLORS.find((c) => used.indexOf(c) < 0) || PROFILE_COLORS[0];
+  }
+
+  /* Форма профілю: profileId — редагування наявного, null — новий. */
+  function showEdit(profileId) {
+    const profile = profileId ? ProfileStore.getById(profileId) : null;
+    if (profileId && !profile) { showList(); return; }
+    const s = sheet();
+
+    let color = profile ? profileColor(profile) : nextFreeColor();
+
+    // Хедер: назад до списку + заголовок.
+    const top = el("div", "recipe-top");
+    const back = el("button", "recipe-back", "‹");
+    back.type = "button";
+    back.title = "До списку профілів";
+    back.setAttribute("aria-label", "До списку профілів");
+    back.addEventListener("click", showList);
+    top.appendChild(back);
+    top.appendChild(el("h2", null, profile ? "Редагування · " + profile.name : "Новий профіль"));
+    s.appendChild(top);
+
+    const form = el("form");
+    form.id = "profile-form";
+
+    // Ім'я з живим аватаром у вибраному кольорі.
+    const nameRow = el("div", "profile-name-row");
+    const av = profileAvatar(profile || { name: "" }, true);
+    const nameInput = document.createElement("input");
+    nameInput.name = "name";
+    nameInput.required = true;
+    nameInput.placeholder = "Ім'я";
+    nameInput.value = profile ? profile.name : "";
+    nameInput.setAttribute("aria-label", "Ім'я профілю");
+    const refreshAvatar = () => {
+      av.textContent = (nameInput.value.trim().charAt(0) || "?").toUpperCase();
+      av.style.background = hexToRgba(color, 0.18);
+      av.style.color = color;
+    };
+    nameInput.addEventListener("input", refreshAvatar);
+    nameRow.appendChild(av);
+    nameRow.appendChild(nameInput);
+    form.appendChild(nameRow);
+
+    // Колір профілю: п'ять кольорів палітри, вибраний — з кільцем.
+    form.appendChild(el("div", "recipe-sec", "Колір профілю"));
+    const swatches = el("div", "color-swatches");
+    const refreshSwatches = () => {
+      swatches.querySelectorAll(".color-swatch").forEach((sw) => {
+        sw.style.boxShadow = sw.dataset.color === color
+          ? "0 0 0 2px var(--card), 0 0 0 4px " + sw.dataset.color
+          : "none";
+      });
+    };
+    PROFILE_COLORS.forEach((c) => {
+      const sw = el("button", "color-swatch");
+      sw.type = "button";
+      sw.dataset.color = c;
+      sw.style.background = c;
+      sw.setAttribute("aria-label", "Колір профілю " + c);
+      sw.addEventListener("click", () => { color = c; refreshSwatches(); refreshAvatar(); });
+      swatches.appendChild(sw);
+    });
+    form.appendChild(swatches);
+    refreshSwatches();
+    refreshAvatar();
+
+    // Ціль і коридор дня (нові профілі — з типовими значеннями генератора).
+    const targets = el("div", "macros");
+    const tLabel = el("label", null, "Ціль, ккал");
+    const tInput = document.createElement("input");
+    tInput.name = "targetCalories";
+    tInput.type = "number";
+    tInput.min = "1";
+    tInput.step = "1";
+    tInput.required = true;
+    tInput.value = profile ? profile.targetCalories : WeekGenerator.DEFAULTS.targetCalories;
+    tLabel.appendChild(tInput);
+    targets.appendChild(tLabel);
+    const cLabel = el("label", null, "Коридор, ±");
+    const cInput = document.createElement("input");
+    cInput.name = "corridor";
+    cInput.type = "number";
+    cInput.min = "0";
+    cInput.step = "1";
+    cInput.required = true;
+    cInput.value = profile ? profile.corridor : WeekGenerator.DEFAULTS.corridor;
+    cLabel.appendChild(cInput);
+    targets.appendChild(cLabel);
+    form.appendChild(targets);
+
+    // Цілі БЖВ — необов'язкові: порожнє поле лишається незаданим (null).
+    form.appendChild(el("div", "recipe-sec", "Цілі БЖВ · необов'язково"));
+    const goals = el("div", "macros");
+    [["protein", "Білки, г"], ["fat", "Жири, г"], ["carbs", "Вуглеводи, г"]].forEach(([key, label]) => {
+      const l = el("label", null, label);
+      const input = document.createElement("input");
+      input.name = key;
+      input.type = "number";
+      input.min = "0";
+      input.step = "0.1";
+      input.placeholder = "—";
+      const v = profile && profile.goals ? profile.goals[key] : null;
+      if (v != null) input.value = v;
+      l.appendChild(input);
+      goals.appendChild(l);
+    });
+    form.appendChild(goals);
+
+    // Пул страв: спільний чи власна підмножина (mealIds, MER-21).
+    form.appendChild(el("div", "recipe-sec", "Пул страв"));
+    const poolChips = el("div", "chips");
+    const sharedChip = el("button", "chip", "Спільний");
+    sharedChip.type = "button";
+    sharedChip.dataset.pool = "shared";
+    const ownChip = el("button", "chip", "Окремий");
+    ownChip.type = "button";
+    ownChip.dataset.pool = "own";
+    poolChips.appendChild(sharedChip);
+    poolChips.appendChild(ownChip);
+    form.appendChild(poolChips);
+
+    const subset = profile && Array.isArray(profile.mealIds) ? new Set(profile.mealIds) : null;
+    const pick = el("div", "pool-pick");
+    const pool = MealStore.getAll();
+    if (!pool.length) pick.appendChild(el("div", "empty", "Пул страв порожній."));
+    pool.forEach((m) => {
+      const row = el("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = m.id;
+      cb.checked = subset ? subset.has(m.id) : true;
+      row.appendChild(cb);
+      const txt = el("span", null, m.name + " ");
+      txt.appendChild(el("span", "pmeta", MEAL_TYPE_LABELS[m.type] + " · " + m.calories + " ккал"));
+      row.appendChild(txt);
+      pick.appendChild(row);
+    });
+    form.appendChild(pick);
+
+    let ownPool = !!subset;
+    const refreshPool = () => {
+      sharedChip.classList.toggle("active", !ownPool);
+      ownChip.classList.toggle("active", ownPool);
+      pick.hidden = !ownPool;
+    };
+    sharedChip.addEventListener("click", () => { ownPool = false; refreshPool(); });
+    ownChip.addEventListener("click", () => { ownPool = true; refreshPool(); });
+    refreshPool();
+
+    // Помилка збереження (некоректні дані відхиляє модель createProfile).
+    const err = el("p", "form-error");
+    err.hidden = true;
+    form.appendChild(err);
+
+    // Дії: зберегти / назад до списку / видалити (крім останнього профілю).
+    const actions = el("div", "form-actions");
+    const save = el("button", "btn primary", "Зберегти");
+    save.type = "submit";
+    actions.appendChild(save);
+    const cancel = el("button", "btn", "Скасувати");
+    cancel.type = "button";
+    cancel.addEventListener("click", showList);
+    actions.appendChild(cancel);
+    if (profile && ProfileStore.getAll().length > 1) {
+      actions.appendChild(el("span", "spacer"));
+      const del = el("button", "btn danger", "Видалити");
+      del.type = "button";
+      del.id = "profile-delete-btn";
+      del.addEventListener("click", () => {
+        if (!confirm("Видалити профіль «" + profile.name + "»? Його план тижня і календар буде втрачено.")) return;
+        try {
+          ProfileStore.remove(profile.id);
+          refreshAfterChange();
+          showList();
+        } catch (e2) {
+          err.textContent = e2.message;
+          err.hidden = false;
+        }
+      });
+      actions.appendChild(del);
+    }
+    form.appendChild(actions);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      try {
+        ProfileStore.save({
+          id: profile ? profile.id : undefined,
+          name: nameInput.value,
+          color,
+          targetCalories: tInput.value,
+          corridor: cInput.value,
+          goals: {
+            protein: form.elements.protein.value,
+            fat: form.elements.fat.value,
+            carbs: form.elements.carbs.value,
+          },
+          mealIds: ownPool
+            ? Array.from(pick.querySelectorAll("input:checked")).map((cb) => cb.value)
+            : null,
+        });
+        refreshAfterChange();
+        showList();
+      } catch (e2) {
+        err.textContent = e2.message;
+        err.hidden = false;
+      }
+    });
+
+    s.appendChild(form);
+  }
+
+  /* Після збереження/видалення: акцент і залежні від профілю частини головної. */
+  function refreshAfterChange() {
+    applyProfileAccent();
+    ProfileSwitcher.render();
+    TodayCard.render();
+  }
+
+  return { open, close, isOpen };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, createProfile, ProfileStore, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -3001,6 +3518,8 @@ if (!selftestBusy) {
   const backfillPlan = WeekStore.get();
   if (backfillPlan) CalendarStore.recordPlan(backfillPlan);
 }
+/* Акцент інтерфейсу — колір активного профілю (MER-17): до першого рендера. */
+applyProfileAccent();
 renderTabBar();
 switchTab(AppState.get("activeTab"));
 
@@ -3748,6 +4267,105 @@ switchTab(AppState.get("activeTab"));
       Ingredients.parts(s122.ingredients[0]).qty === "40 г" &&
       Ingredients.label(s122.ingredients[0]) === "сирок «Волошкове поле» — 40 г"));
 
+    // 18. MER-17: профіль на двох — перемикач, екран «Профілі», колір-акцент.
+    DemoPool.seed();
+    localStorage.removeItem("meridian.profiles.v1");
+    ProfileStore.migrate();
+    applyProfileAccent();
+    switchTab("today");
+
+    const box17 = document.getElementById("profile-switcher");
+    mark(check("Перемикач: один профіль — одна вкладка + кнопка «Профілі»",
+      box17.querySelectorAll(".profile-tab").length === 1 &&
+      !!box17.querySelector(".profile-manage")));
+
+    let badColor17 = false;
+    try { createProfile({ name: "X", color: "червоний" }); } catch (e) { badColor17 = true; }
+    mark(check("Модель: некоректний колір відхилено; типовий — синій POC",
+      badColor17 && createProfile({ name: "X" }).color === PROFILE_COLORS[0]));
+
+    const wife17 = ProfileStore.save({ name: "Дружина", targetCalories: 1500, corridor: 100, color: "#e0729c" });
+    ProfileSwitcher.render();
+    mark(check("Перемикач: другий профіль з'явився (ім'я і ціль на вкладці)",
+      box17.querySelectorAll(".profile-tab").length === 2 &&
+      box17.textContent.indexOf("Дружина") >= 0 && box17.textContent.indexOf("1500") >= 0));
+
+    box17.querySelector('.profile-tab[data-profile="' + wife17.id + '"]').click();
+    mark(check("Перемикач: дотик перемикає активний профіль і підсвічує вкладку",
+      ProfileStore.getActiveId() === wife17.id &&
+      box17.querySelector('.profile-tab[data-profile="' + wife17.id + '"]').classList.contains("active")));
+    mark(check("Акцент: колір інтерфейсу = колір активного профілю",
+      document.documentElement.style.getPropertyValue("--accent").trim() === "#e0729c"));
+    mark(check("Картка «Поточна страва»: підписано ім'ям активного профілю",
+      document.getElementById("today-meal-title").textContent.indexOf("Дружина") >= 0));
+
+    // Критерій готовності: кожен профіль генерує тиждень під свою ціль.
+    const regen17 = WeekScreen.regenerate();
+    mark(check("Тиждень профілю: згенеровано під ціль 1500 ± 100",
+      regen17.ok === true && regen17.params.targetCalories === 1500 &&
+      regen17.days.every((d) => Math.abs(d.calories - 1500) <= regen17.usedCorridor),
+      regen17.ok ? regen17.days.map((d) => d.calories).join(", ") + " ккал" : regen17.error));
+
+    // Екран «Профілі»: список → редагування → збереження.
+    ProfilesScreen.open();
+    const sheet17 = () => document.querySelector("#profiles-overlay .sheet");
+    mark(check("Екран «Профілі»: список із двох, активний позначено",
+      !!sheet17() && sheet17().querySelectorAll(".profile-row").length === 2 &&
+      sheet17().textContent.indexOf("активний") >= 0));
+
+    sheet17().querySelectorAll(".profile-row")[1].click();
+    const form17 = () => document.getElementById("profile-form");
+    mark(check("Редагування: форму відкрито з даними профілю",
+      !!form17() && form17().elements.name.value === "Дружина" &&
+      Number(form17().elements.targetCalories.value) === 1500));
+
+    form17().elements.targetCalories.value = "1550";
+    form17().elements.protein.value = "110";
+    form17().requestSubmit();
+    const wifeAfter17 = ProfileStore.getById(wife17.id);
+    mark(check("Редагування: зміни збережено (ціль 1550, білок 110), повернуто до списку",
+      wifeAfter17.targetCalories === 1550 && wifeAfter17.goals.protein === 110 &&
+      wifeAfter17.goals.fat === null && !form17() &&
+      sheet17().querySelectorAll(".profile-row").length === 2));
+
+    // Окремий пул: тумблер відкриває список страв; підмножина зберігається.
+    sheet17().querySelectorAll(".profile-row")[1].click();
+    form17().querySelector('[data-pool="own"]').click();
+    const picks17 = form17().querySelectorAll('.pool-pick input[type="checkbox"]');
+    mark(check("Окремий пул: список страв показано, всі позначені",
+      picks17.length === MealStore.getAll().length &&
+      Array.from(picks17).every((cb) => cb.checked)));
+    picks17[0].click();
+    form17().requestSubmit();
+    const subset17 = ProfileStore.getById(wife17.id).mealIds;
+    mark(check("Окремий пул: підмножину збережено, пул профілю звузився",
+      Array.isArray(subset17) && subset17.length === MealStore.getAll().length - 1 &&
+      ProfileStore.poolFor(wife17.id).length === subset17.length));
+
+    sheet17().querySelectorAll(".profile-row")[1].click();
+    form17().querySelector('[data-pool="shared"]').click();
+    form17().requestSubmit();
+    mark(check("Спільний пул: тумблер повертає mealIds = null",
+      ProfileStore.getById(wife17.id).mealIds === null));
+
+    // Видалення: з підтвердженням; активним стає профіль за замовчуванням.
+    sheet17().querySelectorAll(".profile-row")[1].click();
+    const confirm17 = window.confirm;
+    window.confirm = () => true;
+    try { document.getElementById("profile-delete-btn").click(); }
+    finally { window.confirm = confirm17; }
+    mark(check("Видалення: профіль зник, активний — за замовчуванням, акцент синій",
+      ProfileStore.getById(wife17.id) === null &&
+      ProfileStore.getActiveId() === ProfileStore.DEFAULT_ID &&
+      document.documentElement.style.getPropertyValue("--accent").trim() === PROFILE_COLORS[0]));
+
+    sheet17().querySelectorAll(".profile-row")[0].click();
+    mark(check("Видалення: кнопки «Видалити» немає для останнього профілю",
+      !!form17() && !document.getElementById("profile-delete-btn")));
+
+    ProfilesScreen.close();
+    mark(check("Екран «Профілі»: закривається", !document.getElementById("profiles-overlay")));
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -3769,9 +4387,15 @@ switchTab(AppState.get("activeTab"));
     // Прибрати тестові діалоги й повернути екрани до реальних даних.
     SwapDialog.close();
     RecipeScreen.close();
+    ProfilesScreen.close();
+    // Акцент і перемикач — за відновленим активним профілем (MER-17).
+    applyProfileAccent();
+    ProfileSwitcher.render();
     WeekScreen.render();
     TodayCard.render();
     CalendarScreen.goToday();
+    // Тести перемикали екрани — повернути вкладку, на якій був користувач.
+    switchTab(AppState.get("activeTab"));
   }
 
   const outEl = document.getElementById("selftest-out");
