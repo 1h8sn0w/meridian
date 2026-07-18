@@ -76,6 +76,10 @@
     border-bottom: 1px solid var(--line);
   }
   .meal-item:last-child { border-bottom: none; }
+  /* Лівий блок (назва+мета) забирає всю вільну ширину: ккал і «✎» стають
+   * рівним стовпчиком праворуч, а не «пливуть» за довжиною назви.
+   * min-width: 0 — довгі назви переносяться, не виштовхуючи стовпчик. */
+  .meal-item > :first-child { flex: 1 1 auto; min-width: 0; }
   .meal-item .name { font-size: 14.5px; }
   .meal-item .meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
   .meal-item .kcal { color: var(--accent); font-size: 13.5px; white-space: nowrap; }
