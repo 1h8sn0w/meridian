@@ -233,6 +233,67 @@
   .day-after.ok { color: var(--ok); }
   .day-after.out { color: var(--warn); }
 
+  /* --- Сторінка рецепта (MER-22) --- */
+  .recipe-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .recipe-back {
+    border: none; background: none; color: var(--muted);
+    font: inherit; font-size: 22px; line-height: 1; padding: 0 4px; cursor: pointer;
+  }
+  .recipe-back:hover { color: var(--accent); }
+  .recipe-top .meta { color: var(--muted); font-size: 12.5px; }
+  .recipe-photo-add {
+    width: 100%; height: 120px; border-radius: 14px; background: var(--bg);
+    border: 1px dashed var(--line); color: var(--muted); font: inherit;
+    font-size: 12.5px; cursor: pointer; margin-bottom: 14px;
+  }
+  .recipe-photo {
+    width: 100%; max-height: 220px; object-fit: cover;
+    border-radius: 14px; margin-bottom: 14px; display: block;
+  }
+  .recipe-name { font-size: 19px; font-weight: 500; margin-bottom: 10px; }
+  .recipe-chips { display: flex; gap: 8px; margin-bottom: 12px; }
+  .recipe-chips .rchip {
+    flex: 1; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px; text-align: center;
+  }
+  .recipe-chips .rchip-value { font-size: 14px; font-weight: 500; }
+  .recipe-chips .rchip-label { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .recipe-macros { display: flex; gap: 6px; margin-bottom: 16px; }
+  .recipe-macros span {
+    flex: 1; text-align: center; font-size: 12.5px; color: var(--muted);
+    background: rgba(79, 157, 255, .12); border-radius: 8px; padding: 6px;
+  }
+  .recipe-sec {
+    font-size: 11px; color: var(--muted); letter-spacing: .04em;
+    text-transform: uppercase; margin: 16px 0 8px;
+  }
+  .ring-row {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 14px; line-height: 2; border-bottom: 1px solid var(--line);
+  }
+  .ring-row:last-child { border-bottom: none; }
+  .ring-row .qty { color: var(--muted); white-space: nowrap; }
+  .step-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .step-num {
+    flex: none; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(79, 157, 255, .12); color: var(--accent);
+    font-size: 12px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-text { font-size: 13px; line-height: 1.5; }
+  .recipe-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .recipe-actions .btn { flex: 1; }
+  .recipe-actions .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+  /* Рядки, що відкривають рецепт (пул, слот, картка «Сьогодні») */
+  .tappable { cursor: pointer; }
+  .meal-edit {
+    border: 1px solid var(--line); background: none; color: var(--muted);
+    border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 13px;
+    line-height: 1; cursor: pointer;
+  }
+  .meal-edit:hover { color: var(--accent); border-color: var(--accent); }
+
   /* Картка активної страви на головній (MER-11; мінімум і заміна — MER-12) */
   .today-slot { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
   .today-total { font-size: 13px; color: var(--ok); margin: 10px 0 12px; }
@@ -398,8 +459,19 @@
             <input name="carbs" type="number" min="0" step="0.1" placeholder="—">
           </label>
         </div>
-        <label>Інгредієнти (по одному в рядку)
-          <textarea name="ingredients" rows="4" placeholder="гречка 80 г&#10;куряче філе 150 г"></textarea>
+        <label>Інгредієнти (по одному в рядку; кількість — після « — »)
+          <textarea name="ingredients" rows="4" placeholder="гречка — 80 г&#10;куряче філе — 150 г&#10;овочі на вибір"></textarea>
+        </label>
+        <div class="macros">
+          <label>Час, хв
+            <input name="prepTime" type="number" min="0" step="1" placeholder="—">
+          </label>
+          <label>Порції
+            <input name="servings" type="number" min="1" step="1" placeholder="—">
+          </label>
+        </div>
+        <label>Кроки приготування (по одному в рядку; порожньо — секція прихована)
+          <textarea name="steps" rows="4" placeholder="Відварити гречку 15 хв.&#10;Обсмажити філе до золотистого."></textarea>
         </label>
         <label>Джерело (план дієтолога)
           <input name="source" placeholder="План №2">
@@ -433,9 +505,17 @@
  *   protein     number?  Білки, г (необов'язкове).
  *   fat         number?  Жири, г (необов'язкове).
  *   carbs       number?  Вуглеводи, г (необов'язкове).
- *   ingredients string[] Список інгредієнтів (рядки).
+ *   ingredients (string | {name, amount?, unit?})[]
+ *                        Інгредієнти. Рядок — лише назва; об'єкт — структурований
+ *                        (MER-22): кількість/одиниця лише коли вони є в джерелі.
  *   source      string   З якого плану дієтолога (напр. «План №2») — для міксу.
+ *   steps       string[] Кроки приготування (MER-22). Порожньо = у джерелі немає.
+ *   prepTime    number?  Час приготування, хв (MER-22; необов'язкове).
+ *   servings    number?  Кількість порцій (MER-22; необов'язкове).
+ *   photo       string?  Фото, data-URL (MER-22; додається користувачем вручну).
  *
+ * Нові поля MER-22 необов'язкові: порожнеча — норма (провенанс даних,
+ * AGENTS.md) — UI ховає секції, а не показує вигадане.
  * Модель навмисно проста (vanilla JS), без збірки й залежностей — див. AGENTS.md.
  * ========================================================================== */
 
@@ -465,6 +545,78 @@ function toOptionalNumber(value) {
   return n;
 }
 
+/* ============================================================================
+ * Ingredients — робота з інгредієнтами обох форм (MER-22).
+ * ----------------------------------------------------------------------------
+ * Інгредієнт — рядок («овочі на вибір») або об'єкт {name, amount?, unit?}
+ * («сирок — 40 г»). Кількість зберігається лише коли вона є в джерелі;
+ * parts() дає уніфікований доступ (потрібно рецепту і списку покупок MER-16).
+ * ========================================================================== */
+const Ingredients = (function () {
+  /** Нормалізувати запис: рядок → обрізаний рядок (або null, якщо порожній);
+   *  об'єкт → {name, amount?, unit?}. Кидає українську помилку на сміття. */
+  function normalize(entry) {
+    if (typeof entry === "string" || typeof entry === "number") {
+      const s = String(entry).trim();
+      return s.length ? s : null;
+    }
+    if (entry && typeof entry === "object") {
+      const name = String(entry.name ?? "").trim();
+      if (!name) throw new Error("Структурований інгредієнт мусить мати назву (name).");
+      const out = { name };
+      const amount = toOptionalNumber(entry.amount);
+      const unit = String(entry.unit ?? "").trim();
+      if (amount !== null) out.amount = amount;
+      if (unit) out.unit = unit;
+      return out;
+    }
+    throw new Error("Інгредієнт має бути рядком або об'єктом {name, amount?, unit?}.");
+  }
+
+  /** Уніфікований доступ: {name, qty}, де qty — «40 г» / «2 шт» / «до смаку»
+   *  або null, якщо кількості в джерелі немає. Приймає обидві форми. */
+  function parts(entry) {
+    if (entry && typeof entry === "object") {
+      const bits = [];
+      if (entry.amount != null) bits.push(Number(entry.amount).toLocaleString("uk-UA"));
+      if (entry.unit) bits.push(entry.unit);
+      return { name: String(entry.name ?? ""), qty: bits.length ? bits.join(" ") : null };
+    }
+    return { name: String(entry ?? ""), qty: null };
+  }
+
+  /** Плоский підпис для списків: «назва» або «назва — кількість». */
+  function label(entry) {
+    const p = parts(entry);
+    return p.qty ? p.name + " — " + p.qty : p.name;
+  }
+
+  /** Рядок форми: той самий формат, що й label (розділювач « — »). */
+  const toLine = label;
+
+  /** Розібрати рядок форми назад: «назва — 80 г» → {name, amount, unit};
+   *  «назва — до смаку» → {name, unit}; без « — » → просто рядок-назва.
+   *  Порожній рядок → null (відкидається). */
+  function fromLine(line) {
+    const s = String(line ?? "").trim();
+    if (!s) return null;
+    const i = s.lastIndexOf(" — ");
+    if (i < 1) return s;
+    const name = s.slice(0, i).trim();
+    const qty = s.slice(i + 3).trim();
+    if (!name || !qty) return s;
+    const m = qty.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+    if (m) {
+      const out = { name, amount: Number(m[1].replace(",", ".")) };
+      if (m[2].trim()) out.unit = m[2].trim();
+      return out;
+    }
+    return { name, unit: qty };
+  }
+
+  return { normalize, parts, label, toLine, fromLine };
+})();
+
 /**
  * Створити валідну страву з «сирих» даних.
  * Кидає помилку з українським повідомленням, якщо дані некоректні.
@@ -489,10 +641,19 @@ function createMeal(input) {
   }
 
   const ingredients = Array.isArray(input.ingredients)
-    ? input.ingredients.map((s) => String(s).trim()).filter((s) => s.length > 0)
+    ? input.ingredients.map(Ingredients.normalize).filter((x) => x !== null)
     : [];
 
   const source = String(input.source ?? "").trim();
+
+  // Поля рецепта (MER-22) — необов'язкові, порожнеча — норма.
+  const steps = Array.isArray(input.steps)
+    ? input.steps.map((s) => String(s).trim()).filter((s) => s.length > 0)
+    : [];
+  const servings = toOptionalNumber(input.servings);
+  if (servings !== null && servings <= 0) {
+    throw new Error("Кількість порцій має бути додатною.");
+  }
 
   return {
     id: input.id ? String(input.id) : generateId(),
@@ -504,6 +665,10 @@ function createMeal(input) {
     carbs: toOptionalNumber(input.carbs),
     ingredients,
     source,
+    steps,
+    prepTime: toOptionalNumber(input.prepTime),
+    servings,
+    photo: String(input.photo ?? "").trim() || null,
   };
 }
 
@@ -786,8 +951,9 @@ const MealsScreen = (function () {
     box.innerHTML = "";
     meals.forEach((m) => {
       const row = document.createElement("div");
-      row.className = "meal-item";
-      row.addEventListener("click", () => openForm(m.id));
+      row.className = "meal-item tappable";
+      // Дотик по рядку відкриває рецепт (MER-22); редагування — окремим «✎».
+      row.addEventListener("click", () => RecipeScreen.open(m));
 
       const left = document.createElement("div");
       const name = document.createElement("div");
@@ -803,8 +969,20 @@ const MealsScreen = (function () {
       kcal.className = "kcal";
       kcal.textContent = m.calories + " ккал";
 
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "meal-edit";
+      edit.textContent = "✎";
+      edit.title = "Редагувати страву";
+      edit.setAttribute("aria-label", "Редагувати страву «" + m.name + "»");
+      edit.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openForm(m.id);
+      });
+
       row.appendChild(left);
       row.appendChild(kcal);
+      row.appendChild(edit);
       box.appendChild(row);
     });
   }
@@ -831,7 +1009,10 @@ const MealsScreen = (function () {
     form.elements.protein.value = meal && meal.protein !== null ? meal.protein : "";
     form.elements.fat.value = meal && meal.fat !== null ? meal.fat : "";
     form.elements.carbs.value = meal && meal.carbs !== null ? meal.carbs : "";
-    form.elements.ingredients.value = meal ? meal.ingredients.join("\n") : "";
+    form.elements.ingredients.value = meal ? meal.ingredients.map(Ingredients.toLine).join("\n") : "";
+    form.elements.prepTime.value = meal && meal.prepTime != null ? meal.prepTime : "";
+    form.elements.servings.value = meal && meal.servings != null ? meal.servings : "";
+    form.elements.steps.value = meal && meal.steps ? meal.steps.join("\n") : "";
     form.elements.source.value = meal ? meal.source : "";
 
     formTitle.textContent = meal ? "Редагувати страву" : "Нова страва";
@@ -858,8 +1039,14 @@ const MealsScreen = (function () {
         protein: form.elements.protein.value,
         fat: form.elements.fat.value,
         carbs: form.elements.carbs.value,
-        ingredients: form.elements.ingredients.value.split("\n"),
+        ingredients: form.elements.ingredients.value.split("\n")
+          .map(Ingredients.fromLine).filter((x) => x !== null),
+        prepTime: form.elements.prepTime.value,
+        servings: form.elements.servings.value,
+        steps: form.elements.steps.value.split("\n"),
         source: form.elements.source.value,
+        // Фото додається на сторінці рецепта; при редагуванні не губимо його.
+        photo: editingId && MealStore.getById(editingId) ? MealStore.getById(editingId).photo : null,
       });
       render();
     } catch (err) {
@@ -1201,16 +1388,16 @@ const DemoPool = (function () {
     // --- Десерти → слот «перекус» (повторювані в обох тижнях; матча — лише тиждень 1) ---
     { id: "demo-wb-s1", type: "snack", calories: 155, source: WB,
       name: "Сирок «Волошкове поле»",
-      ingredients: ["сирок «Волошкове поле» 40 г"] },
+      ingredients: [{ name: "сирок «Волошкове поле»", amount: 40, unit: "г" }] },
     { id: "demo-wb-s2", type: "snack", calories: 185, source: WB,
       name: "Банановий хліб (скибочка)",
-      ingredients: ["банановий хліб 50 г"] },
+      ingredients: [{ name: "банановий хліб (скибочка)", amount: 50, unit: "г" }] },
     { id: "demo-wb-s3", type: "snack", calories: 230, source: WB,
       name: "Морозиво пломбір зі згущенкою",
-      ingredients: ["пломбір зі згущеним молоком 100 г"] },
+      ingredients: [{ name: "пломбір зі згущеним молоком", amount: 100, unit: "г" }] },
     { id: "demo-wb-s4", type: "snack", calories: 280, source: W1,
       name: "Печиво матча",
-      ingredients: ["печиво матча 2 шт (60 г)"] },
+      ingredients: [{ name: "печиво матча", amount: 2, unit: "шт (≈60 г)" }] },
     { id: "demo-wb-s5", type: "snack", calories: 290, source: WB,
       name: "Арахісова паста + рисові хлібці",
       ingredients: ["рисові хлібці", "арахісова паста"] },
@@ -1231,9 +1418,10 @@ const DemoPool = (function () {
     }
   }
 
-  /* Версія демо-даних. Підвищується, коли DEMO_MEALS виправлено (звірка з PDF,
-   * MER-23), щоб виправлення дійшли і до вже сідованих установок. */
-  const SEED_VERSION = 2;
+  /* Версія демо-даних. Підвищується, коли DEMO_MEALS змінюються (звірка з PDF
+   * MER-23 = 2; структуровані кількості MER-22 = 3), щоб зміни дійшли і до вже
+   * сідованих установок. */
+  const SEED_VERSION = 3;
 
   /** Оновити раніше сідовані демо-страви до поточної версії даних.
    *  Йде за стабільними id: користувацькі страви не чіпає, видалені
@@ -1995,7 +2183,12 @@ const WeekScreen = (function () {
       SLOT_ORDER.forEach((t) => {
         const meal = day.meals[t];
         if (!meal) return;
-        const row = el("div", "slot-row");
+        const row = el("div", "slot-row tappable");
+        // Дотик по рядку відкриває рецепт (MER-22); «⇄» лишається заміною.
+        row.addEventListener("click", (e) => {
+          if (e.target.closest(".slot-swap")) return;
+          RecipeScreen.open(meal, { dayIndex: i, slot: t });
+        });
         row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
         row.appendChild(el("span", "slot-name", meal.name));
         row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
@@ -2130,6 +2323,207 @@ const SwapDialog = (function () {
 })();
 
 /* ============================================================================
+ * MER-22 — сторінка рецепта.
+ * ----------------------------------------------------------------------------
+ * Повноекранний аркуш поверх застосунку (за макетом docs/design/recipe.html).
+ * Відкривається дотиком на страву: з картки «Сьогодні», зі слота «Тижня»
+ * (обидва передають контекст {dayIndex, slot} — тоді доступна «Замінити»)
+ * або з пулу «Страви» (без контексту). Провенанс даних: показуємо лише те,
+ * що є в даних — відсутні час/порції/БЖВ/кроки ховають свої секції.
+ * Фото додає користувач вручну (стискаємо до ≤800px JPEG у data-URL).
+ * ========================================================================== */
+const RecipeScreen = (function () {
+  let overlay = null; // відкритий аркуш або null
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") close();
+  }
+
+  /** Закрити сторінку рецепта (якщо відкрита). */
+  function close() {
+    if (!overlay) return;
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeyDown);
+  }
+
+  function isOpen() { return overlay !== null; }
+
+  /* «порцію/порції/порцій» — український відмінок за числом. */
+  function servingsWord(n) {
+    const d10 = n % 10, d100 = n % 100;
+    if (d10 === 1 && d100 !== 11) return "порцію";
+    if (d10 >= 2 && d10 <= 4 && (d100 < 12 || d100 > 14)) return "порції";
+    return "порцій";
+  }
+
+  /* Вибрати фото з диска, стиснути й зберегти в пул (localStorage — тому
+   * зменшуємо до ≤800px JPEG). Перемальовує відкритий рецепт із фото. */
+  function pickPhoto(meal, ctx) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          const photo = canvas.toDataURL("image/jpeg", 0.8);
+          const pool = MealStore.getById(meal.id);
+          if (pool) MealStore.save(Object.assign({}, pool, { photo }));
+          if (isOpen()) open(Object.assign({}, meal, { photo }), ctx);
+        } catch (e) {
+          alert("Не вдалося зберегти фото: " + e.message);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        alert("Не вдалося прочитати зображення.");
+      };
+      img.src = url;
+    });
+    input.click();
+  }
+
+  /**
+   * Відкрити рецепт страви meal (об'єкт із пулу або зі знімка плану).
+   * ctx = {dayIndex, slot}, коли відкрито зі слота плану — тоді є «Замінити».
+   */
+  function open(meal, ctx) {
+    close();
+    if (!meal) return;
+
+    overlay = el("div", "overlay");
+    overlay.id = "recipe-overlay";
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+    const sheet = el("div", "sheet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", "Рецепт: " + meal.name);
+
+    // Хедер: повернення + «тип · джерело».
+    const top = el("div", "recipe-top");
+    const back = el("button", "recipe-back", "‹");
+    back.type = "button";
+    back.title = "Назад";
+    back.setAttribute("aria-label", "Закрити рецепт");
+    back.addEventListener("click", close);
+    top.appendChild(back);
+    top.appendChild(el("span", "meta",
+      (MEAL_TYPE_LABELS[meal.type] || meal.type) + (meal.source ? " · " + meal.source : "")));
+    sheet.appendChild(top);
+
+    // Фото або плейсхолдер ручного додавання (лише якщо страва є в пулі).
+    if (meal.photo) {
+      const img = el("img", "recipe-photo");
+      img.src = meal.photo;
+      img.alt = "Фото: " + meal.name;
+      img.title = "Замінити фото";
+      img.style.cursor = "pointer";
+      img.addEventListener("click", () => pickPhoto(meal, ctx));
+      sheet.appendChild(img);
+    } else if (MealStore.getById(meal.id)) {
+      const add = el("button", "recipe-photo-add", "+ додати фото (необов'язково)");
+      add.type = "button";
+      add.addEventListener("click", () => pickPhoto(meal, ctx));
+      sheet.appendChild(add);
+    }
+
+    sheet.appendChild(el("div", "recipe-name", meal.name));
+
+    // Чипи метаданих: лише наявні (калорійність — завжди, вона в моделі обов'язкова).
+    const chips = el("div", "recipe-chips");
+    const chip = (value, label) => {
+      const c = el("div", "rchip");
+      c.appendChild(el("div", "rchip-value", value));
+      c.appendChild(el("div", "rchip-label", label));
+      return c;
+    };
+    chips.appendChild(chip(String(meal.calories), "ккал"));
+    if (meal.prepTime != null) chips.appendChild(chip(meal.prepTime + " хв", "готувати"));
+    if (meal.servings != null) chips.appendChild(chip(String(meal.servings), "порції"));
+    sheet.appendChild(chips);
+
+    // Рядок БЖВ — лише якщо хоч щось задано («—» для пропусків, як на картці).
+    if (meal.protein != null || meal.fat != null || meal.carbs != null) {
+      const macros = el("div", "recipe-macros");
+      [["Б", meal.protein], ["Ж", meal.fat], ["В", meal.carbs]].forEach((pair) => {
+        macros.appendChild(el("span", null,
+          pair[0] + " " + (pair[1] == null ? "—" : pair[1].toLocaleString("uk-UA"))));
+      });
+      sheet.appendChild(macros);
+    }
+
+    // Інгредієнти: назва ліворуч, кількість (де є в джерелі) праворуч.
+    const ingredients = meal.ingredients || [];
+    if (ingredients.length) {
+      sheet.appendChild(el("div", "recipe-sec", "Інгредієнти" +
+        (meal.servings != null ? " · на " + meal.servings + " " + servingsWord(meal.servings) : "")));
+      ingredients.forEach((entry) => {
+        const p = Ingredients.parts(entry);
+        const row = el("div", "ring-row");
+        row.appendChild(el("span", null, p.name));
+        if (p.qty) row.appendChild(el("span", "qty", p.qty));
+        sheet.appendChild(row);
+      });
+    }
+
+    // Кроки — лише якщо є в даних (у PDF їх немає; ручний ввід або MER-15).
+    const steps = meal.steps || [];
+    let stepsSec = null;
+    if (steps.length) {
+      stepsSec = el("div", "recipe-sec", "Приготування");
+      sheet.appendChild(stepsSec);
+      steps.forEach((text, i) => {
+        const row = el("div", "step-row");
+        row.appendChild(el("span", "step-num", String(i + 1)));
+        row.appendChild(el("span", "step-text", text));
+        sheet.appendChild(row);
+      });
+    }
+
+    // Дії: «Замінити» (лише зі слота плану, MER-12) і «Готую зараз».
+    const actions = el("div", "recipe-actions");
+    if (ctx && ctx.slot != null && ctx.dayIndex != null && WeekStore.get()) {
+      const swap = el("button", "btn", "Замінити");
+      swap.type = "button";
+      swap.id = "recipe-swap-btn";
+      swap.addEventListener("click", () => {
+        close();
+        SwapDialog.open(ctx.dayIndex, ctx.slot);
+      });
+      actions.appendChild(swap);
+    }
+    const cook = el("button", "btn primary", "Готую зараз");
+    cook.type = "button";
+    cook.id = "recipe-cook-btn";
+    if (steps.length) {
+      cook.addEventListener("click", () => stepsSec.scrollIntoView({ behavior: "smooth" }));
+    } else {
+      cook.disabled = true;
+      cook.title = "У джерелі немає кроків приготування — додайте їх через «✎» на екрані «Страви».";
+    }
+    actions.appendChild(cook);
+    sheet.appendChild(actions);
+
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", onKeyDown);
+  }
+
+  return { open, close, isOpen };
+})();
+
+/* ============================================================================
  * MER-11 — картка активної страви на головній (мінімум і заміна — MER-12).
  * ----------------------------------------------------------------------------
  * Активний (або найближчий наступний) прийом за годинником (MER-9), страва з
@@ -2188,7 +2582,10 @@ const TodayCard = (function () {
 
     box.appendChild(el("p", "today-slot", label));
 
-    const row = el("div", "meal-item");
+    const row = el("div", "meal-item tappable");
+    row.title = "Відкрити рецепт";
+    // Дотик по картці страви відкриває сторінку рецепта (MER-22).
+    row.addEventListener("click", () => RecipeScreen.open(meal, { dayIndex, slot }));
     const left = el("div");
     left.appendChild(el("div", "name", meal.name));
     if (meal.source) left.appendChild(el("div", "meta", meal.source));
@@ -2215,7 +2612,7 @@ const TodayCard = (function () {
     if (meal.ingredients && meal.ingredients.length) {
       box.appendChild(el("p", "today-sec", "Інгредієнти"));
       const ul = el("ul", "today-ingredients");
-      meal.ingredients.forEach((s) => ul.appendChild(el("li", null, s)));
+      meal.ingredients.forEach((s) => ul.appendChild(el("li", null, Ingredients.label(s))));
       box.appendChild(ul);
     } else {
       box.appendChild(el("p", "today-note", "Інгредієнти не вказані."));
@@ -3279,6 +3676,78 @@ switchTab(AppState.get("activeTab"));
     mark(check("Реседінг: повторний запуск нічого не змінює (ідемпотентність)",
       MealStore.getAll().length === count23 && count23 === 2));
 
+    // 17. MER-22: сторінка рецепта + розширення моделі страви.
+    const rich22 = createMeal({
+      name: "Тестовий рецепт (MER-22)", type: "lunch", calories: 500,
+      ingredients: ["овочі на вибір", { name: "гречка", amount: 80, unit: "г" }],
+      steps: ["Крок один.", "  Крок два.  ", ""],
+      prepTime: 25, servings: 2, photo: "data:image/png;base64,тест",
+    });
+    mark(check("Модель: нові поля зберігаються (кроки/час/порції/фото)",
+      rich22.steps.length === 2 && rich22.steps[1] === "Крок два." &&
+      rich22.prepTime === 25 && rich22.servings === 2 && rich22.photo !== null));
+    mark(check("Модель: структуровані інгредієнти нормалізуються поруч із рядковими",
+      rich22.ingredients[0] === "овочі на вибір" &&
+      rich22.ingredients[1].name === "гречка" && rich22.ingredients[1].amount === 80 &&
+      rich22.ingredients[1].unit === "г"));
+
+    const legacy22 = createMeal({ name: "Стара страва (MER-22)", type: "dinner",
+      calories: 400, ingredients: ["рис", "овочі"] });
+    mark(check("Сумісність: страва без нових полів валідна, порожнеча — норма",
+      legacy22.steps.length === 0 && legacy22.prepTime === null &&
+      legacy22.servings === null && legacy22.photo === null));
+
+    const line22 = Ingredients.fromLine("куряче філе — 150 г");
+    mark(check("Ingredients: parts/label/fromLine — доступ для рецепта і MER-16",
+      Ingredients.parts("овочі на вибір").qty === null &&
+      Ingredients.parts({ name: "сирок", amount: 40, unit: "г" }).qty === "40 г" &&
+      line22.name === "куряче філе" && line22.amount === 150 && line22.unit === "г" &&
+      Ingredients.toLine(line22) === "куряче філе — 150 г" &&
+      Ingredients.fromLine("овочі на вибір") === "овочі на вибір" &&
+      Ingredients.fromLine("олія — до смаку").unit === "до смаку"));
+
+    // Сторінка рецепта: повні дані — всі секції; стара страва — секції приховані.
+    RecipeScreen.open(rich22, null);
+    mark(check("Рецепт (повні дані): чипи ккал+час+порції, 2 кроки, кількість у рядку",
+      !!document.getElementById("recipe-overlay") &&
+      document.querySelectorAll("#recipe-overlay .rchip").length === 3 &&
+      document.querySelectorAll("#recipe-overlay .step-row").length === 2 &&
+      document.querySelectorAll("#recipe-overlay .ring-row .qty").length === 1 &&
+      !document.getElementById("recipe-swap-btn")));
+    RecipeScreen.close();
+
+    RecipeScreen.open(legacy22, null);
+    mark(check("Рецепт (стара страва): відкривається, зайві секції приховані",
+      !!document.getElementById("recipe-overlay") &&
+      document.querySelectorAll("#recipe-overlay .rchip").length === 1 &&
+      document.querySelectorAll("#recipe-overlay .step-row").length === 0 &&
+      document.querySelectorAll("#recipe-overlay .recipe-macros").length === 0 &&
+      document.querySelectorAll("#recipe-overlay .ring-row").length === 2));
+    mark(check("Рецепт: «Готую зараз» вимкнено, коли кроків немає в джерелі",
+      document.getElementById("recipe-cook-btn").disabled === true));
+    RecipeScreen.close();
+    mark(check("Рецепт: закривається", !document.getElementById("recipe-overlay")));
+
+    // Відкриття зі слота плану: «Замінити» веде в діалог заміни MER-12.
+    const plan22 = WeekStore.get();
+    const slot22 = MEAL_TYPES.find((t) => plan22 && plan22.days[0].meals[t]);
+    mark(check("Рецепт зі слота: план і страва на місці", !!plan22 && !!slot22));
+    if (plan22 && slot22) {
+      RecipeScreen.open(plan22.days[0].meals[slot22], { dayIndex: 0, slot: slot22 });
+      const swapBtn22 = document.getElementById("recipe-swap-btn");
+      mark(check("Рецепт зі слота: кнопка «Замінити» присутня", !!swapBtn22));
+      if (swapBtn22) swapBtn22.click();
+      mark(check("«Замінити» з рецепта відкриває діалог MER-12 і закриває рецепт",
+        SwapDialog.isOpen() && !document.getElementById("recipe-overlay")));
+      SwapDialog.close();
+    }
+
+    // Демо-пул: кількості з PDF структуровані й доступні списку покупок (MER-16).
+    const s122 = DemoPool.DEMO_MEALS.find((m) => m.id === "demo-wb-s1");
+    mark(check("Демо-пул: кількість із PDF структурована (сирок — 40 г)",
+      Ingredients.parts(s122.ingredients[0]).qty === "40 г" &&
+      Ingredients.label(s122.ingredients[0]) === "сирок «Волошкове поле» — 40 г"));
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -3297,8 +3766,9 @@ switchTab(AppState.get("activeTab"));
     // будь-який наступний set() записав би тестовий стан поверх реального.
     AppState.reload();
     AppState.set("mealWindows", WINDOWS_SNAPSHOT);
-    // Прибрати тестовий діалог і повернути екрани до реальних даних.
+    // Прибрати тестові діалоги й повернути екрани до реальних даних.
     SwapDialog.close();
+    RecipeScreen.close();
     WeekScreen.render();
     TodayCard.render();
     CalendarScreen.goToday();
