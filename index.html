@@ -436,6 +436,47 @@
   }
   .pool-pick .pmeta { color: var(--muted); font-size: 12px; }
 
+  /* --- Імпорт із PDF-плану (MER-15) --- */
+  .import-hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 10px; }
+  #import-overlay input[type="text"], #import-overlay input[type="number"],
+  #import-overlay select, #import-overlay textarea {
+    display: block;
+    width: 100%;
+    margin-top: 3px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font: inherit;
+    font-size: 13.5px;
+    color-scheme: dark;
+  }
+  #import-overlay textarea { resize: vertical; }
+  .import-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .import-card.import-skip { opacity: .65; }
+  .import-card.import-done { opacity: .55; border-color: var(--ok); }
+  .import-head { display: flex; align-items: center; gap: 8px; }
+  .import-head input[type="checkbox"] { flex: none; margin: 0; accent-color: var(--accent); }
+  #import-overlay .import-head input[name="name"] { flex: 1; width: auto; margin-top: 0; }
+  #import-overlay .import-head select { flex: none; width: auto; margin-top: 0; }
+  .import-card label { display: block; margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+  .import-grid { display: flex; gap: 8px; }
+  .import-grid label { flex: 1; }
+  .import-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag.warn { color: var(--warn); border-color: var(--warn); }
+  .import-raw {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 6px 0 0;
+  }
+  .import-card details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  #import-status { font-size: 13px; margin: 10px 0 0; }
+  #import-status.err { color: var(--warn); }
+
   /* --- Нижній таб-бар --- */
   nav {
     position: fixed;
@@ -532,6 +573,8 @@
     <div class="panel" id="meals-list-panel">
       <div class="chips" id="meals-filter"></div>
       <button class="btn primary block" id="meal-add-btn">+ Додати страву</button>
+      <!-- Напівавтоматичний імпорт плану дієтолога (MER-15): відкриває PdfImport -->
+      <button class="btn block" id="meal-import-btn">Імпорт із PDF-плану дієтолога</button>
       <div id="meals-list"></div>
     </div>
 
@@ -3613,8 +3656,569 @@ const ProfilesScreen = (function () {
   return { open, close, isOpen };
 })();
 
+/* ============================================================================
+ * MER-15 — Імпорт із PDF-плану дієтолога (напівавтомат).
+ * ----------------------------------------------------------------------------
+ * Шлях: PDF-файл → текст (pdf.js, вендорений у vendor/pdfjs) → розпізнавання
+ * (parsePlanText, чиста функція) → екран перевірки, де людина бачить кожну
+ * страву поруч із сирим текстом і підтверджує/править ПЕРЕД додаванням у пул.
+ *
+ * Провенанс даних (тверде правило, див. AGENTS.md): беремо лише те, що
+ * буквально є в тексті PDF. Калорійність — лише якщо написано «N ккал»
+ * (інакше поле порожнє, і без ручного вводу страва в пул не потрапить);
+ * БЖВ не розпізнаються ніколи (у плані «Ж/Ч» — це порції Жінка/Чоловік,
+ * а не жири!); кількості лишаються дослівними; кроки — лише дослівні
+ * нотатки з плану. Повтори («Той самий…») і дублікати назв позначаються
+ * і типово не імпортуються.
+ * ========================================================================== */
+const PdfImport = (function () {
+  const PDFJS_SRC = "vendor/pdfjs/pdf.min.js";
+  const PDFJS_WORKER_SRC = "vendor/pdfjs/pdf.worker.min.js";
+
+  /* Український підпис слота → тип моделі. */
+  const SLOT_TYPES = { "сніданок": "breakfast", "обід": "lunch", "вечеря": "dinner", "десерт": "snack" };
+
+  /* ---------------------------------------------------------------- парсер */
+
+  /* Рядки, що ПОЧИНАЮТЬ новий логічний блок (решта може бути перенесенням). */
+  const STARTERS = [
+    /^ТИЖДЕНЬ\s+\d+/i,
+    /^День\s+\d+/i,
+    /^(Сніданок|Обід|Вечеря|Десерт)\s*(:|$)/i,
+    /^На 2-х[^:]*:/i,
+    /^Готова порція/i,
+  ];
+
+  /* Фізичні рядки PDF мають жорсткі переноси посеред речень. Склеюємо:
+   * продовженням вважаємо рядок, що починається з малої літери, цифри,
+   * дужки чи розділового знака, а також «Ж -»/«Ч -» (порційні рядки). */
+  function toLogicalLines(text) {
+    const lines = [];
+    String(text || "").split(/\r?\n/).forEach((raw) => {
+      const line = raw.replace(/\s+/g, " ").trim();
+      if (!line || /^=+\s*PAGE/i.test(line)) return;
+      const isStarter = STARTERS.some((re) => re.test(line));
+      const isContinuation = !isStarter && lines.length > 0 &&
+        (/^[a-zа-яіїєґ0-9(≈~+;,.%–-]/.test(line) || /^[ЖЧ]\s*[-–]/.test(line));
+      if (isContinuation) lines[lines.length - 1] += " " + line;
+      else lines.push(line);
+    });
+    return lines;
+  }
+
+  /* «400 г цвітної капусти» → {name, amount, unit} — лише коли кількість
+   * однозначна (число + г/кг/мл/л). Діапазони, «≈», ложки, штуки тощо
+   * лишаються дослівним рядком — нічого не переписуємо. */
+  function structureIngredient(item) {
+    const m = item.match(/^(\d+(?:[.,]\d+)?)\s*(кг|мл|г|л)\s+(.+)$/);
+    if (!m) return item;
+    return { name: m[3].trim(), amount: Number(m[1].replace(",", ".")), unit: m[2] };
+  }
+
+  /* Інгредієнти «На 2-х…»: у плані розділені «;» або « + ». */
+  function splitIngredients(body) {
+    const parts = body.indexOf(";") >= 0 ? body.split(";") : body.split(/\s\+\s/);
+    return parts.map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+
+  /**
+   * Розпізнати текст PDF-плану в список страв-кандидатів. Чиста функція.
+   * Повертає { entries, stats }, де entry:
+   *   kind        "meal" — страва; "repeat" — повтор («Той самий…»);
+   *               "dup" — дублікат назви (типово не імпортується)
+   *   name/type   з рядка слота («Сніданок: …»)
+   *   week/source з заголовка «ТИЖДЕНЬ N», day — з «День N»
+   *   calories    лише якщо в тексті є «N ккал», інакше null
+   *   ingredients дослівні рядки «На 2-х…» (однозначні кількості —
+   *               структуровані), steps — дослівні нотатки, servings —
+   *               2 для страв «На 2-х», інакше null
+   *   raw         усі рядки блоку як у PDF, flags — сумнівні місця
+   */
+  function parsePlanText(text) {
+    const lines = toLogicalLines(text);
+    const entries = [];
+    let week = null;
+    let day = null;
+    let entry = null;
+
+    const closeEntry = () => {
+      if (entry) { entries.push(entry); entry = null; }
+    };
+    const startEntry = (type, name, kind, rawFirst) => {
+      closeEntry();
+      entry = {
+        kind, type, name, day, week,
+        source: week ? "Тиждень " + week : "",
+        calories: null, protein: null, fat: null, carbs: null,
+        ingredients: [], steps: [], servings: null,
+        raw: [rawFirst], flags: [],
+      };
+    };
+
+    lines.forEach((line) => {
+      let m;
+      if ((m = line.match(/^ТИЖДЕНЬ\s+(\d+)/i))) { closeEntry(); week = Number(m[1]); return; }
+      if ((m = line.match(/^День\s+(\d+)/i))) { closeEntry(); day = Number(m[1]); return; }
+
+      if ((m = line.match(/^(Сніданок|Обід|Вечеря|Десерт)\s*(?::\s*(.*))?$/i))) {
+        const type = SLOT_TYPES[m[1].toLowerCase()];
+        const rest = (m[2] || "").trim();
+
+        // Порожній підпис слота або «Той самий / Та сама / те саме» — повтор
+        // страви попереднього дня: у пул не додається, показується як довідка.
+        if (!rest || /^т(ой|а|е)\s+сам/i.test(rest)) {
+          startEntry(type, rest, "repeat", line);
+          entry.flags.push({ code: "repeat", message: "Повтор страви попереднього дня — окрема страва вже є вище." });
+          return;
+        }
+
+        if (type === "snack") {
+          // Десертний рядок: «назва - порція…» або «назва. далі…».
+          // Відділяємо назву механічно; місце розрізу позначаємо на перевірку.
+          const dashIdx = rest.indexOf(" - ");
+          const dotIdx = rest.indexOf(". ");
+          let cut = rest.length;
+          if (dashIdx >= 0) cut = dashIdx;
+          if (dotIdx >= 0 && dotIdx < cut) cut = dotIdx;
+          startEntry(type, rest.slice(0, cut).replace(/\.+$/, "").trim(), "meal", line);
+          const kcal = rest.match(/(\d+(?:[.,]\d+)?)\s*ккал/i);
+          if (kcal) entry.calories = Number(kcal[1].replace(",", "."));
+          if (cut < rest.length) {
+            entry.flags.push({ code: "dessert-split", message: "Назву відділено від опису порції — перевірте." });
+          }
+          return;
+        }
+
+        startEntry(type, rest, "meal", line);
+        return;
+      }
+
+      if (!entry) return; // шапка документа («МЕНЮ…») — поза стравами
+      entry.raw.push(line);
+
+      if ((m = line.match(/^На 2-х[^:]*:\s*(.*)$/i))) {
+        if (entry.kind !== "meal") return;
+        const body = m[1].trim();
+        if (!body || /^[-–—]+$/.test(body)) return; // «-» = складник без нових продуктів
+        entry.servings = 2; // дослівне «На 2-х» із плану «Для двох»
+        splitIngredients(body).forEach((item) => entry.ingredients.push(structureIngredient(item)));
+        return;
+      }
+
+      if (/^Готова порція/i.test(line)) return; // порції Ж/Ч — лише в сирому тексті
+
+      // Нотатка приготування/подачі (речення з крапкою) — дослівно в кроки.
+      // Рядки без крапки — назви складників; вони лишаються в сирому тексті.
+      if (entry.kind === "meal" && /\.\s*$/.test(line)) {
+        entry.steps.push(line);
+      }
+    });
+    closeEntry();
+
+    // Дублікати назв (десерти повторюються між днями): перша страва лишається,
+    // наступні позначаються і типово не імпортуються.
+    const seen = new Set();
+    entries.forEach((e) => {
+      if (e.kind !== "meal" || !e.name) return;
+      const key = e.name.toLowerCase().replace(/\s+/g, " ") + "|" + e.type;
+      if (seen.has(key)) {
+        e.kind = "dup";
+        e.flags.push({ code: "dup", message: "Дублікат назви — така страва вже є вище." });
+      } else {
+        seen.add(key);
+      }
+    });
+
+    // Калорійності в плані здебільшого немає — чесно позначаємо (без вигадок).
+    entries.forEach((e) => {
+      if (e.kind === "meal" && e.calories === null) {
+        e.flags.push({ code: "no-kcal", message: "У PDF немає калорійності — впишіть вручну, щоб додати в пул." });
+      }
+    });
+
+    const stats = {
+      weeks: new Set(entries.map((e) => e.week).filter((w) => w !== null)).size,
+      days: new Set(entries.map((e) => e.day).filter((d) => d !== null)).size,
+      meals: entries.filter((e) => e.kind === "meal").length,
+      repeats: entries.filter((e) => e.kind === "repeat").length,
+      dups: entries.filter((e) => e.kind === "dup").length,
+    };
+    return { entries, stats };
+  }
+
+  /* ------------------------------------------------- видобування тексту PDF */
+
+  let pdfjsPromise = null; // одноразове ліниве завантаження вендореного pdf.js
+
+  function ensurePdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfjsPromise) return pdfjsPromise;
+    pdfjsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = PDFJS_SRC;
+      script.onload = () => {
+        if (!window.pdfjsLib) {
+          reject(new Error("Модуль читання PDF завантажився некоректно."));
+          return;
+        }
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
+        resolve(window.pdfjsLib);
+      };
+      script.onerror = () => {
+        pdfjsPromise = null;
+        reject(new Error("Не вдалося завантажити модуль читання PDF (" + PDFJS_SRC + "). Спробуйте вставити текст вручну."));
+      };
+      document.head.appendChild(script);
+    });
+    return pdfjsPromise;
+  }
+
+  /* Текст усіх сторінок PDF (рядки за hasEOL) — те, що піде в parsePlanText. */
+  async function extractPdfText(buffer, onProgress) {
+    const pdfjs = await ensurePdfJs();
+    const doc = await pdfjs.getDocument({ data: buffer }).promise;
+    let text = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      if (onProgress) onProgress(p, doc.numPages);
+      const content = await (await doc.getPage(p)).getTextContent();
+      content.items.forEach((item) => {
+        text += item.str;
+        if (item.hasEOL) text += "\n";
+      });
+      text += "\n";
+    }
+    return text;
+  }
+
+  /* ------------------------------------------------------------ екран (UI) */
+
+  let overlay = null; // відкритий аркуш або null
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") close();
+  }
+
+  /** Закрити імпорт (якщо відкритий). */
+  function close() {
+    if (!overlay) return;
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeyDown);
+  }
+
+  function isOpen() { return overlay !== null; }
+
+  /* Аркуш діалогу: кроки «файл» і «перевірка» живуть в одному аркуші. */
+  function sheet() {
+    if (!overlay) {
+      overlay = el("div", "overlay");
+      overlay.id = "import-overlay";
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      const s = el("div", "sheet");
+      s.setAttribute("role", "dialog");
+      s.setAttribute("aria-modal", "true");
+      s.setAttribute("aria-label", "Імпорт із PDF-плану");
+      overlay.appendChild(s);
+      document.body.appendChild(overlay);
+      document.addEventListener("keydown", onKeyDown);
+    }
+    const s = overlay.querySelector(".sheet");
+    s.innerHTML = "";
+    return s;
+  }
+
+  function setStatus(statusEl, message, isError) {
+    statusEl.textContent = message || "";
+    statusEl.className = isError ? "err" : "";
+    statusEl.id = "import-status";
+  }
+
+  /** Крок 1: вибір PDF-файлу або вставлення тексту з нього. */
+  function open() {
+    const s = sheet();
+    s.appendChild(el("h2", null, "Імпорт із PDF-плану дієтолога"));
+    s.appendChild(el("p", "import-hint",
+      "Розпізнаємо лише те, що буквально є у файлі: назви, тип прийому, інгредієнти, " +
+      "номер тижня, калорійність (де вказана). Чого в PDF немає — поле лишиться порожнім. " +
+      "Перед додаванням у пул усе перевіряєте й підтверджуєте ви."));
+
+    const pick = el("button", "btn primary block", "Вибрати PDF-файл…");
+    pick.type = "button";
+    const file = document.createElement("input");
+    file.type = "file";
+    file.accept = ".pdf,application/pdf";
+    file.id = "import-file";
+    file.hidden = true;
+    pick.addEventListener("click", () => file.click());
+    s.appendChild(pick);
+    s.appendChild(file);
+
+    const status = el("p", null, "");
+    setStatus(status, "");
+    s.appendChild(status);
+
+    file.addEventListener("change", () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      setStatus(status, "Читаю «" + f.name + "»…");
+      f.arrayBuffer()
+        .then((buffer) => extractPdfText(buffer, (p, n) => {
+          setStatus(status, "Витягаю текст: сторінка " + p + " з " + n + "…");
+        }))
+        .then((text) => {
+          if (!text.replace(/\s+/g, "")) {
+            throw new Error("У файлі не знайдено тексту (можливо, це скан-зображення).");
+          }
+          showReview(parsePlanText(text));
+        })
+        .catch((e) => setStatus(status, "Не вдалося прочитати PDF: " + e.message, true));
+    });
+
+    // Запасний шлях (і для перевірок): текст, скопійований із PDF вручну.
+    const pasteLabel = el("label", null, "Або вставте текст, скопійований із PDF:");
+    const paste = document.createElement("textarea");
+    paste.rows = 6;
+    paste.id = "import-paste";
+    paste.placeholder = "День 1\nСніданок: …";
+    pasteLabel.appendChild(paste);
+    s.appendChild(pasteLabel);
+
+    const parseBtn = el("button", "btn block", "Розпізнати вставлений текст");
+    parseBtn.type = "button";
+    parseBtn.id = "import-parse-btn";
+    parseBtn.addEventListener("click", () => {
+      if (!paste.value.replace(/\s+/g, "")) {
+        setStatus(status, "Вставте текст плану або виберіть PDF-файл.", true);
+        return;
+      }
+      showReview(parsePlanText(paste.value));
+    });
+    s.appendChild(parseBtn);
+
+    const cancel = el("button", "btn block", "Скасувати");
+    cancel.type = "button";
+    cancel.addEventListener("click", close);
+    s.appendChild(cancel);
+  }
+
+  /** Відкрити одразу екран перевірки з готового тексту (запасний шлях і тести). */
+  function openWithText(text) {
+    showReview(parsePlanText(text));
+  }
+
+  /* Чи є в пулі страва з такою ж назвою і типом (без урахування регістру). */
+  function inPool(entry) {
+    const key = entry.name.toLowerCase().replace(/\s+/g, " ");
+    return MealStore.getAll().some((meal) =>
+      meal.type === entry.type && meal.name.toLowerCase().replace(/\s+/g, " ") === key);
+  }
+
+  /* Крок 2: перевірка людиною — картки страв поруч із сирим текстом PDF. */
+  function showReview(parsed) {
+    const s = sheet();
+    s.appendChild(el("h2", null, "Перевірка перед додаванням"));
+
+    const st = parsed.stats;
+    s.appendChild(el("p", "import-hint",
+      "Розпізнано страв: " + st.meals +
+      (st.repeats ? " · повторів між днями: " + st.repeats : "") +
+      (st.dups ? " · дублікатів назв: " + st.dups : "") +
+      (st.weeks ? " · тижнів: " + st.weeks : "") +
+      (st.days ? " · днів: " + st.days : "") +
+      ". Позначені страви потраплять у пул лише після «Додати вибрані». " +
+      "Сумнівні місця мають позначки; сирий текст PDF — під кожною карткою."));
+
+    const cards = []; // {entry, box, cb, fields…, added}
+
+    parsed.entries.forEach((entry) => {
+      const kindMeal = entry.kind === "meal" || entry.kind === "dup";
+      const box = el("div", "import-card" + (kindMeal ? "" : " import-skip"));
+      box.dataset.kind = entry.kind;
+
+      const head = el("div", "import-head");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      head.appendChild(cb);
+
+      if (!kindMeal) {
+        // Повтор: у пул не додається — лише довідка з сирим текстом.
+        cb.disabled = true;
+        cb.checked = false;
+        head.appendChild(el("span", null,
+          (MEAL_TYPE_LABELS[entry.type] || entry.type) +
+          (entry.day ? " · День " + entry.day : "") +
+          " — повтор" + (entry.name ? ": " + entry.name : "")));
+        box.appendChild(head);
+      } else {
+        const dupInPool = inPool(entry);
+        if (dupInPool) {
+          entry.flags.push({ code: "in-pool", message: "Така страва вже є в пулі — типово не імпортується." });
+        }
+        cb.checked = entry.kind === "meal" && !dupInPool;
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.name = "name";
+        nameInput.value = entry.name;
+        head.appendChild(nameInput);
+
+        const typeSelect = document.createElement("select");
+        typeSelect.name = "type";
+        MEAL_TYPES.forEach((t) => {
+          const opt = document.createElement("option");
+          opt.value = t;
+          opt.textContent = MEAL_TYPE_LABELS[t];
+          if (t === entry.type) opt.selected = true;
+          typeSelect.appendChild(opt);
+        });
+        head.appendChild(typeSelect);
+        box.appendChild(head);
+
+        const grid = el("div", "import-grid");
+        const kcalLabel = el("label", null, "Калорійність, ккал");
+        const kcalInput = document.createElement("input");
+        kcalInput.type = "number";
+        kcalInput.name = "calories";
+        kcalInput.min = "0";
+        kcalInput.step = "1";
+        kcalInput.placeholder = "немає в PDF";
+        if (entry.calories !== null) kcalInput.value = entry.calories;
+        kcalLabel.appendChild(kcalInput);
+        grid.appendChild(kcalLabel);
+
+        const servLabel = el("label", null, "Порції");
+        const servInput = document.createElement("input");
+        servInput.type = "number";
+        servInput.name = "servings";
+        servInput.min = "1";
+        servInput.step = "1";
+        servInput.placeholder = "—";
+        if (entry.servings !== null) servInput.value = entry.servings;
+        servLabel.appendChild(servInput);
+        grid.appendChild(servLabel);
+
+        const srcLabel = el("label", null, "Джерело (план)");
+        const srcInput = document.createElement("input");
+        srcInput.type = "text";
+        srcInput.name = "source";
+        srcInput.value = entry.source;
+        srcLabel.appendChild(srcInput);
+        grid.appendChild(srcLabel);
+        box.appendChild(grid);
+
+        const ingLabel = el("label", null, "Інгредієнти (по одному в рядку)");
+        const ingInput = document.createElement("textarea");
+        ingInput.name = "ingredients";
+        ingInput.rows = Math.min(6, Math.max(2, entry.ingredients.length));
+        ingInput.value = entry.ingredients.map(Ingredients.toLine).join("\n");
+        ingLabel.appendChild(ingInput);
+        box.appendChild(ingLabel);
+
+        const stepsLabel = el("label", null, "Кроки/нотатки з PDF (по одному в рядку)");
+        const stepsInput = document.createElement("textarea");
+        stepsInput.name = "steps";
+        stepsInput.rows = Math.min(4, Math.max(2, entry.steps.length));
+        stepsInput.value = entry.steps.join("\n");
+        stepsLabel.appendChild(stepsInput);
+        box.appendChild(stepsLabel);
+
+        const err = el("p", "form-error");
+        err.hidden = true;
+        box.appendChild(err);
+
+        cards.push({ entry, box, cb, nameInput, typeSelect, kcalInput, servInput, srcInput, ingInput, stepsInput, err, added: false });
+      }
+
+      if (entry.flags.length) {
+        const flags = el("div", "import-flags");
+        entry.flags.forEach((f) => flags.appendChild(el("span", "tag warn", f.message)));
+        box.appendChild(flags);
+      }
+
+      const details = document.createElement("details");
+      const summary = el("summary", null, "Сирий текст із PDF");
+      details.appendChild(summary);
+      details.appendChild(el("pre", "import-raw", entry.raw.join("\n")));
+      box.appendChild(details);
+
+      s.appendChild(box);
+    });
+
+    if (!parsed.entries.length) {
+      s.appendChild(el("div", "empty", "У тексті не розпізнано жодної страви. Перевірте, що це план із рядками «Сніданок: …», «Обід: …»."));
+    }
+
+    const status = el("p", null, "");
+    setStatus(status, "");
+    s.appendChild(status);
+
+    const confirm = el("button", "btn primary block", "");
+    confirm.type = "button";
+    confirm.id = "import-confirm-btn";
+    s.appendChild(confirm);
+
+    const cancel = el("button", "btn block", "Закрити");
+    cancel.type = "button";
+    cancel.addEventListener("click", close);
+    s.appendChild(cancel);
+
+    const pending = () => cards.filter((c) => !c.added && c.cb.checked);
+    const refreshConfirm = () => {
+      const n = pending().length;
+      confirm.textContent = "Додати вибрані до пулу (" + n + ")";
+      confirm.disabled = n === 0;
+    };
+    s.addEventListener("change", refreshConfirm);
+    refreshConfirm();
+
+    confirm.addEventListener("click", () => {
+      let added = 0;
+      let failed = 0;
+      pending().forEach((card) => {
+        card.err.hidden = true;
+        try {
+          // Провенанс: калорійності немає в PDF — її вписує людина; без неї
+          // страву в пул не додаємо (і точно не підставляємо 0).
+          if (card.kcalInput.value.trim() === "") {
+            throw new Error("Впишіть калорійність — у PDF її немає, а без неї страва не потрапить у пул.");
+          }
+          MealStore.save({
+            name: card.nameInput.value,
+            type: card.typeSelect.value,
+            calories: card.kcalInput.value,
+            ingredients: card.ingInput.value.split("\n").map((l) => l.trim()).filter((l) => l.length > 0).map(Ingredients.fromLine),
+            steps: card.stepsInput.value.split("\n"),
+            servings: card.servInput.value.trim() === "" ? null : card.servInput.value,
+            source: card.srcInput.value,
+          });
+          card.added = true;
+          card.cb.checked = false;
+          card.cb.disabled = true;
+          card.box.classList.add("import-done");
+          added++;
+        } catch (e) {
+          card.err.textContent = e.message;
+          card.err.hidden = false;
+          failed++;
+        }
+      });
+      if (added) MealsScreen.render();
+      setStatus(status,
+        (added ? "Додано до пулу: " + added + ". " : "") +
+        (failed ? "Не додано: " + failed + " — див. позначки в картках." : (added ? "Готово." : "Нічого не вибрано.")),
+        failed > 0);
+      refreshConfirm();
+    });
+  }
+
+  // Кнопка «Імпорт із PDF-плану дієтолога» на екрані «Страви».
+  document.getElementById("meal-import-btn").addEventListener("click", open);
+
+  return { open, openWithText, parsePlanText, extractPdfText, close, isOpen };
+})();
+
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -4546,6 +5150,164 @@ switchTab(AppState.get("activeTab"));
       ProfileStore.getById(partner17.id).sharedPlanWith === null &&
       ProfileStore.getActiveId() === partner17.id));
 
+    // 19. MER-15: імпорт із PDF-плану — розпізнавання строго за фактом.
+    // Фікстура — дослівні рядки з Menu_2_tyzhni.pdf (витяг pdf.js), із
+    // жорсткими переносами рядків, як їх віддає текстовий шар PDF.
+    const pdf15 = [
+      "МЕНЮ НА 2 ТИЖНІ",
+      "З урахуванням ГЕРХ • Для двох",
+      "ТИЖДЕНЬ 1",
+      "День 1",
+      "Сніданок: Омлет з лососем і шпинатом + цільнозерновий тост",
+      "Омлет з лососем і шпинатом",
+      "На 2-х (сухе/сире): 5 яєць; 100 г слабосоленого лосося; жменя шпинату (~60 г); 2 ч. л. оливкової",
+      "олії",
+      "Готова порція: Ж - омлет ~150 г + 1 скиба хліба (35 г) + огірок; Ч - омлет ~230 г + 2 скиби хліба (70",
+      "г) + огірок + 50 г творожного сиру 5%",
+      "Напій без цукру на вибір.",
+      "Обід: Крем-суп з цвітної капусти + куряча грудка + нешліфований рис",
+      "Крем-суп з цвітної капусти (на 2 дні для двох)",
+      "На 2-х (сухе/сире): 400 г цвітної капусти; 1 картоплина (≈120 г); 1 морква (≈80 г); пів цибулі; 100 мл",
+      "вершків 10%; 800 мл овочевого бульйону; 1 ст. л. оливкової олії",
+      "Готова порція: Ж - 250 мл; Ч - 350 мл",
+      "Куряча грудка запечена",
+      "На 2-х (сухе/сире): ≈830 г сирого філе (одним шматком, запекти 25 хв при 180°C з кропом і",
+      "дрібкою солі)",
+      "Готова порція: Ж - 120 г; Ч - 180 г",
+      "Нешліфований рис (гарнір)",
+      "На 2-х (сухе/сире): ≈220 г сирого рису",
+      "Готова порція: Ж - 100 г готового; Ч - 175 г готового",
+      "Доповнення на тарілку: огірок + листя салату + 1 ч. л. оливкової олії - кожному.",
+      "Вечеря: Куряча печінка з овочами + пюре з кабачка і картоплі",
+      "Тушкована куряча печінка з морквою і цибулею",
+      "На 2-х (сухе/сире): ≈800 г печінки; 1 морква; пів цибулі; 50 мл сметани 15%; 1 ст. л. олії; кріп",
+      "Готова порція: Ж - 130 г; Ч - 200 г",
+      "Десерт: Сирок «Волошкове поле» - 1 шт. (≈40 г) кожному.",
+      "День 2",
+      "Сніданок: Гречаний боул з лососем і авокадо",
+      "Гречаний боул (свіжий, на 2-х)",
+      "На 2-х (сухе/сире): 140 г сухої гречки + 3 яйця варених + 110 г слабосоленого лосося + 1 авокадо",
+      "середній (≈140 г) + 200 г огірка + 105 г цільнозернового хліба (3 скиби) + кріп",
+      "Обід",
+      "Той самий, що в день 1: крем-суп з цвітної капусти + куряча грудка + рис. Уся їжа вже зварена.",
+      "Ж - 250 мл супу + 120 г курки + 100 г рису + огірок Ч - 350 мл супу + 180 г курки + 175 г рису +",
+      "огірок",
+      "Вечеря",
+      "Та сама: куряча печінка + пюре. Розігріти, додати свіжий кріп.",
+      "Десерт: банановий хліб - 1 скибочка (≈50 г) кожному. ≈185 ккал.",
+      "День 5",
+      "Десерт: Сирок «Волошкове поле» - 1 шт. (≈40 г) кожному.",
+      "ТИЖДЕНЬ 2",
+      "День 8",
+      "Сніданок: Запечені сирники з йогуртом",
+      "Сирники запечені (без обсмажування)",
+      "На 2-х (сухе/сире): 350 г сиру кисломолочного 5–9%; 1 яйце; 3 ст. л. вівсяного борошна; 1 ст. л.",
+      "цукру; дрібка солі; ваніль",
+      "Випікати 20 хв при 180°C на пергаменті.",
+      "Обід: те саме, з суботи",
+    ].join("\n");
+
+    const parsed15 = PdfImport.parsePlanText(pdf15);
+    const meals15 = parsed15.entries.filter((e) => e.kind === "meal");
+    const byName15 = (n) => meals15.find((m) => m.name.indexOf(n) === 0);
+
+    mark(check("Імпорт: розпізнано 7 страв, 3 повтори, 1 дублікат (2 тижні, 4 дні)",
+      parsed15.stats.meals === 7 && parsed15.stats.repeats === 3 &&
+      parsed15.stats.dups === 1 && parsed15.stats.weeks === 2 && parsed15.stats.days === 4));
+
+    mark(check("Імпорт: назви дослівно з PDF, типи за підписом слота",
+      !!byName15("Омлет з лососем і шпинатом + цільнозерновий тост") &&
+      byName15("Омлет").type === "breakfast" &&
+      byName15("Крем-суп з цвітної капусти + куряча грудка + нешліфований рис").type === "lunch" &&
+      byName15("Куряча печінка з овочами + пюре з кабачка і картоплі").type === "dinner" &&
+      byName15("Сирок «Волошкове поле»").type === "snack"));
+
+    mark(check("Імпорт: джерело — номер тижня з заголовка",
+      byName15("Омлет").source === "Тиждень 1" &&
+      byName15("Запечені сирники з йогуртом").source === "Тиждень 2"));
+
+    mark(check("Імпорт: калорійність лише де написано (банановий хліб ≈185), решта — порожньо",
+      byName15("банановий хліб").calories === 185 &&
+      meals15.filter((m) => m.calories === null).length === 6 &&
+      meals15.filter((m) => m.calories === null)
+        .every((m) => m.flags.some((f) => f.code === "no-kcal"))));
+
+    mark(check("Імпорт: БЖВ ніде не вигадано (порційні «Ж/Ч» — не жири!)",
+      parsed15.entries.every((e) => e.protein === null && e.fat === null && e.carbs === null)));
+
+    const omelet15 = byName15("Омлет");
+    mark(check("Імпорт: інгредієнти «На 2-х» дослівно, перенос рядка склеєно",
+      omelet15.ingredients.length === 4 &&
+      omelet15.ingredients[0] === "5 яєць" &&
+      omelet15.ingredients[3] === "2 ч. л. оливкової олії" &&
+      Ingredients.label(omelet15.ingredients[1]) === "слабосоленого лосося — 100 г"));
+
+    const lunch15 = byName15("Крем-суп");
+    mark(check("Імпорт: складники слота зібрано разом; «≈» і діапазони — дослівним рядком",
+      lunch15.ingredients.length === 9 &&
+      lunch15.ingredients.indexOf("≈830 г сирого філе (одним шматком, запекти 25 хв при 180°C з кропом і дрібкою солі)") >= 0 &&
+      Ingredients.label(lunch15.ingredients[0]) === "цвітної капусти — 400 г"));
+
+    mark(check("Імпорт: нотатки приготування — дослівні кроки; порції «на 2-х»",
+      omelet15.steps.length === 1 && omelet15.steps[0] === "Напій без цукру на вибір." &&
+      omelet15.servings === 2 &&
+      byName15("Запечені сирники").steps[0] === "Випікати 20 хв при 180°C на пергаменті." &&
+      byName15("Сирок «Волошкове поле»").servings === null));
+
+    const repeats15 = parsed15.entries.filter((e) => e.kind === "repeat");
+    const dup15 = parsed15.entries.find((e) => e.kind === "dup");
+    mark(check("Імпорт: повтори («Той самий», «те саме») і дублікат позначено, сирий текст збережено",
+      repeats15.length === 3 &&
+      repeats15[0].raw.join("\n").indexOf("Той самий, що в день 1") >= 0 &&
+      repeats15[2].name === "те саме, з суботи" &&
+      !!dup15 && dup15.name === "Сирок «Волошкове поле»" &&
+      dup15.flags.some((f) => f.code === "dup")));
+
+    // Екран перевірки: людина бачить розпізнане поруч із сирим текстом і
+    // підтверджує перед додаванням; без калорійності страва в пул не йде.
+    MealStore.clear();
+    PdfImport.openWithText(pdf15);
+    const impSheet15 = () => document.querySelector("#import-overlay .sheet");
+    const impCards15 = () => impSheet15().querySelectorAll(".import-card");
+    mark(check("Екран імпорту: всі блоки як картки, позначені — лише повноцінні страви",
+      !!impSheet15() && impCards15().length === 11 &&
+      impSheet15().querySelectorAll(".import-card input[type=checkbox]:checked").length === 7 &&
+      document.getElementById("import-confirm-btn").textContent.indexOf("(7)") >= 0 &&
+      impSheet15().querySelectorAll(".import-raw").length === 11));
+
+    document.getElementById("import-confirm-btn").click();
+    mark(check("Імпорт: без калорійності не додається (жодних нулів за замовчуванням)",
+      MealStore.getAll().length === 1 &&
+      MealStore.getAll()[0].name === "банановий хліб" &&
+      MealStore.getAll()[0].calories === 185 &&
+      MealStore.getAll()[0].type === "snack" &&
+      MealStore.getAll()[0].source === "Тиждень 1"));
+
+    const omeletCard15 = Array.from(impCards15()).find((c) => {
+      const n = c.querySelector('input[name="name"]');
+      return n && n.value.indexOf("Омлет") === 0;
+    });
+    omeletCard15.querySelector('input[name="calories"]').value = "540";
+    document.getElementById("import-confirm-btn").click();
+    const savedOmelet15 = MealStore.getAll().find((m) => m.name.indexOf("Омлет") === 0);
+    mark(check("Імпорт: людина вписала калорійність — страву додано з усіма полями з PDF",
+      MealStore.getAll().length === 2 && !!savedOmelet15 &&
+      savedOmelet15.calories === 540 && savedOmelet15.type === "breakfast" &&
+      savedOmelet15.ingredients.length === 4 &&
+      Ingredients.label(savedOmelet15.ingredients[1]) === "слабосоленого лосося — 100 г" &&
+      savedOmelet15.steps.length === 1 && savedOmelet15.servings === 2 &&
+      savedOmelet15.source === "Тиждень 1" &&
+      omeletCard15.classList.contains("import-done")));
+
+    // Повторний імпорт того самого тексту: наявні в пулі страви позначено.
+    PdfImport.openWithText(pdf15);
+    mark(check("Імпорт: страви, що вже в пулі, позначено і знято з вибору",
+      Array.from(impCards15()).filter((c) => c.textContent.indexOf("вже є в пулі") >= 0).length === 2 &&
+      document.getElementById("import-confirm-btn").textContent.indexOf("(5)") >= 0));
+
+    PdfImport.close();
+    mark(check("Екран імпорту: закривається", !document.getElementById("import-overlay")));
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -4568,6 +5330,7 @@ switchTab(AppState.get("activeTab"));
     SwapDialog.close();
     RecipeScreen.close();
     ProfilesScreen.close();
+    PdfImport.close();
     // Акцент і перемикач — за відновленим активним профілем (MER-17).
     applyProfileAccent();
     ProfileSwitcher.render();
