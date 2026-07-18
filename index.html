@@ -603,6 +603,12 @@ const AppState = (function () {
     localStorage.setItem(KEY, JSON.stringify(state));
   }
 
+  /** Перечитати стан зі сховища (потрібно самоперевірці після відновлення знімка,
+   *  бо state кешується в пам'яті і наступний set() перезаписав би відновлене). */
+  function reload() {
+    state = load();
+  }
+
   /** Прочитати значення зі стану. */
   function get(key) {
     return state[key];
@@ -614,7 +620,7 @@ const AppState = (function () {
     save();
   }
 
-  return { get, set };
+  return { get, set, reload };
 })();
 
 /* ============================================================================
@@ -1221,10 +1227,26 @@ const DemoPool = (function () {
     if (!AppState.get("demoSeeded") && MealStore.getAll().length === 0) {
       seed();
       AppState.set("demoSeeded", true);
+      AppState.set("demoSeedVersion", SEED_VERSION);
     }
   }
 
-  return { DEMO_MEALS, seed, seedIfFirstRun };
+  /* Версія демо-даних. Підвищується, коли DEMO_MEALS виправлено (звірка з PDF,
+   * MER-23), щоб виправлення дійшли і до вже сідованих установок. */
+  const SEED_VERSION = 2;
+
+  /** Оновити раніше сідовані демо-страви до поточної версії даних.
+   *  Йде за стабільними id: користувацькі страви не чіпає, видалені
+   *  демо-страви не воскрешає. Знімки планів лишаються як були (історія). */
+  function upgradeSeed() {
+    if (!AppState.get("demoSeeded")) return;
+    if ((AppState.get("demoSeedVersion") || 1) >= SEED_VERSION) return;
+    const existing = new Set(MealStore.getAll().map((m) => m.id));
+    DEMO_MEALS.filter((m) => existing.has(m.id)).forEach((m) => MealStore.save(m));
+    AppState.set("demoSeedVersion", SEED_VERSION);
+  }
+
+  return { DEMO_MEALS, seed, seedIfFirstRun, upgradeSeed, SEED_VERSION };
 })();
 
 /* ============================================================================
@@ -2562,15 +2584,26 @@ window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppStat
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
  * ========================================================================== */
-DemoPool.seedIfFirstRun();
-/* MER-21: міграція на профілі — профіль за замовчуванням і перенесення
- * допрофільних плану тижня/календаря під нього. До бекфілу й рендера. */
-ProfileStore.migrate();
-/* MER-14: бекфіл — активний план, збережений до появи календаря, теж стає історією. */
-(function backfillCalendar() {
-  const plan = WeekStore.get();
-  if (plan) CalendarStore.recordPlan(plan);
+/* Замок самоперевірки: поки в іншій вкладці йде selftest, сховище тимчасово
+ * містить тестові дані. Стартові ЗАПИСИ тоді пропускаємо, щоб не вплести
+ * тестове в реальне (читання й рендер безпечні — вони нічого не пишуть). */
+const SELFTEST_LOCK_KEY = "meridian.selftest.lock.v1";
+const selftestBusy = (function () {
+  const ts = Number(localStorage.getItem(SELFTEST_LOCK_KEY));
+  return ts > 0 && Date.now() - ts < 15000;
 })();
+
+if (!selftestBusy) {
+  DemoPool.seedIfFirstRun();
+  /* MER-23: виправлення демо-даних доходять і до вже сідованих установок. */
+  DemoPool.upgradeSeed();
+  /* MER-21: міграція на профілі — профіль за замовчуванням і перенесення
+   * допрофільних плану тижня/календаря під нього. До бекфілу й рендера. */
+  ProfileStore.migrate();
+  /* MER-14: бекфіл — активний план, збережений до появи календаря, теж стає історією. */
+  const backfillPlan = WeekStore.get();
+  if (backfillPlan) CalendarStore.recordPlan(backfillPlan);
+}
 renderTabBar();
 switchTab(AppState.get("activeTab"));
 
@@ -2581,6 +2614,18 @@ switchTab(AppState.get("activeTab"));
  * ========================================================================== */
 (function maybeRunSelfTest() {
   if (!new URLSearchParams(location.search).has("selftest")) return;
+
+  // Замок від паралельного запуску (друга вкладка/перезавантаження ?selftest):
+  // два одночасні цикли «знімок → тести → відновлення» через спільний
+  // localStorage перетирають реальні дані користувача тестовими.
+  const lockTs = Number(localStorage.getItem(SELFTEST_LOCK_KEY));
+  if (lockTs > 0 && Date.now() - lockTs < 15000) {
+    const busyEl = document.getElementById("selftest-out");
+    busyEl.textContent = "ПРОПУЩЕНО — інша самоперевірка ще виконується. Оновіть сторінку за кілька секунд.";
+    busyEl.className = "selftest fail";
+    document.getElementById("selftest-panel").hidden = false;
+    return;
+  }
 
   const out = [];
   const check = (label, ok, extra) => {
@@ -2599,6 +2644,8 @@ switchTab(AppState.get("activeTab"));
     if (k && k.indexOf("meridian.") === 0) SNAPSHOT[k] = localStorage.getItem(k);
   }
   const WINDOWS_SNAPSHOT = AppState.get("mealWindows");
+  // Замок ставимо після знімка, щоб він не потрапив у відновлення.
+  localStorage.setItem(SELFTEST_LOCK_KEY, String(Date.now()));
 
   try {
     MealStore.clear();
@@ -3212,6 +3259,26 @@ switchTab(AppState.get("activeTab"));
     mark(check("БЖВ у PDF немає — жодна страва їх не має",
       demo23.every((m) => m.protein == null && m.fat == null && m.carbs == null)));
 
+    // Реседінг: виправлення MER-23 доходять до вже сідованих установок.
+    MealStore.clear();
+    MealStore.save({ id: "demo-w1-b3", name: "Стара назва (до звірки)", type: "breakfast", calories: 1 });
+    MealStore.save({ name: "Моя страва (не демо)", type: "lunch", calories: 2 });
+    AppState.set("demoSeeded", true);
+    AppState.set("demoSeedVersion", 1);
+    DemoPool.upgradeSeed();
+    const upgraded23 = MealStore.getById("demo-w1-b3");
+    const mine23 = MealStore.getAll().find((m) => m.name === "Моя страва (не демо)");
+    mark(check("Реседінг: демо-страву оновлено до звіреної версії за стабільним id",
+      !!upgraded23 && upgraded23.name === "Гречана каша + яйце пашот + варена індичка" &&
+      upgraded23.calories === 530));
+    mark(check("Реседінг: користувацькі страви неторкані, видалені демо не воскресають",
+      !!mine23 && mine23.calories === 2 && MealStore.getById("demo-wb-s1") === null &&
+      AppState.get("demoSeedVersion") === DemoPool.SEED_VERSION));
+    const count23 = MealStore.getAll().length;
+    DemoPool.upgradeSeed();
+    mark(check("Реседінг: повторний запуск нічого не змінює (ідемпотентність)",
+      MealStore.getAll().length === count23 && count23 === 2));
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -3225,6 +3292,10 @@ switchTab(AppState.get("activeTab"));
     }
     testKeys.forEach((k) => localStorage.removeItem(k));
     Object.keys(SNAPSHOT).forEach((k) => localStorage.setItem(k, SNAPSHOT[k]));
+    localStorage.removeItem(SELFTEST_LOCK_KEY);
+    // Кеш AppState тримає тестові значення — перечитати відновлене, інакше
+    // будь-який наступний set() записав би тестовий стан поверх реального.
+    AppState.reload();
     AppState.set("mealWindows", WINDOWS_SNAPSHOT);
     // Прибрати тестовий діалог і повернути екрани до реальних даних.
     SwapDialog.close();
