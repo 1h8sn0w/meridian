@@ -2,6 +2,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meridian</title>
 
+<!-- PWA (MER-19): встановлення на телефон і офлайн-робота. -->
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Меридіан">
+
 <style>
   :root {
     --bg: #0f1115;
@@ -4218,7 +4228,38 @@ const PdfImport = (function () {
 })();
 
 /* Експонуємо в глобал — щоб наступні задачі (пул, генератор, екрани) могли їх використати. */
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+/* ============================================================================
+ * PWA (MER-19): реєстрація service worker — офлайн-оболонка застосунку.
+ * Дані й так локальні (localStorage), sw.js кешує лише файли оболонки.
+ * ========================================================================== */
+const PWA = (function () {
+  const SW_URL = "sw.js";
+
+  /* Service worker живе лише в безпечному контексті: https або localhost.
+   * З file:// чи http://<ip-в-мережі> реєстрації не буде — застосунок
+   * просто працює як звичайна сторінка, без офлайн-кешу. */
+  function canRegister() {
+    return (
+      "serviceWorker" in navigator &&
+      (location.protocol === "https:" ||
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1")
+    );
+  }
+
+  function register() {
+    if (!canRegister()) return Promise.resolve(null);
+    return navigator.serviceWorker.register(SW_URL).catch((e) => {
+      /* Без SW застосунок повністю робочий — лише не офлайн. Не заважаємо. */
+      console.warn("PWA: service worker не зареєструвався:", e);
+      return null;
+    });
+  }
+
+  return { SW_URL, canRegister, register };
+})();
+
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -4247,13 +4288,17 @@ if (!selftestBusy) {
 applyProfileAccent();
 renderTabBar();
 switchTab(AppState.get("activeTab"));
+/* PWA (MER-19): офлайн-оболонка. Після рендера — реєстрація не блокує старт. */
+PWA.register();
 
 /* ============================================================================
  * Самоперевірка (запуск: відкрити index.html?selftest).
  * Робить знімок сховищ (страви, план тижня) перед тестами й відновлює його
  * після — тести не чіпають реальні дані користувача.
  * ========================================================================== */
-(function maybeRunSelfTest() {
+/* async: перевірки PWA (MER-19) чекають на fetch і реєстрацію service worker.
+ * Знімок сховища й замок ставляться синхронно, до першого await. */
+(async function maybeRunSelfTest() {
   if (!new URLSearchParams(location.search).has("selftest")) return;
 
   // Замок від паралельного запуску (друга вкладка/перезавантаження ?selftest):
@@ -5307,6 +5352,55 @@ switchTab(AppState.get("activeTab"));
 
     PdfImport.close();
     mark(check("Екран імпорту: закривається", !document.getElementById("import-overlay")));
+
+    // --- MER-19: PWA + офлайн ---
+    out.push("");
+    out.push("MER-19: PWA (маніфест, service worker, офлайн-кеш)");
+
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    mark(check("Маніфест підключено в <head>", !!manifestLink));
+    mark(check("Мета theme-color та іконка для iOS на місці",
+      !!document.querySelector('meta[name="theme-color"]') &&
+      !!document.querySelector('link[rel="apple-touch-icon"]')));
+
+    if (location.protocol === "file:") {
+      out.push("  [SKIP] Решта перевірок PWA потребує http(s) — відкрито з file://");
+    } else {
+      // Далі — очікування (fetch, реєстрація SW): подовжити замок самоперевірки,
+      // щоб паралельний ?selftest не стартував посеред цих пауз.
+      localStorage.setItem(SELFTEST_LOCK_KEY, String(Date.now()));
+
+      const mf = await fetch(manifestLink.getAttribute("href"))
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      mark(check("Маніфест читається: «Меридіан», standalone, іконки 192/512 + maskable",
+        !!mf && mf.short_name === "Меридіан" && mf.display === "standalone" &&
+        Array.isArray(mf.icons) &&
+        mf.icons.some((i) => i.sizes === "192x192") &&
+        mf.icons.some((i) => i.sizes === "512x512") &&
+        mf.icons.some((i) => i.purpose === "maskable")));
+
+      const swRes = await fetch(PWA.SW_URL).catch(() => null);
+      mark(check("sw.js віддається сервером", !!swRes && swRes.ok));
+      const icoRes = await fetch("icons/icon-192.png").catch(() => null);
+      mark(check("Іконка 192×192 віддається сервером", !!icoRes && icoRes.ok));
+
+      if (!PWA.canRegister()) {
+        out.push("  [SKIP] Service worker: контекст не безпечний (потрібен https або localhost)");
+      } else {
+        // Реєстрацію запущено на старті застосунку; дочекатись активного SW.
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+        ]);
+        mark(check("Service worker активний", !!reg && !!reg.active));
+        // Після активації оболонка вже в кеші (install робить addAll).
+        const cachedIndex = reg ? await caches.match("./index.html", { ignoreSearch: true }) : null;
+        const cachedVendor = reg ? await caches.match("./vendor/pdfjs/pdf.min.js") : null;
+        mark(check("Офлайн-кеш: index.html збережено", !!cachedIndex));
+        mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
+      }
+    }
 
   } catch (e) {
     allOk = false;
