@@ -244,6 +244,8 @@
   .sheet .btn.block { margin: 12px 0 0; }
   .swap-now { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
   .swap-row { cursor: pointer; }
+  /* MER-28: заблокований кандидат заміни (порушив би коридор/антиповтор/мікс). */
+  .swap-row.disabled { cursor: not-allowed; opacity: .5; }
   .day-after { font-size: 12.5px; white-space: nowrap; }
   .day-after.ok { color: var(--ok); }
   .day-after.out { color: var(--warn); }
@@ -2213,9 +2215,10 @@ const WeekGenerator = (function () {
    * @param plan     збережений план (WeekStore.get()).
    * @param dayIndex індекс дня плану (0-based).
    * @param slotType слот із MEAL_TYPES.
-   * @returns {ok:true, current, target, corridor,
-   *           candidates:[{meal, dayCalories, withinCorridor, repeatSoon}]}
-   *          або {ok:false, error} з українським поясненням.
+   * @returns {ok:true, current, target, corridor, mixRequired,
+   *           candidates:[{meal, dayCalories, withinCorridor, repeatSoon,
+   *           mixOk, valid, reasons}]} або {ok:false, error} з поясненням.
+   *          valid=false — заміна порушила б коридор/антиповтор/мікс; UI її блокує.
    */
   function suggestReplacements(pool, plan, dayIndex, slotType) {
     if (!plan || !Array.isArray(plan.days) || !plan.params) {
@@ -2250,23 +2253,43 @@ const WeekGenerator = (function () {
     }
 
     const meals = Array.isArray(pool) ? pool : ProfileStore.poolFor();
+
+    // MER-28/30: чи план узагалі вимагає міксу — щоб перевіряти, що заміна його
+    // не зламає. Решта страв тижня (крім цього слота) — база для перевірки.
+    const universe = poolPlans(meals);
+    const mixRequired = universe.size >= 2 && plansCovering(meals, universe).size === 0;
+    const fixedWeekMeals = [];
+    plan.days.forEach((d, di) => MEAL_TYPES.forEach((t) => {
+      if (!(di === i && t === slotType) && d.meals[t]) fixedWeekMeals.push(d.meals[t]);
+    }));
+
+    // MER-28: позначаємо кожного кандидата як валідного чи ні (коридор,
+    // антиповтор, мікс). UI блокує невалідних, тож зберегти невалідний тиждень
+    // ручною заміною більше не можна.
     const candidates = meals
       .filter((m) => m.type === slotType && m.id !== current.id)
       .map((m) => {
         const dayCalories = others + m.calories;
+        const withinCorridor = Math.abs(dayCalories - target) <= corridor;
+        const repeatSoon = nearIds.has(m.id);
+        const mixOk = !mixRequired ||
+          plansCovering(fixedWeekMeals.concat([m]), universe).size === 0;
+        const reasons = [];
+        if (!withinCorridor) reasons.push("поза коридором");
+        if (repeatSoon) reasons.push("повтор поруч");
+        if (!mixOk) reasons.push("ламає мікс планів");
         return {
-          meal: m,
-          dayCalories,
-          withinCorridor: Math.abs(dayCalories - target) <= corridor,
-          repeatSoon: nearIds.has(m.id),
+          meal: m, dayCalories, withinCorridor, repeatSoon, mixOk,
+          valid: reasons.length === 0, reasons,
         };
       })
       .sort((a, b) =>
+        (b.valid - a.valid) ||
         (b.withinCorridor - a.withinCorridor) ||
         (a.repeatSoon - b.repeatSoon) ||
         (Math.abs(a.dayCalories - target) - Math.abs(b.dayCalories - target)));
 
-    return { ok: true, current, target, corridor, candidates };
+    return { ok: true, current, target, corridor, mixRequired, candidates };
   }
 
   return { DEFAULTS, generateWeek, suggestReplacements };
@@ -2628,14 +2651,16 @@ const SwapDialog = (function () {
           "Немає інших страв типу «" + MEAL_TYPE_LABELS[slotType] + "» у пулі. Додайте їх на екрані «Страви»."));
       }
       res.candidates.forEach((c) => {
-        const row = el("div", "meal-item swap-row");
+        // MER-28: невалідні кандидати (коридор/антиповтор/мікс) — заблоковані,
+        // не клікабельні: зберегти невалідний тиждень заміною більше не можна.
+        const row = el("div", "meal-item swap-row" + (c.valid ? "" : " disabled"));
 
         const left = el("div");
         const name = el("div", "name", c.meal.name);
-        if (c.repeatSoon) {
+        c.reasons.forEach((r) => {
           name.appendChild(document.createTextNode(" "));
-          name.appendChild(el("span", "tag", "повтор поруч"));
-        }
+          name.appendChild(el("span", "tag", r));
+        });
         left.appendChild(name);
         left.appendChild(el("div", "meta",
           c.meal.calories + " ккал" + (c.meal.source ? " · " + c.meal.source : "")));
@@ -2645,9 +2670,18 @@ const SwapDialog = (function () {
 
         row.appendChild(left);
         row.appendChild(after);
-        row.addEventListener("click", () => apply(dayIndex, slotType, c.meal));
+        if (c.valid) {
+          row.addEventListener("click", () => apply(dayIndex, slotType, c.meal));
+        } else {
+          row.setAttribute("aria-disabled", "true");
+        }
         sheet.appendChild(row);
       });
+
+      if (res.candidates.length && !res.candidates.some((c) => c.valid)) {
+        sheet.appendChild(el("p", "swap-now",
+          "Жодна заміна не лишає тиждень валідним — усі кандидати порушують коридор, антиповтор або мікс планів."));
+      }
     }
 
     const cancel = el("button", "btn block", "Скасувати");
@@ -4798,6 +4832,26 @@ PWA.register();
       mark(check("Заміна: без альтернатив — порожній список без помилки",
         solo12.ok === true && solo12.candidates.length === 0));
 
+      // 12b. MER-28: suggestReplacements позначає валідність кандидата; UI блокує.
+      const sw_bf = createMeal({ name: "sw bf", type: "breakfast", calories: 500, source: "Тиждень 1" });
+      const sw_dn = createMeal({ name: "sw dn", type: "dinner", calories: 500, source: "Тиждень 1" });
+      const sw_sn = createMeal({ name: "sw sn", type: "snack", calories: 400, source: "Тиждень 1" });
+      const sw_cur = createMeal({ name: "sw cur", type: "lunch", calories: 600, source: "Тиждень 1" });
+      const sw_ok = createMeal({ name: "sw ok", type: "lunch", calories: 620, source: "Тиждень 1" });
+      const sw_far = createMeal({ name: "sw far", type: "lunch", calories: 2000, source: "Тиждень 1" });
+      const swPlan = {
+        params: { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 },
+        usedCorridor: 100,
+        days: [{ meals: { breakfast: sw_bf, lunch: sw_cur, dinner: sw_dn, snack: sw_sn }, calories: 2000 }],
+      };
+      const swSug = WeekGenerator.suggestReplacements([sw_ok, sw_far], swPlan, 0, "lunch");
+      const swOkC = swSug.candidates.find((c) => c.meal.name === "sw ok");
+      const swFarC = swSug.candidates.find((c) => c.meal.name === "sw far");
+      mark(check("MER-28: кандидат у коридорі валідний, поза коридором — ні",
+        !!swOkC && swOkC.valid === true && !!swFarC && swFarC.valid === false &&
+        swFarC.reasons.indexOf("поза коридором") >= 0));
+      mark(check("MER-28: валідні кандидати сортуються першими", swSug.candidates[0].valid === true));
+
       // Екран «Тиждень»: кнопка заміни в кожному слоті, діалог працює.
       WeekScreen.render();
       mark(check("Екран «Тиждень»: кнопка «⇄» у кожному слоті",
@@ -4810,11 +4864,21 @@ PWA.register();
       mark(check("Діалог заміни: відкрився зі списком кандидатів",
         !!dlg12 && sugD.ok && rows12.length === sugD.candidates.length && rows12.length > 0));
 
-      if (rows12.length) rows12[0].click();
+      // MER-28: у діалозі невалідні кандидати заблоковані (disabled ⇔ !valid).
+      let swapUiMatch = true;
+      sugD.candidates.forEach((c, idx) => {
+        if (rows12[idx] && rows12[idx].classList.contains("disabled") !== !c.valid) swapUiMatch = false;
+      });
+      mark(check("MER-28: невалідні кандидати заблоковані в діалозі (disabled ⇔ !valid)",
+        swapUiMatch === true));
+
+      const validIdx12 = sugD.candidates.findIndex((c) => c.valid);
+      const clickIdx12 = validIdx12 >= 0 ? validIdx12 : 0;
+      if (rows12.length) rows12[clickIdx12].click();
       const afterClick12 = WeekStore.get();
-      mark(check("Діалог заміни: клік застосовує заміну й закриває діалог",
-        !document.getElementById("swap-overlay") &&
-        afterClick12.days[1].meals.dinner.id === sugD.candidates[0].meal.id));
+      mark(check("Діалог заміни: клік валідним кандидатом застосовує заміну й закриває діалог",
+        validIdx12 >= 0 && !document.getElementById("swap-overlay") &&
+        afterClick12.days[1].meals.dinner.id === sugD.candidates[clickIdx12].meal.id));
       const card12 = weekBox.querySelectorAll(".day-card")[1];
       mark(check("Екран «Тиждень»: показано перераховану калорійність дня",
         !!card12 && card12.querySelector(".day-kcal").textContent.indexOf(
