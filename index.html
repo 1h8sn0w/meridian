@@ -2048,9 +2048,18 @@ const WeekGenerator = (function () {
       warnings,
     });
 
+    // Рівні коридору: від запитаного кроком CORRIDOR_STEP до CORRIDOR_MAX.
+    // Крок може «перестрибнути» максимум (напр. 125→175→…→475→525), тож додаємо
+    // сам CORRIDOR_MAX окремою фінальною спробою — інакше обіцяний ±500 ніколи
+    // не тестується (MER-38). Якщо запит уже ширший за максимум — пробуємо його.
+    const corridorLevels = [];
+    for (let c = corridor; c < CORRIDOR_MAX; c += CORRIDOR_STEP) corridorLevels.push(c);
+    corridorLevels.push(Math.max(corridor, CORRIDOR_MAX));
+    const maxCorridorTried = corridorLevels[corridorLevels.length - 1];
+
     // Пробуємо з запитаним коридором; не виходить — послаблюємо крок за кроком.
     let fallback = null; // валідний, але не зміксований тиждень — про запас
-    for (let c = corridor; c <= Math.max(CORRIDOR_MAX, corridor); c += CORRIDOR_STEP) {
+    for (const c of corridorLevels) {
       for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
         const week = tryBuildWeek(byType, days, n, target - c, target + c);
         if (!week) continue;
@@ -2078,7 +2087,7 @@ const WeekGenerator = (function () {
     return {
       ok: false,
       error: "Не вдалося зібрати тиждень під " + target + " ккал/день навіть із коридором ±" +
-        CORRIDOR_MAX + " ккал. Змініть ціль або поповніть пул страв.",
+        maxCorridorTried + " ккал. Змініть ціль або поповніть пул страв.",
     };
   }
 
@@ -4472,6 +4481,29 @@ PWA.register();
       mark(check("WeekStore: план зберігається і читається",
         !!loaded && loaded.days.length === 7 && loaded.generatedAt === savedPlan.generatedAt));
     }
+
+    // 10b. MER-38: релаксація коридору мусить дійти рівно до ±CORRIDOR_MAX (500).
+    // Пул, де валідний день існує лише при коридорі 500: сума дня фіксована 2500,
+    // ціль 2000 → потрібне відхилення саме 500 (крок 50 «перестрибнув» би:
+    // …→475→525). Джерело одне — мікс не вимагається.
+    const c500Pool = [
+      createMeal({ name: "b500", type: "breakfast", calories: 700, source: "T500" }),
+      createMeal({ name: "l500", type: "lunch",     calories: 700, source: "T500" }),
+      createMeal({ name: "d500", type: "dinner",    calories: 700, source: "T500" }),
+      createMeal({ name: "s500", type: "snack",     calories: 400, source: "T500" }),
+    ];
+    const r500 = WeekGenerator.generateWeek(c500Pool,
+      { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 });
+    mark(check("MER-38: коридор релаксується рівно до ±500 (крок не пропускає максимум)",
+      r500.ok === true && r500.usedCorridor === 500,
+      r500.ok ? "usedCorridor=" + r500.usedCorridor : r500.error));
+
+    // Недосяжна ціль → помилка чесно називає фактично випробуваний максимум ±500.
+    const rFail500 = WeekGenerator.generateWeek(c500Pool,
+      { targetCalories: 100, corridor: 100, antiRepeatDays: 1, days: 1 });
+    mark(check("MER-38: текст помилки називає реально випробуваний максимум ±500",
+      rFail500.ok === false && rFail500.error.indexOf("±500") >= 0,
+      rFail500.ok ? "(несподівано ok)" : rFail500.error));
 
     // 11. MER-13: екран «Тиждень» — порожній стан, рендер плану, перегенерація.
     WeekStore.clear();
