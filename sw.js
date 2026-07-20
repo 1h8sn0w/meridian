@@ -17,7 +17,8 @@
 /* Підняти версію, коли змінюється склад SHELL або вендорні файли —
  * старий кеш зітреться під час activate. index.html свіжішає сам (мережа
  * на кожній навігації), тож правки застосунку бампа не потребують. */
-const CACHE_NAME = "meridian-shell-v1";
+const CACHE_PREFIX = "meridian-shell-";
+const CACHE_NAME = CACHE_PREFIX + "v1";
 
 const SHELL = [
   "./index.html",
@@ -42,7 +43,11 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      /* Лише СВОЇ старі кеші (префікс meridian-shell-). Cache Storage спільний
+       * на весь origin — не чіпаємо кеші інших застосунків (MER-36). */
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });
