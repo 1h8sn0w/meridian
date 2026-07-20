@@ -2431,7 +2431,6 @@ function el(tag, className, text) {
 const WeekScreen = (function () {
   /* Порядок слотів у картці дня — хронологічний, як вікна годинника (MER-9). */
   const SLOT_ORDER = ["breakfast", "lunch", "snack", "dinner"];
-  const DAY_MS = 24 * 60 * 60 * 1000;
 
   let lastError = null; // помилка останньої невдалої генерації (для показу)
 
@@ -2442,17 +2441,21 @@ const WeekScreen = (function () {
     return d;
   }
 
-  /* Індекс сьогодні у плані (0-based) або -1, якщо сьогодні поза планом. */
+  /* Індекс сьогодні у плані (0-based) або -1, якщо сьогодні поза планом.
+   * MER-34: порівнюємо ключі дат — безпечно до переходів літнього часу. */
   function todayIndex(plan) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const i = Math.round((today - planStart(plan)) / DAY_MS);
-    return i >= 0 && i < plan.days.length ? i : -1;
+    const todayKey = CalendarStore.dateKey(new Date());
+    for (let i = 0; i < plan.days.length; i++) {
+      if (CalendarStore.dateKey(dayDate(plan, i)) === todayKey) return i;
+    }
+    return -1;
   }
 
-  /* Дата дня i плану (i — 0-based від дати генерації). */
+  /* Дата дня i плану (i — 0-based від дати генерації). MER-34: календарна
+   * арифметика (CalendarStore.addDays) з локальних року/місяця/дня, а не
+   * фіксовані 24 год — інакше на осінньому переході DST дата «з'їжджає». */
   function dayDate(plan, i) {
-    return new Date(planStart(plan).getTime() + i * DAY_MS);
+    return CalendarStore.addDays(planStart(plan), i);
   }
 
   function fmtDayTitle(date) {
@@ -5748,6 +5751,25 @@ PWA.register();
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }
     }
+
+    // MER-34: дати тижня DST-safe — дата дня i = локальна північ (i днів від
+    // старту), а не зсув фіксованими 24 год через осінній перехід годинника.
+    (function () {
+      const dstPlan = { generatedAt: new Date(2026, 9, 24, 12, 0, 0).toISOString(),
+        days: new Array(7).fill(0).map(() => ({ meals: {}, calories: 0 })) };
+      const start34 = new Date(dstPlan.generatedAt); start34.setHours(0, 0, 0, 0);
+      let allMidnight = true, keysOk = true;
+      for (let i = 0; i < 7; i++) {
+        const d = WeekScreen.dayDate(dstPlan, i);
+        if (d.getHours() !== 0) allMidnight = false;
+        if (CalendarStore.dateKey(d) !== CalendarStore.dateKey(CalendarStore.addDays(start34, i))) keysOk = false;
+      }
+      const day2 = WeekScreen.dayDate(dstPlan, 2);
+      mark(check("MER-34: дата дня i — локальна північ, збігається з CalendarStore.addDays",
+        allMidnight && keysOk));
+      mark(check("MER-34: через межу DST день 2 = 26 жовтня 00:00 (а не 25-го 23:00)",
+        day2.getDate() === 26 && day2.getMonth() === 9 && day2.getHours() === 0));
+    })();
 
     // MER-33: минула історія календаря незмінна; заміну в минулому вимкнено.
     // Йде останнім — свідомо робить план «дводенної давнини»; спільний finally
