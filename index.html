@@ -2837,16 +2837,22 @@ const RecipeScreen = (function () {
       (MEAL_TYPE_LABELS[meal.type] || meal.type) + (meal.source ? " · " + meal.source : "")));
     sheet.appendChild(top);
 
+    // MER-40: фото беремо ЖИВЕ з пулу за id — знімок плану чи рядок міг
+    // застаріти (фото додали/змінили після збереження плану). Решта полів —
+    // з переданого об'єкта (історичний знімок).
+    const livePhotoMeal = MealStore.getById(meal.id);
+    const photo = livePhotoMeal ? livePhotoMeal.photo : meal.photo;
+
     // Фото або плейсхолдер ручного додавання (лише якщо страва є в пулі).
-    if (meal.photo) {
+    if (photo) {
       const img = el("img", "recipe-photo");
-      img.src = meal.photo;
+      img.src = photo;
       img.alt = "Фото: " + meal.name;
       img.title = "Замінити фото";
       img.style.cursor = "pointer";
       img.addEventListener("click", () => pickPhoto(meal, ctx));
       sheet.appendChild(img);
-    } else if (MealStore.getById(meal.id)) {
+    } else if (livePhotoMeal) {
       const add = el("button", "recipe-photo-add", "+ додати фото (необов'язково)");
       add.type = "button";
       add.addEventListener("click", () => pickPhoto(meal, ctx));
@@ -5389,6 +5395,26 @@ PWA.register();
       document.getElementById("recipe-cook-btn").disabled === true));
     RecipeScreen.close();
     mark(check("Рецепт: закривається", !document.getElementById("recipe-overlay")));
+
+    // MER-40: рецепт показує ЖИВЕ фото з пулу за id, навіть коли відкрито зі
+    // застарілого знімка плану (фото додали після збереження плану).
+    const TINY40 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const meal40 = MealStore.save({ name: "Фото-резолв (MER-40)", type: "lunch", calories: 480 });
+    const stale40 = Object.assign({}, meal40); // знімок без фото
+    MealStore.save(Object.assign({}, MealStore.getById(meal40.id), { photo: TINY40 }));
+    RecipeScreen.open(stale40, null);
+    const img40 = document.querySelector("#recipe-overlay img.recipe-photo");
+    mark(check("MER-40: рецепт зі застарілого знімка показує актуальне фото з пулу",
+      !!img40 && img40.getAttribute("src") === TINY40 &&
+      !document.querySelector("#recipe-overlay .recipe-photo-add")));
+    RecipeScreen.close();
+    MealStore.save(Object.assign({}, MealStore.getById(meal40.id), { photo: null }));
+    RecipeScreen.open(Object.assign({}, meal40, { photo: TINY40 }), null);
+    mark(check("MER-40: після видалення фото в пулі — плейсхолдер «додати фото»",
+      !document.querySelector("#recipe-overlay img.recipe-photo") &&
+      !!document.querySelector("#recipe-overlay .recipe-photo-add")));
+    RecipeScreen.close();
+    MealStore.remove(meal40.id);
 
     // Відкриття зі слота плану: «Замінити» веде в діалог заміни MER-12.
     const plan22 = WeekStore.get();
