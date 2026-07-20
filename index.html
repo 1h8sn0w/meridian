@@ -3890,7 +3890,12 @@ const PdfImport = (function () {
   /* Текст усіх сторінок PDF (рядки за hasEOL) — те, що піде в parsePlanText. */
   async function extractPdfText(buffer, onProgress) {
     const pdfjs = await ensurePdfJs();
-    const doc = await pdfjs.getDocument({ data: buffer }).promise;
+    /* MER-25 (CVE-2024-4367): вимикаємо eval у рендер-движку pdf.js. Сама
+     * вразливість — виконання довільного JS через шрифт у шкідливому PDF;
+     * isEvalSupported:false закриває її незалежно від версії бандла. Оновлення
+     * вендора до 4.2.67+ відкладено окремо: гілка 4.x — лише ESM і ламає
+     * підтримуваний запуск через file:// (лоадер тягне класичний <script>). */
+    const doc = await pdfjs.getDocument({ data: buffer, isEvalSupported: false }).promise;
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {
       if (onProgress) onProgress(p, doc.numPages);
