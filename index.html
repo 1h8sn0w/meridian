@@ -1562,9 +1562,29 @@ const DemoPool = (function () {
       ingredients: ["рисові хлібці", "арахісова паста"] },
   ];
 
+  /* MER-37: стабільний хеш змістовних полів страви (без id) — щоб на оновленні
+   * сіду відрізнити незмінену демо-страву від локально відредагованої.
+   * Маркери-хеші живуть окремою мапою в AppState (createMeal чужих полів на
+   * самій страві не тримає). */
+  function contentHash(meal) {
+    const c = Object.assign({}, meal);
+    delete c.id;
+    const norm = {};
+    Object.keys(c).sort().forEach((k) => { norm[k] = c[k]; });
+    const s = JSON.stringify(norm);
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + "." + s.length;
+  }
+  /* Хеш канонічної (нормалізованої як у сховищі) демо-страви. */
+  function canonHash(m) { return contentHash(createMeal(m)); }
+  function seedHashes() { return AppState.get("demoSeedHashes") || {}; }
+
   /** Залити демо-пул у сховище (ідемпотентно — оновлює за стабільними id). */
   function seed() {
-    DEMO_MEALS.forEach((m) => MealStore.save(m));
+    const hashes = seedHashes();
+    DEMO_MEALS.forEach((m) => { MealStore.save(m); hashes[m.id] = canonHash(m); });
+    AppState.set("demoSeedHashes", hashes);
     return DEMO_MEALS.length;
   }
 
@@ -1577,23 +1597,53 @@ const DemoPool = (function () {
     }
   }
 
+  /** MER-37: для demo-страв, засіяних до появи хешів, зафіксувати базовий хеш
+   *  (канонічний сід поточної версії). Далі порівняння з ним відрізняє
+   *  незмінену страву від локально зміненої. Ідемпотентно; безпечно на старті. */
+  function ensureSeedHashes() {
+    if (!AppState.get("demoSeeded")) return;
+    const hashes = seedHashes();
+    const byId = {};
+    DEMO_MEALS.forEach((m) => { byId[m.id] = m; });
+    let changed = false;
+    MealStore.getAll().forEach((stored) => {
+      if (byId[stored.id] && hashes[stored.id] == null) {
+        hashes[stored.id] = canonHash(byId[stored.id]);
+        changed = true;
+      }
+    });
+    if (changed) AppState.set("demoSeedHashes", hashes);
+  }
+
   /* Версія демо-даних. Підвищується, коли DEMO_MEALS змінюються (звірка з PDF
    * MER-23 = 2; структуровані кількості MER-22 = 3), щоб зміни дійшли і до вже
    * сідованих установок. */
   const SEED_VERSION = 3;
 
   /** Оновити раніше сідовані демо-страви до поточної версії даних.
-   *  Йде за стабільними id: користувацькі страви не чіпає, видалені
-   *  демо-страви не воскрешає. Знімки планів лишаються як були (історія). */
+   *  Йде за стабільними id: користувацькі страви не чіпає, видалені демо-страви
+   *  не воскрешає, знімки планів лишаються як були (історія). MER-37: локально
+   *  відредаговані демо-страви НЕ перезаписуємо — зіставляємо поточний зміст із
+   *  зафіксованим хешем сіду; збіг → оновлюємо, відмінність → лишаємо правки. */
   function upgradeSeed() {
     if (!AppState.get("demoSeeded")) return;
     if ((AppState.get("demoSeedVersion") || 1) >= SEED_VERSION) return;
-    const existing = new Set(MealStore.getAll().map((m) => m.id));
-    DEMO_MEALS.filter((m) => existing.has(m.id)).forEach((m) => MealStore.save(m));
+    const hashes = seedHashes();
+    const existing = {};
+    MealStore.getAll().forEach((m) => { existing[m.id] = m; });
+    DEMO_MEALS.forEach((m) => {
+      const stored = existing[m.id];
+      if (!stored) return; // видалену демо-страву не воскрешаємо
+      const recorded = hashes[m.id];
+      if (recorded != null && contentHash(stored) !== recorded) return; // локальні правки
+      MealStore.save(m);
+      hashes[m.id] = canonHash(m);
+    });
+    AppState.set("demoSeedHashes", hashes);
     AppState.set("demoSeedVersion", SEED_VERSION);
   }
 
-  return { DEMO_MEALS, seed, seedIfFirstRun, upgradeSeed, SEED_VERSION };
+  return { DEMO_MEALS, seed, seedIfFirstRun, upgradeSeed, ensureSeedHashes, contentHash, SEED_VERSION };
 })();
 
 /* ============================================================================
@@ -4549,6 +4599,9 @@ if (!selftestBusy) {
   DemoPool.seedIfFirstRun();
   /* MER-23: виправлення демо-даних доходять і до вже сідованих установок. */
   DemoPool.upgradeSeed();
+  /* MER-37: зафіксувати базові хеші сіду на вже засіяних установках (до появи
+   * хешів), щоб майбутні оновлення не стирали локальних правок демо-страв. */
+  DemoPool.ensureSeedHashes();
   /* MER-21: міграція на профілі — профіль за замовчуванням і перенесення
    * допрофільних плану тижня/календаря під нього. До бекфілу й рендера. */
   ProfileStore.migrate();
@@ -5360,6 +5413,7 @@ PWA.register();
 
     // Реседінг: виправлення MER-23 доходять до вже сідованих установок.
     MealStore.clear();
+    AppState.set("demoSeedHashes", {}); // MER-37: legacy-установка без хешів сіду
     MealStore.save({ id: "demo-w1-b3", name: "Стара назва (до звірки)", type: "breakfast", calories: 1 });
     MealStore.save({ name: "Моя страва (не демо)", type: "lunch", calories: 2 });
     AppState.set("demoSeeded", true);
@@ -5377,6 +5431,33 @@ PWA.register();
     DemoPool.upgradeSeed();
     mark(check("Реседінг: повторний запуск нічого не змінює (ідемпотентність)",
       MealStore.getAll().length === count23 && count23 === 2));
+
+    // MER-37: локальні правки демо-страви переживають оновлення сіду; незмінена
+    // (за хешем) демо-страва оновлюється до канонічної.
+    MealStore.clear();
+    AppState.set("demoSeedHashes", {});
+    DemoPool.seed(); // стамп базових хешів
+    AppState.set("demoSeeded", true);
+    AppState.set("demoSeedVersion", DemoPool.SEED_VERSION);
+    const canonB1_37 = DemoPool.DEMO_MEALS.find((m) => m.id === "demo-w1-b1").calories;
+    MealStore.save(Object.assign({}, MealStore.getById("demo-w1-b1"),
+      { calories: canonB1_37 + 50, name: MealStore.getById("demo-w1-b1").name + " (моє)" }));
+    AppState.set("demoSeedVersion", 1); // імітуємо стрибок версії сіду
+    DemoPool.upgradeSeed();
+    const editedB1_37 = MealStore.getById("demo-w1-b1");
+    mark(check("MER-37: локальні правки демо-страви переживають оновлення сіду",
+      editedB1_37.calories === canonB1_37 + 50 && /моє/.test(editedB1_37.name) &&
+      AppState.get("demoSeedVersion") === DemoPool.SEED_VERSION));
+
+    const canonB4_37 = DemoPool.DEMO_MEALS.find((m) => m.id === "demo-w1-b4").calories;
+    const hashes37 = AppState.get("demoSeedHashes");
+    MealStore.save(Object.assign({}, MealStore.getById("demo-w1-b4"), { calories: canonB4_37 + 999 }));
+    hashes37["demo-w1-b4"] = DemoPool.contentHash(MealStore.getById("demo-w1-b4")); // «незмінена за хешем»
+    AppState.set("demoSeedHashes", hashes37);
+    AppState.set("demoSeedVersion", 1);
+    DemoPool.upgradeSeed();
+    mark(check("MER-37: незмінена (за хешем) демо-страва оновлюється сідом",
+      MealStore.getById("demo-w1-b4").calories === canonB4_37));
 
     // 17. MER-22: сторінка рецепта + розширення моделі страви.
     const rich22 = createMeal({
