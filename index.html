@@ -4201,7 +4201,7 @@ const PdfImport = (function () {
   }
 
   /* Текст усіх сторінок PDF (рядки за hasEOL) — те, що піде в parsePlanText. */
-  async function extractPdfText(buffer, onProgress) {
+  async function extractPdfText(buffer, onProgress, isAborted) {
     const pdfjs = await ensurePdfJs();
     /* MER-25 (CVE-2024-4367): вимикаємо eval у рендер-движку pdf.js. Сама
      * вразливість — виконання довільного JS через шрифт у шкідливому PDF;
@@ -4211,6 +4211,8 @@ const PdfImport = (function () {
     const doc = await pdfjs.getDocument({ data: buffer, isEvalSupported: false }).promise;
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {
+      // MER-39: імпорт скасовано/витіснено — не марнуємо роботу далі.
+      if (isAborted && isAborted()) return null;
       if (onProgress) onProgress(p, doc.numPages);
       const content = await (await doc.getPage(p)).getTextContent();
       content.items.forEach((item) => {
@@ -4225,6 +4227,10 @@ const PdfImport = (function () {
   /* ------------------------------------------------------------ екран (UI) */
 
   let overlay = null; // відкритий аркуш або null
+  // MER-39: токен активної операції імпорту. Кожен новий імпорт/скасування
+  // підвищує його; асинхронна екстракція, чий токен застарів, свій результат
+  // ігнорує — тож скасований чи витіснений імпорт не відтворює діалог.
+  let opToken = 0;
 
   function onKeyDown(e) {
     if (e.key === "Escape") close();
@@ -4233,6 +4239,7 @@ const PdfImport = (function () {
   /** Закрити імпорт (якщо відкритий). */
   function close() {
     if (!overlay) return;
+    opToken++; // MER-39: скасувати in-flight екстракцію — її результат ігноруємо
     overlay.remove();
     overlay = null;
     document.removeEventListener("keydown", onKeyDown);
@@ -4292,18 +4299,25 @@ const PdfImport = (function () {
     file.addEventListener("change", () => {
       const f = file.files && file.files[0];
       if (!f) return;
+      // MER-39: ця операція; скасування чи новіший імпорт її витіснять.
+      const myToken = ++opToken;
+      const stale = () => myToken !== opToken;
       setStatus(status, "Читаю «" + f.name + "»…");
       f.arrayBuffer()
         .then((buffer) => extractPdfText(buffer, (p, n) => {
-          setStatus(status, "Витягаю текст: сторінка " + p + " з " + n + "…");
-        }))
+          if (!stale()) setStatus(status, "Витягаю текст: сторінка " + p + " з " + n + "…");
+        }, stale))
         .then((text) => {
-          if (!text.replace(/\s+/g, "")) {
+          if (stale()) return; // скасовано або витіснено новішим імпортом
+          if (!text || !text.replace(/\s+/g, "")) {
             throw new Error("У файлі не знайдено тексту (можливо, це скан-зображення).");
           }
           showReview(parsePlanText(text));
         })
-        .catch((e) => setStatus(status, "Не вдалося прочитати PDF: " + e.message, true));
+        .catch((e) => {
+          if (stale()) return; // помилку скасованої операції не показуємо
+          setStatus(status, "Не вдалося прочитати PDF: " + e.message, true);
+        });
     });
 
     // Запасний шлях (і для перевірок): текст, скопійований із PDF вручну.
@@ -4323,6 +4337,7 @@ const PdfImport = (function () {
         setStatus(status, "Вставте текст плану або виберіть PDF-файл.", true);
         return;
       }
+      opToken++; // MER-39: вставлений текст витісняє будь-яку in-flight PDF-екстракцію
       showReview(parsePlanText(paste.value));
     });
     s.appendChild(parseBtn);
@@ -4335,6 +4350,7 @@ const PdfImport = (function () {
 
   /** Відкрити одразу екран перевірки з готового тексту (запасний шлях і тести). */
   function openWithText(text) {
+    opToken++; // MER-39: витісняє будь-яку in-flight PDF-екстракцію
     showReview(parsePlanText(text));
   }
 
@@ -6076,6 +6092,48 @@ PWA.register();
         localStorage.getItem(SELFTEST_BACKUP_KEY) === null));
       mark(check("MER-32: без бекапу відновлення — no-op", recoverInterruptedSelftest() === false));
     })();
+
+    // MER-39: скасування імпорту PDF справді скасовує екстракцію — стала
+    // операція не відтворює діалог перевірки. Драйвимо реальний обробник файлу
+    // мінімальним валідним PDF (pdf.js відновлює xref).
+    {
+      const pdf39 =
+        "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n" +
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page " +
+        "/Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources << /Font " +
+        "<< /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 47 >>\nstream\n" +
+        "BT /F1 18 Tf 20 100 Td (Hello Meridian PDF) Tj ET\nendstream\nendobj\n5 0 obj\n" +
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\ntrailer\n" +
+        "<< /Root 1 0 R >>\n%%EOF";
+      const bytes39 = new Uint8Array(pdf39.length);
+      for (let i = 0; i < pdf39.length; i++) bytes39[i] = pdf39.charCodeAt(i);
+
+      const aborted39 = await PdfImport.extractPdfText(bytes39.slice().buffer, null, () => true);
+      mark(check("MER-39: екстракцію можна перервати (isAborted → null)", aborted39 === null));
+      localStorage.setItem(SELFTEST_LOCK_KEY, String(Date.now())); // подовжити замок перед паузами
+
+      const drive39 = (name) => {
+        PdfImport.open();
+        const fi = document.getElementById("import-file");
+        const dt = new DataTransfer();
+        dt.items.add(new File([bytes39], name, { type: "application/pdf" }));
+        fi.files = dt.files;
+        fi.dispatchEvent(new Event("change"));
+      };
+      drive39("cancel.pdf");
+      PdfImport.close(); // скасовуємо одразу, поки екстракція in-flight
+      await new Promise((r) => setTimeout(r, 500));
+      localStorage.setItem(SELFTEST_LOCK_KEY, String(Date.now()));
+      mark(check("MER-39: після скасування стала екстракція не відтворює діалог",
+        !document.getElementById("import-overlay") && PdfImport.isOpen() === false));
+
+      drive39("ok.pdf"); // контроль: без скасування перевірка з'являється
+      await new Promise((r) => setTimeout(r, 500));
+      const ov39 = document.getElementById("import-overlay");
+      mark(check("MER-39: без скасування перевірка з'являється (контроль)",
+        !!ov39 && ov39.textContent.indexOf("Перевірка перед додаванням") >= 0));
+      PdfImport.close();
+    }
 
   } catch (e) {
     allOk = false;
