@@ -1891,6 +1891,14 @@ const WeekGenerator = (function () {
   const CORRIDOR_MAX = 500; // далі не послаблюємо — чесно повідомляємо про невдачу
   const WEEK_TRIES = 25;    // спроб зібрати тиждень на кожному рівні коридору
 
+  /* MER-27: обмежене бектрекування між днями. Раніше день обирався жадібно й
+   * назад не переглядався — за вузьких умов (точний коридор, тісний антиповтор)
+   * валідний тиждень існував, а спроба «глухла» на пізньому дні. Тепер тиждень
+   * шукаємо DFS із поверненням: на кожному дні розглядаємо до DAY_CANDS
+   * варіантів, а вся спроба обмежена стелею WEEK_NODE_BUDGET (антизависання). */
+  const DAY_CANDS = 24;           // варіантів дня на вузлі пошуку
+  const WEEK_NODE_BUDGET = 12000; // стеля розстановок дня на одну спробу
+
   /* Перетасована копія масиву (Фішер–Єйтс) — джерело випадковості генератора. */
   function shuffle(arr) {
     const a = arr.slice();
@@ -1908,12 +1916,12 @@ const WeekGenerator = (function () {
    * за мінімально/максимально можливим залишком. Повертає {type: страва}
    * або null, якщо валідної комбінації не існує.
    */
-  function pickDay(byType, bannedIds, minSum, maxSum) {
+  function dayCandidates(byType, bannedIds, minSum, maxSum, limit) {
     const slots = MEAL_TYPES.map((type) => ({
       type,
       candidates: shuffle(byType[type].filter((m) => !bannedIds.has(m.id))),
     }));
-    if (slots.some((s) => s.candidates.length === 0)) return null;
+    if (slots.some((s) => s.candidates.length === 0)) return [];
     slots.sort((a, b) => a.candidates.length - b.candidates.length);
 
     // Межі суми калорій слотів i..кінець — для відсікання гілок.
@@ -1925,40 +1933,66 @@ const WeekGenerator = (function () {
       maxRest[i] = maxRest[i + 1] + Math.max.apply(null, cals);
     }
 
+    const out = [];
     const chosen = {};
     function dfs(i, sum) {
-      if (i === slots.length) return sum >= minSum && sum <= maxSum;
+      if (out.length >= limit) return;
+      if (i === slots.length) {
+        if (sum >= minSum && sum <= maxSum) out.push(Object.assign({}, chosen));
+        return;
+      }
       for (const meal of slots[i].candidates) {
+        if (out.length >= limit) return;
         const s = sum + meal.calories;
         if (s + minRest[i + 1] > maxSum) continue; // вже забагато
         if (s + maxRest[i + 1] < minSum) continue; // вже не доберемо
         chosen[slots[i].type] = meal;
-        if (dfs(i + 1, s)) return true;
+        dfs(i + 1, s);
       }
-      return false;
     }
-    return dfs(0, 0) ? chosen : null;
+    dfs(0, 0);
+    return out;
   }
 
   /**
-   * Одна спроба зібрати тиждень день за днем. Антиповтор: для дня d заборонені
-   * страви днів d-1 … d-(N-1). Повертає масив днів або null.
+   * Одна спроба зібрати тиждень пошуком у глибину з поверненням між днями
+   * (MER-27). Антиповтор: для дня d заборонені страви днів d-1 … d-(N-1) із
+   * поточної часткової збірки. Якщо день не складається — повертаємось і
+   * пробуємо інший варіант попереднього дня. Обмежене: до DAY_CANDS варіантів
+   * на день, стеля WEEK_NODE_BUDGET розстановок на спробу. Порядок кандидатів
+   * перетасовано, тож повторні спроби дають різні тижні. Повертає масив днів
+   * або null (розв'язку не знайдено в межах бюджету).
    */
   function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum) {
     const week = [];
-    for (let d = 0; d < days; d++) {
+    let budget = WEEK_NODE_BUDGET;
+
+    function bansFor(d) {
       const banned = new Set();
       for (let b = Math.max(0, d - antiRepeatDays + 1); b < d; b++) {
         MEAL_TYPES.forEach((t) => banned.add(week[b].meals[t].id));
       }
-      const meals = pickDay(byType, banned, minSum, maxSum);
-      if (!meals) return null;
-      week.push({
-        meals,
-        calories: MEAL_TYPES.reduce((acc, t) => acc + meals[t].calories, 0),
-      });
+      return banned;
     }
-    return week;
+
+    function dfs(d) {
+      if (d === days) return true;
+      if (budget <= 0) return false;
+      const cands = dayCandidates(byType, bansFor(d), minSum, maxSum, DAY_CANDS);
+      for (const meals of cands) {
+        if (budget <= 0) return false;
+        budget--;
+        week.push({
+          meals,
+          calories: MEAL_TYPES.reduce((acc, t) => acc + meals[t].calories, 0),
+        });
+        if (dfs(d + 1)) return true;
+        week.pop();
+      }
+      return false;
+    }
+
+    return dfs(0) ? week : null;
   }
 
   /* Джерела (плани), використані в зібраному тижні. Порожні не рахуємо. */
@@ -4504,6 +4538,31 @@ PWA.register();
     mark(check("MER-38: текст помилки називає реально випробуваний максимум ±500",
       rFail500.ok === false && rFail500.error.indexOf("±500") >= 0,
       rFail500.ok ? "(несподівано ok)" : rFail500.error));
+
+    // 10c. MER-27: обмежене бектрекування дає строгий тиждень там, де жадібний
+    // forward-пошук «глухнув». Тісний пул: день = рівно 2000 ккал лише за
+    // кількох пар вечеря+перекус, антиповтор 3 на 7 днів змушує переглядати
+    // ранні дні. Строга збірка (usedCorridor 0) має вдаватися щоразу.
+    const tightPool = [
+      ["breakfast", 500], ["breakfast", 500], ["breakfast", 500],
+      ["lunch", 500], ["lunch", 500], ["lunch", 500],
+      ["dinner", 600], ["dinner", 500], ["dinner", 400], ["dinner", 400],
+      ["snack", 400], ["snack", 500], ["snack", 600], ["snack", 600],
+    ].map((p, k) => createMeal({ name: "tp" + k, type: p[0], calories: p[1], source: "TP" }));
+    let tightAllStrict = true, tightRepeatBad = false;
+    for (let i = 0; i < 15; i++) {
+      const r = WeekGenerator.generateWeek(tightPool,
+        { targetCalories: 2000, corridor: 0, antiRepeatDays: 3, days: 7 });
+      if (!(r.ok && r.days.length === 7 && r.usedCorridor === 0 &&
+            r.days.every((d) => d.calories === 2000))) { tightAllStrict = false; break; }
+      for (let d = 0; d < r.days.length; d++)
+        for (let b = Math.max(0, d - 2); b < d; b++)
+          for (const t of MEAL_TYPES)
+            if (r.days[d].meals[t].id === r.days[b].meals[t].id) tightRepeatBad = true;
+    }
+    mark(check("MER-27: бектрекування знаходить строгий тиждень (15/15, точний коридор)",
+      tightAllStrict === true));
+    mark(check("MER-27: строгий тиждень не порушує антиповтор", tightRepeatBad === false));
 
     // 11. MER-13: екран «Тиждень» — порожній стан, рендер плану, перегенерація.
     WeekStore.clear();
