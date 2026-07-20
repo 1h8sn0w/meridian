@@ -819,6 +819,8 @@ function createMeal(input) {
     name,
     type,
     calories,
+    // MER-26: калорія — приблизна оцінка (не з джерела). У UI показуємо з «≈».
+    caloriesApprox: input.caloriesApprox === true,
     protein: toOptionalNumber(input.protein),
     fat: toOptionalNumber(input.fat),
     carbs: toOptionalNumber(input.carbs),
@@ -1126,7 +1128,7 @@ const MealsScreen = (function () {
 
       const kcal = document.createElement("div");
       kcal.className = "kcal";
-      kcal.textContent = m.calories + " ккал";
+      kcal.textContent = fmtMealKcal(m);
 
       const edit = document.createElement("button");
       edit.type = "button";
@@ -1434,12 +1436,14 @@ const MealClock = (function () {
  * потрібно кілька джерел для міксу; десерти, що повторюються в обох тижнях,
  * мають джерело «Тиждень 1–2» (печиво матча — лише в тижні 1).
  *
- * УВАГА (свідомий виняток із «Провенансу даних», AGENTS.md): у PDF є лише
- * одна цифра калорійності — ≈185 ккал за скибочку бананового хліба. Решта
- * calories — приблизна оцінка порції «Ч» (чоловік) за типовими таблицями
- * продуктів. Залишено, бо на калоріях тримається коридор генератора
- * (MER-10); прибрати чи замінити після цифр від дієтолога або імпорту
- * (MER-15). БЖВ у PDF немає — не вказано (у моделі вони необов'язкові).
+ * КАЛОРІЇ — ПРИБЛИЗНІ (свідомий виняток, AGENTS.md → «Виняток для калорій»):
+ * у PDF є лише одна реальна цифра — ≈185 ккал за скибочку бананового хліба
+ * (demo-wb-s2). Решта calories — приблизні оцінки порції «Ч» за типовими
+ * таблицями продуктів; вони позначені `caloriesApprox: true` і показуються в
+ * UI з префіксом «≈» (MER-26), щоб не видавати за точні цифри дієтолога. На
+ * калоріях тримається коридор генератора (MER-10). Замінити реальними, щойно
+ * дасть дієтолог або імпорт (MER-15/MER-23), — тоді зняти прапорець. БЖВ у
+ * PDF немає — не вказано (у моделі вони необов'язкові).
  *
  * Стабільні id (demo-…) роблять повторне сідування ідемпотентним:
  * MealStore.save оновлює за id, а не дублює.
@@ -1561,6 +1565,11 @@ const DemoPool = (function () {
       name: "Арахісова паста + рисові хлібці",
       ingredients: ["рисові хлібці", "арахісова паста"] },
   ];
+
+  /* MER-26: усі демо-калорії — приблизні оцінки, окрім бананового хліба
+   * (185 ккал — єдина реальна цифра з PDF). Позначаємо, щоб UI показував «≈».
+   * До хешів сіду (MER-37) — щоб canonHash враховував caloriesApprox. */
+  DEMO_MEALS.forEach((m) => { if (m.id !== "demo-wb-s2") m.caloriesApprox = true; });
 
   /* MER-37: стабільний хеш змістовних полів страви (без id) — щоб на оновленні
    * сіду відрізнити незмінену демо-страву від локально відредагованої.
@@ -2511,6 +2520,18 @@ function el(tag, className, text) {
   return node;
 }
 
+/* MER-26: калорійність окремої страви для показу — з префіксом «≈», якщо це
+ * приблизна оцінка (caloriesApprox), щоб не видавати за точну цифру. */
+function fmtMealKcal(meal) {
+  return (meal && meal.caloriesApprox ? "≈" : "") + (meal ? meal.calories : 0) + " ккал";
+}
+/* Чи містить набір слотів дня хоч одну approx-складову — тоді денна сума теж «≈». */
+function dayMealsApprox(meals) {
+  return !!meals && MEAL_TYPES.some((t) => meals[t] && meals[t].caloriesApprox);
+}
+/* Префікс «≈» для суми, якщо серед складників є приблизні. */
+function approxPrefix(hasApprox) { return hasApprox ? "≈" : ""; }
+
 /* ============================================================================
  * MER-13 — Екран «Тиждень»: план на 7 днів + кнопка «Перегенерувати».
  * ----------------------------------------------------------------------------
@@ -2619,9 +2640,10 @@ const WeekScreen = (function () {
     }
 
     const total = plan.days.reduce((acc, d) => acc + d.calories, 0);
+    const weekApprox = plan.days.some((d) => dayMealsApprox(d.meals)); // MER-26
     top.appendChild(el("p", "week-meta",
-      "Разом за тиждень: " + fmtKcal(total) +
-      " · у середньому " + fmtKcal(Math.round(total / plan.days.length)) + "/день. " +
+      "Разом за тиждень: " + approxPrefix(weekApprox) + fmtKcal(total) +
+      " · у середньому " + approxPrefix(weekApprox) + fmtKcal(Math.round(total / plan.days.length)) + "/день. " +
       "Ціль " + plan.params.targetCalories + " ± " + plan.usedCorridor + " ккал." +
       (plan.sources.length ? " Джерела: " + plan.sources.join(", ") + "." : "")));
 
@@ -2653,7 +2675,7 @@ const WeekScreen = (function () {
       }
       const within = Math.abs(day.calories - plan.params.targetCalories) <= plan.usedCorridor;
       const kcal = el("div", "day-kcal" + (within ? "" : " out"),
-        fmtKcal(day.calories) + (within ? "" : " · поза коридором"));
+        approxPrefix(dayMealsApprox(day.meals)) + fmtKcal(day.calories) + (within ? "" : " · поза коридором"));
       head.appendChild(title);
       head.appendChild(kcal);
       card.appendChild(head);
@@ -2670,7 +2692,7 @@ const WeekScreen = (function () {
         });
         row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
         row.appendChild(el("span", "slot-name", meal.name));
-        row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
+        row.appendChild(el("span", "slot-kcal", fmtMealKcal(meal)));
         if (!isPast) {
           const swap = el("button", "slot-swap", "⇄");
           swap.type = "button";
@@ -2765,13 +2787,17 @@ const SwapDialog = (function () {
         "Замінити: " + MEAL_TYPE_LABELS[slotType] + " · " +
         WeekScreen.fmtDayTitle(WeekScreen.dayDate(plan, dayIndex))));
       sheet.appendChild(el("p", "swap-now",
-        "Зараз: «" + res.current.name + "» — " + res.current.calories + " ккал. " +
+        "Зараз: «" + res.current.name + "» — " + fmtMealKcal(res.current) + ". " +
         "Ціль " + res.target + " ± " + res.corridor + " ккал/день."));
 
       if (!res.candidates.length) {
         sheet.appendChild(el("div", "empty",
           "Немає інших страв типу «" + MEAL_TYPE_LABELS[slotType] + "» у пулі. Додайте їх на екрані «Страви»."));
       }
+      // MER-26: денна сума-прогноз «≈», якщо інші слоти дня — приблизні.
+      const dayOtherApprox = plan && plan.days[dayIndex]
+        ? MEAL_TYPES.some((t) => t !== slotType && plan.days[dayIndex].meals[t] && plan.days[dayIndex].meals[t].caloriesApprox)
+        : false;
       res.candidates.forEach((c) => {
         // MER-28: невалідні кандидати (коридор/антиповтор/мікс) — заблоковані,
         // не клікабельні: зберегти невалідний тиждень заміною більше не можна.
@@ -2785,10 +2811,11 @@ const SwapDialog = (function () {
         });
         left.appendChild(name);
         left.appendChild(el("div", "meta",
-          c.meal.calories + " ккал" + (c.meal.source ? " · " + c.meal.source : "")));
+          fmtMealKcal(c.meal) + (c.meal.source ? " · " + c.meal.source : "")));
 
         const after = el("div", "day-after " + (c.withinCorridor ? "ok" : "out"),
-          "день → " + c.dayCalories.toLocaleString("uk-UA") + (c.withinCorridor ? " ✓" : ""));
+          "день → " + approxPrefix(dayOtherApprox || c.meal.caloriesApprox) +
+          c.dayCalories.toLocaleString("uk-UA") + (c.withinCorridor ? " ✓" : ""));
 
         row.appendChild(left);
         row.appendChild(after);
@@ -2953,7 +2980,7 @@ const RecipeScreen = (function () {
       c.appendChild(el("div", "rchip-label", label));
       return c;
     };
-    chips.appendChild(chip(String(meal.calories), "ккал"));
+    chips.appendChild(chip((meal.caloriesApprox ? "≈" : "") + meal.calories, "ккал"));
     if (meal.prepTime != null) chips.appendChild(chip(meal.prepTime + " хв", "готувати"));
     if (meal.servings != null) chips.appendChild(chip(String(meal.servings), "порції"));
     sheet.appendChild(chips);
@@ -3095,7 +3122,7 @@ const TodayCard = (function () {
     left.appendChild(el("div", "name", meal.name));
     if (meal.source) left.appendChild(el("div", "meta", meal.source));
     row.appendChild(left);
-    row.appendChild(el("div", "kcal", meal.calories + " ккал"));
+    row.appendChild(el("div", "kcal", fmtMealKcal(meal)));
     box.appendChild(row);
 
     // БЖВ страви: три плитки; відсутні значення — «—» (у моделі вони необов'язкові).
@@ -3126,7 +3153,7 @@ const TodayCard = (function () {
     // Критерій MER-12: після заміни денна калорійність перераховується й показується.
     const within = Math.abs(day.calories - plan.params.targetCalories) <= plan.usedCorridor;
     box.appendChild(el("p", "today-total" + (within ? "" : " out"),
-      "Разом за день: " + day.calories.toLocaleString("uk-UA") + " ккал · ціль " +
+      "Разом за день: " + approxPrefix(dayMealsApprox(day.meals)) + day.calories.toLocaleString("uk-UA") + " ккал · ціль " +
       plan.params.targetCalories + " ± " + plan.usedCorridor + " ккал" +
       (within ? "" : " · поза коридором")));
 
@@ -3400,11 +3427,11 @@ const CalendarScreen = (function () {
       const row = el("div", "slot-row");
       row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
       row.appendChild(el("span", "slot-name", meal.name));
-      row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
+      row.appendChild(el("span", "slot-kcal", fmtMealKcal(meal)));
       panel.appendChild(row);
     });
 
-    let total = "Разом: " + entry.calories.toLocaleString("uk-UA") + " ккал";
+    let total = "Разом: " + approxPrefix(dayMealsApprox(entry.meals)) + entry.calories.toLocaleString("uk-UA") + " ккал";
     let cls = "week-meta";
     if (Number.isFinite(entry.target) && Number.isFinite(entry.corridor)) {
       const within = Math.abs(entry.calories - entry.target) <= entry.corridor;
@@ -3456,7 +3483,8 @@ const CalendarScreen = (function () {
       cell.type = "button";
       cell.dataset.key = key;
       cell.setAttribute("aria-label",
-        WeekScreen.fmtDayTitle(date) + (entry ? ", " + entry.calories + " ккал" : ", без плану"));
+        WeekScreen.fmtDayTitle(date) +
+        (entry ? ", " + approxPrefix(dayMealsApprox(entry.meals)) + entry.calories + " ккал" : ", без плану"));
       cell.appendChild(el("span", "dow", DOW_LABELS[i]));
       cell.appendChild(el("span", "dnum", String(date.getDate())));
       cell.appendChild(el("span", "dkcal", entry ? entry.calories.toLocaleString("uk-UA") : "—"));
@@ -3881,7 +3909,7 @@ const ProfilesScreen = (function () {
       cb.checked = subset ? subset.has(m.id) : true;
       row.appendChild(cb);
       const txt = el("span", null, m.name + " ");
-      txt.appendChild(el("span", "pmeta", MEAL_TYPE_LABELS[m.type] + " · " + m.calories + " ккал"));
+      txt.appendChild(el("span", "pmeta", MEAL_TYPE_LABELS[m.type] + " · " + fmtMealKcal(m)));
       row.appendChild(txt);
       pick.appendChild(row);
     });
@@ -5090,7 +5118,7 @@ PWA.register();
       const lunch11 = WeekStore.get().days[0].meals.lunch;
       const items11 = todayBox12.querySelectorAll(".today-ingredients li");
       mark(check("Картка: калорійність і джерело збігаються зі стравою плану",
-        todayBox12.querySelector(".meal-item .kcal").textContent === lunch11.calories + " ккал" &&
+        todayBox12.querySelector(".meal-item .kcal").textContent === fmtMealKcal(lunch11) &&
         (!lunch11.source || todayBox12.textContent.indexOf(lunch11.source) >= 0)));
       mark(check("Картка: список інгредієнтів збігається зі стравою плану",
         lunch11.ingredients.length > 0 && items11.length === lunch11.ingredients.length &&
@@ -5436,8 +5464,15 @@ PWA.register();
       byId23("demo-wb-s5").name === "Арахісова паста + рисові хлібці"));
     mark(check("Печиво матча — лише тиждень 1 (день 6 у PDF)",
       byId23("demo-wb-s4").source === "Тиждень 1"));
-    mark(check("Єдина цифра калорійності з PDF: банановий хліб ≈185 ккал",
-      byId23("demo-wb-s2").calories === 185));
+    mark(check("MER-26: банановий хліб (185) — реальна цифра з PDF, без approx",
+      byId23("demo-wb-s2").calories === 185 && byId23("demo-wb-s2").caloriesApprox !== true));
+    mark(check("MER-26: решта демо-калорій позначені приблизними (caloriesApprox)",
+      demo23.filter((m) => m.id !== "demo-wb-s2").every((m) => m.caloriesApprox === true) &&
+      fmtMealKcal(byId23("demo-w1-b1")) === "≈570 ккал" &&
+      fmtMealKcal(byId23("demo-wb-s2")) === "185 ккал"));
+    mark(check("MER-26: модель приймає caloriesApprox; типово false",
+      createMeal({ name: "a", type: "lunch", calories: 500, caloriesApprox: true }).caloriesApprox === true &&
+      createMeal({ name: "b", type: "lunch", calories: 500 }).caloriesApprox === false));
     mark(check("БЖВ у PDF немає — жодна страва їх не має",
       demo23.every((m) => m.protein == null && m.fat == null && m.carbs == null)));
 
