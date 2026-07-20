@@ -1748,6 +1748,15 @@ const ProfileStore = (function () {
       if (owner.sharedPlanWith) {
         throw new Error("Профіль «" + owner.name + "» сам користується спільним планом — оберіть профіль-власник.");
       }
+      // MER-31: не дозволяємо reparent профілю, що САМ уже є власником спільного
+      // плану для інших. Інакше вийшов би ланцюг B→A→C, де B читав би старий
+      // ключ сховища A, а A — ключ C (planOwnerId резолвить лише один хоп).
+      const dependants = state.profiles.filter((p) => p.id !== profile.id && p.sharedPlanWith === profile.id);
+      if (dependants.length) {
+        throw new Error("Профіль «" + profile.name + "» уже є власником спільного плану для: " +
+          dependants.map((p) => "«" + p.name + "»").join(", ") +
+          ". Спершу від'єднайте їх, тоді цей профіль зможе приєднатися до іншого плану.");
+      }
     }
 
     const i = state.profiles.findIndex((p) => p.id === profile.id);
@@ -3744,6 +3753,16 @@ const ProfilesScreen = (function () {
 
     let sharedPlan = profile ? !!profile.sharedPlanWith : linkable.length > 0;
     if (!linkable.length) { sharedPlan = false; sharedPlanChip.disabled = true; }
+    // MER-31: профіль, який уже є власником спільного плану для інших, не можна
+    // перетворити на залежного (був би ланцюг). Спершу від'єднати залежних.
+    const hasDependants = !!profile && ProfileStore.getAll().some((p) => p.sharedPlanWith === profile.id);
+    if (hasDependants) {
+      sharedPlan = false;
+      sharedPlanChip.disabled = true;
+      form.insertBefore(el("p", "swap-now",
+        "Цей профіль — власник спільного плану для інших. Щоб приєднати його до чужого плану, спершу від'єднайте залежні профілі."),
+        ownerSelect);
+    }
 
     // Пул страв: спільний чи власна підмножина (mealIds, MER-21). Для профілю
     // зі спільним планом не показується — страви добирає власник плану.
@@ -5522,6 +5541,20 @@ PWA.register();
     try { ProfileStore.save(Object.assign({}, partner17, { sharedPlanWith: partner17.id })); } catch (e) { badLink17++; }
     try { ProfileStore.save({ name: "Босвіт", targetCalories: 1800, sharedPlanWith: "нема-такого" }); } catch (e) { badLink17++; }
     mark(check("Спільний план: ланцюжок, само-посилання і невідомий власник відхилені", badLink17 === 3));
+
+    // MER-31: власника спільного плану (у якого є залежні) не можна перетворити
+    // на залежного від іншого профілю — інакше некоректний ланцюг B→A→C.
+    const indep31 = ProfileStore.save({ name: "Незалежний", targetCalories: 2100, corridor: 120, color: "#7ac57a" });
+    let reparentThrew31 = false;
+    try {
+      ProfileStore.save(Object.assign({}, ProfileStore.getById(ProfileStore.DEFAULT_ID),
+        { sharedPlanWith: indep31.id }));
+    } catch (e) { reparentThrew31 = true; }
+    mark(check("MER-31: reparent власника, що має залежних, відхилено", reparentThrew31));
+    mark(check("MER-31: ланцюг не утворився — залежний досі шерить власника, власник незалежний",
+      ProfileStore.planOwnerId(partner17.id) === ProfileStore.DEFAULT_ID &&
+      ProfileStore.getById(ProfileStore.DEFAULT_ID).sharedPlanWith === null));
+    ProfileStore.remove(indep31.id);
 
     ProfileStore.save(Object.assign({}, partner17, { sharedPlanWith: null }));
     mark(check("Спільний план: після відв'язування профіль повертається до власного (порожнього) плану",
