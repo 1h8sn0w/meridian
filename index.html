@@ -2356,6 +2356,18 @@ const WeekStore = (function () {
    * калорійність дня та джерела плану й одразу зберігає. Повертає оновлений
    * план; при некоректних аргументах кидає Error з поясненням українською.
    */
+  /* MER-33: чи день плану вже в минулому — його зміна означала б редагування
+   * прожитої історії, тож заборонена. День 1 плану — дата generatedAt. */
+  function isPastDay(plan, dayIndex) {
+    if (!plan || !plan.generatedAt) return false;
+    const start = new Date(plan.generatedAt);
+    start.setHours(0, 0, 0, 0);
+    const d = CalendarStore.addDays(start, Number(dayIndex));
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    return d < t;
+  }
+
   function replaceMeal(dayIndex, slotType, mealInput) {
     const plan = get();
     if (!plan) throw new Error("Немає збереженого плану тижня.");
@@ -2365,6 +2377,10 @@ const WeekStore = (function () {
     }
     if (!MEAL_TYPES.includes(slotType)) {
       throw new Error("Невідомий тип слота: «" + slotType + "».");
+    }
+    // MER-33: минулі дні — незмінна історія.
+    if (isPastDay(plan, i)) {
+      throw new Error("Минулий день — це історія, його не можна змінювати.");
     }
     const day = plan.days[i];
     if (!day.meals || !day.meals[slotType]) {
@@ -2391,7 +2407,7 @@ const WeekStore = (function () {
     return plan;
   }
 
-  return { get, save, clear, replaceMeal };
+  return { get, save, clear, replaceMeal, isPastDay };
 })();
 
 /* Спільний конструктор DOM-вузла — для екранів «Тиждень», «Сьогодні» й діалогу заміни. */
@@ -2530,6 +2546,7 @@ const WeekScreen = (function () {
     plan.days.forEach((day, i) => {
       const date = dayDate(plan, i);
       const isToday = i === tIdx;
+      const isPast = WeekStore.isPastDay(plan, i); // MER-33: минулі дні — не редагуються
       const card = el("div", "panel day-card" + (isToday ? " today" : ""));
 
       const head = el("div", "day-head");
@@ -2550,19 +2567,22 @@ const WeekScreen = (function () {
         if (!meal) return;
         const row = el("div", "slot-row tappable");
         // Дотик по рядку відкриває рецепт (MER-22); «⇄» лишається заміною.
+        // MER-33: у минулих днях заміни немає — рецепт відкриваємо без ctx.
         row.addEventListener("click", (e) => {
           if (e.target.closest(".slot-swap")) return;
-          RecipeScreen.open(meal, { dayIndex: i, slot: t });
+          RecipeScreen.open(meal, isPast ? null : { dayIndex: i, slot: t });
         });
         row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
         row.appendChild(el("span", "slot-name", meal.name));
         row.appendChild(el("span", "slot-kcal", meal.calories + " ккал"));
-        const swap = el("button", "slot-swap", "⇄");
-        swap.type = "button";
-        swap.title = "Замінити страву";
-        swap.setAttribute("aria-label", "Замінити страву «" + meal.name + "»");
-        swap.addEventListener("click", () => SwapDialog.open(i, t));
-        row.appendChild(swap);
+        if (!isPast) {
+          const swap = el("button", "slot-swap", "⇄");
+          swap.type = "button";
+          swap.title = "Замінити страву";
+          swap.setAttribute("aria-label", "Замінити страву «" + meal.name + "»");
+          swap.addEventListener("click", () => SwapDialog.open(i, t));
+          row.appendChild(swap);
+        }
         card.appendChild(row);
       });
 
@@ -2635,7 +2655,13 @@ const SwapDialog = (function () {
     sheet.setAttribute("aria-modal", "true");
     sheet.setAttribute("aria-label", "Замінити страву");
 
-    if (!res.ok) {
+    const isPast = plan && WeekStore.isPastDay(plan, dayIndex);
+    if (isPast) {
+      // MER-33: минулий день — незмінна історія, заміна недоступна.
+      sheet.appendChild(el("h2", null, "Минулий день"));
+      sheet.appendChild(el("p", "week-warn",
+        "Це вже прожитий день — історія незмінна. Заміна доступна лише для сьогодні й майбутніх днів."));
+    } else if (!res.ok) {
       sheet.appendChild(el("h2", null, "Замінити страву"));
       sheet.appendChild(el("p", "week-warn", res.error));
     } else {
@@ -3083,11 +3109,17 @@ const CalendarStore = (function () {
     return read(profileId).days[key] || null;
   }
 
-  /* Записати послідовні дні від startDate — перекриває лише ці дати. */
+  /* Записати послідовні дні від startDate — перекриває лише ці дати.
+   * MER-33: минулі дати не чіпаємо — історія незмінна. Тож re-mirror плану,
+   * що зачіпає минулі дні (напр. після заміни в майбутньому дні), не перезапише
+   * вже прожиту історію. */
   function writeDays(startDate, days, target, corridor, profileId) {
     const state = read(profileId);
+    const t = today0();
     days.forEach((day, i) => {
-      state.days[dateKey(addDays(startDate, i))] = {
+      const d = addDays(startDate, i);
+      if (d < t) return; // минуле — історія, не переписуємо
+      state.days[dateKey(d)] = {
         meals: day.meals,
         calories: day.calories,
         target,
@@ -5716,6 +5748,55 @@ PWA.register();
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }
     }
+
+    // MER-33: минула історія календаря незмінна; заміну в минулому вимкнено.
+    // Йде останнім — свідомо робить план «дводенної давнини»; спільний finally
+    // усе одно прибирає тестові ключі.
+    (function () {
+      DemoPool.seed();
+      const genP = WeekGenerator.generateWeek(MealStore.getAll(),
+        { targetCalories: 2000, corridor: 150, antiRepeatDays: 3 });
+      WeekStore.save(genP);
+      const wkKey = Object.keys(localStorage).find((k) => k.indexOf("meridian.week.v1.") === 0);
+      const planObj = JSON.parse(localStorage.getItem(wkKey));
+      const past = new Date(); past.setDate(past.getDate() - 2); past.setHours(10, 0, 0, 0);
+      planObj.generatedAt = past.toISOString();
+      localStorage.setItem(wkKey, JSON.stringify(planObj));
+      const p = WeekStore.get();
+
+      mark(check("MER-33: минулі дні плану позначені як історія",
+        WeekStore.isPastDay(p, 0) === true && WeekStore.isPastDay(p, 1) === true &&
+        WeekStore.isPastDay(p, 2) === false));
+
+      let pastThrew33 = false;
+      try { WeekStore.replaceMeal(0, "lunch", MealStore.filterByType("lunch")[0]); }
+      catch (e) { pastThrew33 = true; }
+      mark(check("MER-33: заміну страви в минулому дні відхилено", pastThrew33));
+
+      SwapDialog.open(0, "lunch");
+      const dlg33 = document.getElementById("swap-overlay");
+      mark(check("MER-33: діалог минулого дня — без кандидатів + повідомлення історії",
+        !!dlg33 && dlg33.querySelectorAll(".swap-row").length === 0 &&
+        dlg33.textContent.indexOf("Минулий день") >= 0));
+      SwapDialog.close();
+
+      WeekScreen.render();
+      const cards33 = document.querySelectorAll("#week-content .day-card");
+      mark(check("MER-33: у минулих днях немає «⇄», у сьогоднішньому — є",
+        cards33[0].querySelectorAll(".slot-swap").length === 0 &&
+        cards33[2].querySelectorAll(".slot-swap").length === 4));
+
+      // Незмінність історії: сентинел у минулій даті переживає re-mirror плану.
+      const calKey = Object.keys(localStorage).find((k) => k.indexOf("meridian.calendar.v1.") === 0);
+      const calState = JSON.parse(localStorage.getItem(calKey) || '{"days":{}}');
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const pastKey = CalendarStore.dateKey(CalendarStore.addDays(t0, -2));
+      calState.days[pastKey] = { meals: {}, calories: 12345, target: 2000, corridor: 150 };
+      localStorage.setItem(calKey, JSON.stringify(calState));
+      CalendarStore.recordPlan(WeekStore.get());
+      mark(check("MER-33: минулий запис календаря не перезаписується (re-mirror)",
+        (CalendarStore.getDay(pastKey) || {}).calories === 12345));
+    })();
 
   } catch (e) {
     allOk = false;
