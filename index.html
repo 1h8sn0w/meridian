@@ -2304,6 +2304,22 @@ const WeekGenerator = (function () {
   return { DEFAULTS, generateWeek, suggestReplacements };
 })();
 
+/* MER-35: знімок страви для збереження в план/календар — БЕЗ важкого base64-
+ * фото. Фото резолвимо з пулу за id при показі (MER-40), тож у знімках воно
+ * лише роздуває JSON (одне фото × тиждень × календар) і може впертись у квоту
+ * сховища. Повертає легку копію (photo:null) або сам об'єкт, якщо фото немає. */
+function planMealSnapshot(meal) {
+  if (!meal || typeof meal !== "object" || meal.photo == null) return meal;
+  return Object.assign({}, meal, { photo: null });
+}
+
+/* Копія слотів дня зі знятими фото — для WeekStore/CalendarStore. */
+function stripDayMeals(meals) {
+  const out = {};
+  Object.keys(meals || {}).forEach((t) => { out[t] = planMealSnapshot(meals[t]); });
+  return out;
+}
+
 /* ============================================================================
  * MER-10 — WeekStore: поточний план тижня в localStorage.
  * ----------------------------------------------------------------------------
@@ -2345,10 +2361,20 @@ const WeekStore = (function () {
       usedCorridor: result.usedCorridor,
       sources: result.sources,
       warnings: result.warnings,
-      days: result.days,
+      days: result.days.map((d) => ({ meals: stripDayMeals(d.meals), calories: d.calories })),
     };
-    localStorage.setItem(keyFor(profileId), JSON.stringify(plan));
-    CalendarStore.recordPlan(plan, profileId);
+    // MER-35: захист двох записів (тиждень + календар). Раніше тиждень
+    // комітився до календаря — якщо другий запис упирався в квоту, тиждень
+    // лишався оновленим, а календар застарілим. Тепер при збої відкочуємо.
+    const key = keyFor(profileId);
+    const prev = localStorage.getItem(key);
+    try {
+      localStorage.setItem(key, JSON.stringify(plan));
+      CalendarStore.recordPlan(plan, profileId);
+    } catch (e) {
+      if (prev === null) localStorage.removeItem(key); else localStorage.setItem(key, prev);
+      throw new Error("Не вдалося зберегти план (можливо, вичерпано місце сховища) — зміни скасовано.");
+    }
     return plan;
   }
 
@@ -2401,7 +2427,7 @@ const WeekStore = (function () {
         "» і не підходить для слота «" + MEAL_TYPE_LABELS[slotType] + "».");
     }
 
-    day.meals[slotType] = meal;
+    day.meals[slotType] = planMealSnapshot(meal); // MER-35: без важкого фото
     day.calories = MEAL_TYPES.reduce((acc, t) => acc + (day.meals[t] ? day.meals[t].calories : 0), 0);
 
     // Після заміни набір джерел плану міг змінитися — перерахувати чесно.
@@ -2411,8 +2437,16 @@ const WeekStore = (function () {
     }));
     plan.sources = Array.from(sources).sort();
 
-    localStorage.setItem(keyFor(), JSON.stringify(plan));
-    CalendarStore.recordPlan(plan);
+    // MER-35: захист двох записів — при збої (квота) відкочуємо тиждень.
+    const key = keyFor();
+    const prev = localStorage.getItem(key);
+    try {
+      localStorage.setItem(key, JSON.stringify(plan));
+      CalendarStore.recordPlan(plan);
+    } catch (e) {
+      if (prev === null) localStorage.removeItem(key); else localStorage.setItem(key, prev);
+      throw new Error("Не вдалося зберегти заміну (можливо, вичерпано місце сховища) — зміни скасовано.");
+    }
     return plan;
   }
 
@@ -3138,7 +3172,7 @@ const CalendarStore = (function () {
       const d = addDays(startDate, i);
       if (d < t) return; // минуле — історія, не переписуємо
       state.days[dateKey(d)] = {
-        meals: day.meals,
+        meals: stripDayMeals(day.meals), // MER-35: без важкого base64-фото
         calories: day.calories,
         target,
         corridor,
@@ -5810,6 +5844,42 @@ PWA.register();
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }
     }
+
+    // MER-35: фото не потрапляє у знімки тижня/календаря; два записи захищені.
+    (function () {
+      const TINY = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const pool35 = [
+        createMeal({ name: "b35", type: "breakfast", calories: 500, source: "X35", photo: TINY }),
+        createMeal({ name: "l35", type: "lunch", calories: 500, source: "X35", photo: TINY }),
+        createMeal({ name: "d35", type: "dinner", calories: 500, source: "X35", photo: TINY }),
+        createMeal({ name: "s35", type: "snack", calories: 500, source: "X35", photo: TINY }),
+      ];
+      const res35 = WeekGenerator.generateWeek(pool35,
+        { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 });
+      WeekStore.save(res35);
+      const wkKey35 = Object.keys(localStorage).find((k) => k.indexOf("meridian.week.v1.") === 0);
+      const calKey35 = Object.keys(localStorage).find((k) => k.indexOf("meridian.calendar.v1.") === 0);
+      mark(check("MER-35: фото не потрапляє у знімки тижня й календаря",
+        localStorage.getItem(wkKey35).indexOf("data:image") < 0 &&
+        localStorage.getItem(calKey35).indexOf("data:image") < 0 &&
+        JSON.parse(localStorage.getItem(wkKey35)).days[0].meals.breakfast.photo === null));
+
+      // Захист двох записів: збій запису календаря відкочує тиждень (без розсинхрону).
+      const prev35 = localStorage.getItem(wkKey35);
+      const origSet35 = Storage.prototype.setItem;
+      let guardThrew35 = false;
+      try {
+        Storage.prototype.setItem = function (k, v) {
+          if (String(k).indexOf("meridian.calendar.v1.") === 0) throw new Error("quota (test)");
+          return origSet35.call(this, k, v);
+        };
+        try { WeekStore.save(res35); } catch (e) { guardThrew35 = true; }
+      } finally {
+        Storage.prototype.setItem = origSet35;
+      }
+      mark(check("MER-35: збій запису календаря відкочує тиждень (немає розсинхрону)",
+        guardThrew35 && localStorage.getItem(wkKey35) === prev35));
+    })();
 
     // MER-34: дати тижня DST-safe — дата дня i = локальна північ (i днів від
     // старту), а не зсув фіксованими 24 год через осінній перехід годинника.
