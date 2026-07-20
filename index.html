@@ -1995,13 +1995,66 @@ const WeekGenerator = (function () {
     return dfs(0) ? week : null;
   }
 
-  /* Джерела (плани), використані в зібраному тижні. Порожні не рахуємо. */
+  /* Джерела (плани), використані в зібраному тижні. Порожні не рахуємо.
+   * Це «сирі» підписи джерел — для показу; для логіки міксу див. нижче. */
   function weekSources(week) {
     const s = new Set();
     week.forEach((d) => MEAL_TYPES.forEach((t) => {
       if (d.meals[t].source) s.add(d.meals[t].source);
     }));
     return s;
+  }
+
+  /* MER-30: належність страви до планів — СТРУКТУРНО, а не одним підписом.
+   * Джерело «Тиждень 1–2» = спільний десерт, що належить ОБОМ тижням; раніше
+   * цей рядок рахувався окремим третім «джерелом» і давав хибний мікс.
+   * Діапазон номерів у джерелі («1–2») розгортаємо, підставляючи кожен номер
+   * у шаблон. Повертає Set назв планів або null (страва без джерела — «власна»,
+   * належить будь-якому плану й не ламає single-source). */
+  function mealPlans(meal) {
+    const src = meal && meal.source ? String(meal.source).trim() : "";
+    if (!src) return null;
+    const m = src.match(/(\d+)\s*[–—-]\s*(\d+)/); // напр. «Тиждень 1–2»
+    if (m) {
+      const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if (b >= a && b - a <= 12) {
+        const set = new Set();
+        for (let n = a; n <= b; n++) set.add(src.replace(m[0], String(n)));
+        return set;
+      }
+    }
+    return new Set([src]); // одне джерело = один план
+  }
+
+  /* Усі плани, згадані в пулі (universe для логіки міксу). */
+  function poolPlans(meals) {
+    const all = new Set();
+    meals.forEach((m) => { const p = mealPlans(m); if (p) p.forEach((x) => all.add(x)); });
+    return all;
+  }
+
+  /* Плани, кожен з яких САМ покриває всі страви набору. Wildcard-страви (без
+   * джерела) належать усім планам, тож перетину не звужують. */
+  function plansCovering(meals, universe) {
+    let inter = null;
+    for (const meal of meals) {
+      const p = mealPlans(meal);
+      if (!p) continue; // wildcard
+      inter = inter === null ? new Set(p) : new Set([...inter].filter((x) => p.has(x)));
+    }
+    return inter === null ? new Set(universe) : inter;
+  }
+
+  /* Усі страви тижня одним масивом. */
+  function allWeekMeals(week) {
+    const out = [];
+    week.forEach((d) => MEAL_TYPES.forEach((t) => out.push(d.meals[t])));
+    return out;
+  }
+
+  /* Тиждень зміксований ⇔ ЖОДЕН єдиний план не покриває всі його страви. */
+  function isMixedWeek(week, universe) {
+    return plansCovering(allWeekMeals(week), universe).size === 0;
   }
 
   /**
@@ -2068,9 +2121,11 @@ const WeekGenerator = (function () {
       };
     }
 
-    // Мікс можливий, лише коли в пулі більше одного джерела.
-    const poolSources = new Set(meals.map((m) => m.source || "").filter(Boolean));
-    const mixPossible = poolSources.size >= 2;
+    // MER-30: мікс можливий, лише коли ЖОДЕН єдиний план не покриває весь пул
+    // (є страви, специфічні для різних тижнів). Спільні десерти «Тиждень 1–2»
+    // самі міксу не роблять — вони належать обом планам.
+    const universe = poolPlans(meals);
+    const mixPossible = universe.size >= 2 && plansCovering(meals, universe).size === 0;
 
     const params = { targetCalories: target, corridor, antiRepeatDays: n, days };
     const finish = (week, usedCorridor, warnings) => ({
@@ -2079,6 +2134,10 @@ const WeekGenerator = (function () {
       params,
       usedCorridor,
       sources: Array.from(weekSources(week)).sort(),
+      // MER-30: чи тиждень справді зміксований (структурно) і чи мікс був
+      // узагалі можливий — щоб single-source-релаксацію було видно окремо.
+      mixed: isMixedWeek(week, universe),
+      mixPossible,
       warnings,
     });
 
@@ -2097,7 +2156,7 @@ const WeekGenerator = (function () {
       for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
         const week = tryBuildWeek(byType, days, n, target - c, target + c);
         if (!week) continue;
-        if (mixPossible && weekSources(week).size < 2) {
+        if (mixPossible && !isMixedWeek(week, universe)) {
           if (!fallback) fallback = { week, usedCorridor: c };
           continue; // мікс обов'язковий — пробуємо ще
         }
@@ -2106,7 +2165,7 @@ const WeekGenerator = (function () {
           warnings.push("Не вдалося втриматись у ±" + corridor + " ккал — коридор розширено до ±" + c + " ккал.");
         }
         if (!mixPossible) {
-          warnings.push("У пулі лише одне джерело (план) — мікс планів неможливий.");
+          warnings.push("Пул не дозволяє мікс планів — усі страви покриває один план.");
         }
         return finish(week, c, warnings);
       }
@@ -4497,8 +4556,8 @@ PWA.register();
         }
       }
       mark(check("Правило 3: без повторів частіше, ніж раз на " + G.antiRepeatDays + " дні", repeatOk));
-      mark(check("Правило 4: мікс щонайменше двох планів", res.sources.length >= 2,
-        res.sources.join(" / ")));
+      mark(check("Правило 4: тиждень структурно зміксований (≥2 плани)",
+        res.mixed === true && res.mixPossible === true, res.sources.join(" / ")));
 
       // Повторний запуск — інший валідний тиждень (працює міксування).
       const sig = (r) => r.days.map((d) => MEAL_TYPES.map((t) => d.meals[t].id).join("+")).join("|");
@@ -4563,6 +4622,38 @@ PWA.register();
     mark(check("MER-27: бектрекування знаходить строгий тиждень (15/15, точний коридор)",
       tightAllStrict === true));
     mark(check("MER-27: строгий тиждень не порушує антиповтор", tightRepeatBad === false));
+
+    // 10d. MER-30: спільний десерт «Тиждень 1–2» НЕ робить тиждень міксованим.
+    // Пул лише зі страв Тижня 1 + спільний десерт: жоден Т2-специфічний елемент
+    // → мікс структурно неможливий (усі страви покриває Тиждень 1). Результат
+    // чесно mixed:false. Раніше «Тиждень 1–2» рахувався третім джерелом.
+    const w1Only = [
+      ["breakfast", 500], ["breakfast", 520], ["breakfast", 540],
+      ["lunch", 600], ["lunch", 620], ["lunch", 640],
+      ["dinner", 500], ["dinner", 520], ["dinner", 540],
+      ["snack", 300], ["snack", 320],
+    ].map((p, k) => createMeal({ name: "w1_" + k, type: p[0], calories: p[1], source: "Тиждень 1" }));
+    w1Only.push(createMeal({ name: "спільний десерт", type: "snack", calories: 310, source: "Тиждень 1–2" }));
+    const rW1 = WeekGenerator.generateWeek(w1Only,
+      { targetCalories: 1900, corridor: 250, antiRepeatDays: 3, days: 7 });
+    mark(check("MER-30: «Тиждень 1 + спільний десерт» — мікс структурно неможливий",
+      rW1.ok === true && rW1.mixPossible === false && rW1.mixed === false,
+      rW1.ok ? ("mixPossible=" + rW1.mixPossible + " mixed=" + rW1.mixed) : rW1.error));
+
+    // Справжній мікс: додаємо страви, специфічні для Тижня 2 → мікс можливий і
+    // має бути досягнутий (mixed:true).
+    const w1w2 = w1Only.concat([
+      createMeal({ name: "w2 сніданок", type: "breakfast", calories: 510, source: "Тиждень 2" }),
+      createMeal({ name: "w2 обід", type: "lunch", calories: 610, source: "Тиждень 2" }),
+      createMeal({ name: "w2 вечеря", type: "dinner", calories: 510, source: "Тиждень 2" }),
+    ]);
+    let mixOk = true;
+    for (let i = 0; i < 10 && mixOk; i++) {
+      const rMix = WeekGenerator.generateWeek(w1w2,
+        { targetCalories: 1900, corridor: 250, antiRepeatDays: 3, days: 7 });
+      if (!(rMix.ok && rMix.mixPossible === true && rMix.mixed === true)) mixOk = false;
+    }
+    mark(check("MER-30: страви Тижня 2 роблять мікс можливим і досяжним (10/10)", mixOk));
 
     // 11. MER-13: екран «Тиждень» — порожній стан, рендер плану, перегенерація.
     WeekStore.clear();
