@@ -176,6 +176,7 @@
     font-size: 14px;
   }
   .window-row:last-child { border-bottom: none; }
+  .window-err { color: var(--warn); font-size: 13px; margin: 8px 0 0; } /* MER-41 */
   .window-row .wlabel { flex: 1; }
   .window-row input[type="time"] {
     background: var(--bg);
@@ -1273,11 +1274,33 @@ const MealClock = (function () {
     return out;
   }
 
-  /** Змінити вікно одного прийому й зберегти. */
+  /* MER-41: чи вікно [start,end) перекривається з вікном іншого прийому.
+   * Повертає тип-конфлікт або null. Ігноровані вікна (кінець ≤ початок) — поза. */
+  function overlapsOthers(type, start, end, windows) {
+    const s = toMin(start), e = toMin(end);
+    if (e <= s) return null;
+    for (const t of MEAL_TYPES) {
+      if (t === type) continue;
+      const os = toMin(windows[t].start), oe = toMin(windows[t].end);
+      if (oe <= os) continue;
+      if (s < oe && os < e) return t; // напівінтервали перетинаються
+    }
+    return null;
+  }
+
+  /** Змінити вікно одного прийому й зберегти. MER-41: відхиляємо перекриття
+   *  прийомів — повертаємо {ok:false, error} без запису. */
   function setWindow(type, start, end) {
+    const clash = overlapsOthers(type, start, end, getWindows());
+    if (clash) {
+      return { ok: false,
+        error: "Вікно «" + MEAL_TYPE_LABELS[type] + "» перекривається з «" +
+          MEAL_TYPE_LABELS[clash] + "». Прийоми не мають накладатися." };
+    }
     const saved = Object.assign({}, AppState.get("mealWindows") || {});
     saved[type] = { start, end };
     AppState.set("mealWindows", saved);
+    return { ok: true };
   }
 
   /**
@@ -1397,7 +1420,17 @@ const MealClock = (function () {
 
       const onChange = () => {
         if (start.value && end.value) {
-          setWindow(t, start.value, end.value);
+          const r = setWindow(t, start.value, end.value);
+          if (!r.ok) {
+            // MER-41: перекриття — показуємо помилку й повертаємо поля назад.
+            errHint.textContent = r.error;
+            errHint.hidden = false;
+            const cur = getWindows();
+            start.value = cur[t].start;
+            end.value = cur[t].end;
+            return;
+          }
+          errHint.hidden = true;
           render();
         }
       };
@@ -1411,10 +1444,16 @@ const MealClock = (function () {
       box.appendChild(row);
     });
 
+    const errHint = document.createElement("p");
+    errHint.className = "window-err";
+    errHint.setAttribute("role", "alert");
+    errHint.hidden = true;
+    box.appendChild(errHint);
+
     const hint = document.createElement("p");
     hint.className = "hint";
     hint.style.marginTop = "8px";
-    hint.textContent = "Вікно, де кінець не пізніше початку, ігнорується.";
+    hint.textContent = "Вікна прийомів не мають перекриватися. Вікно, де кінець не пізніше початку, ігнорується.";
     box.appendChild(hint);
   }
 
@@ -1423,7 +1462,7 @@ const MealClock = (function () {
     if (AppState.get("activeTab") === "today") render();
   }, 30000);
 
-  return { DEFAULT_WINDOWS, getWindows, setWindow, slotAt, render, renderSettings };
+  return { DEFAULT_WINDOWS, getWindows, setWindow, overlapsOthers, slotAt, render, renderSettings };
 })();
 
 /* ============================================================================
@@ -2532,6 +2571,32 @@ function dayMealsApprox(meals) {
 /* Префікс «≈» для суми, якщо серед складників є приблизні. */
 function approxPrefix(hasApprox) { return hasApprox ? "≈" : ""; }
 
+/* MER-41: базове керування фокусом у модалці — перенести фокус усередину,
+ * тримати Tab у межах діалогу й повернути на елемент-тригер при закритті.
+ * Повертає функцію release() для виклику під час закриття. */
+function trapDialogFocus(overlay) {
+  const prevFocus = document.activeElement;
+  const focusable = () => Array.prototype.slice.call(overlay.querySelectorAll(
+    'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+  )).filter((n) => !n.hasAttribute("aria-disabled") && (n.offsetWidth > 0 || n.offsetHeight > 0 || n === document.activeElement));
+  const first = focusable()[0];
+  if (first) first.focus();
+  else { overlay.setAttribute("tabindex", "-1"); overlay.focus(); }
+  function onKey(e) {
+    if (e.key !== "Tab") return;
+    const f = focusable();
+    if (!f.length) { e.preventDefault(); return; }
+    const a = f[0], b = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === a) { e.preventDefault(); b.focus(); }
+    else if (!e.shiftKey && document.activeElement === b) { e.preventDefault(); a.focus(); }
+  }
+  overlay.addEventListener("keydown", onKey);
+  return function release() {
+    overlay.removeEventListener("keydown", onKey);
+    if (prevFocus && typeof prevFocus.focus === "function") { try { prevFocus.focus(); } catch (e) {} }
+  };
+}
+
 /* ============================================================================
  * MER-13 — Екран «Тиждень»: план на 7 днів + кнопка «Перегенерувати».
  * ----------------------------------------------------------------------------
@@ -2654,6 +2719,12 @@ const WeekScreen = (function () {
 
     (plan.warnings || []).forEach((w) => top.appendChild(el("p", "week-warn", w)));
 
+    // MER-41: профіль змінили після генерації — план міг застаріти.
+    if (isPlanStale(plan)) {
+      top.appendChild(el("p", "week-warn",
+        "Профіль змінився після генерації (ціль, коридор або набір страв) — перегенеруйте тиждень."));
+    }
+
     const tIdx = todayIndex(plan);
     if (tIdx === -1) {
       top.appendChild(el("p", "week-warn", "Сьогодні поза періодом цього плану — перегенеруйте тиждень."));
@@ -2722,7 +2793,19 @@ const WeekScreen = (function () {
   }
 
   /* todayIndex/dayDate/fmtDayTitle потрібні також картці «Сьогодні» й діалогу заміни (MER-12). */
-  return { render, regenerate, todayIndex, dayDate, fmtDayTitle };
+  /* MER-41: чи активний план застарів відносно поточного профілю-власника —
+   * змінилися ціль/коридор або страва більше не в дозволеному пулі профілю. */
+  function isPlanStale(plan) {
+    if (!plan || !plan.params) return false;
+    const owner = ProfileStore.getById(ProfileStore.planOwnerId());
+    if (!owner) return false;
+    if (plan.params.targetCalories !== owner.targetCalories) return true;
+    if (plan.params.corridor !== owner.corridor) return true;
+    const allowed = new Set(ProfileStore.poolFor(owner).map((m) => m.id));
+    return plan.days.some((d) => MEAL_TYPES.some((t) => d.meals[t] && !allowed.has(d.meals[t].id)));
+  }
+
+  return { render, regenerate, todayIndex, dayDate, fmtDayTitle, isPlanStale };
 })();
 
 /* ============================================================================
@@ -2744,6 +2827,7 @@ const SwapDialog = (function () {
   /** Закрити діалог (якщо відкритий). */
   function close() {
     if (!overlay) return;
+    if (overlay._release) overlay._release(); // MER-41: повернути фокус на тригер
     overlay.remove();
     overlay = null;
     document.removeEventListener("keydown", onKeyDown);
@@ -2840,6 +2924,7 @@ const SwapDialog = (function () {
 
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
+    overlay._release = trapDialogFocus(overlay); // MER-41: фокус у діалог
     document.addEventListener("keydown", onKeyDown);
   }
 
@@ -2868,6 +2953,7 @@ const RecipeScreen = (function () {
   /** Закрити сторінку рецепта (якщо відкрита). */
   function close() {
     if (!overlay) return;
+    if (overlay._release) overlay._release(); // MER-41: повернути фокус на тригер
     overlay.remove();
     overlay = null;
     document.removeEventListener("keydown", onKeyDown);
@@ -3049,6 +3135,7 @@ const RecipeScreen = (function () {
 
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
+    overlay._release = trapDialogFocus(overlay); // MER-41: фокус у діалог
     document.addEventListener("keydown", onKeyDown);
   }
 
@@ -3650,6 +3737,7 @@ const ProfilesScreen = (function () {
   /** Закрити екран «Профілі» (якщо відкритий). */
   function close() {
     if (!overlay) return;
+    if (overlay._release) overlay._release(); // MER-41: повернути фокус на тригер
     overlay.remove();
     overlay = null;
     document.removeEventListener("keydown", onKeyDown);
@@ -3670,6 +3758,7 @@ const ProfilesScreen = (function () {
       s.setAttribute("aria-label", "Профілі");
       overlay.appendChild(s);
       document.body.appendChild(overlay);
+      overlay._release = trapDialogFocus(overlay); // MER-41: фокус у діалог
       document.addEventListener("keydown", onKeyDown);
     }
     const s = overlay.querySelector(".sheet");
@@ -4089,6 +4178,22 @@ const PdfImport = (function () {
    *               2 для страв «На 2-х», інакше null
    *   raw         усі рядки блоку як у PDF, flags — сумнівні місця
    */
+  /* MER-41: inline «N ккал» у заголовку слота (напр. «Омлет — 500 ккал»),
+   * не лише в десертах. Витягуємо калорійність і прибираємо її з назви.
+   * «Ж-/Ч-» — окремі рядки-порції, сюди не потрапляють (це заголовок слота). */
+  function extractInlineKcal(text) {
+    const m = text.match(/(\d+(?:[.,]\d+)?)\s*ккал/i);
+    if (!m) return { name: text.trim(), calories: null };
+    const calories = Number(m[1].replace(",", "."));
+    const name = text.replace(m[0], " ")
+      .replace(/\(\s*\)/g, " ")        // порожні дужки після вирізу
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .replace(/[\s—–,;:.-]+$/g, "")   // хвостовий роздільник
+      .trim();
+    return { name: name || text.trim(), calories };
+  }
+
   function parsePlanText(text) {
     const lines = toLogicalLines(text);
     const entries = [];
@@ -4144,7 +4249,10 @@ const PdfImport = (function () {
           return;
         }
 
-        startEntry(type, rest, "meal", line);
+        // MER-41: сніданок/обід/вечеря — теж витягуємо inline-калорійність.
+        const parsed = extractInlineKcal(rest);
+        startEntry(type, parsed.name, "meal", line);
+        if (parsed.calories != null) entry.calories = parsed.calories;
         return;
       }
 
@@ -4267,6 +4375,7 @@ const PdfImport = (function () {
   /** Закрити імпорт (якщо відкритий). */
   function close() {
     if (!overlay) return;
+    if (overlay._release) overlay._release(); // MER-41: повернути фокус на тригер
     opToken++; // MER-39: скасувати in-flight екстракцію — її результат ігноруємо
     overlay.remove();
     overlay = null;
@@ -4287,6 +4396,7 @@ const PdfImport = (function () {
       s.setAttribute("aria-label", "Імпорт із PDF-плану");
       overlay.appendChild(s);
       document.body.appendChild(overlay);
+      overlay._release = trapDialogFocus(overlay); // MER-41: фокус у діалог
       document.addEventListener("keydown", onKeyDown);
     }
     const s = overlay.querySelector(".sheet");
@@ -6169,6 +6279,45 @@ PWA.register();
         !!ov39 && ov39.textContent.indexOf("Перевірка перед додаванням") >= 0));
       PdfImport.close();
     }
+
+    // MER-41 (P3-чек-ліст): узагальнений парсинг калорій, валідація вікон,
+    // нотатка застарілого плану, керування фокусом модалок.
+    (function () {
+      // (2) inline «N ккал» у будь-якому слоті, не лише десерті.
+      const p41 = PdfImport.parsePlanText("День 1\nСніданок: Омлет — 500 ккал\nВечеря: Риба");
+      const bf41 = p41.entries.find((e) => e.type === "breakfast");
+      const dn41 = p41.entries.find((e) => e.type === "dinner");
+      mark(check("MER-41: калорійність із заголовка слота (не лише десерт)",
+        !!bf41 && bf41.name === "Омлет" && bf41.calories === 500 && !!dn41 && dn41.calories === null));
+
+      // (5) валідація неперекриття вікон прийомів.
+      const okWin = MealClock.setWindow("lunch", "11:00", "15:00");
+      const badWin = MealClock.setWindow("lunch", "10:00", "14:00"); // перетин зі сніданком 06–11
+      mark(check("MER-41: перекриття вікон прийомів відхилено, суміжні — дозволено",
+        okWin.ok === true && badWin.ok === false && badWin.error.indexOf("перекрив") >= 0));
+
+      // (1) нотатка застарілого плану після зміни профілю.
+      DemoPool.seed();
+      const g41 = WeekGenerator.generateWeek(null, { profile: ProfileStore.getActive() });
+      WeekStore.save(g41);
+      const staleFresh = WeekScreen.isPlanStale(WeekStore.get());
+      const a41 = ProfileStore.getActive();
+      ProfileStore.save(Object.assign({}, a41, { targetCalories: a41.targetCalories + 300 }));
+      const staleChanged = WeekScreen.isPlanStale(WeekStore.get());
+      mark(check("MER-41: план не застарілий свіжим, застарілий після зміни профілю",
+        staleFresh === false && staleChanged === true));
+
+      // (4) фокус модалки: усередину діалогу і назад на тригер.
+      const trig = el("button", null, "тригер"); document.body.appendChild(trig); trig.focus();
+      SwapDialog.open(0, "lunch");
+      const ov41 = document.getElementById("swap-overlay");
+      const inside41 = !!ov41 && ov41.contains(document.activeElement);
+      SwapDialog.close();
+      const restored41 = document.activeElement === trig;
+      trig.remove();
+      mark(check("MER-41: модалка бере фокус усередину й повертає на тригер",
+        inside41 === true && restored41 === true));
+    })();
 
   } catch (e) {
     allOk = false;
