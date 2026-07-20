@@ -4590,12 +4590,38 @@ window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppStat
  * містить тестові дані. Стартові ЗАПИСИ тоді пропускаємо, щоб не вплести
  * тестове в реальне (читання й рендер безпечні — вони нічого не пишуть). */
 const SELFTEST_LOCK_KEY = "meridian.selftest.lock.v1";
+const SELFTEST_BACKUP_KEY = "meridian.selftest.backup.v1";
 const selftestBusy = (function () {
   const ts = Number(localStorage.getItem(SELFTEST_LOCK_KEY));
   return ts > 0 && Date.now() - ts < 15000;
 })();
 
+/* MER-32: self-test знімок тримається лише в пам'яті сторінки, а перед тестами
+ * реальні дані замінюються фікстурами. Якщо вкладку закрити/перезавантажити чи
+ * вона впаде під час асинхронних перевірок (PWA), finally не відпрацює — і
+ * користувач лишиться з тестовими даними замість своїх. Тому self-test пише
+ * ДОВГОВІЧНИЙ бекап у localStorage; тут, на нормальному старті (коли активного
+ * self-test немає), відновлюємо його ДО будь-якого читання/сіду. */
+function recoverInterruptedSelftest() {
+  const backup = localStorage.getItem(SELFTEST_BACKUP_KEY);
+  if (backup === null) return false;
+  try {
+    const saved = JSON.parse(backup) || {};
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("meridian.") === 0 && k !== SELFTEST_BACKUP_KEY) localStorage.removeItem(k);
+    }
+    Object.keys(saved).forEach((k) => localStorage.setItem(k, saved[k]));
+  } catch (e) {
+    console.warn("MER-32: не вдалося відновити дані після перерваного self-test.", e);
+  }
+  localStorage.removeItem(SELFTEST_BACKUP_KEY);
+  return true;
+}
+
 if (!selftestBusy) {
+  // MER-32: якщо попередній self-test обірвався — повернути реальні дані.
+  recoverInterruptedSelftest();
   DemoPool.seedIfFirstRun();
   /* MER-23: виправлення демо-даних доходять і до вже сідованих установок. */
   DemoPool.upgradeSeed();
@@ -4655,6 +4681,10 @@ PWA.register();
     if (k && k.indexOf("meridian.") === 0) SNAPSHOT[k] = localStorage.getItem(k);
   }
   const WINDOWS_SNAPSHOT = AppState.get("mealWindows");
+  // MER-32: довговічний бекап — щоб перерваний self-test (закриття/аварія під
+  // час асинхронних перевірок) не лишив реальні дані підміненими фікстурами.
+  // На наступному старті recoverInterruptedSelftest() поверне цей знімок.
+  localStorage.setItem(SELFTEST_BACKUP_KEY, JSON.stringify(SNAPSHOT));
   // Замок ставимо після знімка, щоб він не потрапив у відновлення.
   localStorage.setItem(SELFTEST_LOCK_KEY, String(Date.now()));
 
@@ -6030,6 +6060,23 @@ PWA.register();
         (CalendarStore.getDay(pastKey) || {}).calories === 12345));
     })();
 
+    // MER-32: перерваний self-test відновлюється зі стійкого бекапу (реальні
+    // дані не лишаються підміненими фікстурами). Тест локальний і йде останнім;
+    // спільний finally однаково відновить усе зі SNAPSHOT.
+    (function () {
+      const fakeReal = JSON.stringify([{ id: "mer32-real", name: "Реальна", type: "lunch",
+        calories: 111, protein: null, fat: null, carbs: null, ingredients: [], source: "",
+        steps: [], prepTime: null, servings: null, photo: null }]);
+      localStorage.setItem("meridian.meals.v1", JSON.stringify([{ id: "mer32-fixture", name: "Фікстура" }]));
+      localStorage.setItem(SELFTEST_BACKUP_KEY, JSON.stringify({ "meridian.meals.v1": fakeReal }));
+      const did = recoverInterruptedSelftest();
+      const after = MealStore.getAll();
+      mark(check("MER-32: перерваний self-test відновлює реальні дані зі стійкого бекапу",
+        did === true && after.length === 1 && after[0].id === "mer32-real" &&
+        localStorage.getItem(SELFTEST_BACKUP_KEY) === null));
+      mark(check("MER-32: без бекапу відновлення — no-op", recoverInterruptedSelftest() === false));
+    })();
+
   } catch (e) {
     allOk = false;
     out.push("  [FAIL] Виняток: " + e.message);
@@ -6044,6 +6091,8 @@ PWA.register();
     testKeys.forEach((k) => localStorage.removeItem(k));
     Object.keys(SNAPSHOT).forEach((k) => localStorage.setItem(k, SNAPSHOT[k]));
     localStorage.removeItem(SELFTEST_LOCK_KEY);
+    // MER-32: успішно завершили й відновили — довговічний бекап більше не потрібен.
+    localStorage.removeItem(SELFTEST_BACKUP_KEY);
     // Кеш AppState тримає тестові значення — перечитати відновлене, інакше
     // будь-який наступний set() записав би тестовий стан поверх реального.
     AppState.reload();
