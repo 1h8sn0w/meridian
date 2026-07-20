@@ -1962,15 +1962,27 @@ const WeekGenerator = (function () {
    * на день, стеля WEEK_NODE_BUDGET розстановок на спробу. Порядок кандидатів
    * перетасовано, тож повторні спроби дають різні тижні. Повертає масив днів
    * або null (розв'язку не знайдено в межах бюджету).
+   *
+   * precedingDays (MER-29) — масив попередніх РЕАЛЬНИХ днів, найближчий перший:
+   * precedingDays[k] = масив id страв дня, що передує старту на k+1. Вони
+   * заповнюють вікно антиповтору перед днем 0, тож перший день нового тижня не
+   * повторює страв останніх днів попереднього (стик тижнів).
    */
-  function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum) {
+  function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum, precedingDays) {
     const week = [];
     let budget = WEEK_NODE_BUDGET;
+    const prev = precedingDays || [];
 
     function bansFor(d) {
       const banned = new Set();
-      for (let b = Math.max(0, d - antiRepeatDays + 1); b < d; b++) {
-        MEAL_TYPES.forEach((t) => banned.add(week[b].meals[t].id));
+      for (let b = d - antiRepeatDays + 1; b < d; b++) {
+        if (b >= 0) {
+          MEAL_TYPES.forEach((t) => banned.add(week[b].meals[t].id));
+        } else {
+          // b<0 → попередній календарний день на позиції -b-1 (MER-29).
+          const pd = prev[-b - 1];
+          if (pd) pd.forEach((id) => banned.add(id));
+        }
       }
       return banned;
     }
@@ -2062,10 +2074,12 @@ const WeekGenerator = (function () {
    *
    * @param pool    масив страв; якщо не масив — пул профілю з options.profile
    *                (його підмножина mealIds, якщо задана) або весь MealStore.
-   * @param options {targetCalories, corridor, antiRepeatDays, days, profile}
-   *                поверх DEFAULTS. profile (MER-21) — об'єкт профілю або його
-   *                id: підставляє свої ціль і коридор; явно передані опції
-   *                мають пріоритет над профілем.
+   * @param options {targetCalories, corridor, antiRepeatDays, days, profile,
+   *                precedingDays} поверх DEFAULTS. profile (MER-21) — об'єкт
+   *                профілю або його id: підставляє свої ціль і коридор; явно
+   *                передані опції мають пріоритет над профілем. precedingDays
+   *                (MER-29) — id страв попередніх реальних днів для антиповтору
+   *                на стику тижнів (найближчий день перший).
    * @returns {ok:true, days:[{meals:{type:страва}, calories}], params,
    *           usedCorridor, sources, warnings} або {ok:false, error} зі
    *           зрозумілим українським поясненням.
@@ -2102,6 +2116,9 @@ const WeekGenerator = (function () {
     // Антиповтор понад довжину тижня еквівалентний «без повторів узагалі».
     const n = Math.min(Math.max(1, Math.floor(Number(p.antiRepeatDays)) || 1), days);
     const meals = Array.isArray(pool) ? pool : (profile ? ProfileStore.poolFor(profile) : MealStore.getAll());
+    // MER-29: перенесення антиповтору через межу тижнів — id страв попередніх
+    // реальних днів (найближчий перший) заповнюють вікно перед днем 0.
+    const precedingDays = Array.isArray(o.precedingDays) ? o.precedingDays : [];
 
     // Достатність пулу: вікно антиповтору вимагає щонайменше n страв кожного типу.
     const byType = {};
@@ -2154,7 +2171,7 @@ const WeekGenerator = (function () {
     let fallback = null; // валідний, але не зміксований тиждень — про запас
     for (const c of corridorLevels) {
       for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
-        const week = tryBuildWeek(byType, days, n, target - c, target + c);
+        const week = tryBuildWeek(byType, days, n, target - c, target + c, precedingDays);
         if (!week) continue;
         if (mixPossible && !isMixedWeek(week, universe)) {
           if (!fallback) fallback = { week, usedCorridor: c };
@@ -3079,6 +3096,17 @@ const CalendarStore = (function () {
    * дзеркалить його сюди); суто майбутній тиждень лягає лише в календар і
    * активний план не чіпає. Повертає результат генератора + start (ключ дати).
    */
+  /** id страв останніх `count` реальних днів перед startDate (найближчий перший). */
+  function precedingMealIds(startDate, count, profileId) {
+    const out = [];
+    for (let k = 1; k <= count; k++) {
+      const day = getDay(dateKey(addDays(startDate, -k)), profileId);
+      const meals = day && day.meals ? day.meals : null;
+      out.push(meals ? MEAL_TYPES.map((t) => meals[t] && meals[t].id).filter(Boolean) : []);
+    }
+    return out;
+  }
+
   function generateAhead() {
     // MER-17: спільним планом (і його календарем) керує лише власник.
     const guard = sharedPlanGuard();
@@ -3086,13 +3114,18 @@ const CalendarStore = (function () {
     // MER-21: ціль/коридор і пул дає активний профіль; антиповтор і довжина
     // тижня успадковуються від активного плану (якщо він є).
     const active = WeekStore.get();
+    const start = nextFreeStart();
+    // MER-29: перенести антиповтор через межу — заборонити для перших днів
+    // нового тижня страви останніх N-1 запланованих днів перед стартом.
+    const nAnti = active ? active.params.antiRepeatDays : WeekGenerator.DEFAULTS.antiRepeatDays;
+    const precedingDays = precedingMealIds(start, Math.max(0, (nAnti || 1) - 1));
     const res = WeekGenerator.generateWeek(null, {
       profile: ProfileStore.getActive(),
       antiRepeatDays: active ? active.params.antiRepeatDays : undefined,
       days: active ? active.params.days : undefined,
+      precedingDays,
     });
     if (!res.ok) return res;
-    const start = nextFreeStart();
     if (start.getTime() === today0().getTime()) {
       WeekStore.save(res);
     } else {
@@ -4654,6 +4687,33 @@ PWA.register();
       if (!(rMix.ok && rMix.mixPossible === true && rMix.mixed === true)) mixOk = false;
     }
     mark(check("MER-30: страви Тижня 2 роблять мікс можливим і досяжним (10/10)", mixOk));
+
+    // 10e. MER-29: антиповтор переноситься через межу тижнів. precedingDays —
+    // страви попереднього реального дня — заповнюють вікно перед днем 0, тож
+    // перший день нового тижня їх не повторює. Контроль: без переносу — повторює.
+    const arPool = [
+      ["breakfast", 500], ["breakfast", 500], ["breakfast", 500],
+      ["lunch", 500], ["lunch", 500], ["lunch", 500],
+      ["dinner", 500], ["dinner", 500], ["dinner", 500],
+      ["snack", 500], ["snack", 500], ["snack", 500],
+    ].map((p, k) => createMeal({ name: "ar" + k, type: p[0], calories: p[1], source: "AR" }));
+    const arByType = {};
+    MEAL_TYPES.forEach((t) => { arByType[t] = arPool.filter((m) => m.type === t); });
+    const yesterday = MEAL_TYPES.map((t) => arByType[t][0].id); // «вчорашній» день
+    let arBanRespected = true, arControlRepeated = false;
+    for (let i = 0; i < 40; i++) {
+      const r = WeekGenerator.generateWeek(arPool,
+        { targetCalories: 2000, corridor: 100, antiRepeatDays: 2, days: 3, precedingDays: [yesterday] });
+      if (!r.ok) { arBanRespected = false; }
+      else MEAL_TYPES.forEach((t) => { if (yesterday.indexOf(r.days[0].meals[t].id) >= 0) arBanRespected = false; });
+      const r2 = WeekGenerator.generateWeek(arPool,
+        { targetCalories: 2000, corridor: 100, antiRepeatDays: 2, days: 3 });
+      if (r2.ok) MEAL_TYPES.forEach((t) => { if (yesterday.indexOf(r2.days[0].meals[t].id) >= 0) arControlRepeated = true; });
+    }
+    mark(check("MER-29: перший день не повторює страв попереднього дня (precedingDays)",
+      arBanRespected === true));
+    mark(check("MER-29: без переносу антиповтор на стику не діяв (контроль)",
+      arControlRepeated === true));
 
     // 11. MER-13: екран «Тиждень» — порожній стан, рендер плану, перегенерація.
     WeekStore.clear();
