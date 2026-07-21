@@ -630,6 +630,9 @@
             <input name="servings" type="number" min="1" step="1" placeholder="—">
           </label>
         </div>
+        <label>Готова порція Ж/Ч (по одному в рядку; складник — до « — »)
+          <textarea name="portions" rows="2" placeholder="Ж - 130 г; Ч - 200 г&#10;Гарнір — Ж - 100 г; Ч - 150 г"></textarea>
+        </label>
         <label>Кроки приготування (по одному в рядку; порожньо — секція прихована)
           <textarea name="steps" rows="4" placeholder="Відварити гречку 15 хв.&#10;Обсмажити філе до золотистого."></textarea>
         </label>
@@ -672,6 +675,10 @@
  *   steps       string[] Кроки приготування (MER-22). Порожньо = у джерелі немає.
  *   prepTime    number?  Час приготування, хв (MER-22; необов'язкове).
  *   servings    number?  Кількість порцій (MER-22; необов'язкове).
+ *   portions    {component: string?, text: string}[]
+ *                        Готові порції на людину з плану (MER-24): text —
+ *                        дослівно після «Готова порція:» («Ж - 130 г; Ч - 200 г»),
+ *                        component — складник страви, якого порція стосується.
  *   photo       string?  Фото, data-URL (MER-22; додається користувачем вручну).
  *
  * Нові поля MER-22 необов'язкові: порожнеча — норма (провенанс даних,
@@ -777,6 +784,67 @@ const Ingredients = (function () {
   return { normalize, parts, label, toLine, fromLine };
 })();
 
+/* ============================================================================
+ * Portions — порції на людину з плану дієтолога (MER-24).
+ * ----------------------------------------------------------------------------
+ * У PDF кожна страва (чи її складник) має рядок «Готова порція: Ж - …; Ч - …»
+ * (Ж — жінка, Ч — чоловік). Запис порції: {component, text}, де text —
+ * дослівний текст після «Готова порція:», а component — дослівна назва
+ * складника з PDF (null, якщо порція стосується всієї страви). Нічого не
+ * перераховуємо (провенанс даних, AGENTS.md): ділимо текст за літерами лише
+ * для показу, а коли поділ неможливий — показуємо весь текст як є.
+ * ========================================================================== */
+const Portions = (function () {
+  /* Порційні літери поточного плану («Ж - …; Ч - …»). */
+  const PERSONS = Object.freeze(["Ж", "Ч"]);
+  const CHUNK_RE = /^([ЖЧ])\s*[-–—]/;
+
+  /** Нормалізувати запис: рядок → {component: null, text}; об'єкт →
+   *  {component, text}. Порожній → null. Кидає українську помилку на сміття. */
+  function normalize(entry) {
+    if (typeof entry === "string" || typeof entry === "number") {
+      const s = String(entry).trim();
+      return s.length ? { component: null, text: s } : null;
+    }
+    if (entry && typeof entry === "object") {
+      const text = String(entry.text ?? "").trim();
+      if (!text) throw new Error("Запис порції мусить мати текст (text).");
+      const component = String(entry.component ?? "").trim();
+      return { component: component || null, text };
+    }
+    throw new Error("Порція має бути рядком або об'єктом {component?, text}.");
+  }
+
+  /** «Ж - 130 г; Ч - 200 г» → для «Ч» дає дослівний шматок «Ч - 200 г».
+   *  null — коли текст не розкладається за літерами або літери в ньому немає:
+   *  тоді UI показує весь текст дослівно (нічого не вигадуємо). */
+  function forPerson(text, person) {
+    const chunks = String(text ?? "").split(/;\s*(?=[ЖЧ]\s*[-–—])/)
+      .map((s) => s.trim()).filter((s) => s.length > 0);
+    if (!chunks.length || !chunks.every((c) => CHUNK_RE.test(c))) return null;
+    return chunks.find((c) => c.match(CHUNK_RE)[1] === person) || null;
+  }
+
+  /** Рядок форми: «складник — текст» або просто текст. */
+  function toLine(entry) {
+    return entry.component ? entry.component + " — " + entry.text : entry.text;
+  }
+
+  /** Розібрати рядок форми назад: перше « — » ділить складник і текст;
+   *  «Ж — 130 г» — це текст порції, а не складник. Порожній рядок → null. */
+  function fromLine(line) {
+    const s = String(line ?? "").trim();
+    if (!s) return null;
+    const i = s.indexOf(" — ");
+    if (i < 1) return { component: null, text: s };
+    const head = s.slice(0, i).trim();
+    if (/^[ЖЧ]$/.test(head)) return { component: null, text: s };
+    return { component: head, text: s.slice(i + 3).trim() };
+  }
+
+  return { PERSONS, normalize, forPerson, toLine, fromLine };
+})();
+
 /**
  * Створити валідну страву з «сирих» даних.
  * Кидає помилку з українським повідомленням, якщо дані некоректні.
@@ -814,6 +882,9 @@ function createMeal(input) {
   if (servings !== null && servings <= 0) {
     throw new Error("Кількість порцій має бути додатною.");
   }
+  const portions = Array.isArray(input.portions)
+    ? input.portions.map(Portions.normalize).filter((x) => x !== null)
+    : [];
 
   return {
     id: input.id ? String(input.id) : generateId(),
@@ -830,6 +901,7 @@ function createMeal(input) {
     steps,
     prepTime: toOptionalNumber(input.prepTime),
     servings,
+    portions,
     photo: String(input.photo ?? "").trim() || null,
   };
 }
@@ -1174,6 +1246,7 @@ const MealsScreen = (function () {
     form.elements.ingredients.value = meal ? meal.ingredients.map(Ingredients.toLine).join("\n") : "";
     form.elements.prepTime.value = meal && meal.prepTime != null ? meal.prepTime : "";
     form.elements.servings.value = meal && meal.servings != null ? meal.servings : "";
+    form.elements.portions.value = meal && meal.portions ? meal.portions.map(Portions.toLine).join("\n") : "";
     form.elements.steps.value = meal && meal.steps ? meal.steps.join("\n") : "";
     form.elements.source.value = meal ? meal.source : "";
 
@@ -1205,6 +1278,8 @@ const MealsScreen = (function () {
           .map(Ingredients.fromLine).filter((x) => x !== null),
         prepTime: form.elements.prepTime.value,
         servings: form.elements.servings.value,
+        portions: form.elements.portions.value.split("\n")
+          .map(Portions.fromLine).filter((x) => x !== null),
         steps: form.elements.steps.value.split("\n"),
         source: form.elements.source.value,
         // Фото додається на сторінці рецепта; при редагуванні не губимо його.
@@ -1683,7 +1758,12 @@ const DemoPool = (function () {
       const stored = existing[m.id];
       if (!stored) return; // видалену демо-страву не воскрешаємо
       const recorded = hashes[m.id];
-      if (recorded != null && contentHash(stored) !== recorded) return; // локальні правки
+      // Локальні правки не перезаписуємо. Порівнюємо і збережену форму, і
+      // нормалізовану (createMeal): модель із часом набуває нових полів
+      // (напр. portions, MER-24), тож хеш міг бути записаний у старішому
+      // канонічному форматі, ніж збережена страва, або навпаки.
+      if (recorded != null && contentHash(stored) !== recorded &&
+          contentHash(createMeal(stored)) !== recorded) return;
       MealStore.save(m);
       hashes[m.id] = canonHash(m);
     });
@@ -1757,6 +1837,17 @@ function createProfile(input) {
     sharedPlanWith = String(input.sharedPlanWith).trim();
   }
 
+  /* Порційна літера з плану дієтолога (MER-24): «Ж» або «Ч» з рядків
+   * «Готова порція: Ж - …; Ч - …». Прив'язує профіль до його порції у
+   * спільному плані. null — не задано: UI показує всі порції дослівно. */
+  let portion = null;
+  if (input.portion != null && String(input.portion).trim()) {
+    portion = String(input.portion).trim().toUpperCase();
+    if (!Portions.PERSONS.includes(portion)) {
+      throw new Error("Порція профілю — «Ж» або «Ч» (позначка з плану дієтолога).");
+    }
+  }
+
   /* Підмножина пулу: null — увесь спільний пул; масив id — лише ці страви. */
   let mealIds = null;
   if (Array.isArray(input.mealIds)) {
@@ -1774,6 +1865,7 @@ function createProfile(input) {
     corridor,
     color,
     sharedPlanWith,
+    portion,
     goals: {
       protein: toOptionalNumber(goals.protein),
       fat: toOptionalNumber(goals.fat),
@@ -3095,6 +3187,26 @@ const RecipeScreen = (function () {
       });
     }
 
+    // MER-24: «Готова порція» з плану дієтолога — дослівно. Якщо в активного
+    // профілю задано порційну літеру (Ж/Ч), показуємо лише його порцію;
+    // інакше (або коли текст не ділиться за літерами) — весь текст як є.
+    const portions = meal.portions || [];
+    if (portions.length) {
+      const person = (ProfileStore.getActive() || {}).portion || null;
+      sheet.appendChild(el("div", "recipe-sec", "Готова порція" + (person ? " · " + person : "")));
+      portions.forEach((p) => {
+        const own = person ? Portions.forPerson(p.text, person) : null;
+        const row = el("div", "ring-row");
+        if (p.component) {
+          row.appendChild(el("span", null, p.component));
+          row.appendChild(el("span", "qty", own || p.text));
+        } else {
+          row.appendChild(el("span", null, own || p.text));
+        }
+        sheet.appendChild(row);
+      });
+    }
+
     // Кроки — лише якщо є в даних (у PDF їх немає; ручний ввід або MER-15).
     const steps = meal.steps || [];
     let stepsSec = null;
@@ -3235,6 +3347,20 @@ const TodayCard = (function () {
       box.appendChild(ul);
     } else {
       box.appendChild(el("p", "today-note", "Інгредієнти не вказані."));
+    }
+
+    // MER-24: готова порція з плану — порція активного профілю (Ж/Ч) або,
+    // без заданої літери, всі порційні рядки дослівно. Немає в даних — секції немає.
+    const portions = meal.portions || [];
+    if (portions.length) {
+      const person = (ProfileStore.getActive() || {}).portion || null;
+      box.appendChild(el("p", "today-sec", "Готова порція" + (person ? " · " + person : "")));
+      const pul = el("ul", "today-ingredients today-portions");
+      portions.forEach((p) => {
+        const own = person ? Portions.forPerson(p.text, person) : null;
+        pul.appendChild(el("li", null, (p.component ? p.component + " — " : "") + (own || p.text)));
+      });
+      box.appendChild(pul);
     }
 
     // Критерій MER-12: після заміни денна калорійність перераховується й показується.
@@ -3925,6 +4051,20 @@ const ProfilesScreen = (function () {
     });
     form.appendChild(goals);
 
+    // Порційна літера з плану дієтолога (MER-24): «Готова порція: Ж - …; Ч - …».
+    // Картка «Сьогодні» і рецепт показують порцію активного профілю.
+    form.appendChild(el("div", "recipe-sec", "Порція у плані дієтолога · необов'язково"));
+    const portionSelect = document.createElement("select");
+    portionSelect.name = "portion";
+    [["", "— не вказано"], ["Ж", "Ж (жінка)"], ["Ч", "Ч (чоловік)"]].forEach(([value, label]) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      opt.selected = (profile && profile.portion ? profile.portion : "") === value;
+      portionSelect.appendChild(opt);
+    });
+    form.appendChild(portionSelect);
+
     // План тижня: спільний із профілем-власником (сім'я їсть ті самі страви;
     // кількості в рецептах — «на 2-х») або власний незалежний план.
     // Для нового профілю типовий вибір — спільний: окремі меню для людей за
@@ -4069,6 +4209,7 @@ const ProfilesScreen = (function () {
           targetCalories: tInput.value,
           corridor: cInput.value,
           sharedPlanWith: sharedPlan && ownerSelect.value ? ownerSelect.value : null,
+          portion: portionSelect.value || null,
           goals: {
             protein: form.elements.protein.value,
             fat: form.elements.fat.value,
@@ -4176,6 +4317,8 @@ const PdfImport = (function () {
    *   ingredients дослівні рядки «На 2-х…» (однозначні кількості —
    *               структуровані), steps — дослівні нотатки, servings —
    *               2 для страв «На 2-х», інакше null
+   *   portions    рядки «Готова порція: …» (MER-24): {component, text},
+   *               text — дослівно, component — складник страви або null
    *   raw         усі рядки блоку як у PDF, flags — сумнівні місця
    */
   /* MER-41: inline «N ккал» у заголовку слота (напр. «Омлет — 500 ккал»),
@@ -4200,17 +4343,19 @@ const PdfImport = (function () {
     let week = null;
     let day = null;
     let entry = null;
+    let component = null; // назва складника — чекає свого рядка «Готова порція» (MER-24)
 
     const closeEntry = () => {
       if (entry) { entries.push(entry); entry = null; }
     };
     const startEntry = (type, name, kind, rawFirst) => {
       closeEntry();
+      component = null;
       entry = {
         kind, type, name, day, week,
         source: week ? "Тиждень " + week : "",
         calories: null, protein: null, fat: null, carbs: null,
-        ingredients: [], steps: [], servings: null,
+        ingredients: [], steps: [], servings: null, portions: [],
         raw: [rawFirst], flags: [],
       };
     };
@@ -4268,12 +4413,23 @@ const PdfImport = (function () {
         return;
       }
 
-      if (/^Готова порція/i.test(line)) return; // порції Ж/Ч — лише в сирому тексті
+      // MER-24: «Готова порція: Ж - …; Ч - …» — дослівно, з прив'язкою до
+      // складника (рядок-назва перед «На 2-х…»). Поділ за літерами — при показі.
+      if ((m = line.match(/^Готова порція\s*:?\s*(.*)$/i))) {
+        if (entry.kind === "meal" && m[1].trim()) {
+          entry.portions.push({ component, text: m[1].trim() });
+          component = null;
+        }
+        return;
+      }
 
       // Нотатка приготування/подачі (речення з крапкою) — дослівно в кроки.
-      // Рядки без крапки — назви складників; вони лишаються в сирому тексті.
+      // Рядки без крапки — назви складників: лишаються в сирому тексті і
+      // стають прив'язкою для наступного рядка «Готова порція» (MER-24).
       if (entry.kind === "meal" && /\.\s*$/.test(line)) {
         entry.steps.push(line);
+      } else if (entry.kind === "meal") {
+        component = line;
       }
     });
     closeEntry();
@@ -4600,6 +4756,14 @@ const PdfImport = (function () {
         ingLabel.appendChild(ingInput);
         box.appendChild(ingLabel);
 
+        const portLabel = el("label", null, "Готова порція Ж/Ч (по одному рядку; складник — до « — »)");
+        const portInput = document.createElement("textarea");
+        portInput.name = "portions";
+        portInput.rows = Math.min(4, Math.max(2, entry.portions.length));
+        portInput.value = entry.portions.map(Portions.toLine).join("\n");
+        portLabel.appendChild(portInput);
+        box.appendChild(portLabel);
+
         const stepsLabel = el("label", null, "Кроки/нотатки з PDF (по одному в рядку)");
         const stepsInput = document.createElement("textarea");
         stepsInput.name = "steps";
@@ -4612,7 +4776,7 @@ const PdfImport = (function () {
         err.hidden = true;
         box.appendChild(err);
 
-        cards.push({ entry, box, cb, nameInput, typeSelect, kcalInput, servInput, srcInput, ingInput, stepsInput, err, added: false });
+        cards.push({ entry, box, cb, nameInput, typeSelect, kcalInput, servInput, srcInput, ingInput, portInput, stepsInput, err, added: false });
       }
 
       if (entry.flags.length) {
@@ -4675,6 +4839,7 @@ const PdfImport = (function () {
             ingredients: card.ingInput.value.split("\n").map((l) => l.trim()).filter((l) => l.length > 0).map(Ingredients.fromLine),
             steps: card.stepsInput.value.split("\n"),
             servings: card.servInput.value.trim() === "" ? null : card.servInput.value,
+            portions: card.portInput.value.split("\n").map(Portions.fromLine).filter((x) => x !== null),
             source: card.srcInput.value,
           });
           card.added = true;
@@ -4735,7 +4900,7 @@ const PWA = (function () {
   return { SW_URL, canRegister, register };
 })();
 
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -6067,6 +6232,119 @@ PWA.register();
 
     PdfImport.close();
     mark(check("Екран імпорту: закривається", !document.getElementById("import-overlay")));
+
+    // --- MER-24: порції на людину (Ж/Ч) для спільного плану ---
+    out.push("");
+    out.push("MER-24: порції на людину (Ж/Ч)");
+
+    // Парсер: «Готова порція: Ж - …; Ч - …» — дослівно, з прив'язкою до
+    // складника страви (рядок-назва перед «На 2-х…»).
+    const liver24 = byName15("Куряча печінка з овочами");
+    mark(check("Імпорт: «Готова порція» збережено дослівно, з прив'язкою до складника",
+      liver24.portions.length === 1 &&
+      liver24.portions[0].component === "Тушкована куряча печінка з морквою і цибулею" &&
+      liver24.portions[0].text === "Ж - 130 г; Ч - 200 г"));
+
+    const lunch24 = byName15("Крем-суп");
+    mark(check("Імпорт: кілька складників слота — кожен зі своєю порцією, у порядку PDF",
+      lunch24.portions.length === 3 &&
+      lunch24.portions[0].component === "Крем-суп з цвітної капусти (на 2 дні для двох)" &&
+      lunch24.portions[0].text === "Ж - 250 мл; Ч - 350 мл" &&
+      lunch24.portions[1].component === "Куряча грудка запечена" &&
+      lunch24.portions[1].text === "Ж - 120 г; Ч - 180 г" &&
+      lunch24.portions[2].component === "Нешліфований рис (гарнір)" &&
+      lunch24.portions[2].text === "Ж - 100 г готового; Ч - 175 г готового"));
+
+    mark(check("Імпорт: перенос рядка в порції склеєно; де порцій немає — порожньо",
+      omelet15.portions.length === 1 &&
+      omelet15.portions[0].text.indexOf("Ч - омлет ~230 г + 2 скиби хліба (70 г)") >= 0 &&
+      byName15("Гречаний боул").portions.length === 0 &&
+      byName15("Запечені сирники").portions.length === 0));
+
+    mark(check("Імпорт у пул: порції страви пройшли екран перевірки без втрат",
+      savedOmelet15.portions.length === 1 &&
+      savedOmelet15.portions[0].component === "Омлет з лососем і шпинатом" &&
+      savedOmelet15.portions[0].text.indexOf("Ж - омлет ~150 г") === 0));
+
+    // Поділ дослівного тексту за літерами — лише для показу, без перерахунків.
+    mark(check("Порції: forPerson дає дослівний шматок своєї літери або null",
+      Portions.forPerson("Ж - 130 г; Ч - 200 г", "Ж") === "Ж - 130 г" &&
+      Portions.forPerson("Ж - 130 г; Ч - 200 г", "Ч") === "Ч - 200 г" &&
+      Portions.forPerson("250 мл кожному", "Ж") === null));
+    mark(check("Порції: рядок форми «складник — текст» розбирається назад без втрат",
+      JSON.stringify(Portions.fromLine("Гарнір — Ж - 100 г; Ч - 150 г")) ===
+        JSON.stringify({ component: "Гарнір", text: "Ж - 100 г; Ч - 150 г" }) &&
+      Portions.fromLine("Ж — 130 г").component === null &&
+      Portions.toLine({ component: null, text: "Ж - 130 г" }) === "Ж - 130 г"));
+
+    // Модель: порції нормалізуються і переживають збереження.
+    const meal24 = MealStore.save({
+      name: "Печінка (MER-24)", type: "dinner", calories: 300,
+      portions: ["Ж - 130 г; Ч - 200 г", { component: "Гарнір", text: "Ж - 100 г; Ч - 150 г" }],
+    });
+    const re24 = MealStore.getById(meal24.id);
+    mark(check("Модель: порції (рядок і об'єкт) нормалізуються й переживають збереження",
+      re24.portions.length === 2 &&
+      re24.portions[0].component === null && re24.portions[0].text === "Ж - 130 г; Ч - 200 г" &&
+      re24.portions[1].component === "Гарнір" && re24.portions[1].text === "Ж - 100 г; Ч - 150 г"));
+
+    // Профіль: порційна літера «Ж»/«Ч»; інше модель відхиляє.
+    const prof24 = ProfileStore.save({ name: "Ж-профіль (MER-24)", portion: "ж" });
+    let badPortion24 = false;
+    try { createProfile({ name: "X", portion: "Б" }); } catch (e) { badPortion24 = true; }
+    mark(check("Профіль: порційна літера нормалізується до «Ж»/«Ч», інша відхиляється",
+      prof24.portion === "Ж" && ProfileStore.getById(prof24.id).portion === "Ж" && badPortion24));
+    ProfileStore.remove(prof24.id);
+
+    // Критерій готовності: одна страва спільного плану — кожен профіль бачить
+    // свою порцію дослівно, як у PDF.
+    const active24 = ProfileStore.getActive();
+    const recipeText24 = () => document.querySelector("#recipe-overlay .sheet").textContent;
+    ProfileStore.save(Object.assign({}, active24, { portion: "Ж" }));
+    RecipeScreen.open(re24, null);
+    mark(check("Рецепт: профіль «Ж» бачить свою порцію дослівно, чужої не видно",
+      recipeText24().indexOf("Готова порція · Ж") >= 0 &&
+      recipeText24().indexOf("Ж - 130 г") >= 0 &&
+      recipeText24().indexOf("Ч - 200 г") < 0));
+    RecipeScreen.close();
+
+    ProfileStore.save(Object.assign({}, active24, { portion: "Ч" }));
+    RecipeScreen.open(re24, null);
+    mark(check("Рецепт: профіль «Ч» на тій самій страві бачить «Ч - 200 г»",
+      recipeText24().indexOf("Ч - 200 г") >= 0 &&
+      recipeText24().indexOf("Ж - 130 г") < 0));
+    RecipeScreen.close();
+
+    ProfileStore.save(Object.assign({}, active24, { portion: null }));
+    RecipeScreen.open(re24, null);
+    mark(check("Рецепт: без літери профілю всі порції показано дослівно",
+      recipeText24().indexOf("Ж - 130 г; Ч - 200 г") >= 0));
+    RecipeScreen.close();
+
+    // Картка «Сьогодні»: порція активного профілю зі знімка плану.
+    ProfileStore.save(Object.assign({}, active24, { portion: "Ж" }));
+    const pool24 = [
+      createMeal({ name: "b24", type: "breakfast", calories: 500 }),
+      createMeal({ name: "l24", type: "lunch", calories: 500,
+        portions: [{ component: "Крем-суп", text: "Ж - 250 мл; Ч - 350 мл" }] }),
+      createMeal({ name: "d24", type: "dinner", calories: 500 }),
+      createMeal({ name: "s24", type: "snack", calories: 500 }),
+    ];
+    WeekStore.save(WeekGenerator.generateWeek(pool24,
+      { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 }));
+    mark(check("Порції потрапляють у знімок плану тижня",
+      WeekStore.get().days[0].meals.lunch.portions[0].text === "Ж - 250 мл; Ч - 350 мл"));
+    AppState.set("mealWindows", undefined);
+    const noon24 = new Date(); noon24.setHours(13, 0, 0, 0);
+    TodayCard.render(noon24);
+    const todayBox24 = document.getElementById("today-meal");
+    mark(check("Картка «Сьогодні»: порція активного профілю («Ж») дослівно, чужої немає",
+      todayBox24.textContent.indexOf("Готова порція · Ж") >= 0 &&
+      todayBox24.textContent.indexOf("Крем-суп — Ж - 250 мл") >= 0 &&
+      todayBox24.textContent.indexOf("Ч - 350 мл") < 0 &&
+      todayBox24.querySelectorAll(".today-portions li").length === 1));
+    ProfileStore.save(active24); // повернути профіль як був (без порційної літери)
+    MealStore.remove(meal24.id);
 
     // --- MER-19: PWA + офлайн ---
     out.push("");
