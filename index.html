@@ -81,7 +81,7 @@
     <!-- Форма додавання/редагування страви (перекриває список) -->
     <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5" id="meal-form-panel" hidden>
       <h2 class="mb-2 mt-0 text-base" id="meal-form-title">Нова страва</h2>
-      <form class="mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-sm [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-sm [&_select]:text-content [&_select]:scheme-dark [&_textarea]:mt-1 [&_textarea]:block [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-line [&_textarea]:bg-app [&_textarea]:px-2.5 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:text-content [&_textarea]:scheme-dark" id="meal-form">
+      <form class="mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-base [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-base [&_select]:text-content [&_select]:scheme-dark [&_textarea]:mt-1 [&_textarea]:block [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-line [&_textarea]:bg-app [&_textarea]:px-2.5 [&_textarea]:py-2 [&_textarea]:text-base [&_textarea]:text-content [&_textarea]:scheme-dark" id="meal-form">
         <label>Назва
           <input name="name" required placeholder="Гречка з куркою та овочами">
         </label>
@@ -167,7 +167,7 @@ const UI_CLASSES = Object.freeze({
   "clock-center-sub": "fill-muted text-xs",
   "window-row": "flex items-center gap-2 border-b border-line py-2 text-sm last:border-b-0",
   wlabel: "flex-1",
-  "window-time": "rounded-lg border border-line bg-app px-2 py-1.5 text-sm text-content scheme-dark",
+  "window-time": "rounded-lg border border-line bg-app px-2 py-1.5 text-base text-content scheme-dark",
   "window-err": "mb-0 mt-2 text-sm text-warning",
   hint: "m-0 text-sm leading-normal text-muted",
   "week-meta": "mb-0 mt-2 text-xs leading-normal text-muted",
@@ -230,13 +230,13 @@ const UI_CLASSES = Object.freeze({
   "profile-manage": "flex-none cursor-pointer rounded-xl border-0 bg-transparent px-2 py-0 text-base text-muted [&:hover]:text-accent",
   "profile-left": "flex items-center gap-2.5",
   "profile-name-row": "mb-3 flex items-center gap-2.5",
-  "profile-form": "mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-sm [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-sm [&_select]:text-content [&_select]:scheme-dark [&_.profile-name-row_input]:mt-0 [&_.profile-name-row_input]:w-auto [&_.profile-name-row_input]:flex-1 [&_.pool-pick_label]:m-0 [&_.pool-pick_label]:flex [&_.pool-pick_label]:items-center [&_.pool-pick_label]:gap-2 [&_.pool-pick_label]:text-sm [&_.pool-pick_label]:text-content [&_.pool-pick_input[type=checkbox]]:m-0 [&_.pool-pick_input[type=checkbox]]:inline-block [&_.pool-pick_input[type=checkbox]]:w-auto",
+  "profile-form": "mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-base [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-base [&_select]:text-content [&_select]:scheme-dark [&_.profile-name-row_input]:mt-0 [&_.profile-name-row_input]:w-auto [&_.profile-name-row_input]:flex-1 [&_.pool-pick_label]:m-0 [&_.pool-pick_label]:flex [&_.pool-pick_label]:items-center [&_.pool-pick_label]:gap-2 [&_.pool-pick_label]:text-sm [&_.pool-pick_label]:text-content [&_.pool-pick_input[type=checkbox]]:m-0 [&_.pool-pick_input[type=checkbox]]:inline-block [&_.pool-pick_input[type=checkbox]]:w-auto",
   "color-swatches": "mb-0.5 mt-1 flex gap-3",
   "color-swatch": "h-7 w-7 cursor-pointer rounded-full border-0 bg-swatch p-0 shadow-none [&.selected]:ring-2 [&.selected]:ring-swatch [&.selected]:ring-offset-2 [&.selected]:ring-offset-surface",
   "pool-pick": "mt-2 max-h-48 overflow-y-auto rounded-lg border border-line px-2.5 py-1 [&_label]:border-b [&_label]:border-line [&_label]:py-1.5 [&_label:last-child]:border-b-0 [&_input[type=checkbox]]:accent-accent",
   pmeta: "text-xs text-muted",
   "import-overlay": "[&_textarea.import-control]:resize-y",
-  "import-control": "mt-1 block w-full rounded-lg border border-line bg-app px-2.5 py-2 text-sm text-content scheme-dark",
+  "import-control": "mt-1 block w-full rounded-lg border border-line bg-app px-2.5 py-2 text-base text-content scheme-dark",
   "import-hint": "mb-2.5 mt-0 text-sm leading-normal text-muted",
   "import-card": "mb-3 rounded-xl border border-line p-3 [&.import-done]:border-success [&.import-done]:opacity-60 [&.import-skip]:opacity-70 [&_label]:mb-0 [&_label]:mt-2 [&_label]:block [&_label]:text-xs [&_label]:text-muted [&_details_summary]:mt-2 [&_details_summary]:cursor-pointer [&_details_summary]:text-xs [&_details_summary]:text-muted",
   "import-head": "flex items-center gap-2 [&_.import-check]:m-0 [&_.import-check]:flex-none [&_.import-check]:accent-accent [&_.import-name]:mt-0 [&_.import-name]:w-auto [&_.import-name]:flex-1 [&_.import-type]:mt-0 [&_.import-type]:w-auto [&_.import-type]:flex-none",
@@ -4613,6 +4613,30 @@ PWA.register();
 
   try {
     MealStore.clear();
+
+    // Mobile Safari zooms focused form controls whose effective text is below 16px.
+    const controlProbe = document.createElement("div");
+    const mealFormProbe = document.createElement("form");
+    mealFormProbe.className = document.getElementById("meal-form").className;
+    ["input", "select", "textarea"].forEach((tag) => {
+      mealFormProbe.appendChild(document.createElement(tag));
+    });
+    const windowTimeProbe = document.createElement("input");
+    windowTimeProbe.className = uiClass("window-time");
+    const profileFormProbe = document.createElement("form");
+    profileFormProbe.className = uiClass("profile-form");
+    ["input", "select"].forEach((tag) => {
+      profileFormProbe.appendChild(document.createElement(tag));
+    });
+    const importProbe = document.createElement("textarea");
+    importProbe.className = uiClass("import-control");
+    controlProbe.append(mealFormProbe, windowTimeProbe, profileFormProbe, importProbe);
+    document.body.appendChild(controlProbe);
+    const controlFontSizes = Array.from(controlProbe.querySelectorAll("input, select, textarea"),
+      (control) => Number.parseFloat(getComputedStyle(control).fontSize));
+    controlProbe.remove();
+    mark(check("Мобільні поля вводу мають шрифт не менше 16px",
+      controlFontSizes.every((size) => size >= 16), controlFontSizes.join(", ") + "px"));
 
     // 1. Тестова страва з усіма полями.
     const saved = MealStore.save({
