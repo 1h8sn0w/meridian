@@ -4,66 +4,65 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meridian · дизайн-референс: сторінка рецепта</title>
-<style>
-  body { margin:0; background:#0b0d11; color:#e7e9ee; font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; display:flex; justify-content:center; padding:24px; }
-</style>
+<link rel="stylesheet" href="../../tailwind.css">
+<link rel="icon" type="image/png" href="../../icons/icon-192.png">
 </head>
-<body>
-  <div style="width:320px; background:#0f1115; border:1px solid #2a2f3a; border-radius:24px; padding:16px;">
+<body class="m-0 flex justify-center bg-page p-6 font-sans text-content">
+  <div class="w-80 rounded-3xl border border-line bg-app p-4">
 
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <span style="font-size:20px; color:#9aa2b1;">&lsaquo;</span>
-      <span style="font-size:12px; color:#9aa2b1;">Обід · з плану №2</span>
-    </div>
-
-    <div style="height:120px; border-radius:14px; background:#1a1d24; border:1px dashed #2a2f3a; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
-      <span style="font-size:12px; color:#5f6675;">+ додати фото (необов'язково)</span>
+    <div class="mb-3 flex items-center gap-3">
+      <span class="text-xl text-muted">&lsaquo;</span>
+      <span class="text-xs text-muted">Обід · з плану №2</span>
     </div>
 
-    <div style="font-size:19px; font-weight:500; color:#e7e9ee; margin-bottom:10px;">Гречка з куркою та овочами</div>
-
-    <div style="display:flex; gap:8px; margin-bottom:12px;">
-      <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:10px; padding:8px; text-align:center;"><div style="font-size:14px; color:#e7e9ee; font-weight:500;">520</div><div style="font-size:10px; color:#9aa2b1;">ккал</div></div>
-      <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:10px; padding:8px; text-align:center;"><div style="font-size:14px; color:#e7e9ee; font-weight:500;">25 хв</div><div style="font-size:10px; color:#9aa2b1;">готувати</div></div>
-      <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:10px; padding:8px; text-align:center;"><div style="font-size:14px; color:#e7e9ee; font-weight:500;">2</div><div style="font-size:10px; color:#9aa2b1;">порції</div></div>
+    <div class="mb-3.5 flex h-32 items-center justify-center rounded-2xl border border-dashed border-line bg-surface">
+      <span class="text-xs text-subtle">+ додати фото (необов'язково)</span>
     </div>
 
-    <div style="display:flex; gap:6px; margin-bottom:16px;">
-      <span style="flex:1; text-align:center; font-size:12px; color:#9aa2b1; background:#15243b; border-radius:8px; padding:6px;">Б 38</span>
-      <span style="flex:1; text-align:center; font-size:12px; color:#9aa2b1; background:#15243b; border-radius:8px; padding:6px;">Ж 14</span>
-      <span style="flex:1; text-align:center; font-size:12px; color:#9aa2b1; background:#15243b; border-radius:8px; padding:6px;">В 52</span>
+    <div class="mb-2.5 text-lg font-medium text-content">Гречка з куркою та овочами</div>
+
+    <div class="mb-3 flex gap-2">
+      <div class="flex-1 rounded-xl border border-line bg-surface p-2 text-center"><div class="text-sm font-medium text-content">520</div><div class="text-xs text-muted">ккал</div></div>
+      <div class="flex-1 rounded-xl border border-line bg-surface p-2 text-center"><div class="text-sm font-medium text-content">25 хв</div><div class="text-xs text-muted">готувати</div></div>
+      <div class="flex-1 rounded-xl border border-line bg-surface p-2 text-center"><div class="text-sm font-medium text-content">2</div><div class="text-xs text-muted">порції</div></div>
     </div>
 
-    <div style="font-size:11px; color:#5f6675; letter-spacing:.04em; margin-bottom:8px;">ІНГРЕДІЄНТИ · НА 2 ПОРЦІЇ</div>
-    <div style="font-size:14px; color:#e7e9ee; line-height:2;">
-      <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1d24;"><span>Гречка</span><span style="color:#9aa2b1;">150 г</span></div>
-      <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1d24;"><span>Куряче філе</span><span style="color:#9aa2b1;">200 г</span></div>
-      <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1d24;"><span>Морква</span><span style="color:#9aa2b1;">1 шт</span></div>
-      <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1d24;"><span>Цибуля</span><span style="color:#9aa2b1;">1 шт</span></div>
-      <div style="display:flex; justify-content:space-between;"><span>Олія, сіль, перець</span><span style="color:#9aa2b1;">до смаку</span></div>
+    <div class="mb-4 flex gap-1.5">
+      <span class="flex-1 rounded-lg bg-blue-soft p-1.5 text-center text-xs text-muted">Б 38</span>
+      <span class="flex-1 rounded-lg bg-blue-soft p-1.5 text-center text-xs text-muted">Ж 14</span>
+      <span class="flex-1 rounded-lg bg-blue-soft p-1.5 text-center text-xs text-muted">В 52</span>
     </div>
 
-    <div style="font-size:11px; color:#5f6675; letter-spacing:.04em; margin:16px 0 10px;">ПРИГОТУВАННЯ</div>
-    <div style="display:flex; gap:10px; margin-bottom:12px;">
-      <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#15243b; color:#4f9dff; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">1</span>
-      <span style="font-size:13px; color:#c9cdd6; line-height:1.5;">Відварити гречку в підсоленій воді 15 хв до готовності.</span>
-    </div>
-    <div style="display:flex; gap:10px; margin-bottom:12px;">
-      <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#15243b; color:#4f9dff; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">2</span>
-      <span style="font-size:13px; color:#c9cdd6; line-height:1.5;">Куряче філе нарізати, обсмажити на олії до золотистого.</span>
-    </div>
-    <div style="display:flex; gap:10px; margin-bottom:12px;">
-      <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#15243b; color:#4f9dff; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">3</span>
-      <span style="font-size:13px; color:#c9cdd6; line-height:1.5;">Додати терту моркву й цибулю, тушкувати 5 хв.</span>
-    </div>
-    <div style="display:flex; gap:10px; margin-bottom:18px;">
-      <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#15243b; color:#4f9dff; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">4</span>
-      <span style="font-size:13px; color:#c9cdd6; line-height:1.5;">З'єднати з гречкою, приправити, прогріти разом 2 хв.</span>
+    <div class="mb-2 text-xs tracking-wider text-subtle">ІНГРЕДІЄНТИ · НА 2 ПОРЦІЇ</div>
+    <div class="text-sm leading-loose text-content">
+      <div class="flex justify-between border-b border-surface"><span>Гречка</span><span class="text-muted">150 г</span></div>
+      <div class="flex justify-between border-b border-surface"><span>Куряче філе</span><span class="text-muted">200 г</span></div>
+      <div class="flex justify-between border-b border-surface"><span>Морква</span><span class="text-muted">1 шт</span></div>
+      <div class="flex justify-between border-b border-surface"><span>Цибуля</span><span class="text-muted">1 шт</span></div>
+      <div class="flex justify-between"><span>Олія, сіль, перець</span><span class="text-muted">до смаку</span></div>
     </div>
 
-    <div style="display:flex; gap:8px;">
-      <div style="flex:1; text-align:center; font-size:13px; color:#e7e9ee; background:#1a1d24; border:1px solid #2a2f3a; border-radius:10px; padding:11px;">Замінити</div>
-      <div style="flex:1; text-align:center; font-size:13px; color:#0f1115; background:#4f9dff; border-radius:10px; padding:11px; font-weight:500;">Готую зараз</div>
+    <div class="mb-2.5 mt-4 text-xs tracking-wider text-subtle">ПРИГОТУВАННЯ</div>
+    <div class="mb-3 flex gap-2.5">
+      <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-blue-soft text-xs font-medium text-accent">1</span>
+      <span class="text-sm leading-normal text-step">Відварити гречку в підсоленій воді 15 хв до готовності.</span>
+    </div>
+    <div class="mb-3 flex gap-2.5">
+      <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-blue-soft text-xs font-medium text-accent">2</span>
+      <span class="text-sm leading-normal text-step">Куряче філе нарізати, обсмажити на олії до золотистого.</span>
+    </div>
+    <div class="mb-3 flex gap-2.5">
+      <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-blue-soft text-xs font-medium text-accent">3</span>
+      <span class="text-sm leading-normal text-step">Додати терту моркву й цибулю, тушкувати 5 хв.</span>
+    </div>
+    <div class="mb-5 flex gap-2.5">
+      <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-blue-soft text-xs font-medium text-accent">4</span>
+      <span class="text-sm leading-normal text-step">З'єднати з гречкою, приправити, прогріти разом 2 хв.</span>
+    </div>
+
+    <div class="flex gap-2">
+      <div class="flex-1 rounded-xl border border-line bg-surface p-3 text-center text-sm text-content">Замінити</div>
+      <div class="flex-1 rounded-xl bg-accent p-3 text-center text-sm font-medium text-app">Готую зараз</div>
     </div>
 
   </div>

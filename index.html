@@ -1,3 +1,6 @@
+<!doctype html>
+<html lang="uk" class="h-full box-border">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meridian</title>
@@ -12,593 +15,73 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Меридіан">
 
-<style>
-  :root {
-    --bg: #0f1115;
-    --card: #1a1d24;
-    --line: #2a2f3a;
-    --text: #e7e9ee;
-    --muted: #9aa2b1;
-    --accent: #4f9dff;
-    --accent-soft: rgba(79, 157, 255, .12); /* м'яка підкладка акценту; тінтується профілем (MER-17) */
-    --ok: #46c98b;
-    --warn: #ffb454;
-    --tabbar-h: 60px;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    -webkit-text-size-adjust: 100%;
-  }
+<link rel="stylesheet" href="tailwind.css">
+</head>
 
-  /* --- Шапка екрана --- */
-  header {
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    padding: 18px 16px 12px;
-    border-bottom: 1px solid var(--line);
-    z-index: 10;
-  }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
-
-  /* --- Контент --- */
-  main {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 16px 16px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom));
-  }
-  .screen { display: none; }
-  .screen.active { display: block; }
-
-  .panel {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-  }
-  .panel h2 { margin: 0 0 8px; font-size: 15px; }
-  .panel .hint { color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0; }
-
-  /* --- Список страв --- */
-  .meal-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .meal-item:last-child { border-bottom: none; }
-  /* Лівий блок (назва+мета) забирає всю вільну ширину: ккал і «✎» стають
-   * рівним стовпчиком праворуч, а не «пливуть» за довжиною назви.
-   * min-width: 0 — довгі назви переносяться, не виштовхуючи стовпчик. */
-  .meal-item > :first-child { flex: 1 1 auto; min-width: 0; }
-  .meal-item .name { font-size: 14.5px; }
-  .meal-item .meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
-  .meal-item .kcal { color: var(--accent); font-size: 13.5px; white-space: nowrap; }
-  .empty { color: var(--muted); font-size: 13.5px; text-align: center; padding: 18px 0; }
-
-  .tag {
-    display: inline-block;
-    font-size: 11px;
-    padding: 1px 7px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    color: var(--muted);
-  }
-
-  /* --- Екран «Страви»: фільтр, кнопки, форма (MER-7) --- */
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-  .chip {
-    border: 1px solid var(--line);
-    background: none;
-    color: var(--muted);
-    border-radius: 999px;
-    padding: 5px 12px;
-    font: inherit;
-    font-size: 12.5px;
-    cursor: pointer;
-  }
-  .chip.active { color: var(--accent); border-color: var(--accent); }
-
-  .btn {
-    border: 1px solid var(--line);
-    background: none;
-    color: var(--text);
-    border-radius: 10px;
-    padding: 9px 14px;
-    font: inherit;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; font-weight: 600; }
-  .btn.danger { color: var(--warn); border-color: var(--warn); }
-  .btn.block { display: block; width: 100%; margin-bottom: 12px; }
-
-  #meal-form label, #profile-form label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
-  #meal-form input, #meal-form select, #meal-form textarea, #profile-form input, #profile-form select {
-    display: block;
-    width: 100%;
-    margin-top: 4px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 8px 10px;
-    font: inherit;
-    font-size: 14.5px;
-    color-scheme: dark;
-  }
-  #meal-form textarea { resize: vertical; }
-  .macros { display: flex; gap: 8px; }
-  .macros label { flex: 1; }
-  .form-error { color: var(--warn); font-size: 13px; margin: 4px 0 0; }
-  .form-actions { display: flex; gap: 8px; margin-top: 14px; }
-  .form-actions .spacer { flex: 1; }
-
-  /* --- Годинник дня (MER-9) --- */
-  .clock-wrap { display: flex; flex-direction: column; align-items: center; }
-  .clock-wrap svg { width: 100%; max-width: 320px; height: auto; display: block; }
-  .clock-caption { margin: 10px 0 2px; font-size: 14.5px; text-align: center; }
-  .clock-caption .accent { color: var(--accent); }
-
-  .clock-track { stroke: var(--line); opacity: .45; }
-  .clock-seg { stroke: #343b49; transition: stroke .2s; }
-  .clock-seg.active { stroke: var(--accent); }
-  .clock-label { fill: var(--muted); font-size: 11px; }
-  .clock-label.active { fill: var(--accent); font-weight: 600; }
-  .clock-hour { fill: var(--muted); font-size: 9px; opacity: .7; }
-  .clock-hand { stroke: var(--warn); stroke-width: 2; stroke-linecap: round; }
-  .clock-dot { fill: var(--warn); }
-  .clock-center-main { fill: var(--text); font-size: 17px; font-weight: 600; }
-  .clock-center-sub { fill: var(--muted); font-size: 11.5px; }
-
-  /* Налаштування часових вікон */
-  details.windows summary {
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 13.5px;
-    user-select: none;
-  }
-  .window-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 14px;
-  }
-  .window-row:last-child { border-bottom: none; }
-  .window-err { color: var(--warn); font-size: 13px; margin: 8px 0 0; } /* MER-41 */
-  .window-row .wlabel { flex: 1; }
-  .window-row input[type="time"] {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 5px 7px;
-    font: inherit;
-    font-size: 13.5px;
-    color-scheme: dark;
-  }
-
-  /* --- Екран «Тиждень» (MER-13) --- */
-  .week-meta { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 8px 0 0; }
-  .week-warn { color: var(--warn); font-size: 13px; line-height: 1.5; margin: 8px 0 0; }
-  .day-card.today { border-color: var(--accent); }
-  .day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
-  .day-title { font-size: 14.5px; font-weight: 600; }
-  .day-kcal { color: var(--ok); font-size: 13px; white-space: nowrap; }
-  .day-kcal.out { color: var(--warn); }
-  .slot-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .slot-row:last-child { border-bottom: none; padding-bottom: 2px; }
-  .slot-row .slot-type { flex: none; width: 74px; color: var(--muted); font-size: 12px; }
-  .slot-row .slot-name { flex: 1; font-size: 14px; }
-  .slot-row .slot-kcal { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
-  .tag.accent { color: var(--accent); border-color: var(--accent); }
-
-  /* --- Заміна страви в слоті (MER-12) --- */
-  .slot-swap {
-    flex: none;
-    align-self: center;
-    border: 1px solid var(--line);
-    background: none;
-    color: var(--muted);
-    border-radius: 8px;
-    padding: 3px 9px;
-    font: inherit;
-    font-size: 13px;
-    line-height: 1;
-    cursor: pointer;
-  }
-  .slot-swap:hover { color: var(--accent); border-color: var(--accent); }
-
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(8, 10, 14, .6);
-    z-index: 30;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-  }
-  @media (min-width: 520px) { .overlay { align-items: center; } }
-  .sheet {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    width: 100%;
-    max-width: 560px;
-    max-height: 78vh;
-    overflow-y: auto;
-    padding: 14px 16px;
-    margin: 10px;
-  }
-  .sheet h2 { margin: 0 0 6px; font-size: 15px; }
-  .sheet .btn.block { margin: 12px 0 0; }
-  .swap-now { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
-  .swap-row { cursor: pointer; }
-  /* MER-28: заблокований кандидат заміни (порушив би коридор/антиповтор/мікс). */
-  .swap-row.disabled { cursor: not-allowed; opacity: .5; }
-  .day-after { font-size: 12.5px; white-space: nowrap; }
-  .day-after.ok { color: var(--ok); }
-  .day-after.out { color: var(--warn); }
-
-  /* --- Сторінка рецепта (MER-22) --- */
-  .recipe-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .recipe-back {
-    border: none; background: none; color: var(--muted);
-    font: inherit; font-size: 22px; line-height: 1; padding: 0 4px; cursor: pointer;
-  }
-  .recipe-back:hover { color: var(--accent); }
-  .recipe-top .meta { color: var(--muted); font-size: 12.5px; }
-  .recipe-photo-add {
-    width: 100%; height: 120px; border-radius: 14px; background: var(--bg);
-    border: 1px dashed var(--line); color: var(--muted); font: inherit;
-    font-size: 12.5px; cursor: pointer; margin-bottom: 14px;
-  }
-  .recipe-photo {
-    width: 100%; max-height: 220px; object-fit: cover;
-    border-radius: 14px; margin-bottom: 14px; display: block;
-  }
-  .recipe-name { font-size: 19px; font-weight: 500; margin-bottom: 10px; }
-  .recipe-chips { display: flex; gap: 8px; margin-bottom: 12px; }
-  .recipe-chips .rchip {
-    flex: 1; background: var(--bg); border: 1px solid var(--line);
-    border-radius: 10px; padding: 8px; text-align: center;
-  }
-  .recipe-chips .rchip-value { font-size: 14px; font-weight: 500; }
-  .recipe-chips .rchip-label { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
-  .recipe-macros { display: flex; gap: 6px; margin-bottom: 16px; }
-  .recipe-macros span {
-    flex: 1; text-align: center; font-size: 12.5px; color: var(--muted);
-    background: var(--accent-soft); border-radius: 8px; padding: 6px;
-  }
-  .recipe-sec {
-    font-size: 11px; color: var(--muted); letter-spacing: .04em;
-    text-transform: uppercase; margin: 16px 0 8px;
-  }
-  .ring-row {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-size: 14px; line-height: 2; border-bottom: 1px solid var(--line);
-  }
-  .ring-row:last-child { border-bottom: none; }
-  .ring-row .qty { color: var(--muted); white-space: nowrap; }
-  .step-row { display: flex; gap: 10px; margin-bottom: 12px; }
-  .step-num {
-    flex: none; width: 22px; height: 22px; border-radius: 50%;
-    background: var(--accent-soft); color: var(--accent);
-    font-size: 12px; font-weight: 500;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .step-text { font-size: 13px; line-height: 1.5; }
-  .recipe-actions { display: flex; gap: 8px; margin-top: 16px; }
-  .recipe-actions .btn { flex: 1; }
-  .recipe-actions .btn[disabled] { opacity: .45; cursor: not-allowed; }
-
-  /* Рядки, що відкривають рецепт (пул, слот, картка «Сьогодні») */
-  .tappable { cursor: pointer; }
-  .meal-edit {
-    border: 1px solid var(--line); background: none; color: var(--muted);
-    border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 13px;
-    line-height: 1; cursor: pointer;
-  }
-  .meal-edit:hover { color: var(--accent); border-color: var(--accent); }
-
-  /* Картка активної страви на головній (MER-11; мінімум і заміна — MER-12) */
-  .today-slot { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
-  .today-total { font-size: 13px; color: var(--ok); margin: 10px 0 12px; }
-  .today-total.out { color: var(--warn); }
-  .today-macros { display: flex; gap: 8px; margin: 10px 0 0; }
-  .today-macros .macro {
-    flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 7px 8px;
-    text-align: center;
-  }
-  .today-macros .macro-label { color: var(--muted); font-size: 11.5px; }
-  .today-macros .macro-value { font-size: 14px; font-weight: 600; margin-top: 2px; }
-  .today-sec { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
-  .today-ingredients { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; }
-  .today-ingredients li { margin: 1px 0; }
-  .today-note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
-
-  /* --- Екран «Календар» (MER-14) --- */
-  .cal-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-  .cal-range { flex: 1; text-align: center; font-size: 14px; font-weight: 600; }
-  .cal-nav-btn { padding: 6px 13px; font-size: 16px; line-height: 1; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cal-day {
-    border: 1px solid var(--line);
-    background: none;
-    color: var(--text);
-    border-radius: 10px;
-    padding: 7px 2px;
-    font: inherit;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-  }
-  .cal-day:hover { border-color: var(--accent); }
-  .cal-day .dow { font-size: 10.5px; color: var(--muted); }
-  .cal-day .dnum { font-size: 14.5px; font-weight: 600; }
-  .cal-day .dkcal { font-size: 10px; color: var(--muted); }
-  .cal-day.selected { border-color: var(--accent); background: var(--accent-soft); }
-  .cal-day.today .dnum { color: var(--accent); }
-  .btn.block.cal-today { margin: 10px 0 0; }
-
-  /* --- Профілі: перемикач на «Сьогодні» + екран профілів (MER-17) --- */
-  .accent { color: var(--accent); }
-  .profile-seg {
-    display: flex;
-    gap: 6px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 5px;
-    margin-bottom: 14px;
-  }
-  .profile-tab {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 6px 8px;
-    font: inherit;
-    color: var(--muted);
-    cursor: pointer;
-    text-align: left;
-  }
-  .profile-tab.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
-  .profile-tab .ptxt { min-width: 0; }
-  .profile-tab .pname {
-    display: block;
-    font-size: 12.5px;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .profile-tab .pkcal { display: block; font-size: 10.5px; line-height: 1.25; color: var(--muted); }
-  .profile-tab.active .pkcal { color: var(--accent); }
-  .pav {
-    flex: none;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .pav.pav-lg { width: 40px; height: 40px; font-size: 15px; }
-  .profile-manage {
-    flex: none;
-    border: none;
-    background: none;
-    color: var(--muted);
-    font: inherit;
-    font-size: 17px;
-    padding: 0 7px;
-    cursor: pointer;
-    border-radius: 10px;
-  }
-  .profile-manage:hover { color: var(--accent); }
-
-  .profile-row .profile-left { display: flex; align-items: center; gap: 10px; }
-  .profile-name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  #profile-form .profile-name-row input { flex: 1; width: auto; margin-top: 0; }
-  .color-swatches { display: flex; gap: 12px; margin: 4px 0 2px; }
-  .color-swatch { width: 26px; height: 26px; border-radius: 50%; border: none; padding: 0; cursor: pointer; }
-  .pool-pick {
-    max-height: 190px;
-    overflow-y: auto;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 4px 10px;
-    margin-top: 8px;
-  }
-  #profile-form .pool-pick label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    padding: 6px 0;
-    font-size: 13.5px;
-    color: var(--text);
-    border-bottom: 1px solid var(--line);
-  }
-  #profile-form .pool-pick label:last-child { border-bottom: none; }
-  #profile-form .pool-pick input[type="checkbox"] {
-    display: inline-block;
-    width: auto;
-    margin: 0;
-    accent-color: var(--accent);
-  }
-  .pool-pick .pmeta { color: var(--muted); font-size: 12px; }
-
-  /* --- Імпорт із PDF-плану (MER-15) --- */
-  .import-hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 10px; }
-  #import-overlay input[type="text"], #import-overlay input[type="number"],
-  #import-overlay select, #import-overlay textarea {
-    display: block;
-    width: 100%;
-    margin-top: 3px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 7px 9px;
-    font: inherit;
-    font-size: 13.5px;
-    color-scheme: dark;
-  }
-  #import-overlay textarea { resize: vertical; }
-  .import-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-  .import-card.import-skip { opacity: .65; }
-  .import-card.import-done { opacity: .55; border-color: var(--ok); }
-  .import-head { display: flex; align-items: center; gap: 8px; }
-  .import-head input[type="checkbox"] { flex: none; margin: 0; accent-color: var(--accent); }
-  #import-overlay .import-head input[name="name"] { flex: 1; width: auto; margin-top: 0; }
-  #import-overlay .import-head select { flex: none; width: auto; margin-top: 0; }
-  .import-card label { display: block; margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
-  .import-grid { display: flex; gap: 8px; }
-  .import-grid label { flex: 1; }
-  .import-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .tag.warn { color: var(--warn); border-color: var(--warn); }
-  .import-raw {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.5;
-    margin: 6px 0 0;
-  }
-  .import-card details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
-  #import-status { font-size: 13px; margin: 10px 0 0; }
-  #import-status.err { color: var(--warn); }
-
-  /* --- Нижній таб-бар --- */
-  nav {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
-    background: var(--card);
-    border-top: 1px solid var(--line);
-    display: flex;
-    z-index: 20;
-  }
-  nav button {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--muted);
-    font: inherit;
-    font-size: 11.5px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: pointer;
-    padding: 0;
-  }
-  nav button .icon { font-size: 21px; line-height: 1; }
-  nav button.active { color: var(--accent); }
-
-  /* --- Самоперевірка (лише з ?selftest) --- */
-  pre.selftest {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px;
-    line-height: 1.55;
-  }
-  .pass { color: var(--ok); }
-  .fail { color: var(--warn); }
-</style>
-
-<header>
-  <h1 id="screen-title">Сьогодні</h1>
-  <p id="screen-subtitle"></p>
+<body class="m-0 h-full box-border bg-app font-sans text-content [&_*]:box-border [&_button]:font-sans [&_input]:font-sans [&_select]:font-sans [&_textarea]:font-sans">
+<header class="sticky top-0 z-10 border-b border-line bg-app px-4 pb-3 pt-5">
+  <h1 class="m-0 text-xl" id="screen-title">Сьогодні</h1>
+  <p class="mb-0 mt-1 text-sm text-muted" id="screen-subtitle"></p>
 </header>
 
-<main>
+<main class="mx-auto max-w-screen-sm px-4 pt-4 pb-app-content">
   <!-- Панель самоперевірки: видима лише з параметром ?selftest -->
-  <div class="panel" id="selftest-panel" hidden>
-    <h2>Самоперевірка</h2>
-    <pre class="selftest" id="selftest-out"></pre>
+  <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5" id="selftest-panel" hidden>
+    <h2 class="mb-2 mt-0 text-base">Самоперевірка</h2>
+    <pre class="selftest m-0 whitespace-pre-wrap break-words font-mono text-xs leading-normal [&.fail]:text-warning [&.pass]:text-success" id="selftest-out"></pre>
   </div>
 
   <!-- Екран «Сьогодні» -->
-  <section class="screen" id="screen-today">
+  <section class="screen hidden [&.active]:block" id="screen-today">
     <!-- Перемикач профілів (MER-17): наповнює ProfileSwitcher -->
     <div id="profile-switcher"></div>
 
-    <div class="panel">
-      <div class="clock-wrap">
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
+      <div class="clock-wrap flex flex-col items-center [&_svg]:block [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-xs">
         <div id="clock-svg"></div>
-        <p class="clock-caption" id="clock-caption"></p>
+        <p class="clock-caption mb-0.5 mt-2.5 text-center text-sm" id="clock-caption"></p>
       </div>
     </div>
 
-    <div class="panel">
-      <details class="windows">
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
+      <details class="windows [&_summary]:cursor-pointer [&_summary]:select-none [&_summary]:text-sm [&_summary]:text-muted">
         <summary>Часові вікна прийомів їжі</summary>
-        <div id="windows-form" style="margin-top:8px"></div>
+        <div class="mt-2" id="windows-form"></div>
       </details>
     </div>
 
-    <div class="panel">
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
       <!-- Підпис «· Ім'я» додає ProfileSwitcher, коли профілів кілька (MER-17) -->
-      <h2 id="today-meal-title">Поточна страва</h2>
+      <h2 class="mb-2 mt-0 text-base" id="today-meal-title">Поточна страва</h2>
       <!-- Картка активного прийому (MER-11) з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
       <div id="today-meal"></div>
     </div>
   </section>
 
   <!-- Екран «Тиждень» (MER-13): вміст будує WeekScreen -->
-  <section class="screen" id="screen-week">
+  <section class="screen hidden [&.active]:block" id="screen-week">
     <div id="week-content"></div>
   </section>
 
   <!-- Екран «Календар» (MER-14): вміст будує CalendarScreen -->
-  <section class="screen" id="screen-calendar">
+  <section class="screen hidden [&.active]:block" id="screen-calendar">
     <div id="calendar-content"></div>
   </section>
 
   <!-- Екран «Страви» -->
-  <section class="screen" id="screen-meals">
-    <div class="panel" id="meals-list-panel">
-      <div class="chips" id="meals-filter"></div>
-      <button class="btn primary block" id="meal-add-btn">+ Додати страву</button>
+  <section class="screen hidden [&.active]:block" id="screen-meals">
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5" id="meals-list-panel">
+      <div class="chips mb-3 flex flex-wrap gap-1.5" id="meals-filter"></div>
+      <button class="btn primary block mb-3 w-full cursor-pointer rounded-xl border border-accent bg-accent px-3.5 py-2.5 text-sm font-semibold text-button-ink" id="meal-add-btn">+ Додати страву</button>
       <!-- Напівавтоматичний імпорт плану дієтолога (MER-15): відкриває PdfImport -->
-      <button class="btn block" id="meal-import-btn">Імпорт із PDF-плану дієтолога</button>
+      <button class="btn block mb-3 w-full cursor-pointer rounded-xl border border-line bg-transparent px-3.5 py-2.5 text-sm text-content" id="meal-import-btn">Імпорт із PDF-плану дієтолога</button>
       <div id="meals-list"></div>
     </div>
 
     <!-- Форма додавання/редагування страви (перекриває список) -->
-    <div class="panel" id="meal-form-panel" hidden>
-      <h2 id="meal-form-title">Нова страва</h2>
-      <form id="meal-form">
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5" id="meal-form-panel" hidden>
+      <h2 class="mb-2 mt-0 text-base" id="meal-form-title">Нова страва</h2>
+      <form class="mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-sm [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-sm [&_select]:text-content [&_select]:scheme-dark [&_textarea]:mt-1 [&_textarea]:block [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-line [&_textarea]:bg-app [&_textarea]:px-2.5 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:text-content [&_textarea]:scheme-dark" id="meal-form">
         <label>Назва
           <input name="name" required placeholder="Гречка з куркою та овочами">
         </label>
@@ -608,7 +91,7 @@
         <label>Калорійність, ккал
           <input name="calories" type="number" min="0" step="1" required placeholder="520">
         </label>
-        <div class="macros">
+        <div class="macros flex gap-2 [&>label]:flex-1">
           <label>Білки, г
             <input name="protein" type="number" min="0" step="0.1" placeholder="—">
           </label>
@@ -622,7 +105,7 @@
         <label>Інгредієнти (по одному в рядку; кількість — після « — »)
           <textarea name="ingredients" rows="4" placeholder="гречка — 80 г&#10;куряче філе — 150 г&#10;овочі на вибір"></textarea>
         </label>
-        <div class="macros">
+        <div class="macros flex gap-2 [&>label]:flex-1">
           <label>Час, хв
             <input name="prepTime" type="number" min="0" step="1" placeholder="—">
           </label>
@@ -639,22 +122,135 @@
         <label>Джерело (план дієтолога)
           <input name="source" placeholder="План №2">
         </label>
-        <p class="form-error" id="meal-form-error" hidden></p>
-        <div class="form-actions">
-          <button type="submit" class="btn primary">Зберегти</button>
-          <button type="button" class="btn" id="meal-cancel-btn">Скасувати</button>
-          <span class="spacer"></span>
-          <button type="button" class="btn danger" id="meal-delete-btn" hidden>Видалити</button>
+        <p class="form-error mb-0 mt-1 text-sm text-warning" id="meal-form-error" hidden></p>
+        <div class="form-actions mt-3.5 flex gap-2">
+          <button type="submit" class="btn primary cursor-pointer rounded-xl border border-accent bg-accent px-3.5 py-2.5 text-sm font-semibold text-button-ink">Зберегти</button>
+          <button type="button" class="btn cursor-pointer rounded-xl border border-line bg-transparent px-3.5 py-2.5 text-sm text-content" id="meal-cancel-btn">Скасувати</button>
+          <span class="spacer flex-1"></span>
+          <button type="button" class="btn danger cursor-pointer rounded-xl border border-warning bg-transparent px-3.5 py-2.5 text-sm text-warning" id="meal-delete-btn" hidden>Видалити</button>
         </div>
       </form>
     </div>
   </section>
 </main>
 
-<nav id="tabbar"></nav>
+<nav class="fixed inset-x-0 bottom-0 z-20 flex h-tabbar border-t border-line bg-surface pb-safe-bottom [&>button]:flex [&>button]:flex-1 [&>button]:cursor-pointer [&>button]:flex-col [&>button]:items-center [&>button]:justify-center [&>button]:gap-1 [&>button]:border-0 [&>button]:bg-transparent [&>button]:p-0 [&>button]:text-xs [&>button]:text-muted [&>button.active]:text-accent [&_.icon]:text-xl [&_.icon]:leading-none" id="tabbar"></nav>
 
 <script>
 "use strict";
+
+/* Tailwind scans complete class literals only. Dynamic renderers keep their
+ * semantic hooks and receive the corresponding frozen utility bundle here. */
+const UI_CLASSES = Object.freeze({
+  panel: "mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5 [&>h2]:mb-2 [&>h2]:mt-0 [&>h2]:text-base [&>h2]:font-bold",
+  selftest: "m-0 whitespace-pre-wrap break-words font-mono text-xs leading-normal [&.fail]:text-warning [&.pass]:text-success",
+  "meal-item": "flex items-center justify-between gap-2.5 border-b border-line py-2.5 last:border-b-0 [&>:first-child]:min-w-0 [&>:first-child]:flex-auto",
+  name: "text-sm",
+  meta: "mt-0.5 text-xs text-muted",
+  kcal: "whitespace-nowrap text-sm text-accent",
+  empty: "py-5 text-center text-sm text-muted",
+  tag: "inline-block rounded-full border border-line px-2 py-px text-xs text-muted [&.accent]:border-accent [&.accent]:text-accent [&.warn]:border-warning [&.warn]:text-warning",
+  accent: "text-accent",
+  chips: "mb-3 flex flex-wrap gap-1.5",
+  chip: "cursor-pointer rounded-full border border-line bg-transparent px-3 py-1.5 text-xs text-muted [&.active]:border-accent [&.active]:text-accent",
+  btn: "cursor-pointer rounded-xl border border-line bg-transparent px-3.5 py-2.5 text-sm text-content [&.primary]:border-accent [&.primary]:bg-accent [&.primary]:font-semibold [&.primary]:text-button-ink [&.danger]:border-warning [&.danger]:text-warning [&.block]:mb-3 [&.block]:w-full [&.cal-nav-btn]:px-3 [&.cal-nav-btn]:py-1.5 [&.cal-nav-btn]:text-base [&.cal-nav-btn]:leading-none [&.block.cal-today]:mb-0 [&.block.cal-today]:mt-2.5",
+  macros: "flex gap-2 [&>label]:flex-1",
+  "form-error": "mb-0 mt-1 text-sm text-warning",
+  "form-actions": "mt-3.5 flex gap-2",
+  spacer: "flex-1",
+  "clock-track": "stroke-line opacity-50",
+  "clock-seg": "stroke-segment transition-colors duration-200 ease-in-out [&.active]:stroke-accent",
+  "clock-label": "fill-muted text-xs [&.active]:fill-accent [&.active]:font-semibold",
+  "clock-hour": "fill-muted text-xs opacity-70",
+  "clock-hand": "stroke-2 stroke-warning",
+  "clock-center-main": "fill-content text-base font-semibold",
+  "clock-center-sub": "fill-muted text-xs",
+  "window-row": "flex items-center gap-2 border-b border-line py-2 text-sm last:border-b-0",
+  wlabel: "flex-1",
+  "window-time": "rounded-lg border border-line bg-app px-2 py-1.5 text-sm text-content scheme-dark",
+  "window-err": "mb-0 mt-2 text-sm text-warning",
+  hint: "m-0 text-sm leading-normal text-muted",
+  "week-meta": "mb-0 mt-2 text-xs leading-normal text-muted",
+  "week-warn": "mb-0 mt-2 text-sm leading-normal text-warning",
+  "day-card": "[&.today]:border-accent",
+  "day-head": "mb-1 flex items-baseline justify-between gap-2.5",
+  "day-title": "text-sm font-semibold",
+  "day-kcal": "whitespace-nowrap text-sm text-success [&.out]:text-warning",
+  "slot-row": "flex items-baseline gap-2.5 border-b border-line py-2 last:border-b-0 last:pb-0.5",
+  "slot-type": "w-20 flex-none text-xs text-muted",
+  "slot-name": "flex-1 text-sm",
+  "slot-kcal": "whitespace-nowrap text-xs text-muted",
+  "slot-swap": "flex-none cursor-pointer self-center rounded-lg border border-line bg-transparent px-2.5 py-1 text-sm leading-none text-muted [&:hover]:border-accent [&:hover]:text-accent",
+  overlay: "fixed inset-0 z-30 flex items-end justify-center bg-overlay dialog:items-center",
+  sheet: "m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-2xl border border-line bg-surface px-4 py-3.5 [&_h2]:mb-1.5 [&_h2]:mt-0 [&_h2]:text-base [&_h2]:font-bold [&_.btn.block]:mb-0 [&_.btn.block]:mt-3",
+  "swap-now": "mb-1.5 mt-0 text-sm leading-normal text-muted",
+  "swap-row": "cursor-pointer [&.disabled]:cursor-not-allowed [&.disabled]:opacity-50",
+  "day-after": "whitespace-nowrap text-xs [&.ok]:text-success [&.out]:text-warning",
+  "recipe-top": "mb-3 flex items-center gap-3 [&_.meta]:mt-0",
+  "recipe-back": "cursor-pointer border-0 bg-transparent px-1 py-0 text-xl leading-none text-muted [&:hover]:text-accent",
+  "recipe-photo-add": "mb-3.5 h-32 w-full cursor-pointer rounded-2xl border border-dashed border-line bg-app text-xs text-muted",
+  "recipe-photo": "mb-3.5 block max-h-56 w-full cursor-pointer rounded-2xl object-cover",
+  "recipe-name": "mb-2.5 text-lg font-medium",
+  "recipe-chips": "mb-3 flex gap-2",
+  rchip: "flex-1 rounded-xl border border-line bg-app p-2 text-center",
+  "rchip-value": "text-sm font-medium",
+  "rchip-label": "mt-px text-xs text-muted",
+  "recipe-macros": "mb-4 flex gap-1.5 [&>span]:flex-1 [&>span]:rounded-lg [&>span]:bg-accent-soft [&>span]:p-1.5 [&>span]:text-center [&>span]:text-xs [&>span]:text-muted",
+  "recipe-sec": "mb-2 mt-4 text-xs uppercase tracking-wider text-muted",
+  "ring-row": "flex justify-between gap-3 border-b border-line text-sm leading-loose last:border-b-0",
+  qty: "whitespace-nowrap text-muted",
+  "step-row": "mb-3 flex gap-2.5",
+  "step-num": "flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-xs font-medium text-accent",
+  "step-text": "text-sm leading-normal",
+  "recipe-actions": "mt-4 flex gap-2 [&_.btn]:flex-1 [&_.btn:disabled]:cursor-not-allowed [&_.btn:disabled]:opacity-50",
+  tappable: "cursor-pointer",
+  "meal-edit": "cursor-pointer rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm leading-none text-muted [&:hover]:border-accent [&:hover]:text-accent",
+  "today-slot": "mb-0.5 mt-0 text-sm text-muted",
+  "today-total": "mb-3 mt-2.5 text-sm text-success [&.out]:text-warning",
+  "today-macros": "mt-2.5 flex gap-2",
+  macro: "flex-1 rounded-xl border border-line bg-app px-2 py-2 text-center",
+  "macro-label": "text-xs text-muted",
+  "macro-value": "mt-0.5 text-sm font-semibold",
+  "today-sec": "mb-0 mt-3 text-xs text-muted",
+  "today-ingredients": "mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed [&>li]:my-px",
+  "today-note": "mb-0 mt-2 text-sm text-muted",
+  "cal-nav": "mb-3 flex items-center gap-2",
+  "cal-range": "flex-1 text-center text-sm font-semibold",
+  "cal-grid": "grid grid-cols-7 gap-1",
+  "cal-day": "flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-line bg-transparent px-0.5 py-2 text-content [&:hover]:border-accent [&.selected]:border-accent [&.selected]:bg-accent-soft [&.today_.dnum]:text-accent",
+  dow: "text-xs text-muted",
+  dnum: "text-sm font-semibold",
+  dkcal: "text-xs text-muted",
+  "profile-seg": "mb-3.5 flex gap-1.5 rounded-2xl border border-line bg-surface p-1.5",
+  "profile-tab": "flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border border-transparent bg-transparent px-2 py-1.5 text-left text-muted [&.active]:border-accent [&.active]:bg-accent-soft [&.active]:text-content [&.active_.pkcal]:text-accent",
+  ptxt: "min-w-0",
+  pname: "block overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-tight",
+  pkcal: "block text-xs leading-tight text-muted",
+  pav: "inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-profile-soft text-xs font-semibold text-profile [&.pav-lg]:h-10 [&.pav-lg]:w-10 [&.pav-lg]:text-base",
+  "profile-manage": "flex-none cursor-pointer rounded-xl border-0 bg-transparent px-2 py-0 text-base text-muted [&:hover]:text-accent",
+  "profile-left": "flex items-center gap-2.5",
+  "profile-name-row": "mb-3 flex items-center gap-2.5",
+  "profile-form": "mb-4 [&_input]:mt-1 [&_input]:block [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-line [&_input]:bg-app [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-sm [&_input]:text-content [&_input]:scheme-dark [&_label]:mb-2.5 [&_label]:block [&_label]:text-sm [&_label]:text-muted [&_select]:mt-1 [&_select]:block [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-line [&_select]:bg-app [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-sm [&_select]:text-content [&_select]:scheme-dark [&_.profile-name-row_input]:mt-0 [&_.profile-name-row_input]:w-auto [&_.profile-name-row_input]:flex-1 [&_.pool-pick_label]:m-0 [&_.pool-pick_label]:flex [&_.pool-pick_label]:items-center [&_.pool-pick_label]:gap-2 [&_.pool-pick_label]:text-sm [&_.pool-pick_label]:text-content [&_.pool-pick_input[type=checkbox]]:m-0 [&_.pool-pick_input[type=checkbox]]:inline-block [&_.pool-pick_input[type=checkbox]]:w-auto",
+  "color-swatches": "mb-0.5 mt-1 flex gap-3",
+  "color-swatch": "h-7 w-7 cursor-pointer rounded-full border-0 bg-swatch p-0 shadow-none [&.selected]:ring-2 [&.selected]:ring-swatch [&.selected]:ring-offset-2 [&.selected]:ring-offset-surface",
+  "pool-pick": "mt-2 max-h-48 overflow-y-auto rounded-lg border border-line px-2.5 py-1 [&_label]:border-b [&_label]:border-line [&_label]:py-1.5 [&_label:last-child]:border-b-0 [&_input[type=checkbox]]:accent-accent",
+  pmeta: "text-xs text-muted",
+  "import-overlay": "[&_textarea.import-control]:resize-y",
+  "import-control": "mt-1 block w-full rounded-lg border border-line bg-app px-2.5 py-2 text-sm text-content scheme-dark",
+  "import-hint": "mb-2.5 mt-0 text-sm leading-normal text-muted",
+  "import-card": "mb-3 rounded-xl border border-line p-3 [&.import-done]:border-success [&.import-done]:opacity-60 [&.import-skip]:opacity-70 [&_label]:mb-0 [&_label]:mt-2 [&_label]:block [&_label]:text-xs [&_label]:text-muted [&_details_summary]:mt-2 [&_details_summary]:cursor-pointer [&_details_summary]:text-xs [&_details_summary]:text-muted",
+  "import-head": "flex items-center gap-2 [&_.import-check]:m-0 [&_.import-check]:flex-none [&_.import-check]:accent-accent [&_.import-name]:mt-0 [&_.import-name]:w-auto [&_.import-name]:flex-1 [&_.import-type]:mt-0 [&_.import-type]:w-auto [&_.import-type]:flex-none",
+  "import-grid": "flex gap-2 [&>label]:flex-1",
+  "import-flags": "mt-2 flex flex-wrap gap-1.5",
+  "import-raw": "mb-0 mt-1.5 whitespace-pre-wrap break-words text-xs leading-normal text-muted",
+  "import-status": "mb-0 mt-2.5 text-sm [&.err]:text-warning",
+});
+
+function uiClass(className) {
+  return String(className || "").trim().split(/\s+/)
+    .map((name) => UI_CLASSES[name] ? name + " " + UI_CLASSES[name] : name)
+    .join(" ");
+}
 
 /* ============================================================================
  * MER-6 — Модель даних «Страва» (Meal)
@@ -1156,7 +752,7 @@ const MealsScreen = (function () {
     options.forEach((o) => {
       const chip = document.createElement("button");
       chip.type = "button";
-      chip.className = "chip" + (filter === o.id ? " active" : "");
+      chip.className = uiClass("chip" + (filter === o.id ? " active" : ""));
       chip.textContent = o.label + (o.count ? " · " + o.count : "");
       chip.addEventListener("click", () => { filter = o.id; render(); });
       box.appendChild(chip);
@@ -1170,14 +766,14 @@ const MealsScreen = (function () {
 
     if (!meals.length) {
       if (filter === "all") {
-        box.innerHTML = '<div class="empty">Поки що жодної страви. Додайте першу вручну або поверніть демо-пул із плану дієтолога.</div>';
+        box.innerHTML = '<div class="' + uiClass("empty") + '">Поки що жодної страви. Додайте першу вручну або поверніть демо-пул із плану дієтолога.</div>';
         const restore = document.createElement("button");
-        restore.className = "btn block";
+        restore.className = uiClass("btn block");
         restore.textContent = "Відновити демо-пул";
         restore.addEventListener("click", () => { DemoPool.seed(); render(); });
         box.appendChild(restore);
       } else {
-        box.innerHTML = '<div class="empty">Немає страв цього типу.</div>';
+        box.innerHTML = '<div class="' + uiClass("empty") + '">Немає страв цього типу.</div>';
       }
       return;
     }
@@ -1185,27 +781,27 @@ const MealsScreen = (function () {
     box.innerHTML = "";
     meals.forEach((m) => {
       const row = document.createElement("div");
-      row.className = "meal-item tappable";
+      row.className = uiClass("meal-item tappable");
       // Дотик по рядку відкриває рецепт (MER-22); редагування — окремим «✎».
       row.addEventListener("click", () => RecipeScreen.open(m));
 
       const left = document.createElement("div");
       const name = document.createElement("div");
-      name.className = "name";
+      name.className = uiClass("name");
       name.textContent = m.name;
       const meta = document.createElement("div");
-      meta.className = "meta";
+      meta.className = uiClass("meta");
       meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) + (m.source ? " · " + m.source : "");
       left.appendChild(name);
       left.appendChild(meta);
 
       const kcal = document.createElement("div");
-      kcal.className = "kcal";
+      kcal.className = uiClass("kcal");
       kcal.textContent = fmtMealKcal(m);
 
       const edit = document.createElement("button");
       edit.type = "button";
-      edit.className = "meal-edit";
+      edit.className = uiClass("meal-edit");
       edit.textContent = "✎";
       edit.title = "Редагувати страву";
       edit.setAttribute("aria-label", "Редагувати страву «" + m.name + "»");
@@ -1429,13 +1025,13 @@ const MealClock = (function () {
 
     const parts = [];
     // Підкладка-кільце: доба цілком.
-    parts.push('<circle class="clock-track" cx="' + CX + '" cy="' + CY + '" r="' + RING_R + '" fill="none" stroke-width="' + RING_W + '"/>');
+    parts.push('<circle class="' + uiClass("clock-track") + '" cx="' + CX + '" cy="' + CY + '" r="' + RING_R + '" fill="none" stroke-width="' + RING_W + '"/>');
 
     // Орієнтири годин.
     [0, 360, 720, 1080].forEach((m) => {
       const p = pt(m, LABEL_R);
       const label = String(m / 60).padStart(2, "0");
-      parts.push('<text class="clock-hour" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + label + "</text>");
+      parts.push('<text class="' + uiClass("clock-hour") + '" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + label + "</text>");
     });
 
     // Сегменти вікон (з зазором 6 хв з кожного боку — щоб межі читались).
@@ -1443,30 +1039,30 @@ const MealClock = (function () {
       const s = toMin(w[t].start), e = toMin(w[t].end);
       if (e <= s) return;
       const active = cur.type === t;
-      parts.push('<path class="clock-seg' + (active ? " active" : "") + '" d="' + arcPath(s + 6, e - 6, RING_R) + '" fill="none" stroke-width="' + RING_W + '"/>');
+      parts.push('<path class="' + uiClass("clock-seg" + (active ? " active" : "")) + '" d="' + arcPath(s + 6, e - 6, RING_R) + '" fill="none" stroke-width="' + RING_W + '"/>');
       const mid = (s + e) / 2;
       const lp = pt(mid, LABEL_R);
-      parts.push('<text class="clock-label' + (active ? " active" : "") + '" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + esc(MEAL_TYPE_LABELS[t]) + "</text>");
+      parts.push('<text class="' + uiClass("clock-label" + (active ? " active" : "")) + '" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + esc(MEAL_TYPE_LABELS[t]) + "</text>");
     });
 
     // Стрілка поточного часу — риска впоперек кільця.
     const h1 = pt(minutes, RING_R - RING_W / 2 - 4), h2 = pt(minutes, RING_R + RING_W / 2 + 4);
-    parts.push('<line class="clock-hand" x1="' + h1[0].toFixed(1) + '" y1="' + h1[1].toFixed(1) + '" x2="' + h2[0].toFixed(1) + '" y2="' + h2[1].toFixed(1) + '"/>');
+    parts.push('<line class="' + uiClass("clock-hand") + '" stroke-linecap="round" x1="' + h1[0].toFixed(1) + '" y1="' + h1[1].toFixed(1) + '" x2="' + h2[0].toFixed(1) + '" y2="' + h2[1].toFixed(1) + '"/>');
 
     // Центр: поточний прийом або найближчий наступний.
     const main = cur.type ? MEAL_TYPE_LABELS[cur.type] : "Ніч";
     const sub = cur.type
       ? "до " + cur.until
       : (cur.next ? MEAL_TYPE_LABELS[cur.next.type].toLowerCase() + " о " + cur.next.at : "");
-    parts.push('<text class="clock-center-main" x="' + CX + '" y="' + (CY - 4) + '" text-anchor="middle">' + esc(main) + "</text>");
-    parts.push('<text class="clock-center-sub" x="' + CX + '" y="' + (CY + 17) + '" text-anchor="middle">' + esc(sub) + "</text>");
+    parts.push('<text class="' + uiClass("clock-center-main") + '" x="' + CX + '" y="' + (CY - 4) + '" text-anchor="middle">' + esc(main) + "</text>");
+    parts.push('<text class="' + uiClass("clock-center-sub") + '" x="' + CX + '" y="' + (CY + 17) + '" text-anchor="middle">' + esc(sub) + "</text>");
 
     document.getElementById("clock-svg").innerHTML =
       '<svg viewBox="0 0 ' + SIZE + " " + SIZE + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Годинник прийомів їжі">' + parts.join("") + "</svg>";
 
     const caption = cur.type
-      ? "Зараз <span class=\"accent\">" + hhmm + "</span> — час " + GENITIVE[cur.type] + "."
-      : "Зараз <span class=\"accent\">" + hhmm + "</span> — нічний час." +
+      ? "Зараз <span class=\"accent text-accent\">" + hhmm + "</span> — час " + GENITIVE[cur.type] + "."
+      : "Зараз <span class=\"accent text-accent\">" + hhmm + "</span> — нічний час." +
         (cur.next ? " " + MEAL_TYPE_LABELS[cur.next.type] + " о " + esc(cur.next.at) + "." : "");
     document.getElementById("clock-caption").innerHTML = caption;
   }
@@ -1478,19 +1074,21 @@ const MealClock = (function () {
     box.innerHTML = "";
     MEAL_TYPES.forEach((t) => {
       const row = document.createElement("div");
-      row.className = "window-row";
+      row.className = uiClass("window-row");
 
       const label = document.createElement("span");
-      label.className = "wlabel";
+      label.className = uiClass("wlabel");
       label.textContent = MEAL_TYPE_LABELS[t];
 
       const start = document.createElement("input");
       start.type = "time";
+      start.className = uiClass("window-time");
       start.value = w[t].start;
       const dash = document.createElement("span");
       dash.textContent = "–";
       const end = document.createElement("input");
       end.type = "time";
+      end.className = uiClass("window-time");
       end.value = w[t].end;
 
       const onChange = () => {
@@ -1520,14 +1118,13 @@ const MealClock = (function () {
     });
 
     const errHint = document.createElement("p");
-    errHint.className = "window-err";
+    errHint.className = uiClass("window-err");
     errHint.setAttribute("role", "alert");
     errHint.hidden = true;
     box.appendChild(errHint);
 
     const hint = document.createElement("p");
-    hint.className = "hint";
-    hint.style.marginTop = "8px";
+    hint.className = uiClass("hint mt-2");
     hint.textContent = "Вікна прийомів не мають перекриватися. Вікно, де кінець не пізніше початку, ігнорується.";
     box.appendChild(hint);
   }
@@ -2646,7 +2243,7 @@ const WeekStore = (function () {
 /* Спільний конструктор DOM-вузла — для екранів «Тиждень», «Сьогодні» й діалогу заміни. */
 function el(tag, className, text) {
   const node = document.createElement(tag);
-  if (className) node.className = className;
+  if (className) node.className = uiClass(className);
   if (text !== undefined) node.textContent = text;
   return node;
 }
@@ -3138,7 +2735,6 @@ const RecipeScreen = (function () {
       img.src = photo;
       img.alt = "Фото: " + meal.name;
       img.title = "Замінити фото";
-      img.style.cursor = "pointer";
       img.addEventListener("click", () => pickPhoto(meal, ctx));
       sheet.appendChild(img);
     } else if (livePhotoMeal) {
@@ -3792,8 +3388,8 @@ function applyProfileAccent() {
 function profileAvatar(profile, large) {
   const av = el("span", "pav" + (large ? " pav-lg" : ""),
     (profile.name || "").trim().charAt(0).toUpperCase() || "?");
-  av.style.background = hexToRgba(profileColor(profile), 0.18);
-  av.style.color = profileColor(profile);
+  av.style.setProperty("--profile-color", profileColor(profile));
+  av.style.setProperty("--profile-soft", hexToRgba(profileColor(profile), 0.18));
   return av;
 }
 
@@ -3964,7 +3560,7 @@ const ProfilesScreen = (function () {
     top.appendChild(el("h2", null, profile ? "Редагування · " + profile.name : "Новий профіль"));
     s.appendChild(top);
 
-    const form = el("form");
+    const form = el("form", "profile-form");
     form.id = "profile-form";
 
     // Ім'я з живим аватаром у вибраному кольорі.
@@ -3978,8 +3574,8 @@ const ProfilesScreen = (function () {
     nameInput.setAttribute("aria-label", "Ім'я профілю");
     const refreshAvatar = () => {
       av.textContent = (nameInput.value.trim().charAt(0) || "?").toUpperCase();
-      av.style.background = hexToRgba(color, 0.18);
-      av.style.color = color;
+      av.style.setProperty("--profile-color", color);
+      av.style.setProperty("--profile-soft", hexToRgba(color, 0.18));
     };
     nameInput.addEventListener("input", refreshAvatar);
     nameRow.appendChild(av);
@@ -3991,16 +3587,14 @@ const ProfilesScreen = (function () {
     const swatches = el("div", "color-swatches");
     const refreshSwatches = () => {
       swatches.querySelectorAll(".color-swatch").forEach((sw) => {
-        sw.style.boxShadow = sw.dataset.color === color
-          ? "0 0 0 2px var(--card), 0 0 0 4px " + sw.dataset.color
-          : "none";
+        sw.classList.toggle("selected", sw.dataset.color === color);
       });
     };
     PROFILE_COLORS.forEach((c) => {
       const sw = el("button", "color-swatch");
       sw.type = "button";
       sw.dataset.color = c;
-      sw.style.background = c;
+      sw.style.setProperty("--swatch-color", c);
       sw.setAttribute("aria-label", "Колір профілю " + c);
       sw.addEventListener("click", () => { color = c; refreshSwatches(); refreshAvatar(); });
       swatches.appendChild(sw);
@@ -4543,7 +4137,7 @@ const PdfImport = (function () {
   /* Аркуш діалогу: кроки «файл» і «перевірка» живуть в одному аркуші. */
   function sheet() {
     if (!overlay) {
-      overlay = el("div", "overlay");
+      overlay = el("div", "overlay import-overlay");
       overlay.id = "import-overlay";
       overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
       const s = el("div", "sheet");
@@ -4562,7 +4156,7 @@ const PdfImport = (function () {
 
   function setStatus(statusEl, message, isError) {
     statusEl.textContent = message || "";
-    statusEl.className = isError ? "err" : "";
+    statusEl.className = uiClass("import-status" + (isError ? " err" : ""));
     statusEl.id = "import-status";
   }
 
@@ -4617,6 +4211,7 @@ const PdfImport = (function () {
     // Запасний шлях (і для перевірок): текст, скопійований із PDF вручну.
     const pasteLabel = el("label", null, "Або вставте текст, скопійований із PDF:");
     const paste = document.createElement("textarea");
+    paste.className = uiClass("import-control");
     paste.rows = 6;
     paste.id = "import-paste";
     paste.placeholder = "День 1\nСніданок: …";
@@ -4680,6 +4275,7 @@ const PdfImport = (function () {
       const head = el("div", "import-head");
       const cb = document.createElement("input");
       cb.type = "checkbox";
+      cb.className = uiClass("import-check");
       head.appendChild(cb);
 
       if (!kindMeal) {
@@ -4700,11 +4296,13 @@ const PdfImport = (function () {
 
         const nameInput = document.createElement("input");
         nameInput.type = "text";
+        nameInput.className = uiClass("import-control import-name");
         nameInput.name = "name";
         nameInput.value = entry.name;
         head.appendChild(nameInput);
 
         const typeSelect = document.createElement("select");
+        typeSelect.className = uiClass("import-control import-type");
         typeSelect.name = "type";
         MEAL_TYPES.forEach((t) => {
           const opt = document.createElement("option");
@@ -4720,6 +4318,7 @@ const PdfImport = (function () {
         const kcalLabel = el("label", null, "Калорійність, ккал");
         const kcalInput = document.createElement("input");
         kcalInput.type = "number";
+        kcalInput.className = uiClass("import-control");
         kcalInput.name = "calories";
         kcalInput.min = "0";
         kcalInput.step = "1";
@@ -4731,6 +4330,7 @@ const PdfImport = (function () {
         const servLabel = el("label", null, "Порції");
         const servInput = document.createElement("input");
         servInput.type = "number";
+        servInput.className = uiClass("import-control");
         servInput.name = "servings";
         servInput.min = "1";
         servInput.step = "1";
@@ -4742,6 +4342,7 @@ const PdfImport = (function () {
         const srcLabel = el("label", null, "Джерело (план)");
         const srcInput = document.createElement("input");
         srcInput.type = "text";
+        srcInput.className = uiClass("import-control");
         srcInput.name = "source";
         srcInput.value = entry.source;
         srcLabel.appendChild(srcInput);
@@ -4750,6 +4351,7 @@ const PdfImport = (function () {
 
         const ingLabel = el("label", null, "Інгредієнти (по одному в рядку)");
         const ingInput = document.createElement("textarea");
+        ingInput.className = uiClass("import-control");
         ingInput.name = "ingredients";
         ingInput.rows = Math.min(6, Math.max(2, entry.ingredients.length));
         ingInput.value = entry.ingredients.map(Ingredients.toLine).join("\n");
@@ -4758,6 +4360,7 @@ const PdfImport = (function () {
 
         const portLabel = el("label", null, "Готова порція Ж/Ч (по одному рядку; складник — до « — »)");
         const portInput = document.createElement("textarea");
+        portInput.className = uiClass("import-control");
         portInput.name = "portions";
         portInput.rows = Math.min(4, Math.max(2, entry.portions.length));
         portInput.value = entry.portions.map(Portions.toLine).join("\n");
@@ -4766,6 +4369,7 @@ const PdfImport = (function () {
 
         const stepsLabel = el("label", null, "Кроки/нотатки з PDF (по одному в рядку)");
         const stepsInput = document.createElement("textarea");
+        stepsInput.className = uiClass("import-control");
         stepsInput.name = "steps";
         stepsInput.rows = Math.min(4, Math.max(2, entry.steps.length));
         stepsInput.value = entry.steps.join("\n");
@@ -4978,7 +4582,7 @@ PWA.register();
   if (lockTs > 0 && Date.now() - lockTs < 15000) {
     const busyEl = document.getElementById("selftest-out");
     busyEl.textContent = "ПРОПУЩЕНО — інша самоперевірка ще виконується. Оновіть сторінку за кілька секунд.";
-    busyEl.className = "selftest fail";
+    busyEl.className = uiClass("selftest fail");
     document.getElementById("selftest-panel").hidden = false;
     return;
   }
@@ -5353,8 +4957,26 @@ PWA.register();
       mark(check("Екран «Тиждень»: кнопка «⇄» у кожному слоті",
         weekBox.querySelectorAll(".slot-swap").length === 7 * 4));
 
-      const sugD = WeekGenerator.suggestReplacements(MealStore.getAll(), WeekStore.get(), 1, "dinner");
-      SwapDialog.open(1, "dinner");
+      // Генератор випадковий: у фіксованого «день 2 · вечеря» інколи немає
+      // валідної альтернативи. Для UI-перевірки детерміновано знайти будь-який
+      // майбутній слот із валідним кандидатом, не змінюючи сьогоднішній обід.
+      const dialogPool12 = MealStore.getAll();
+      const dialogPlan12 = WeekStore.get();
+      let dialogDay12 = 1;
+      let dialogType12 = "dinner";
+      let sugD = WeekGenerator.suggestReplacements(dialogPool12, dialogPlan12, dialogDay12, dialogType12);
+      for (let d = 1; d < dialogPlan12.days.length && !sugD.candidates.some((c) => c.valid); d++) {
+        for (const t of MEAL_TYPES) {
+          const candidateSet = WeekGenerator.suggestReplacements(dialogPool12, dialogPlan12, d, t);
+          if (candidateSet.ok && candidateSet.candidates.some((c) => c.valid)) {
+            dialogDay12 = d;
+            dialogType12 = t;
+            sugD = candidateSet;
+            break;
+          }
+        }
+      }
+      SwapDialog.open(dialogDay12, dialogType12);
       const dlg12 = document.getElementById("swap-overlay");
       const rows12 = dlg12 ? dlg12.querySelectorAll(".swap-row") : [];
       mark(check("Діалог заміни: відкрився зі списком кандидатів",
@@ -5374,16 +4996,22 @@ PWA.register();
       const afterClick12 = WeekStore.get();
       mark(check("Діалог заміни: клік валідним кандидатом застосовує заміну й закриває діалог",
         validIdx12 >= 0 && !document.getElementById("swap-overlay") &&
-        afterClick12.days[1].meals.dinner.id === sugD.candidates[clickIdx12].meal.id));
-      const card12 = weekBox.querySelectorAll(".day-card")[1];
+        afterClick12.days[dialogDay12].meals[dialogType12].id === sugD.candidates[clickIdx12].meal.id));
+      const card12 = weekBox.querySelectorAll(".day-card")[dialogDay12];
       mark(check("Екран «Тиждень»: показано перераховану калорійність дня",
         !!card12 && card12.querySelector(".day-kcal").textContent.indexOf(
-          afterClick12.days[1].calories.toLocaleString("uk-UA")) >= 0));
+          afterClick12.days[dialogDay12].calories.toLocaleString("uk-UA")) >= 0));
 
       // Головна: картка поточного прийому (типові вікна + фіксований час для детермінізму).
       AppState.set("mealWindows", undefined);
       const todayBox12 = document.getElementById("today-meal");
       const noon12 = new Date(); noon12.setHours(13, 0, 0, 0);
+      // Випадково згенерований обід може мати БЖВ. Наступний блок окремо
+      // перевіряє саме стан «БЖВ не вказано», тож поставити реальну демо-страву
+      // без БЖВ (і з інгредієнтами) явно.
+      const noMacrosLunch12 = MealStore.filterByType("lunch").find((meal) =>
+        meal.protein == null && meal.fat == null && meal.carbs == null && meal.ingredients.length > 0);
+      if (noMacrosLunch12) WeekStore.replaceMeal(0, "lunch", noMacrosLunch12);
       TodayCard.render(noon12);
       const planT12 = WeekStore.get();
       mark(check("Головна: показано страву поточного прийому (обід о 13:00)",
@@ -6351,7 +5979,9 @@ PWA.register();
     out.push("MER-19: PWA (маніфест, service worker, офлайн-кеш)");
 
     const manifestLink = document.querySelector('link[rel="manifest"]');
+    const stylesheetLink = document.querySelector('link[rel="stylesheet"][href="tailwind.css"]');
     mark(check("Маніфест підключено в <head>", !!manifestLink));
+    mark(check("Зібраний tailwind.css підключено в <head>", !!stylesheetLink));
     mark(check("Мета theme-color та іконка для iOS на місці",
       !!document.querySelector('meta[name="theme-color"]') &&
       !!document.querySelector('link[rel="apple-touch-icon"]')));
@@ -6375,6 +6005,12 @@ PWA.register();
 
       const swRes = await fetch(PWA.SW_URL).catch(() => null);
       mark(check("sw.js віддається сервером", !!swRes && swRes.ok));
+      const cssRes = stylesheetLink
+        ? await fetch(stylesheetLink.getAttribute("href")).catch(() => null)
+        : null;
+      const cssText = cssRes && cssRes.ok ? await cssRes.clone().text().catch(() => "") : "";
+      mark(check("tailwind.css віддається сервером і містить зібрані стилі",
+        !!cssRes && cssRes.ok && cssText.indexOf("--color-app") >= 0));
       const icoRes = await fetch("icons/icon-192.png").catch(() => null);
       mark(check("Іконка 192×192 віддається сервером", !!icoRes && icoRes.ok));
 
@@ -6389,8 +6025,10 @@ PWA.register();
         mark(check("Service worker активний", !!reg && !!reg.active));
         // Після активації оболонка вже в кеші (install робить addAll).
         const cachedIndex = reg ? await caches.match("./index.html", { ignoreSearch: true }) : null;
+        const cachedStylesheet = reg ? await caches.match("./tailwind.css", { ignoreSearch: true }) : null;
         const cachedVendor = reg ? await caches.match("./vendor/pdfjs/pdf.min.js") : null;
         mark(check("Офлайн-кеш: index.html збережено", !!cachedIndex));
+        mark(check("Офлайн-кеш: tailwind.css збережено", !!cachedStylesheet));
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }
     }
@@ -6636,7 +6274,9 @@ PWA.register();
   outEl.textContent = (allOk
     ? "УСПІХ — критерії готовності виконано.\n\n"
     : "Є ПОМИЛКИ — див. нижче.\n\n") + out.join("\n");
-  outEl.className = "selftest " + (allOk ? "pass" : "fail");
+  outEl.className = uiClass("selftest " + (allOk ? "pass" : "fail"));
   document.getElementById("selftest-panel").hidden = false;
 })();
 </script>
+</body>
+</html>

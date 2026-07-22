@@ -4,32 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meridian · дизайн-референс: профіль на двох</title>
-<style>
-  body { margin:0; background:#0b0d11; color:#e7e9ee; font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; padding:24px; }
-  .row { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; }
-</style>
+<link rel="stylesheet" href="../../tailwind.css">
+<link rel="icon" type="image/png" href="../../icons/icon-192.png">
 </head>
-<body>
-  <div class="row">
+<body class="m-0 bg-page p-6 font-sans text-content">
+  <div class="flex flex-wrap justify-center gap-4">
 
-    <div style="width:300px; background:#0f1115; border:1px solid #2a2f3a; border-radius:24px; padding:16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-        <span style="font-size:18px; font-weight:500; color:#e7e9ee;">Meridian</span>
-        <span style="font-size:12px; color:#9aa2b1;">нд, 19 лип</span>
+    <div class="w-72 rounded-3xl border border-line bg-app p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <span class="text-lg font-medium text-content">Meridian</span>
+        <span class="text-xs text-muted">нд, 19 лип</span>
       </div>
 
-      <div style="display:flex; gap:8px; background:#1a1d24; border:1px solid #2a2f3a; border-radius:14px; padding:5px; margin-bottom:8px;">
-        <div style="flex:1; display:flex; align-items:center; gap:7px; border-radius:10px; padding:7px 8px;">
-          <div style="width:24px; height:24px; border-radius:50%; background:#15243b; color:#4f9dff; font-size:11px; font-weight:500; display:flex; align-items:center; justify-content:center;">В</div>
-          <div><div style="font-size:12px; color:#9aa2b1;">Володимир</div><div style="font-size:10px; color:#5f6675;">1900 ккал</div></div>
+      <div class="mb-2 flex gap-2 rounded-2xl border border-line bg-surface p-1.5">
+        <div class="flex flex-1 items-center gap-2 rounded-xl px-2 py-2">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-soft text-xs font-medium text-accent">В</div>
+          <div><div class="text-xs text-muted">Володимир</div><div class="text-xs text-subtle">1900 ккал</div></div>
         </div>
-        <div style="flex:1; display:flex; align-items:center; gap:7px; background:#2e1622; border:1px solid #e0729c; border-radius:10px; padding:7px 8px;">
-          <div style="width:24px; height:24px; border-radius:50%; background:#3d1c2c; color:#e0729c; font-size:11px; font-weight:500; display:flex; align-items:center; justify-content:center;">Д</div>
-          <div><div style="font-size:12px; color:#e7e9ee; font-weight:500;">Дружина</div><div style="font-size:10px; color:#e0729c;">1500 ккал</div></div>
+        <div class="flex flex-1 items-center gap-2 rounded-xl border border-profile-pink bg-profile-pink-soft px-2 py-2">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-profile-pink-deep text-xs font-medium text-profile-pink">Д</div>
+          <div><div class="text-xs font-medium text-content">Дружина</div><div class="text-xs text-profile-pink">1500 ккал</div></div>
         </div>
       </div>
 
-      <div style="display:flex; justify-content:center; margin:6px 0 12px;">
+      <div class="mb-3 mt-1.5 flex justify-center">
         <svg viewBox="0 0 180 180" width="146" height="146">
           <circle cx="90" cy="90" r="66" fill="none" stroke="#2a2f3a" stroke-width="12"/>
           <circle cx="90" cy="90" r="66" fill="none" stroke="#46c98b" stroke-width="12" stroke-linecap="round" stroke-dasharray="70 344" stroke-dashoffset="-6" transform="rotate(-90 90 90)"/>
@@ -42,50 +40,50 @@
         </svg>
       </div>
 
-      <div style="background:#1a1d24; border:1px solid #e0729c; border-radius:12px; padding:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <span style="font-size:11px; color:#e0729c;">Активний прийом · Дружина</span>
-          <span style="font-size:12px; color:#9aa2b1;">430 ккал</span>
+      <div class="rounded-xl border border-profile-pink bg-surface p-3">
+        <div class="mb-1 flex items-center justify-between">
+          <span class="text-xs text-profile-pink">Активний прийом · Дружина</span>
+          <span class="text-xs text-muted">430 ккал</span>
         </div>
-        <div style="font-size:15px; color:#e7e9ee; font-weight:500;">Салат з тунцем</div>
-        <div style="font-size:12px; color:#9aa2b1; margin-top:2px;">Б 32 · Ж 18 · В 22 · з плану №1</div>
+        <div class="text-base font-medium text-content">Салат з тунцем</div>
+        <div class="mt-0.5 text-xs text-muted">Б 32 · Ж 18 · В 22 · з плану №1</div>
       </div>
     </div>
 
-    <div style="width:300px; background:#0f1115; border:1px solid #2a2f3a; border-radius:24px; padding:16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-        <span style="font-size:16px; font-weight:500; color:#e7e9ee;">Редагування · Дружина</span>
+    <div class="w-72 rounded-3xl border border-line bg-app p-4">
+      <div class="mb-3.5 flex items-center justify-between">
+        <span class="text-base font-medium text-content">Редагування · Дружина</span>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-        <div style="width:40px; height:40px; border-radius:50%; background:#3d1c2c; color:#e0729c; font-size:15px; font-weight:500; display:flex; align-items:center; justify-content:center;">Д</div>
-        <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:9px 10px; font-size:13px; color:#e7e9ee;">Дружина</div>
+      <div class="mb-3.5 flex items-center gap-2.5">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-profile-pink-deep text-base font-medium text-profile-pink">Д</div>
+        <div class="flex-1 rounded-lg border border-line bg-surface px-2.5 py-2.5 text-sm text-content">Дружина</div>
       </div>
 
-      <div style="font-size:11px; color:#5f6675; margin-bottom:6px;">КОЛІР ПРОФІЛЮ</div>
-      <div style="display:flex; gap:10px; margin-bottom:14px;">
-        <div style="width:26px; height:26px; border-radius:50%; background:#4f9dff;"></div>
-        <div style="width:26px; height:26px; border-radius:50%; background:#e0729c; box-shadow:0 0 0 2px #0f1115, 0 0 0 4px #e0729c;"></div>
-        <div style="width:26px; height:26px; border-radius:50%; background:#46c98b;"></div>
-        <div style="width:26px; height:26px; border-radius:50%; background:#ffb454;"></div>
-        <div style="width:26px; height:26px; border-radius:50%; background:#7f77dd;"></div>
+      <div class="mb-1.5 text-xs text-subtle">КОЛІР ПРОФІЛЮ</div>
+      <div class="mb-3.5 flex gap-2.5">
+        <div class="h-7 w-7 rounded-full bg-accent"></div>
+        <div class="h-7 w-7 rounded-full bg-profile-pink ring-2 ring-profile-pink ring-offset-2 ring-offset-app"></div>
+        <div class="h-7 w-7 rounded-full bg-success"></div>
+        <div class="h-7 w-7 rounded-full bg-warning"></div>
+        <div class="h-7 w-7 rounded-full bg-violet"></div>
       </div>
 
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <div style="flex:1;"><label style="font-size:12px; color:#9aa2b1;">Ціль, ккал</label><div style="background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:9px 10px; margin-top:4px; font-size:13px; color:#e7e9ee;">1500</div></div>
-        <div style="flex:1;"><label style="font-size:12px; color:#9aa2b1;">Коридор, ±</label><div style="background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:9px 10px; margin-top:4px; font-size:13px; color:#e7e9ee;">100</div></div>
+      <div class="mb-3 flex gap-2">
+        <div class="flex-1"><label class="text-xs text-muted">Ціль, ккал</label><div class="mt-1 rounded-lg border border-line bg-surface px-2.5 py-2.5 text-sm text-content">1500</div></div>
+        <div class="flex-1"><label class="text-xs text-muted">Коридор, ±</label><div class="mt-1 rounded-lg border border-line bg-surface px-2.5 py-2.5 text-sm text-content">100</div></div>
       </div>
 
-      <div style="font-size:11px; color:#5f6675; margin-bottom:6px;">ЦІЛІ БЖВ · НЕОБОВ'ЯЗКОВО</div>
-      <div style="display:flex; gap:6px; margin-bottom:14px;">
-        <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:8px; text-align:center;"><div style="font-size:10px; color:#9aa2b1;">Б</div><div style="font-size:13px; color:#e7e9ee;">110</div></div>
-        <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:8px; text-align:center;"><div style="font-size:10px; color:#9aa2b1;">Ж</div><div style="font-size:13px; color:#e7e9ee;">50</div></div>
-        <div style="flex:1; background:#1a1d24; border:1px solid #2a2f3a; border-radius:8px; padding:8px; text-align:center;"><div style="font-size:10px; color:#9aa2b1;">В</div><div style="font-size:13px; color:#e7e9ee;">140</div></div>
+      <div class="mb-1.5 text-xs text-subtle">ЦІЛІ БЖВ · НЕОБОВ'ЯЗКОВО</div>
+      <div class="mb-3.5 flex gap-1.5">
+        <div class="flex-1 rounded-lg border border-line bg-surface p-2 text-center"><div class="text-xs text-muted">Б</div><div class="text-sm text-content">110</div></div>
+        <div class="flex-1 rounded-lg border border-line bg-surface p-2 text-center"><div class="text-xs text-muted">Ж</div><div class="text-sm text-content">50</div></div>
+        <div class="flex-1 rounded-lg border border-line bg-surface p-2 text-center"><div class="text-xs text-muted">В</div><div class="text-sm text-content">140</div></div>
       </div>
 
-      <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #2a2f3a;">
-        <span style="font-size:13px; color:#e7e9ee;">Свій пул страв</span>
-        <span style="font-size:12px; color:#9aa2b1;">спільний</span>
+      <div class="flex items-center justify-between border-t border-line pt-2.5">
+        <span class="text-sm text-content">Свій пул страв</span>
+        <span class="text-xs text-muted">спільний</span>
       </div>
     </div>
 
