@@ -136,6 +136,7 @@
 
 <nav class="fixed inset-x-0 bottom-0 z-20 flex h-tabbar border-t border-line bg-surface pb-safe-bottom [&>button]:flex [&>button]:flex-1 [&>button]:cursor-pointer [&>button]:flex-col [&>button]:items-center [&>button]:justify-center [&>button]:gap-1 [&>button]:border-0 [&>button]:bg-transparent [&>button]:p-0 [&>button]:text-xs [&>button]:text-muted [&>button.active]:text-accent [&_.icon]:text-xl [&_.icon]:leading-none" id="tabbar"></nav>
 
+<script src="data/demo-recipes.js"></script>
 <script>
 "use strict";
 
@@ -545,15 +546,54 @@ const MealStore = (function () {
     return readRaw().find((m) => m.id === id) || null;
   }
 
+  function writeNormalizedMany(normalized) {
+    const meals = readRaw();
+    normalized.forEach((meal) => {
+      const index = meals.findIndex((stored) => stored.id === meal.id);
+      if (index >= 0) meals[index] = meal;
+      else meals.push(meal);
+    });
+    writeRaw(meals);
+    return normalized;
+  }
+
+  /** Normalize the complete batch before the first write and persist it once. */
+  function saveMany(inputs) {
+    if (!Array.isArray(inputs)) {
+      throw new Error("MealStore.saveMany: очікується масив страв.");
+    }
+    if (inputs.length === 0) return [];
+
+    const normalized = inputs.map((input, index) => {
+      try {
+        return createMeal(input);
+      } catch (cause) {
+        const id = input && typeof input === "object" && input.id != null
+          ? String(input.id)
+          : "без id";
+        const error = new Error(
+          "MealStore.saveMany: некоректна страва [" + index + "] («" + id + "»): " +
+          cause.message,
+        );
+        error.cause = cause;
+        throw error;
+      }
+    });
+    const seenIds = new Set();
+    normalized.forEach((meal, index) => {
+      if (seenIds.has(meal.id)) {
+        throw new Error(
+          "MealStore.saveMany: дубль id «" + meal.id + "» у позиції " + index + ".",
+        );
+      }
+      seenIds.add(meal.id);
+    });
+    return writeNormalizedMany(normalized);
+  }
+
   /** Зберегти страву (створити або оновити за id). Повертає збережену страву. */
   function save(input) {
-    const meal = createMeal(input);
-    const meals = readRaw();
-    const i = meals.findIndex((m) => m.id === meal.id);
-    if (i >= 0) meals[i] = meal;
-    else meals.push(meal);
-    writeRaw(meals);
-    return meal;
+    return writeNormalizedMany([createMeal(input)])[0];
   }
 
   /** Видалити страву за id. Повертає true, якщо щось видалено. */
@@ -579,7 +619,7 @@ const MealStore = (function () {
     return (meals || readRaw()).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
   }
 
-  return { getAll, getById, save, remove, clear, filterByType, sumCalories };
+  return { getAll, getById, save, saveMany, remove, clear, filterByType, sumCalories };
 })();
 
 /* ============================================================================
@@ -1149,149 +1189,89 @@ const MealClock = (function () {
 })();
 
 /* ============================================================================
- * MER-8 — Демо-пул страв із PDF-плану дієтолога «Меню на 2 тижні» (ГЕРХ, на двох).
- * ----------------------------------------------------------------------------
- * Джерело: Menu_2_tyzhni.pdf, прикріплений до задачі MER-8 у Linear.
- * Звірено з PDF рядок за рядком у MER-23 (2026-07-18): назви — дослівно за
- * заголовками прийомів, типи/інгредієнти/джерела — за секціями плану.
- * Страви розкладено за тижнями («Тиждень 1» / «Тиждень 2») — генератору
- * потрібно кілька джерел для міксу; десерти, що повторюються в обох тижнях,
- * мають джерело «Тиждень 1–2» (печиво матча — лише в тижні 1).
- *
- * КАЛОРІЇ — ПРИБЛИЗНІ (свідомий виняток, AGENTS.md → «Виняток для калорій»):
- * у PDF є лише одна реальна цифра — ≈185 ккал за скибочку бананового хліба
- * (demo-wb-s2). Решта calories — приблизні оцінки порції «Ч» за типовими
- * таблицями продуктів; вони позначені `caloriesApprox: true` і показуються в
- * UI з префіксом «≈» (MER-26), щоб не видавати за точні цифри дієтолога. На
- * калоріях тримається коридор генератора (MER-10). Замінити реальними, щойно
- * дасть дієтолог або імпорт (MER-15/MER-23), — тоді зняти прапорець. БЖВ у
- * PDF немає — не вказано (у моделі вони необов'язкові).
- *
- * Стабільні id (demo-…) роблять повторне сідування ідемпотентним:
- * MealStore.save оновлює за id, а не дублює.
+ * MER-8 — demo-pool lifecycle.
+ * Source-faithful data and the app-compatible seed live in
+ * data/demo-recipes.js. This module retains only contract validation,
+ * localStorage seeding, and migrations.
  * ========================================================================== */
 const DemoPool = (function () {
-  const W1 = "Тиждень 1", W2 = "Тиждень 2", WB = "Тиждень 1–2";
+  const dataset = window.MeridianDemoData;
+  if (!dataset || dataset.schemaVersion !== 1 || !Array.isArray(dataset.demoMeals) ||
+      !Array.isArray(dataset.sourcePages) || dataset.sourcePages.length !== 29 ||
+      !dataset.compatibilitySeed ||
+      dataset.compatibilitySeed.relationToDocument !== "separate-source" ||
+      !Number.isInteger(dataset.seedVersion)) {
+    throw new Error(
+      "DemoPool: data/demo-recipes.js не завантажено або має некоректний формат " +
+      "(очікуються schemaVersion, seedVersion, 29 sourcePages, provenance і demoMeals).",
+    );
+  }
 
-  const DEMO_MEALS = [
-    // --- Тиждень 1 · Сніданки ---
-    { id: "demo-w1-b1", type: "breakfast", calories: 570, source: W1,
-      name: "Омлет з лососем і шпинатом + цільнозерновий тост",
-      ingredients: ["яйця", "слабосолений лосось", "шпинат", "оливкова олія", "цільнозерновий хліб", "творожний сир 5%", "огірок"] },
-    { id: "demo-w1-b2", type: "breakfast", calories: 850, source: W1,
-      name: "Гречаний боул з лососем і авокадо",
-      ingredients: ["гречка", "яйця варені", "слабосолений лосось", "авокадо", "огірок", "цільнозерновий хліб", "кріп"] },
-    { id: "demo-w1-b3", type: "breakfast", calories: 530, source: W1,
-      name: "Гречана каша + яйце пашот + варена індичка",
-      ingredients: ["гречка", "оливкова олія", "яйця", "філе індички", "огірок", "листя салату"] },
-    { id: "demo-w1-b4", type: "breakfast", calories: 390, source: W1,
-      name: "Вівсянка з бананом і волоськими горіхами",
-      ingredients: ["вівсяні пластівці", "банан", "волоські горіхи", "натуральний йогурт 2,5%"] },
-    { id: "demo-w1-b5", type: "breakfast", calories: 600, source: W1,
-      name: "Вівсяноблин з начинкою",
-      ingredients: ["вівсяні пластівці", "яйця", "вода або молоко 2,5%", "кисломолочний сир 5%", "слабосолений лосось", "огірок", "кріп"] },
-    { id: "demo-w1-b6", type: "breakfast", calories: 610, source: W1,
-      name: "Кіноа з яйцем, авокадо й слабосоленим лососем",
-      ingredients: ["кіноа", "яйця варені", "авокадо", "слабосолений лосось", "огірок", "кріп"] },
-    { id: "demo-w1-b7", type: "breakfast", calories: 490, source: W1,
-      name: "Ячна каша з курячою грудкою",
-      ingredients: ["ячна крупа", "оливкова олія", "куряче філе", "овочі на вибір (окрім томатів)"] },
+  function demoMealError(index, id, message, cause) {
+    const idContext = id ? " (id «" + id + "»)" : "";
+    const error = new Error(
+      "DemoPool: demoMeals[" + index + "]" + idContext + ": " + message,
+    );
+    if (cause) error.cause = cause;
+    return error;
+  }
 
-    // --- Тиждень 1 · Обіди ---
-    { id: "demo-w1-l1", type: "lunch", calories: 740, source: W1,
-      name: "Крем-суп з цвітної капусти + куряча грудка + нешліфований рис",
-      ingredients: ["цвітна капуста", "картопля", "морква", "цибуля", "вершки 10%", "овочевий бульйон", "куряче філе", "нешліфований рис", "оливкова олія", "кріп", "огірок", "листя салату"] },
-    { id: "demo-w1-l2", type: "lunch", calories: 710, source: W1,
-      name: "Запечений лосось + кіноа + овочі-гриль",
-      ingredients: ["філе лосося", "кіноа", "кабачок", "цукіні", "морква", "оливкова олія", "кріп"] },
-    { id: "demo-w1-l3", type: "lunch", calories: 600, source: W1,
-      name: "Сочевичний суп з куркою",
-      ingredients: ["червона сочевиця", "куряче філе", "морква", "картопля", "цибуля", "лавровий лист", "кріп", "цільнозерновий хліб"] },
-    { id: "demo-w1-l4", type: "lunch", calories: 570, source: W1,
-      name: "Плов з куркою на нешліфованому рисі",
-      ingredients: ["куряче філе", "нешліфований рис", "морква", "цибуля", "куркума", "кмин", "оливкова олія", "огірок або листя салату"] },
+  function normalizeDemoMeals(rawMeals) {
+    if (rawMeals.length === 0) {
+      throw new Error("DemoPool: demoMeals має містити хоча б одну страву.");
+    }
 
-    // --- Тиждень 1 · Вечері ---
-    { id: "demo-w1-d1", type: "dinner", calories: 490, source: W1,
-      name: "Куряча печінка з овочами + пюре з кабачка і картоплі",
-      ingredients: ["куряча печінка", "морква", "цибуля", "сметана 15%", "кабачок", "картопля", "оливкова олія", "кріп"] },
-    { id: "demo-w1-d2", type: "dinner", calories: 530, source: W1,
-      name: "Креветки з кіноа і брокколі",
-      ingredients: ["креветки", "кіноа", "брокколі", "оливкова олія", "кріп"] },
-    { id: "demo-w1-d3", type: "dinner", calories: 530, source: W1,
-      name: "Мідії у вершковому соусі + нешліфований рис + шпинат",
-      ingredients: ["м'ясо мідій", "вершки 10%", "цибуля", "нешліфований рис", "шпинат", "оливкова олія", "кріп"] },
-    { id: "demo-w1-d4", type: "dinner", calories: 545, source: W1,
-      name: "Теплий салат з консервованим тунцем",
-      ingredients: ["тунець у власному соку", "яйця варені", "листя салату", "печений кабачок", "оливкова олія", "цільнозерновий хліб", "кріп"] },
+    const firstIndexById = new Map();
+    return rawMeals.map((rawMeal, index) => {
+      if (!rawMeal || typeof rawMeal !== "object" || Array.isArray(rawMeal)) {
+        throw demoMealError(index, null, "очікується об’єкт страви.", null);
+      }
 
-    // --- Тиждень 2 · Сніданки ---
-    { id: "demo-w2-b1", type: "breakfast", calories: 460, source: W2,
-      name: "Запечені сирники з йогуртом",
-      ingredients: ["кисломолочний сир 5–9%", "яйце", "вівсяне борошно", "цукор", "ваніль", "натуральний йогурт", "ягоди"] },
-    { id: "demo-w2-b2", type: "breakfast", calories: 590, source: W2,
-      name: "Яйце пашот + тост з авокадо й лососем",
-      ingredients: ["яйця", "слабосолений лосось", "авокадо", "цільнозерновий хліб"] },
-    { id: "demo-w2-b3", type: "breakfast", calories: 370, source: W2,
-      name: "Пшоняна каша з гарбузом + варене яйце",
-      ingredients: ["пшоно", "гарбуз", "сметана 15%", "яйця"] },
-    { id: "demo-w2-b4", type: "breakfast", calories: 650, source: W2,
-      name: "Сирна запіканка з ягодами",
-      ingredients: ["кисломолочний сир 5–9%", "яйця", "рисове борошно", "цукор", "ваніль", "ягоди (чорниця, малина)", "натуральний йогурт 2,5%", "волоські горіхи", "цільнозерновий хліб"] },
-    { id: "demo-w2-b5", type: "breakfast", calories: 510, source: W2,
-      name: "Тост з курячим паштетом з печінки + огірок + яйце",
-      ingredients: ["куряча печінка", "морква", "цибуля", "вершкове масло", "цільнозерновий хліб", "яйця", "огірок"] },
-    { id: "demo-w2-b6", type: "breakfast", calories: 700, source: W2,
-      name: "Вівсянка з ягодами, горіхами і яйцем",
-      ingredients: ["вівсяні пластівці", "яйця", "кисломолочний сир 5%", "ягоди (чорниця, малина)", "волоські горіхи", "банан"] },
-    { id: "demo-w2-b7", type: "breakfast", calories: 750, source: W2,
-      name: "Авокадо-тост + яйце + банан",
-      ingredients: ["цільнозерновий хліб", "авокадо", "яйця", "кисломолочний сир 5%", "банан", "огірок", "кріп"] },
+      const id = typeof rawMeal.id === "string" ? rawMeal.id : "";
+      if (!/^demo-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+        throw demoMealError(
+          index,
+          id,
+          "некоректний стабільний id; очікується формат demo-*.",
+          null,
+        );
+      }
+      if (firstIndexById.has(id)) {
+        throw demoMealError(
+          index,
+          id,
+          "дубль id; перше входження у demoMeals[" + firstIndexById.get(id) + "].",
+          null,
+        );
+      }
+      firstIndexById.set(id, index);
 
-    // --- Тиждень 2 · Обіди ---
-    { id: "demo-w2-l1", type: "lunch", calories: 630, source: W2,
-      name: "Тефтелі з індички + гречка + тушковані овочі",
-      ingredients: ["фарш індички", "яйце", "варений рис", "сметана 15%", "гречка", "кабачок", "морква", "перець", "олія", "кріп"] },
-    { id: "demo-w2-l2", type: "lunch", calories: 690, source: W2,
-      name: "Тушкована яловичина + перлова каша",
-      ingredients: ["яловичина", "морква", "кабачок", "цибуля", "лавровий лист", "перлова крупа", "оливкова олія"] },
-    { id: "demo-w2-l3", type: "lunch", calories: 930, source: W2,
-      name: "Курячі стегна без шкіри + гречка + свіжий салат",
-      ingredients: ["курячі стегна без шкіри", "сухі трави (розмарин, орегано)", "гречка", "огірок", "листя салату", "морква", "кріп і петрушка", "оливкова олія", "цільнозерновий хліб"] },
+      const type = String(rawMeal.type ?? "").trim();
+      if (!MEAL_TYPES.includes(type)) {
+        throw demoMealError(
+          index,
+          id,
+          "непідтримуваний тип слота «" + type + "»; дозволено: " +
+          MEAL_TYPES.join(", ") + ".",
+          null,
+        );
+      }
 
-    // --- Тиждень 2 · Вечері ---
-    { id: "demo-w2-d1", type: "dinner", calories: 540, source: W2,
-      name: "Запечена індичка + нут + овочі",
-      ingredients: ["філе індички", "нут", "морква", "кабачок", "оливкова олія", "кріп"] },
-    { id: "demo-w2-d2", type: "dinner", calories: 690, source: W2,
-      name: "Котлети з лосося + пюре з кабачка + ячна каша",
-      ingredients: ["філе лосося", "яйце", "вівсяні пластівці", "кабачок", "ячна крупа", "оливкова олія", "кріп"] },
-    { id: "demo-w2-d3", type: "dinner", calories: 830, source: W2,
-      name: "Перепелка запечена + картопля з травами + свіжий салат",
-      ingredients: ["перепілки", "картопля", "оливкова олія", "сухі трави (розмарин, чебрець)", "огірок", "листя салату", "морква або буряк", "зелень"] },
+      try {
+        const normalized = createMeal(rawMeal);
+        if (normalized.id !== id) {
+          throw new Error("нормалізація змінила стабільний id.");
+        }
+        return normalized;
+      } catch (cause) {
+        throw demoMealError(index, id, "некоректні дані: " + cause.message, cause);
+      }
+    });
+  }
 
-    // --- Десерти → слот «перекус» (повторювані в обох тижнях; матча — лише тиждень 1) ---
-    { id: "demo-wb-s1", type: "snack", calories: 155, source: WB,
-      name: "Сирок «Волошкове поле»",
-      ingredients: [{ name: "сирок «Волошкове поле»", amount: 40, unit: "г" }] },
-    { id: "demo-wb-s2", type: "snack", calories: 185, source: WB,
-      name: "Банановий хліб (скибочка)",
-      ingredients: [{ name: "банановий хліб (скибочка)", amount: 50, unit: "г" }] },
-    { id: "demo-wb-s3", type: "snack", calories: 230, source: WB,
-      name: "Морозиво пломбір зі згущенкою",
-      ingredients: [{ name: "пломбір зі згущеним молоком", amount: 100, unit: "г" }] },
-    { id: "demo-wb-s4", type: "snack", calories: 280, source: W1,
-      name: "Печиво матча",
-      ingredients: [{ name: "печиво матча", amount: 2, unit: "шт (≈60 г)" }] },
-    { id: "demo-wb-s5", type: "snack", calories: 290, source: WB,
-      name: "Арахісова паста + рисові хлібці",
-      ingredients: ["рисові хлібці", "арахісова паста"] },
-  ];
-
-  /* MER-26: усі демо-калорії — приблизні оцінки, окрім бананового хліба
-   * (185 ккал — єдина реальна цифра з PDF). Позначаємо, щоб UI показував «≈».
-   * До хешів сіду (MER-37) — щоб canonHash враховував caloriesApprox. */
-  DEMO_MEALS.forEach((m) => { if (m.id !== "demo-wb-s2") m.caloriesApprox = true; });
+  const DEMO_MEALS = dataset.demoMeals;
+  const NORMALIZED_DEMO_MEALS = Object.freeze(normalizeDemoMeals(DEMO_MEALS));
+  const SEED_VERSION = dataset.seedVersion;
 
   /* MER-37: стабільний хеш змістовних полів страви (без id) — щоб на оновленні
    * сіду відрізнити незмінену демо-страву від локально відредагованої.
@@ -1310,22 +1290,42 @@ const DemoPool = (function () {
   /* Хеш канонічної (нормалізованої як у сховищі) демо-страви. */
   function canonHash(m) { return contentHash(createMeal(m)); }
   function seedHashes() { return AppState.get("demoSeedHashes") || {}; }
+  function canonicalSeedHashes() {
+    const hashes = Object.assign({}, seedHashes());
+    NORMALIZED_DEMO_MEALS.forEach((meal) => {
+      hashes[meal.id] = canonHash(meal);
+    });
+    return hashes;
+  }
 
   /** Залити демо-пул у сховище (ідемпотентно — оновлює за стабільними id). */
   function seed() {
-    const hashes = seedHashes();
-    DEMO_MEALS.forEach((m) => { MealStore.save(m); hashes[m.id] = canonHash(m); });
+    const hashes = canonicalSeedHashes();
+    MealStore.saveMany(NORMALIZED_DEMO_MEALS);
     AppState.set("demoSeedHashes", hashes);
-    return DEMO_MEALS.length;
+    return NORMALIZED_DEMO_MEALS.length;
   }
 
   /** Перший запуск: якщо пул порожній і ще не сідували — наповнити. */
   function seedIfFirstRun() {
-    if (!AppState.get("demoSeeded") && MealStore.getAll().length === 0) {
+    if (AppState.get("demoSeeded")) return;
+    const storedMeals = MealStore.getAll();
+    if (storedMeals.length === 0) {
       seed();
-      AppState.set("demoSeeded", true);
-      AppState.set("demoSeedVersion", SEED_VERSION);
+    } else {
+      const storedById = new Map(storedMeals.map((meal) => [meal && meal.id, meal]));
+      const hashes = canonicalSeedHashes();
+      const completeSeedWasStored = NORMALIZED_DEMO_MEALS.every(
+        (meal) => {
+          const stored = storedById.get(meal.id);
+          return stored && contentHash(stored) === hashes[meal.id];
+        },
+      );
+      if (!completeSeedWasStored) return;
+      AppState.set("demoSeedHashes", hashes);
     }
+    AppState.set("demoSeeded", true);
+    AppState.set("demoSeedVersion", SEED_VERSION);
   }
 
   /** MER-37: для demo-страв, засіяних до появи хешів, зафіксувати базовий хеш
@@ -1346,11 +1346,6 @@ const DemoPool = (function () {
     if (changed) AppState.set("demoSeedHashes", hashes);
   }
 
-  /* Версія демо-даних. Підвищується, коли DEMO_MEALS змінюються (звірка з PDF
-   * MER-23 = 2; структуровані кількості MER-22 = 3), щоб зміни дійшли і до вже
-   * сідованих установок. */
-  const SEED_VERSION = 3;
-
   /** Оновити раніше сідовані демо-страви до поточної версії даних.
    *  Йде за стабільними id: користувацькі страви не чіпає, видалені демо-страви
    *  не воскрешає, знімки планів лишаються як були (історія). MER-37: локально
@@ -1359,10 +1354,11 @@ const DemoPool = (function () {
   function upgradeSeed() {
     if (!AppState.get("demoSeeded")) return;
     if ((AppState.get("demoSeedVersion") || 1) >= SEED_VERSION) return;
-    const hashes = seedHashes();
+    const hashes = Object.assign({}, seedHashes());
     const existing = {};
     MealStore.getAll().forEach((m) => { existing[m.id] = m; });
-    DEMO_MEALS.forEach((m) => {
+    const updates = [];
+    NORMALIZED_DEMO_MEALS.forEach((m) => {
       const stored = existing[m.id];
       if (!stored) return; // видалену демо-страву не воскрешаємо
       const recorded = hashes[m.id];
@@ -1372,14 +1368,24 @@ const DemoPool = (function () {
       // канонічному форматі, ніж збережена страва, або навпаки.
       if (recorded != null && contentHash(stored) !== recorded &&
           contentHash(createMeal(stored)) !== recorded) return;
-      MealStore.save(m);
+      updates.push(m);
       hashes[m.id] = canonHash(m);
     });
+    if (updates.length > 0) MealStore.saveMany(updates);
     AppState.set("demoSeedHashes", hashes);
     AppState.set("demoSeedVersion", SEED_VERSION);
   }
 
-  return { DEMO_MEALS, seed, seedIfFirstRun, upgradeSeed, ensureSeedHashes, contentHash, SEED_VERSION };
+  return {
+    DATASET: dataset,
+    DEMO_MEALS,
+    seed,
+    seedIfFirstRun,
+    upgradeSeed,
+    ensureSeedHashes,
+    contentHash,
+    SEED_VERSION,
+  };
 })();
 
 /* ============================================================================
@@ -5910,11 +5916,12 @@ PWA.register();
       MealStore.getById("demo-w1-b4").calories === canonB4_37));
 
     // 17. MER-22: сторінка рецепта + розширення моделі страви.
+    const TINY22 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     const rich22 = createMeal({
       name: "Тестовий рецепт (MER-22)", type: "lunch", calories: 500,
       ingredients: ["овочі на вибір", { name: "гречка", amount: 80, unit: "г" }],
       steps: ["Крок один.", "  Крок два.  ", ""],
-      prepTime: 25, servings: 2, photo: "data:image/png;base64,тест",
+      prepTime: 25, servings: 2, photo: TINY22,
     });
     mark(check("Модель: нові поля зберігаються (кроки/час/порції/фото)",
       rich22.steps.length === 2 && rich22.steps[1] === "Крок два." &&
@@ -6591,8 +6598,15 @@ PWA.register();
 
     const manifestLink = document.querySelector('link[rel="manifest"]');
     const stylesheetLink = document.querySelector('link[rel="stylesheet"][href="tailwind.css"]');
+    const demoDataScript = document.querySelector('script[src="data/demo-recipes.js"]');
     mark(check("Маніфест підключено в <head>", !!manifestLink));
     mark(check("Зібраний tailwind.css підключено в <head>", !!stylesheetLink));
+    mark(check("Повні демо-рецепти завантажено окремим класичним скриптом",
+      !!demoDataScript && DemoPool.DATASET === window.MeridianDemoData &&
+      DemoPool.DATASET.sourcePages.length === 29 &&
+      DemoPool.DATASET.days.length === 14 &&
+      DemoPool.DATASET.document.inventory.preparationBlocks === 75 &&
+      DemoPool.DATASET.recipeMethods.length === 43));
     mark(check("Мета theme-color та іконка для iOS на місці",
       !!document.querySelector('meta[name="theme-color"]') &&
       !!document.querySelector('link[rel="apple-touch-icon"]')));
@@ -6622,6 +6636,11 @@ PWA.register();
       const cssText = cssRes && cssRes.ok ? await cssRes.clone().text().catch(() => "") : "";
       mark(check("tailwind.css віддається сервером і містить зібрані стилі",
         !!cssRes && cssRes.ok && cssText.indexOf("--color-app") >= 0));
+      const demoDataRes = demoDataScript
+        ? await fetch(demoDataScript.getAttribute("src")).catch(() => null)
+        : null;
+      mark(check("data/demo-recipes.js віддається сервером",
+        !!demoDataRes && demoDataRes.ok));
       const icoRes = await fetch("icons/icon-192.png").catch(() => null);
       mark(check("Іконка 192×192 віддається сервером", !!icoRes && icoRes.ok));
 
@@ -6636,9 +6655,11 @@ PWA.register();
         mark(check("Service worker активний", !!reg && !!reg.active));
         // Після активації оболонка вже в кеші (install робить addAll).
         const cachedIndex = reg ? await caches.match("./index.html", { ignoreSearch: true }) : null;
+        const cachedDemoData = reg ? await caches.match("./data/demo-recipes.js", { ignoreSearch: true }) : null;
         const cachedStylesheet = reg ? await caches.match("./tailwind.css", { ignoreSearch: true }) : null;
         const cachedVendor = reg ? await caches.match("./vendor/pdfjs/pdf.min.js") : null;
         mark(check("Офлайн-кеш: index.html збережено", !!cachedIndex));
+        mark(check("Офлайн-кеш: data/demo-recipes.js збережено", !!cachedDemoData));
         mark(check("Офлайн-кеш: tailwind.css збережено", !!cachedStylesheet));
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }

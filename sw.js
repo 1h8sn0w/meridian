@@ -1,30 +1,28 @@
 /* ============================================================================
- * Service worker застосунку «Меридіан» (MER-19: PWA + офлайн).
+ * Meridian service worker (MER-19: PWA + offline).
  *
- * Дані користувача живуть у localStorage і мережі не потребують — тут
- * кешується лише «оболонка»: index.html, зібрані стилі, маніфест, іконки та
- * вендорні скрипти.
+ * User data lives in localStorage and does not need the network. This worker
+ * caches only the application shell: index.html, demo source data, compiled
+ * styles, the manifest, icons, and vendored scripts.
  *
- * Стратегії:
- *  - навігація (відкриття сторінки) — спершу мережа, щоб оновлення доходили
- *    одразу; без мережі — index.html з кешу;
- *  - tailwind.css — спершу мережа, кеш як офлайн-запасний варіант, щоб нова
- *    збірка стилів не застрягала в старому кеші;
- *  - решта (іконки, вендор, маніфест) — спершу кеш, мережа як запасний
- *    варіант із докешуванням.
+ * Strategies:
+ *  - navigation: network first, cached index.html offline;
+ *  - tailwind.css and data/demo-recipes.js: network first, cached fallback;
+ *  - icons, vendored scripts, and manifest: cache first, then network.
  *
- * Відносні шляхи — застосунок працює і з кореня (localhost:8137),
- * і з підшляху (github.io/meridian/).
+ * Relative paths support both a root deployment (localhost:8137) and a
+ * subpath deployment (github.io/meridian/).
  * ========================================================================== */
 
-/* Підняти версію, коли змінюється склад SHELL або вендорні файли —
- * старий кеш зітреться під час activate. index.html свіжішає сам (мережа
- * на кожній навігації), тож правки застосунку бампа не потребують. */
+/* Increment this version when SHELL membership or vendored files change.
+ * activate removes the previous shell cache. Navigation is network-first, so
+ * an index.html-only application change does not require a cache bump. */
 const CACHE_PREFIX = "meridian-shell-";
-const CACHE_NAME = CACHE_PREFIX + "v2";
+const CACHE_NAME = CACHE_PREFIX + "v3";
 
 const SHELL = [
   "./index.html",
+  "./data/demo-recipes.js",
   "./tailwind.css",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
@@ -39,7 +37,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(SHELL))
-      /* Нова версія стає чинною одразу, без очікування закриття вкладок. */
+      /* Activate the new worker without waiting for existing tabs to close. */
       .then(() => self.skipWaiting())
   );
 });
@@ -47,8 +45,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      /* Лише СВОЇ старі кеші (префікс meridian-shell-). Cache Storage спільний
-       * на весь origin — не чіпаємо кеші інших застосунків (MER-36). */
+      /* Cache Storage is origin-wide; delete only Meridian's old caches. */
       .then((keys) => Promise.all(
         keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))
       ))
@@ -62,9 +59,8 @@ self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(req.url);
   if (requestUrl.origin !== self.location.origin) return;
 
-  /* Навігація: мережа → кеш. Свіжу відповідь кладемо під ключ index.html,
-   * щоб офлайн-запасний варіант завжди був останньою баченою версією
-   * (query на кшталт ?selftest ключа не роздрібнює). */
+  /* Navigation uses network first. Store successful responses under the
+   * canonical index.html key so query strings do not fragment the fallback. */
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
@@ -80,9 +76,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  /* Зібрані стилі: мережа → кеш. Після нового deploy користувач одразу
-   * отримує нову збірку; без мережі лишається повністю стилізований shell. */
-  if (requestUrl.pathname.endsWith("/tailwind.css")) {
+  /* Revalidate mutable shell assets so a new index.html is not paired with
+   * stale source data or styles. Keep a cached offline fallback. */
+  const isRevalidatedAsset =
+    requestUrl.pathname.endsWith("/tailwind.css") ||
+    requestUrl.pathname.endsWith("/data/demo-recipes.js");
+  if (isRevalidatedAsset) {
     const revalidatedRequest = new Request(req, { cache: "no-cache" });
     const networkResponse = fetch(revalidatedRequest);
     const cacheUpdate = networkResponse
@@ -93,17 +92,19 @@ self.addEventListener("fetch", (event) => {
           const cache = await caches.open(CACHE_NAME);
           await cache.put(req, copy);
         } catch (error) {
-          console.warn("Не вдалося оновити кеш tailwind.css для " + req.url + ":", error);
+          console.warn("Не вдалося оновити кеш ресурсу оболонки " + req.url + ":", error);
         }
       })
-      /* Мережевий збій обробляє respondWith нижче через кешований fallback. */
+      /* respondWith below handles network failure through the cached fallback. */
       .catch(() => {});
     event.waitUntil(cacheUpdate);
     event.respondWith(
       networkResponse
         .then((res) => {
           if (!res.ok) {
-            throw new Error("tailwind.css не оновлено: HTTP " + res.status);
+            throw new Error(
+              "Ресурс оболонки не оновлено (" + requestUrl.pathname + "): HTTP " + res.status,
+            );
           }
           return res;
         })
@@ -116,7 +117,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  /* Статика: кеш → мережа з докешуванням успішних відповідей. */
+  /* Remaining static assets use cache first and cache successful responses. */
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then(
       (hit) =>
