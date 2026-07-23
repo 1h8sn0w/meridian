@@ -328,9 +328,10 @@
     if (finalNote) notes.push(finalNote);
     return { titleText, notes };
   };
-  const buildComponents = (names, pageNumbers, mealSourceText, daySourceText) => {
+  const buildComponents = (names, pageNumbers, mealName, mealSourceText, daySourceText) => {
     const contentStart = mealSourceText.indexOf("\n") + 1;
     const mealStart = daySourceText.indexOf(mealSourceText);
+    const whitespaceNormalizedMealSource = mealSourceText.replace(/\s+/g, " ").trim();
     if (mealStart < 0) {
       throw new Error("Demo recipe source: meal source text not found in day");
     }
@@ -343,6 +344,18 @@
     return names.map((name, index) => {
       const isRepeatedMenuReference = /^(Той|Та) сам/.test(name);
       const start = starts[index];
+      const whitespaceNormalizedName = name.replace(/\s+/g, " ").trim();
+      const normalizedReferenceResolved = isRepeatedMenuReference &&
+        whitespaceNormalizedMealSource.includes(whitespaceNormalizedName + ".");
+      const headingResolved = isRepeatedMenuReference
+        ? normalizedReferenceResolved
+        : start >= 0;
+      if (!headingResolved) {
+        throw new Error(
+          `Demo recipe source: component heading not found: "${name}" ` +
+          `in meal "${mealName}" (pages ${pageNumbers.join(", ")})`,
+        );
+      }
       const nextStart = starts.slice(index + 1).find((candidate) => candidate >= 0);
       const sourceStart = start >= 0 ? start : 0;
       const sourceEnd = nextStart ?? mealSourceText.length;
@@ -402,9 +415,9 @@
         .find((line) => line.trim().startsWith("Всього за день:"))?.trim() ?? null,
       totalCalories: pair(values[6], values[7], day === 11 ? "~1860 ккал (з десертом ~1880)" : undefined, day === 11 ? "~2880 ккал (з десертом ~2900)" : undefined),
       meals: {
-        breakfast: meal("breakfast", breakfast[0], breakfastPages, pair(values[0], values[1]), buildComponents(breakfast[1], sourcePages, sections.breakfast, sourceText), sections.breakfast),
-        lunch: meal("lunch", lunch[0], lunchPages, pair(values[2], values[3]), buildComponents(lunch[1], sourcePages, sections.lunch, sourceText), sections.lunch),
-        dinner: meal("dinner", dinner[0], dinnerPages, pair(values[4], values[5]), buildComponents(dinner[1], sourcePages, sections.dinner, sourceText), sections.dinner),
+        breakfast: meal("breakfast", breakfast[0], breakfastPages, pair(values[0], values[1]), buildComponents(breakfast[1], sourcePages, breakfast[0], sections.breakfast, sourceText), sections.breakfast),
+        lunch: meal("lunch", lunch[0], lunchPages, pair(values[2], values[3]), buildComponents(lunch[1], sourcePages, lunch[0], sections.lunch, sourceText), sections.lunch),
+        dinner: meal("dinner", dinner[0], dinnerPages, pair(values[4], values[5]), buildComponents(dinner[1], sourcePages, dinner[0], sections.dinner, sourceText), sections.dinner),
       },
       extras: [
         ...([3, 4, 9, 10].includes(day) ? [{

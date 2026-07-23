@@ -329,6 +329,89 @@ test("all recoverable component blocks retain ingredients, portions, substitutio
   assert.doesNotMatch(serialized, /наведено дослівно в PDF/);
 });
 
+test("configured component headings must resolve to their source block", async () => {
+  const source = await readFile(dataFileUrl, "utf8");
+  const daySpecsStart = source.indexOf("  const daySpecs = [");
+  assert.ok(daySpecsStart >= 0, "The probe must locate the configured day specs");
+
+  const sourceBeforeDaySpecs = source.slice(0, daySpecsStart);
+  const sourceFromDaySpecs = source.slice(daySpecsStart);
+  const configuredHeading = '["Запечена вівсянка-кейк з чорницею"]';
+  assert.ok(
+    sourceFromDaySpecs.includes(configuredHeading),
+    "The probe must locate a real configured component heading",
+  );
+
+  const unresolvedHeading = "Нерозв’язний компонент";
+  const probeSource = sourceBeforeDaySpecs + sourceFromDaySpecs.replace(
+    configuredHeading,
+    `["${unresolvedHeading}"]`,
+  );
+
+  assert.throws(
+    () => vm.runInNewContext(probeSource, { window: {} }, {
+      filename: dataFileUrl.pathname,
+    }),
+    (error) => {
+      assert.match(error.message, /Demo recipe source: component heading not found/);
+      assert.match(error.message, new RegExp(unresolvedHeading));
+      assert.match(error.message, /Запечена вівсянка з чорницею і горіхами/);
+      assert.match(error.message, /pages 2, 3/);
+      return true;
+    },
+  );
+});
+
+test("repeated-menu references must still resolve to their source block", async () => {
+  const source = await readFile(dataFileUrl, "utf8");
+  const daySpecsStart = source.indexOf("  const daySpecs = [");
+  assert.ok(daySpecsStart >= 0, "The probe must locate the configured day specs");
+
+  const sourceBeforeDaySpecs = source.slice(0, daySpecsStart);
+  const sourceFromDaySpecs = source.slice(daySpecsStart);
+  const configuredHeading =
+    '["Той самий: шпинатний крем-суп + куряча грудка маринована + ' +
+    'нешліфований рис + свіжий салат + хліб"]';
+  assert.ok(
+    sourceFromDaySpecs.includes(configuredHeading),
+    "The probe must locate a real repeated-menu reference",
+  );
+
+  const unresolvedHeading = "Той самий: шпинатний крем-суп";
+  const probeSource = sourceBeforeDaySpecs + sourceFromDaySpecs.replace(
+    configuredHeading,
+    `["${unresolvedHeading}"]`,
+  );
+
+  assert.throws(
+    () => vm.runInNewContext(probeSource, { window: {} }, {
+      filename: dataFileUrl.pathname,
+    }),
+    (error) => {
+      assert.match(error.message, /Demo recipe source: component heading not found/);
+      assert.match(error.message, new RegExp(unresolvedHeading));
+      assert.match(error.message, /Шпинатний крем-суп \+ куряча грудка маринована/);
+      assert.match(error.message, /pages 4/);
+      return true;
+    },
+  );
+});
+
+test("ingredient parsing retains a duration plus sign inside one ingredient", async () => {
+  const data = await loadDemoData();
+  const day3 = data.days.find((day) => day.day === 3);
+  const pearlBarley = day3.meals.lunch.components.find(
+    (component) => component.name === "Перлова каша",
+  );
+
+  assert.ok(pearlBarley, "Day 3 must contain the pearl barley component");
+  assert.ok(
+    pearlBarley.ingredients.includes(
+      "260 г сухої перловки (замочити на 2+ год)",
+    ),
+  );
+});
+
 test("appendix methods and extras contain source text rather than placeholders", async () => {
   const data = await loadDemoData();
 
@@ -426,11 +509,6 @@ test("high-consequence source anchors match independent PDF locations", async ()
   );
   assert.ok(khachapuri.ingredients.includes("2 яйця"));
   assert.ok(khachapuri.ingredients.includes("1 варене яйце для Ч"));
-  assert.ok(
-    data.sourcePages[3].text.includes("холодильник 6+ год."),
-    "A duration plus sign must remain source text, not become an ingredient separator",
-  );
-
   const day2LunchReference = data.days
     .find((day) => day.day === 2)
     .meals.lunch.components[0];

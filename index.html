@@ -546,15 +546,54 @@ const MealStore = (function () {
     return readRaw().find((m) => m.id === id) || null;
   }
 
+  function writeNormalizedMany(normalized) {
+    const meals = readRaw();
+    normalized.forEach((meal) => {
+      const index = meals.findIndex((stored) => stored.id === meal.id);
+      if (index >= 0) meals[index] = meal;
+      else meals.push(meal);
+    });
+    writeRaw(meals);
+    return normalized;
+  }
+
+  /** Normalize the complete batch before the first write and persist it once. */
+  function saveMany(inputs) {
+    if (!Array.isArray(inputs)) {
+      throw new Error("MealStore.saveMany: очікується масив страв.");
+    }
+    if (inputs.length === 0) return [];
+
+    const normalized = inputs.map((input, index) => {
+      try {
+        return createMeal(input);
+      } catch (cause) {
+        const id = input && typeof input === "object" && input.id != null
+          ? String(input.id)
+          : "без id";
+        const error = new Error(
+          "MealStore.saveMany: некоректна страва [" + index + "] («" + id + "»): " +
+          cause.message,
+        );
+        error.cause = cause;
+        throw error;
+      }
+    });
+    const seenIds = new Set();
+    normalized.forEach((meal, index) => {
+      if (seenIds.has(meal.id)) {
+        throw new Error(
+          "MealStore.saveMany: дубль id «" + meal.id + "» у позиції " + index + ".",
+        );
+      }
+      seenIds.add(meal.id);
+    });
+    return writeNormalizedMany(normalized);
+  }
+
   /** Зберегти страву (створити або оновити за id). Повертає збережену страву. */
   function save(input) {
-    const meal = createMeal(input);
-    const meals = readRaw();
-    const i = meals.findIndex((m) => m.id === meal.id);
-    if (i >= 0) meals[i] = meal;
-    else meals.push(meal);
-    writeRaw(meals);
-    return meal;
+    return writeNormalizedMany([createMeal(input)])[0];
   }
 
   /** Видалити страву за id. Повертає true, якщо щось видалено. */
@@ -580,7 +619,7 @@ const MealStore = (function () {
     return (meals || readRaw()).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
   }
 
-  return { getAll, getById, save, remove, clear, filterByType, sumCalories };
+  return { getAll, getById, save, saveMany, remove, clear, filterByType, sumCalories };
 })();
 
 /* ============================================================================
@@ -1167,7 +1206,71 @@ const DemoPool = (function () {
       "(очікуються schemaVersion, seedVersion, 29 sourcePages, provenance і demoMeals).",
     );
   }
+
+  function demoMealError(index, id, message, cause) {
+    const idContext = id ? " (id «" + id + "»)" : "";
+    const error = new Error(
+      "DemoPool: demoMeals[" + index + "]" + idContext + ": " + message,
+    );
+    if (cause) error.cause = cause;
+    return error;
+  }
+
+  function normalizeDemoMeals(rawMeals) {
+    if (rawMeals.length === 0) {
+      throw new Error("DemoPool: demoMeals має містити хоча б одну страву.");
+    }
+
+    const firstIndexById = new Map();
+    return rawMeals.map((rawMeal, index) => {
+      if (!rawMeal || typeof rawMeal !== "object" || Array.isArray(rawMeal)) {
+        throw demoMealError(index, null, "очікується об’єкт страви.", null);
+      }
+
+      const id = typeof rawMeal.id === "string" ? rawMeal.id : "";
+      if (!/^demo-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+        throw demoMealError(
+          index,
+          id,
+          "некоректний стабільний id; очікується формат demo-*.",
+          null,
+        );
+      }
+      if (firstIndexById.has(id)) {
+        throw demoMealError(
+          index,
+          id,
+          "дубль id; перше входження у demoMeals[" + firstIndexById.get(id) + "].",
+          null,
+        );
+      }
+      firstIndexById.set(id, index);
+
+      const type = String(rawMeal.type ?? "").trim();
+      if (!MEAL_TYPES.includes(type)) {
+        throw demoMealError(
+          index,
+          id,
+          "непідтримуваний тип слота «" + type + "»; дозволено: " +
+          MEAL_TYPES.join(", ") + ".",
+          null,
+        );
+      }
+
+      try {
+        const normalized = createMeal(rawMeal);
+        if (normalized.id !== id) {
+          throw new Error("нормалізація змінила стабільний id.");
+        }
+        return normalized;
+      } catch (cause) {
+        throw demoMealError(index, id, "некоректні дані: " + cause.message, cause);
+      }
+    });
+  }
+
   const DEMO_MEALS = dataset.demoMeals;
+  const NORMALIZED_DEMO_MEALS = Object.freeze(normalizeDemoMeals(DEMO_MEALS));
   const SEED_VERSION = dataset.seedVersion;
 
   /* MER-37: стабільний хеш змістовних полів страви (без id) — щоб на оновленні
@@ -1187,22 +1290,42 @@ const DemoPool = (function () {
   /* Хеш канонічної (нормалізованої як у сховищі) демо-страви. */
   function canonHash(m) { return contentHash(createMeal(m)); }
   function seedHashes() { return AppState.get("demoSeedHashes") || {}; }
+  function canonicalSeedHashes() {
+    const hashes = Object.assign({}, seedHashes());
+    NORMALIZED_DEMO_MEALS.forEach((meal) => {
+      hashes[meal.id] = canonHash(meal);
+    });
+    return hashes;
+  }
 
   /** Залити демо-пул у сховище (ідемпотентно — оновлює за стабільними id). */
   function seed() {
-    const hashes = seedHashes();
-    DEMO_MEALS.forEach((m) => { MealStore.save(m); hashes[m.id] = canonHash(m); });
+    const hashes = canonicalSeedHashes();
+    MealStore.saveMany(NORMALIZED_DEMO_MEALS);
     AppState.set("demoSeedHashes", hashes);
-    return DEMO_MEALS.length;
+    return NORMALIZED_DEMO_MEALS.length;
   }
 
   /** Перший запуск: якщо пул порожній і ще не сідували — наповнити. */
   function seedIfFirstRun() {
-    if (!AppState.get("demoSeeded") && MealStore.getAll().length === 0) {
+    if (AppState.get("demoSeeded")) return;
+    const storedMeals = MealStore.getAll();
+    if (storedMeals.length === 0) {
       seed();
-      AppState.set("demoSeeded", true);
-      AppState.set("demoSeedVersion", SEED_VERSION);
+    } else {
+      const storedById = new Map(storedMeals.map((meal) => [meal && meal.id, meal]));
+      const hashes = canonicalSeedHashes();
+      const completeSeedWasStored = NORMALIZED_DEMO_MEALS.every(
+        (meal) => {
+          const stored = storedById.get(meal.id);
+          return stored && contentHash(stored) === hashes[meal.id];
+        },
+      );
+      if (!completeSeedWasStored) return;
+      AppState.set("demoSeedHashes", hashes);
     }
+    AppState.set("demoSeeded", true);
+    AppState.set("demoSeedVersion", SEED_VERSION);
   }
 
   /** MER-37: для demo-страв, засіяних до появи хешів, зафіксувати базовий хеш
@@ -1231,10 +1354,11 @@ const DemoPool = (function () {
   function upgradeSeed() {
     if (!AppState.get("demoSeeded")) return;
     if ((AppState.get("demoSeedVersion") || 1) >= SEED_VERSION) return;
-    const hashes = seedHashes();
+    const hashes = Object.assign({}, seedHashes());
     const existing = {};
     MealStore.getAll().forEach((m) => { existing[m.id] = m; });
-    DEMO_MEALS.forEach((m) => {
+    const updates = [];
+    NORMALIZED_DEMO_MEALS.forEach((m) => {
       const stored = existing[m.id];
       if (!stored) return; // видалену демо-страву не воскрешаємо
       const recorded = hashes[m.id];
@@ -1244,9 +1368,10 @@ const DemoPool = (function () {
       // канонічному форматі, ніж збережена страва, або навпаки.
       if (recorded != null && contentHash(stored) !== recorded &&
           contentHash(createMeal(stored)) !== recorded) return;
-      MealStore.save(m);
+      updates.push(m);
       hashes[m.id] = canonHash(m);
     });
+    if (updates.length > 0) MealStore.saveMany(updates);
     AppState.set("demoSeedHashes", hashes);
     AppState.set("demoSeedVersion", SEED_VERSION);
   }
