@@ -244,6 +244,17 @@ const UI_CLASSES = Object.freeze({
   "import-flags": "mt-2 flex flex-wrap gap-1.5",
   "import-raw": "mb-0 mt-1.5 whitespace-pre-wrap break-words text-xs leading-normal text-muted",
   "import-status": "mb-0 mt-2.5 text-sm [&.err]:text-warning",
+  "shop-cat": "mb-1 mt-4 text-xs uppercase tracking-wider text-subtle",
+  "shop-row": "flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-0 py-2 text-left",
+  "shop-check": "flex h-5 w-5 flex-none items-center justify-center rounded-md border border-line text-xs text-app [&.done]:border-success [&.done]:bg-success",
+  "shop-name": "min-w-0 flex-1 text-sm text-content [&.done]:text-subtle [&.done]:line-through",
+  "shop-qty": "whitespace-nowrap text-sm text-muted [&.done]:text-subtle",
+  "shop-sec": "mb-0.5 mt-5 text-sm font-semibold",
+  "shop-sec-hint": "mb-1 mt-0 text-xs leading-normal text-muted",
+  "shop-progress": "sticky -bottom-3.5 mt-4 -mx-4 -mb-3.5 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3",
+  "shop-bar": "relative h-1.5 flex-1 overflow-hidden rounded-sm bg-line",
+  "shop-bar-fill": "absolute inset-y-0 left-0 rounded-sm bg-success transition-all duration-200",
+  "shop-count": "whitespace-nowrap text-xs text-muted",
 });
 
 function uiClass(className) {
@@ -2379,6 +2390,15 @@ const WeekScreen = (function () {
     btn.addEventListener("click", regenerate);
     top.appendChild(btn);
 
+    // MER-16: список покупок збирається з інгредієнтів страв цього плану.
+    if (plan) {
+      const shop = el("button", "btn block", "Список покупок");
+      shop.type = "button";
+      shop.id = "week-shopping-btn";
+      shop.addEventListener("click", ShoppingScreen.open);
+      top.appendChild(shop);
+    }
+
     if (lastError) top.appendChild(el("p", "week-warn", lastError));
     // MER-17: пов'язаному профілю одразу видно, що меню сімейне — спільне.
     const sharedNote = sharedPlanGuard();
@@ -3341,6 +3361,428 @@ const CalendarScreen = (function () {
   }
 
   return { render, goToday, select };
+})();
+
+/* ============================================================================
+ * MER-16 — Список покупок із тижня.
+ * ----------------------------------------------------------------------------
+ * Збирає інгредієнти всіх страв тижневого плану (зі знімків плану, MER-22)
+ * в один список для магазину. Провенанс даних (AGENTS.md) — тверде правило:
+ *   - кількість лише там, де вона Є в даних страви; сумуються тільки записи
+ *     з однаковою назвою ТА однаковою одиницею («г» до «г», «шт» до «шт»);
+ *   - інгредієнти без кількості — окремим блоком «Без точної кількості»,
+ *     лише назви: застосунок не проставляє «типових» грамовок;
+ *   - категорії — за простим словником назв (демо-пул із PDF); невідома
+ *     назва чесно падає в «Інше», жодного вгадування за підрядками.
+ * Охоплення: «обидва профілі» (плани всіх профілів; спільний сімейний план
+ * фізично один і рахується один раз) або план окремого профілю.
+ * ========================================================================== */
+
+/* Категорії магазину. Порядок тут = порядок секцій у списку. */
+const SHOPPING_CATEGORIES = Object.freeze([
+  { id: "veg", label: "Овочі та зелень" },
+  { id: "fruit", label: "Фрукти та ягоди" },
+  { id: "meat", label: "М'ясо та риба" },
+  { id: "dairy", label: "Молочне та яйця" },
+  { id: "grain", label: "Крупи та бобові" },
+  { id: "bread", label: "Хліб" },
+  { id: "pantry", label: "Бакалія та спеції" },
+  { id: "sweet", label: "Солодощі" },
+  { id: "other", label: "Інше" },
+]);
+
+const ShoppingList = (function () {
+  /* Словник «назва → категорія» — лише точні збіги нормалізованої назви
+   * (підрядки вгадували б категорію там, де її немає в даних). Покриває
+   * назви демо-пулу (PDF Menu_2_tyzhni); решта падає в «Інше». */
+  const CATEGORY_BY_NAME = {};
+  [
+    ["veg", ["шпинат", "огірок", "кріп", "листя салату", "цвітна капуста", "картопля",
+      "морква", "цибуля", "кабачок", "цукіні", "брокколі", "гарбуз", "перець", "зелень",
+      "кріп і петрушка", "печений кабачок", "овочі на вибір (окрім томатів)",
+      "огірок або листя салату", "морква або буряк"]],
+    ["fruit", ["банан", "авокадо", "ягоди", "ягоди (чорниця, малина)"]],
+    ["meat", ["куряче філе", "філе індички", "куряча печінка", "фарш індички", "яловичина",
+      "курячі стегна без шкіри", "перепілки", "слабосолений лосось", "філе лосося",
+      "креветки", "м'ясо мідій", "тунець у власному соку"]],
+    ["dairy", ["яйця", "яйце", "яйця варені", "творожний сир 5%", "кисломолочний сир 5%",
+      "кисломолочний сир 5–9%", "натуральний йогурт", "натуральний йогурт 2,5%",
+      "вершки 10%", "сметана 15%", "вершкове масло", "вода або молоко 2,5%"]],
+    ["grain", ["гречка", "кіноа", "ячна крупа", "нешліфований рис", "варений рис",
+      "вівсяні пластівці", "пшоно", "перлова крупа", "червона сочевиця", "нут"]],
+    ["bread", ["цільнозерновий хліб", "рисові хлібці"]],
+    ["pantry", ["оливкова олія", "олія", "цукор", "ваніль", "куркума", "кмин",
+      "лавровий лист", "сухі трави (розмарин, орегано)", "сухі трави (розмарин, чебрець)",
+      "волоські горіхи", "арахісова паста", "вівсяне борошно", "рисове борошно"]],
+    ["sweet", ["сирок «волошкове поле»", "банановий хліб (скибочка)",
+      "пломбір зі згущеним молоком", "печиво матча"]],
+    ["other", ["овочевий бульйон"]],
+  ].forEach((pair) => pair[1].forEach((name) => { CATEGORY_BY_NAME[name] = pair[0]; }));
+
+  /* Ключ назви: без регістру й зайвих пробілів — «Сирок» і «сирок» один товар. */
+  function nameKey(name) {
+    return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  /** Категорія назви (id з SHOPPING_CATEGORIES); невідома назва → "other". */
+  function categoryOf(name) {
+    return CATEGORY_BY_NAME[nameKey(name)] || "other";
+  }
+
+  const CATEGORY_ORDER = {};
+  SHOPPING_CATEGORIES.forEach((c, i) => { CATEGORY_ORDER[c.id] = i; });
+
+  function bySection(a, b) {
+    return (CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category]) ||
+      a.name.localeCompare(b.name, "uk");
+  }
+
+  /**
+   * Агрегувати інгредієнти страв у позиції списку. Повертає {withQty, noQty}:
+   *   withQty — [{key, name, category, amount, unit}]: однакова назва +
+   *     однакова одиниця підсумовані (кожне входження страви в тиждень —
+   *     реальна потреба, тож рахується щоразу);
+   *   noQty — [{key, name, category}]: кількості в джерелі немає — лише
+   *     назви, дублікати згорнуто. Одиниця без числа («до смаку») теж тут:
+   *     число вигадувати не можна.
+   * Обидві частини відсортовано за категоріями, всередині — за абеткою.
+   */
+  function aggregate(meals) {
+    const withQty = {}, noQty = {};
+    (meals || []).forEach((meal) => {
+      ((meal && meal.ingredients) || []).forEach((entry) => {
+        const isObj = entry && typeof entry === "object";
+        const name = String(isObj ? entry.name : entry).trim();
+        if (!name) return;
+        if (isObj && entry.amount != null) {
+          const unit = String(entry.unit || "").trim();
+          const key = "q:" + nameKey(name) + "|" + unit.toLowerCase();
+          if (!withQty[key]) {
+            withQty[key] = { key, name, category: categoryOf(name), amount: 0, unit };
+          }
+          withQty[key].amount += Number(entry.amount);
+        } else {
+          const key = "n:" + nameKey(name);
+          if (!noQty[key]) noQty[key] = { key, name, category: categoryOf(name) };
+        }
+      });
+    });
+    const toSorted = (map) => Object.keys(map).map((k) => map[k]).sort(bySection);
+    return { withQty: toSorted(withQty), noQty: toSorted(noQty) };
+  }
+
+  /* Плани охоплення без повторів: спільний план сім'ї фізично один — власник
+   * і пов'язані профілі дають ОДИН запис (інакше кількості подвоїлись би). */
+  function plansFor(scope) {
+    const ownerIds = [];
+    (scope === "all" ? ProfileStore.getAll().map((p) => p.id) : [scope]).forEach((id) => {
+      const owner = ProfileStore.planOwnerId(id);
+      if (ownerIds.indexOf(owner) < 0) ownerIds.push(owner);
+    });
+    return ownerIds.map((id) => WeekStore.get(id)).filter((plan) => plan !== null);
+  }
+
+  /** Зібрати список за охопленням ("all" або id профілю). */
+  function collect(scope) {
+    const plans = plansFor(scope);
+    const meals = [];
+    plans.forEach((plan) => plan.days.forEach((day) => MEAL_TYPES.forEach((t) => {
+      if (day.meals && day.meals[t]) meals.push(day.meals[t]);
+    })));
+    const parts = aggregate(meals);
+
+    // Діапазон дат усіх планів охоплення — для підзаголовка.
+    let start = null, end = null;
+    plans.forEach((plan) => {
+      const s = WeekScreen.dayDate(plan, 0);
+      const e = WeekScreen.dayDate(plan, plan.days.length - 1);
+      if (!start || s < start) start = s;
+      if (!end || e > end) end = e;
+    });
+
+    return { plans: plans.length, withQty: parts.withQty, noQty: parts.noQty, start, end };
+  }
+
+  /**
+   * Відбиток планів усіх профілів (незалежно від охоплення): перегенерація
+   * тижня — новий похід у магазин, відмітки «куплено» скидаються; ручна
+   * заміна страви (MER-12) generatedAt не змінює, тож відмітки переживає.
+   */
+  function fingerprint() {
+    const ids = [];
+    ProfileStore.getAll().forEach((p) => {
+      const owner = ProfileStore.planOwnerId(p.id);
+      if (ids.indexOf(owner) < 0) ids.push(owner);
+    });
+    return ids.sort().map((id) => {
+      const plan = WeekStore.get(id);
+      return id + "=" + (plan ? plan.generatedAt : "");
+    }).join("|");
+  }
+
+  return { aggregate, collect, categoryOf, nameKey, plansFor, fingerprint };
+})();
+
+/* Сховище списку покупок: відмітки «куплено», охоплення, відбиток планів.
+ * Одне на застосунок (не на профіль): куплене — куплене для всієї сім'ї. */
+const ShoppingStore = (function () {
+  const KEY = "meridian.shopping.v1";
+
+  function read() {
+    let raw = null;
+    try {
+      raw = JSON.parse(localStorage.getItem(KEY) || "null");
+    } catch (e) {
+      console.warn("ShoppingStore: не вдалося прочитати список, починаю з чистого.", e);
+    }
+    const state = raw && typeof raw === "object" ? raw : {};
+    const checked = state.checked && typeof state.checked === "object" ? state.checked : {};
+    let scope = typeof state.scope === "string" ? state.scope : "all";
+    if (scope !== "all" && !ProfileStore.getById(scope)) scope = "all"; // профіль зник
+    return {
+      scope, checked,
+      fingerprint: typeof state.fingerprint === "string" ? state.fingerprint : "",
+    };
+  }
+
+  function write(state) {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  /** Стан під поточний відбиток планів: відбиток змінився (новий тиждень) —
+   *  відмітки скидаються, охоплення лишається. */
+  function sync(fingerprint) {
+    const state = read();
+    if (state.fingerprint !== fingerprint) {
+      state.checked = {};
+      state.fingerprint = fingerprint;
+      write(state);
+    }
+    return state;
+  }
+
+  /** Перемкнути відмітку позиції. validKeys (ключі поточного списку) обрізає
+   *  застарілі відмітки, щоб мапа не росла безмежно після замін страв. */
+  function toggle(key, validKeys) {
+    const state = read();
+    if (state.checked[key]) delete state.checked[key];
+    else state.checked[key] = true;
+    if (validKeys) {
+      const valid = {};
+      validKeys.forEach((k) => { if (state.checked[k]) valid[k] = true; });
+      state.checked = valid;
+    }
+    write(state);
+    return state;
+  }
+
+  /** Запам'ятати охоплення ("all" або id наявного профілю). */
+  function setScope(scope) {
+    const state = read();
+    state.scope = scope !== "all" && ProfileStore.getById(scope) ? scope : "all";
+    write(state);
+    return state;
+  }
+
+  return { read, sync, toggle, setScope };
+})();
+
+/* Екран «Список покупок» — аркуш поверх застосунку (як рецепт MER-22). */
+const ShoppingScreen = (function () {
+  let overlay = null;
+  let validKeys = []; // ключі позицій поточного рендера (прогрес + обрізання відміток)
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") close();
+  }
+
+  /** Закрити список (якщо відкритий). */
+  function close() {
+    if (!overlay) return;
+    if (overlay._release) overlay._release(); // MER-41: повернути фокус на тригер
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeyDown);
+  }
+
+  function isOpen() { return overlay !== null; }
+
+  /* «21–27 лип» або «28 лип – 3 сер» — без року, як у макеті. */
+  function fmtRange(start, end) {
+    const m = (d) => d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+    return start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
+      ? start.getDate() + "–" + end.getDate() + " " + m(end)
+      : start.getDate() + " " + m(start) + " – " + end.getDate() + " " + m(end);
+  }
+
+  /* Підпис охоплення для підзаголовка; порожньо — коли профіль один. */
+  function scopeLabel(scope, profiles) {
+    if (scope !== "all") {
+      const p = ProfileStore.getById(scope);
+      return p ? p.name : "";
+    }
+    if (profiles.length === 2) return "обидва профілі";
+    return profiles.length > 2 ? "усі профілі" : "";
+  }
+
+  /* Кількість для показу: «120 г» / «4 шт» — лише з реальних сум джерела. */
+  function fmtAmount(item) {
+    return item.amount.toLocaleString("uk-UA") + (item.unit ? " " + item.unit : "");
+  }
+
+  /* Прогрес унизу: рахує відмітки серед позицій поточного списку. */
+  function updateProgress(state) {
+    const fill = document.getElementById("shopping-progress-fill");
+    const count = document.getElementById("shopping-progress-count");
+    if (!fill || !count) return;
+    const total = validKeys.length;
+    const bought = validKeys.filter((k) => state.checked[k]).length;
+    fill.style.width = total ? Math.round((bought / total) * 100) + "%" : "0%";
+    count.textContent = bought + " з " + total + " куплено";
+  }
+
+  /* Рядок позиції — кнопка-перемикач «куплено»: галочка + закреслення.
+   * Відмітка оновлюється на місці (без перерендера), щоб не губити прокрутку. */
+  function itemRow(item, checked, qtyText) {
+    const row = el("button", "shop-row");
+    row.type = "button";
+    row.dataset.key = item.key;
+    const box = el("span", "shop-check");
+    const name = el("span", "shop-name", item.name);
+    row.appendChild(box);
+    row.appendChild(name);
+    let qty = null;
+    if (qtyText) {
+      qty = el("span", "shop-qty", qtyText);
+      row.appendChild(qty);
+    }
+    const apply = (on) => {
+      box.classList.toggle("done", on);
+      name.classList.toggle("done", on);
+      if (qty) qty.classList.toggle("done", on);
+      box.textContent = on ? "✓" : "";
+      row.setAttribute("aria-pressed", on ? "true" : "false");
+      row.setAttribute("aria-label",
+        item.name + (qtyText ? ", " + qtyText : "") + (on ? " — куплено" : ""));
+    };
+    apply(checked);
+    row.addEventListener("click", () => {
+      const state = ShoppingStore.toggle(item.key, validKeys);
+      apply(!!state.checked[item.key]);
+      updateProgress(state);
+    });
+    return row;
+  }
+
+  /* Секції категорій: заголовок + рядки (лише категорії, де щось є). */
+  function appendSections(sheet, items, state, qtyFor) {
+    SHOPPING_CATEGORIES.forEach((cat) => {
+      const inCat = items.filter((it) => it.category === cat.id);
+      if (!inCat.length) return;
+      sheet.appendChild(el("div", "shop-cat", cat.label));
+      inCat.forEach((it) => sheet.appendChild(itemRow(it, !!state.checked[it.key], qtyFor(it))));
+    });
+  }
+
+  /** Перемалювати вміст відкритого аркуша за сховищами. */
+  function render() {
+    if (!overlay) return;
+    validKeys = [];
+    const sheet = overlay.querySelector(".sheet");
+    sheet.innerHTML = "";
+
+    const profiles = ProfileStore.getAll();
+    const state = ShoppingStore.sync(ShoppingList.fingerprint());
+    const data = ShoppingList.collect(state.scope);
+
+    // Хедер: назад + «Тиждень 21–27 лип · обидва профілі».
+    const top = el("div", "recipe-top");
+    const back = el("button", "recipe-back", "‹");
+    back.type = "button";
+    back.title = "Назад";
+    back.setAttribute("aria-label", "Закрити список покупок");
+    back.addEventListener("click", close);
+    top.appendChild(back);
+    const scopeText = scopeLabel(state.scope, profiles);
+    top.appendChild(el("span", "meta",
+      (data.start ? "Тиждень " + fmtRange(data.start, data.end) : "Тижневий план") +
+      (scopeText ? " · " + scopeText : "")));
+    sheet.appendChild(top);
+
+    sheet.appendChild(el("div", "recipe-name", "Список покупок"));
+
+    // Охоплення: обидва профілі / окремий — лише коли профілів кілька.
+    if (profiles.length > 1) {
+      const chips = el("div", "chips");
+      const options = [{ id: "all", label: profiles.length === 2 ? "Обидва профілі" : "Усі профілі" }]
+        .concat(profiles.map((p) => ({ id: p.id, label: p.name })));
+      options.forEach((o) => {
+        const chip = el("button", "chip" + (state.scope === o.id ? " active" : ""), o.label);
+        chip.type = "button";
+        chip.addEventListener("click", () => { ShoppingStore.setScope(o.id); render(); });
+        chips.appendChild(chip);
+      });
+      sheet.appendChild(chips);
+    }
+
+    if (!data.plans) {
+      sheet.appendChild(el("div", "empty",
+        "Плану тижня ще немає. Згенеруйте його на вкладці «Тиждень» — список збереться з інгредієнтів страв."));
+      return;
+    }
+    if (!data.withQty.length && !data.noQty.length) {
+      sheet.appendChild(el("div", "empty", "У стравах цього тижня немає інгредієнтів."));
+      return;
+    }
+
+    validKeys = data.withQty.map((it) => it.key).concat(data.noQty.map((it) => it.key));
+
+    // Позиції з кількістю з джерела — за категоріями.
+    appendSections(sheet, data.withQty, state, fmtAmount);
+
+    // Без точної кількості: лише назви (провенанс — грамовок не вигадуємо).
+    if (data.noQty.length) {
+      sheet.appendChild(el("div", "shop-sec", "Без точної кількості"));
+      sheet.appendChild(el("p", "shop-sec-hint",
+        "У плані дієтолога цих кількостей немає — застосунок їх не вигадує."));
+      appendSections(sheet, data.noQty, state, () => null);
+    }
+
+    // Прогрес купленого (липне до низу аркуша, видно під час прокрутки).
+    const bought = validKeys.filter((k) => state.checked[k]).length;
+    const progress = el("div", "shop-progress");
+    const bar = el("div", "shop-bar");
+    const fill = el("div", "shop-bar-fill");
+    fill.id = "shopping-progress-fill";
+    fill.style.width = validKeys.length ? Math.round((bought / validKeys.length) * 100) + "%" : "0%";
+    bar.appendChild(fill);
+    progress.appendChild(bar);
+    const count = el("span", "shop-count", bought + " з " + validKeys.length + " куплено");
+    count.id = "shopping-progress-count";
+    progress.appendChild(count);
+    sheet.appendChild(progress);
+  }
+
+  /** Відкрити список покупок. */
+  function open() {
+    close();
+    overlay = el("div", "overlay");
+    overlay.id = "shopping-overlay";
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+    const sheet = el("div", "sheet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", "Список покупок");
+    overlay.appendChild(sheet);
+
+    render();
+    document.body.appendChild(overlay);
+    overlay._release = trapDialogFocus(overlay); // MER-41: фокус у діалог
+    document.addEventListener("keydown", onKeyDown);
+  }
+
+  return { open, close, isOpen, render };
 })();
 
 /* ============================================================================
@@ -4504,7 +4946,7 @@ const PWA = (function () {
   return { SW_URL, canRegister, register };
 })();
 
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, SHOPPING_CATEGORIES, ShoppingList, ShoppingStore, ShoppingScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -5998,6 +6440,151 @@ PWA.register();
     ProfileStore.save(active24); // повернути профіль як був (без порційної літери)
     MealStore.remove(meal24.id);
 
+    // --- MER-16: список покупок із тижня ---
+    out.push("");
+    out.push("MER-16: список покупок із тижня");
+
+    // Агрегація: сумуються лише однакова назва + однакова одиниця; без
+    // кількості — окремо, лише назви (жодних вигаданих грамовок).
+    const agg16 = ShoppingList.aggregate([
+      createMeal({ name: "b16", type: "breakfast", calories: 400, ingredients: [
+        { name: "Сирок «Волошкове поле»", amount: 40, unit: "г" },
+        { name: "кисломолочний сир 5%", amount: 200, unit: "г" },
+        "яйця", "кріп",
+      ] }),
+      createMeal({ name: "l16", type: "lunch", calories: 600, ingredients: [
+        { name: "сирок «Волошкове поле»", amount: 80, unit: "г" },
+        { name: "кисломолочний сир 5%", amount: 1, unit: "уп" },
+        { name: "сіль", unit: "до смаку" },
+        "яйця", "гречка", "драконів фрукт",
+      ] }),
+    ]);
+    const q16 = {};
+    agg16.withQty.forEach((it) => { q16[it.name + "|" + it.unit] = it.amount; });
+    mark(check("Агрегація: однакова назва (без регістру) + одиниця → одна позиція із сумою",
+      q16["Сирок «Волошкове поле»|г"] === 120 &&
+      agg16.withQty.filter((it) => ShoppingList.nameKey(it.name).indexOf("сирок") === 0).length === 1));
+    mark(check("Агрегація: різні одиниці однієї назви НЕ сумуються — окремі позиції",
+      q16["кисломолочний сир 5%|г"] === 200 && q16["кисломолочний сир 5%|уп"] === 1));
+    const noQtyNames16 = agg16.noQty.map((it) => it.name);
+    mark(check("Без кількості: лише назви, без дублів; одиниця без числа («до смаку») теж тут",
+      noQtyNames16.filter((n) => n === "яйця").length === 1 &&
+      noQtyNames16.indexOf("кріп") >= 0 && noQtyNames16.indexOf("сіль") >= 0 &&
+      agg16.noQty.every((it) => it.amount === undefined)));
+    mark(check("Категорії: за словником демо-пулу; невідома назва чесно падає в «Інше»",
+      ShoppingList.categoryOf("Сирок «Волошкове поле»") === "sweet" &&
+      ShoppingList.categoryOf("гречка") === "grain" &&
+      ShoppingList.categoryOf("куряче філе") === "meat" &&
+      ShoppingList.categoryOf("драконів фрукт") === "other"));
+
+    // Охоплення і спільний план: сімейний план фізично один — не подвоюється.
+    const ownerA16 = ProfileStore.getActive();
+    const poolA16 = [
+      createMeal({ name: "bA16", type: "breakfast", calories: 500,
+        ingredients: [{ name: "Гречка", amount: 100, unit: "г" }] }),
+      createMeal({ name: "lA16", type: "lunch", calories: 500, ingredients: ["яйця"] }),
+      createMeal({ name: "dA16", type: "dinner", calories: 500 }),
+      createMeal({ name: "sA16", type: "snack", calories: 500 }),
+    ];
+    WeekStore.save(WeekGenerator.generateWeek(poolA16,
+      { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 2 }), ownerA16.id);
+    const partner16 = ProfileStore.save({
+      name: "Покупці-2", targetCalories: 1500, corridor: 100, sharedPlanWith: ownerA16.id,
+    });
+    const all16 = ShoppingList.collect("all");
+    const own16 = ShoppingList.collect(partner16.id);
+    mark(check("Охоплення «обидва профілі»: спільний план рахується один раз (2 дні × 100 г = 200 г)",
+      all16.withQty.length === 1 && all16.withQty[0].amount === 200 && all16.withQty[0].unit === "г"));
+    mark(check("Охоплення профілю зі спільним планом — той самий список, що й «обидва»",
+      JSON.stringify(own16.withQty) === JSON.stringify(all16.withQty) &&
+      JSON.stringify(own16.noQty) === JSON.stringify(all16.noQty)));
+
+    // Незалежний профіль із власним планом: «усі» об'єднують, окремий — лише своє.
+    const indep16 = ProfileStore.save({ name: "Окремі покупки", targetCalories: 2000, corridor: 100 });
+    const poolC16 = [
+      createMeal({ name: "bC16", type: "breakfast", calories: 500,
+        ingredients: [{ name: "Рис", amount: 50, unit: "г" }] }),
+      createMeal({ name: "lC16", type: "lunch", calories: 500 }),
+      createMeal({ name: "dC16", type: "dinner", calories: 500 }),
+      createMeal({ name: "sC16", type: "snack", calories: 500 }),
+    ];
+    WeekStore.save(WeekGenerator.generateWeek(poolC16,
+      { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 }), indep16.id);
+    const union16 = ShoppingList.collect("all");
+    const only16 = ShoppingList.collect(indep16.id);
+    mark(check("Охоплення «всі профілі»: плани різних власників об'єднуються",
+      union16.withQty.some((it) => it.name === "Гречка" && it.amount === 200) &&
+      union16.withQty.some((it) => it.name === "Рис" && it.amount === 50)));
+    mark(check("Охоплення окремого профілю: лише його план",
+      only16.withQty.length === 1 && only16.withQty[0].name === "Рис"));
+
+    // Відмітки «куплено» живуть у сховищі; новий тиждень (перегенерація) скидає.
+    const fp16 = ShoppingList.fingerprint();
+    ShoppingStore.sync(fp16);
+    const grechkaKey16 = union16.withQty.filter((it) => it.name === "Гречка")[0].key;
+    ShoppingStore.toggle(grechkaKey16);
+    mark(check("Відмітка зберігається у сховищі й переживає повторне читання",
+      ShoppingStore.sync(fp16).checked[grechkaKey16] === true &&
+      ShoppingStore.read().fingerprint === fp16));
+    // Пауза 5 мс: generatedAt нового плану мусить відрізнятись від старого.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    WeekStore.save(WeekGenerator.generateWeek(poolC16,
+      { targetCalories: 2000, corridor: 100, antiRepeatDays: 1, days: 1 }), indep16.id);
+    const fpNew16 = ShoppingList.fingerprint();
+    mark(check("Перегенерація тижня — новий похід у магазин: відмітки скинуто",
+      fpNew16 !== fp16 && Object.keys(ShoppingStore.sync(fpNew16).checked).length === 0));
+
+    // Екран: категорії, блок без кількості, закреслення, прогрес.
+    ShoppingScreen.open();
+    const sheet16 = () => document.querySelector("#shopping-overlay .sheet");
+    mark(check("Екран: відкривається; секції категорій і блок «Без точної кількості» на місці",
+      !!sheet16() &&
+      sheet16().textContent.indexOf("Крупи та бобові") >= 0 &&
+      sheet16().textContent.indexOf("Молочне та яйця") >= 0 &&
+      sheet16().textContent.indexOf("Без точної кількості") >= 0));
+    const rows16 = () => sheet16().querySelectorAll(".shop-row");
+    const eggsRow16 = Array.prototype.filter.call(rows16(),
+      (r) => r.textContent.indexOf("яйця") >= 0)[0];
+    mark(check("Кількість лише з джерела: «200 г» показано, у рядку «яйця» цифр немає",
+      sheet16().textContent.indexOf("200 г") >= 0 &&
+      !!eggsRow16 && !/\d/.test(eggsRow16.textContent)));
+
+    const firstRow16 = rows16()[0];
+    firstRow16.click();
+    mark(check("Відмітка купленого: клік → галочка, закреслення і прогрес «1 з N куплено»",
+      firstRow16.getAttribute("aria-pressed") === "true" &&
+      firstRow16.querySelector(".shop-name").classList.contains("done") &&
+      document.getElementById("shopping-progress-count").textContent ===
+        "1 з " + rows16().length + " куплено"));
+    firstRow16.click();
+    mark(check("Повторний клік знімає відмітку",
+      firstRow16.getAttribute("aria-pressed") === "false" &&
+      document.getElementById("shopping-progress-count").textContent ===
+        "0 з " + rows16().length + " куплено"));
+
+    // Чипи охоплення: «Усі профілі» + по одному на кожен профіль.
+    const chips16 = sheet16().querySelectorAll(".chip");
+    mark(check("Чипи охоплення: спільна опція + по одному чипу на профіль",
+      chips16.length === ProfileStore.getAll().length + 1));
+    Array.prototype.filter.call(chips16, (c) => c.textContent === "Окремі покупки")[0].click();
+    mark(check("Перемикання охоплення: видно лише план обраного профілю; вибір збережено",
+      sheet16().textContent.indexOf("Рис") >= 0 &&
+      sheet16().textContent.indexOf("Гречка") < 0 &&
+      ShoppingStore.read().scope === indep16.id));
+    ShoppingScreen.close();
+    mark(check("Екран закривається", !document.getElementById("shopping-overlay")));
+
+    // Кнопка на екрані «Тиждень» — коли план є.
+    WeekScreen.render();
+    const shopBtn16 = document.getElementById("week-shopping-btn");
+    mark(check("Кнопка «Список покупок» на екрані «Тиждень» відкриває список",
+      !!shopBtn16 && (shopBtn16.click(), !!document.getElementById("shopping-overlay"))));
+    ShoppingScreen.close();
+
+    // Прибрати тестові профілі (план незалежного піде разом із профілем).
+    ProfileStore.remove(indep16.id);
+    ProfileStore.remove(partner16.id);
+
     // --- MER-19: PWA + офлайн ---
     out.push("");
     out.push("MER-19: PWA (маніфест, service worker, офлайн-кеш)");
@@ -6284,6 +6871,7 @@ PWA.register();
     RecipeScreen.close();
     ProfilesScreen.close();
     PdfImport.close();
+    ShoppingScreen.close();
     // Акцент і перемикач — за відновленим активним профілем (MER-17).
     applyProfileAccent();
     ProfileSwitcher.render();
