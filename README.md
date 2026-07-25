@@ -2,33 +2,29 @@
 
 # Meridian
 
-**Планувальник харчування, що сам збирає тижневий раціон із перевірених планів дієтолога.**
+**A meal planner that assembles your week from your dietitian's approved plans.**
 
-![status](https://img.shields.io/badge/статус-POC%20завершено-46c98b)
-![phase](https://img.shields.io/badge/V2-local--first-4f9dff)
-![license](https://img.shields.io/badge/ліцензія-MIT-46c98b)
-![stack](https://img.shields.io/badge/стек-HTML%20%C2%B7%20vanilla%20JS%20%C2%B7%20Tailwind-ffb454)
+![status](https://img.shields.io/badge/status-working%20prototype-46c98b)
+![next](https://img.shields.io/badge/next-V2%20·%20local--first-4f9dff)
+![license](https://img.shields.io/badge/license-MIT-46c98b)
 
-<img src="docs/preview.svg" width="360" alt="Головний екран Meridian — годинник дня та активна страва">
+<img src="docs/preview.svg" width="360" alt="Meridian home screen — day clock and active meal">
+
+[Українською](README-UA.md)
 
 </div>
 
 ---
 
-## Про проєкт
+Meridian turns a dietitian's PDF meal plans into a working app. It splits them into individual meals and assembles a new week on its own — keeping the dietitian's calorie targets and meal structure, but mixing dishes across several plans so the rotation doesn't get stale. The home screen answers one question: what to eat right now.
 
-Meridian бере плани від дієтолога (PDF), розкладає їх на окремі страви й перетворює на живий застосунок. Замість гортання PDF — головний екран показує **що їсти зараз** через годинник дня, а система **сама щотижня збирає новий раціон** із пулу страв: тримає калорійність і структуру дієтолога, але міксує страви з кількох планів, щоб не набридало.
+Unlike general-purpose meal planners, it never invents food. Every meal comes from a plan your dietitian approved.
 
-**Чим відрізняється від Eat This Much, PlateJoy тощо:** ті планують із власних баз рецептів. Meridian планує **лише зі страв, затверджених вашим дієтологом** — медично безпечніше й персональніше.
+## How the generator works
 
-## Ключові можливості
+For each slot it picks a meal so that the type matches, the day's calories stay inside a corridor around the target (±100 kcal by default), no dish repeats too often, and the week draws on several source plans rather than copying one. It's a constraint satisfaction problem, solved greedily with randomness and bounded backtracking. No ML involved.
 
-- **Годинник дня** — головний екран підсвічує активний прийом їжі (сніданок / обід / вечеря / перекус) за поточним часом і показує страву прямо зараз.
-- **Генератор тижня** — сам збирає план на 7 днів: правильні типи страв, денна калорійність у коридорі ±100 ккал, без частих повторів, з міксом кількох планів.
-- **Ручне керування** — замінити окрему страву або перегенерувати весь тиждень одним дотиком.
-- **Календар** — огляд планів на будь-який день, вперед і назад.
-
-## Ядро: як працює генератор
+## Run it
 
 Для кожного дня добирає по одній страві на слот так, щоб:
 
@@ -43,63 +39,49 @@ Meridian бере плани від дієтолога (PDF), розкладає
 
 | Шар | Вибір | Чому |
 |-----|-------|------|
-| Застосунок | Статичний HTML + vanilla JS | Логіка лишається в `index.html`, повні демо-рецепти — в окремому build-free data-скрипті |
+| Застосунок | Один HTML-файл + vanilla JS | Уся логіка лишається без фреймворка й бандлера |
 | Дані | `localStorage` браузера | Пул страв і плани переживають перезавантаження, без акаунтів |
 | UI | Tailwind CSS v4, mobile-first | Статичний зібраний CSS без runtime-залежності |
 | Бекенд | немає (у POC) | Спершу довести цінність, потім нарощувати |
 
-Після підтвердження POC прийнято напрям V2: **local-first** архітектура з
-локальним SQLite, PowerSync, self-hosted Supabase/PostgreSQL, Vite + TanStack
-Start і Capacitor. Рішення та перевірочні шлюзи:
-[`docs/V2_CONTEXT.md`](docs/V2_CONTEXT.md).
+Після POC — перенесення на React + невеликий бекенд для синхронізації між пристроями та імпорту PDF.
 
 ## Запуск
 
-Застосунок розгортається як готові статичні файли: `index.html`, `data/demo-recipes.js` і збережений у репозиторії `tailwind.css` не потребують npm чи runtime-збірки. Для реального користування відкривайте його **через локальний сервер** (сталий `http://localhost`-origin), а не подвійним кліком: `file://` і `localhost` — це **різні origin** сховища localStorage, тож дані, збережені в одному, «зникнуть» в іншому. Через `file://` ще й не працює офлайн/PWA — service worker потребує `http(s)` або `localhost`.
+Застосунок розгортається як готові статичні файли: `index.html` і збережений у репозиторії `tailwind.css` не потребують npm чи runtime-збірки. Для реального користування відкривайте його **через локальний сервер** (сталий `http://localhost`-origin), а не подвійним кліком: `file://` і `localhost` — це **різні origin** сховища localStorage, тож дані, збережені в одному, «зникнуть» в іншому. Через `file://` ще й не працює офлайн/PWA — service worker потребує `http(s)` або `localhost`.
 
 ```
 git clone https://github.com/1h8sn0w/meridian.git
 cd meridian
-# будь-який статичний сервер на сталому порту, напр.:
-npx serve .                 # або: python3 -m http.server 8000
-# і відкрий надрукований http://localhost:… у браузері
+npx serve .          # or: python3 -m http.server 8000
 ```
 
-Швидкий погляд без збереження — можна й подвійним кліком (`file://`). Але для збереження плану, встановлення PWA і тестів тримайтесь **однієї** `http://localhost`-адреси.
+Open the `http://localhost:…` address it prints — not `index.html` by double-click. `file://` and `localhost` are separate localStorage origins, so data saved under one vanishes under the other, and service workers need `http(s)`.
 
-### Робота зі стилями
+## Stack
 
-Tailwind CSS і CLI зафіксовані на версії `4.3.3` та потребують Node.js 20+. npm потрібен лише авторам, які змінюють utility-класи або тему; готовий `tailwind.css` комітиться разом із HTML.
+One HTML file, vanilla JS, `localStorage`, Tailwind CSS v4. No backend, no bundler, no framework — deliberately, until the idea is proven. Next is a local-first rewrite on SQLite + PowerSync + Supabase.
+
+<details>
+<summary>Working on the styles</summary>
+
+Runtime and deploy stay build-free: `index.html` and the generated `tailwind.css` are committed and served as static files. npm is only needed to change utility classes or the theme.
 
 ```sh
 npm ci
-npm run build:css   # одноразова детермінована збірка
-npm run watch:css   # перебудова під час редагування
+npm run build:css    # one-off deterministic build
+npm run watch:css    # rebuild while editing
 ```
 
-Після зміни класів перед передачею роботи запускайте `npm run build:css`. Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4 і Firefox 128.
+Node.js 20+. `tailwindcss` and `@tailwindcss/cli` are pinned to `4.3.3`. Preflight is deliberately left out so native form controls keep their appearance. Run `npm run build:css` before handing work over. Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
-## Роадмап
+</details>
 
-**Фаза 1 · POC — завершено (16 лип 2026).** Головний екран з годинником дня та активною стравою, пул страв із ручним редагуванням, генератор тижня з перегенерацією та заміною окремої страви, календар. Головне доведено — генератор працює.
+**Фаза 2 · V1 — наступна.** Імпорт PDF-планів, список покупок, профіль на двох, історія/улюблене, PWA + офлайн, нагадування.
 
-**Фаза 2 · V1 — у роботі.** Профілі, порції, список покупок та інші розширення
-POC продовжують перевіряти продуктову модель.
-
-**Фаза 3 · V2 · Local-first — напрям прийнято.** Перед портом домену й екранів
-потрібен вертикальний зріз: auth/сім'я, ізоляція даних, офлайн-запис,
-синхронізація двох клієнтів, конфлікти, Capacitor і backup/restore. Якщо цей
-шлюз не проходить, запасний шлях — сервер-авторитетний варіант A.
-
-## Документація
+Project context for AI agents lives in [`AGENTS.md`](AGENTS.md). Architecture decisions, research and the task board live in Linear, not in this repository.
 
 - [`AGENTS.md`](AGENTS.md) — контекст проєкту для AI-агентів (опис, ціль, стек, конвенції).
-- [`docs/V2_CONTEXT.md`](docs/V2_CONTEXT.md) — точка входу для реалізації V2:
-  межі, ризики, перевірочні шлюзи й карта контексту.
-- [`docs/adr/001-v2-architecture.md`](docs/adr/001-v2-architecture.md) — прийняте
-  архітектурне рішення.
-- [`docs/research/README.md`](docs/research/README.md) — історичне дослідження й
-  правила його читання.
 - Задачі, пріоритети й фази ведуться в Linear (команда Meridian).
 
 ## Ліцензія
