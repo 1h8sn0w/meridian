@@ -1,0 +1,111 @@
+# Meridian V2 — власний compose. Рівно три сервіси: застосунок, PowerSync, Caddy.
+#
+# Supabase піднімається ОКРЕМО офіційним compose (~11 сервісів) і руками не
+# дублюється. Наш стек підключається до його мережі як до зовнішньої.
+# Порядок запуску: спершу Supabase, потім цей файл. Деталі — infra/README.md.
+#
+# Кожне ім'я поля звірено з першоджерелом:
+#   PowerSync — powersync-ja/self-host-demo (services/powersync.yaml,
+#               demos/supabase/powersync/service.yaml)
+#   Caddy     — офіційний образ caddy на Docker Hub
+#   Supabase  — supabase/supabase, каталог docker/ (`name: supabase`,
+#               отже мережа проєкту — `supabase_default`)
+
+name: meridian
+
+services:
+  # --- Застосунок ------------------------------------------------------------
+  # Прод-збірка apps/web: самодостатній Node-сервер .output/server/index.mjs.
+  web:
+    build:
+      context: ..
+      dockerfile: infra/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: ${WEB_PORT:-3000}
+      # Публічні адреси віддаються браузеру сервером під час SSR, а не
+      # запікаються у клієнтський бандл. Якщо MER-49 вирішить інакше —
+      # вони переїдуть у build args (Vite інлайнить env на етапі збірки).
+      PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL}
+      PUBLIC_POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL}
+      POWERSYNC_URL: ${POWERSYNC_URL}
+    expose:
+      - ${WEB_PORT:-3000}
+
+  # --- PowerSync -------------------------------------------------------------
+  powersync:
+    image: journeyapps/powersync-service:1.23.3
+    restart: unless-stopped
+    # Об'єднаний режим: API-сервер і воркер реплікації в одному процесі.
+    # Розділити можна командами ['start','-r','api'] і ['start','-r','sync'].
+    command: ['start', '-r', 'unified']
+    volumes:
+      # Конфіг монтується лише для читання; у каталозі — service.yaml і
+      # sync-config.yaml.
+      - ./powersync:/config:ro
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/service.yaml
+      # Рекомендація PowerSync: ~80% доступної пам'яті контейнера.
+      NODE_OPTIONS: --max-old-space-size=1000
+      # Підстановка `!env` у service.yaml працює ЛИШЕ для змінних із
+      # префіксом PS_ — звідси іменування нижче.
+      PS_DATABASE_URI: ${PS_DATABASE_URI}
+      PS_STORAGE_URI: ${PS_STORAGE_URI}
+      PS_JWKS_URL: ${PS_JWKS_URL}
+      PS_PORT: ${PS_PORT:-8080}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:${PS_PORT:-8080}/probes/liveness').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 1s
+      retries: 15
+    # Порт відкривається лише на петлі — щоб health-ендпоінт можна було
+    # смикнути без Caddy і без довіри до його локального CA. Ззовні сервіс
+    # доступний через Caddy.
+    ports:
+      - 127.0.0.1:${PS_PORT:-8080}:${PS_PORT:-8080}
+    networks:
+      - default
+      - supabase
+
+  # --- Caddy -----------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      # Офіційний образ вимагає монтувати КАТАЛОГ у /etc/caddy, а не сам
+      # Caddyfile — інакше Caddy не перечитає конфіг.
+      - ./caddy:/etc/caddy:ro
+      # Іменовані томи: сертифікати мають пережити перезапуск. /data — не кеш.
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_HOST: ${APP_HOST:-localhost}
+      SYNC_HOST: ${SYNC_HOST:-sync.localhost}
+      WEB_PORT: ${WEB_PORT:-3000}
+      PS_PORT: ${PS_PORT:-8080}
+    depends_on:
+      - web
+      - powersync
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  default:
+  # Мережа офіційного compose Supabase. Створюється ним, тому external.
+  supabase:
+    name: ${SUPABASE_NETWORK:-supabase_default}
+    external: true

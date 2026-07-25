@@ -1,0 +1,26 @@
+# Два імені хостів: застосунок і sync-ендпоінт. HTTPS Caddy бере сам —
+# сертифікатних скриптів тут немає й бути не повинно.
+#
+# Значення підставляються з environment сервісу caddy у docker-compose.yml.
+# Синтаксис {$VAR:default} — офіційний Caddyfile: підстановка відбувається
+# ДО парсингу конфігу.
+#
+# Локально хости за замовчуванням — localhost і sync.localhost: для них Caddy
+# видає сертифікати власним внутрішнім CA, без звернення до Let's Encrypt.
+# Для реального домену досить задати APP_HOST і SYNC_HOST у .env.
+
+{$APP_HOST:localhost} {
+	encode zstd gzip
+	reverse_proxy web:{$WEB_PORT:3000}
+}
+
+{$SYNC_HOST:sync.localhost} {
+	encode zstd gzip
+
+	reverse_proxy powersync:{$PS_PORT:8080} {
+		# Потік синхронізації — довгоживучий і поступовий. flush_interval -1
+		# вимикає буферизацію відповіді й віддає дані одразу після кожного
+		# запису. Апгрейд до WebSocket Caddy проксіює автоматично.
+		flush_interval -1
+	}
+}

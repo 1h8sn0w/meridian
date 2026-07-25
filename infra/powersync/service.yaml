@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://unpkg.com/@powersync/service-schema@latest/json-schema/powersync-config.json
+#
+# Конфіг PowerSync Service (Open Edition), об'єднаний режим.
+# Звірено з powersync-ja/self-host-demo → demos/supabase/powersync/service.yaml
+# і зі схемою @powersync/service-schema.
+#
+# Підстановка змінних середовища: `!env ІМ'Я` працює ЛИШЕ для змінних із
+# префіксом PS_. Тому всі наші імена — PS_*.
+
+telemetry:
+  # Meridian працює з даними про харчування сім'ї — анонімізовану телеметрію
+  # теж не віддаємо. Ключ штатний, значення свідоме.
+  disable_telemetry_sharing: true
+
+# --- Джерело реплікації ------------------------------------------------------
+replication:
+  connections:
+    - type: postgresql
+      # Пряме підключення до Postgres Supabase (сервіс `db`), НЕ через пулер
+      # supavisor: логічна реплікація потребує прямого з'єднання.
+      uri: !env PS_DATABASE_URI
+      # Усередині docker-мережі TLS немає — перевіряти нічого.
+      sslmode: disable
+
+# --- Сховище бакетів синхронізації -------------------------------------------
+# Postgres, а не MongoDB: інакше довелося б піднімати ще й Mongo з реплікасетом
+# (це +2 сервіси й окремий рушій БД). Postgres як bucket storage підтримується
+# офіційно з 1.3.8. PowerSync сам створює свою схему в указаній базі —
+# бутстрап не потрібен, і `docker compose up -d` працює одразу.
+#
+# УВАГА: сховище живе в тій самій базі, яку PowerSync реплікує. Тому публікація
+# `powersync` (MER-44) має перелічувати таблиці явно — `FOR TABLE ...`.
+# `CREATE PUBLICATION powersync FOR ALL TABLES` затягне в реплікацію власні
+# таблиці PowerSync і зациклить сервіс.
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: disable
+
+# --- API ---------------------------------------------------------------------
+port: !env PS_PORT
+
+sync_config:
+  path: sync-config.yaml
+
+# --- Автентифікація клієнтів -------------------------------------------------
+client_auth:
+  # Режим Supabase. Автовизначення проєкту з рядка підключення для self-host не
+  # спрацьовує, тому JWKS-ендпоінт задано явно.
+  supabase: true
+  jwks_uri: !env PS_JWKS_URL
+  audience: ['authenticated']
+
+# --- Проби ------------------------------------------------------------------
+# HTTP-проби: GET /probes/liveness і GET /probes/startup. Саме liveness смикає
+# healthcheck контейнера в docker-compose.yml.
+healthcheck:
+  probes:
+    use_http: true

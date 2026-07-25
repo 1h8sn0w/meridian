@@ -231,7 +231,7 @@ variants на кшталт `[&.active]` або `[&_input]` дозволені: �
 | `apps/web` | Vite + TanStack Start. Цю ж збірку згодом загортає Capacitor |
 | `packages/core` | Доменна логіка чистим TS. Без залежностей від фреймворків і від БД |
 | `packages/db` | Drizzle-схема + міграції для Supabase Postgres |
-| `infra` | Docker Compose, Caddyfile, конфіг PowerSync, приклад `.env` (MER-43) |
+| `infra` | Docker Compose нашого стека, Caddyfile, конфіг PowerSync, `.env.example` |
 
 **Інструментарій:** pnpm 11 (`packageManager` у корені), Node.js 22+, TypeScript,
 Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожному пакеті свій.
@@ -252,8 +252,33 @@ Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожн�
 
 **Прод-збірка веба:** `pnpm --filter @meridian/web build` дає самодостатній
 Node-сервер — `.output/server/index.mjs` (клієнт — `.output/public`), запуск
-`pnpm --filter @meridian/web start`, порт із `PORT`. Саме це піде в контейнер
-у MER-43.
+`pnpm --filter @meridian/web start`, порт із `PORT`. Саме це кладе в образ
+`infra/web.Dockerfile` (контекст збірки — корінь репозиторію, бо воркспейсу
+потрібні кореневі маніфести й лок-файл).
+
+### Інфраструктура self-host (MER-43)
+
+**Два compose, не один.** Supabase піднімається власним офіційним compose
+(~11 сервісів) — його не дублюють і не переписують руками. Наш
+`infra/docker-compose.yml` тримає рівно три сервіси — `web`, `powersync`,
+`caddy` — і приєднується до мережі Supabase як до зовнішньої. Порядок запуску
+обов'язковий: спершу Supabase.
+
+**Конфіги звіряються з першоджерелом, а не з пам'яті.** Для PowerSync це
+`powersync-ja/self-host-demo` і JSON-схема `@powersync/service-schema`; для
+Supabase — каталог `docker/` репозиторію `supabase/supabase`; для Caddy —
+офіційний образ. Інструкція V2 подекуди вже застаріла (напр. конфіг PowerSync
+називається `service.yaml`, а не `powersync.yaml`) — виграє документація,
+розбіжність фіксується в `infra/README.md`.
+
+**Підстановка змінних у конфізі PowerSync** — `!env ІМ'Я`, і працює вона **лише
+для змінних із префіксом `PS_`**. Тому всі наші імена там — `PS_*`.
+
+**Секрети — лише в `infra/.env`.** У git іде `infra/.env.example` з порожніми
+секретами; у образ секрети не потрапляють (`.dockerignore` у корені).
+
+Рішення по сховищу бакетів, реплікації та маршрутизації — з обґрунтуванням і
+наслідками для наступних задач — в `infra/README.md`. Тут вони не дублюються.
 
 ---
 

@@ -1,0 +1,37 @@
+# Контекст збірки образу — корінь репозиторію (див. infra/web.Dockerfile).
+# Сюди не потрапляє нічого, що образу не потрібне.
+
+.git
+.github
+.claude
+.idea
+.vscode
+
+node_modules
+**/node_modules
+
+# Артефакти збірок — образ будує їх сам
+**/dist
+**/.output
+**/.nitro
+**/.tanstack
+
+# Секрети — у образі їм не місце в жодному вигляді
+**/.env
+**/.env.local
+
+# V1 — статичний застосунок, до збірки apps/web стосунку не має
+index.html
+sw.js
+manifest.webmanifest
+tailwind.css
+tailwind.input.css
+data/
+icons/
+vendor/
+tests/
+docs/
+
+# Документація
+*.md
+LICENSE
