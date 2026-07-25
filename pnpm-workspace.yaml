@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Дозволені build-скрипти залежностей (pnpm 11: заміна onlyBuiltDependencies).
+# esbuild і lightningcss — зі стартера TanStack Start; решта — нативні модулі
+# наших же інструментів: unrs-resolver (eslint-plugin-import-x),
+# @parcel/watcher (drizzle-kit).
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  lightningcss: true
+  unrs-resolver: true

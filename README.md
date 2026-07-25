@@ -41,17 +41,39 @@ One HTML file, vanilla JS, `localStorage`, Tailwind CSS v4. No backend, no bundl
 <details>
 <summary>Working on the styles</summary>
 
-Runtime and deploy stay build-free: `index.html` and the generated `tailwind.css` are committed and served as static files. npm is only needed to change utility classes or the theme.
+Runtime and deploy stay build-free: `index.html` and the generated `tailwind.css` are committed and served as static files. The toolchain is only needed to change utility classes or the theme.
 
 ```sh
-npm ci
-npm run build:css    # one-off deterministic build
-npm run watch:css    # rebuild while editing
+corepack enable pnpm
+pnpm install
+pnpm build:css       # one-off deterministic build
+pnpm watch:css       # rebuild while editing
 ```
 
-Node.js 20+. `tailwindcss` and `@tailwindcss/cli` are pinned to `4.3.3`. Preflight is deliberately left out so native form controls keep their appearance. Run `npm run build:css` before handing work over. Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
+Node.js 22+ and pnpm 11 (the repo is a pnpm workspace since V2 — see below). `tailwindcss` and `@tailwindcss/cli` are pinned to `4.3.3`. Preflight is deliberately left out so native form controls keep their appearance. Run `pnpm build:css` before handing work over. Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
+
+## Repository layout
+
+V1 — the prototype described above — is the static app at the repository root. V2, the local-first rewrite, is a pnpm workspace alongside it:
+
+| Path | What |
+|------|------|
+| `apps/web` | Vite + TanStack Start app; Capacitor will later wrap this same build |
+| `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
+| `packages/db` | Drizzle schema and migrations for Supabase Postgres |
+| `infra` | Docker Compose, Caddyfile, PowerSync config, `.env` example |
+
+```sh
+pnpm install
+pnpm dev             # apps/web on http://localhost:3000
+pnpm build           # every package
+pnpm lint
+pnpm typecheck
+pnpm format
+pnpm db:migrate
+```
 
 ## Docs
 

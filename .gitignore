@@ -14,6 +14,12 @@ desktop.ini
 tmp/
 node_modules/
 
+# Збірки воркспейсу V2
+dist/
+.output/
+.nitro/
+.tanstack/
+
 # Env
 .env
 .env.local

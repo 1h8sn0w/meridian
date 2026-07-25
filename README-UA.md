@@ -41,17 +41,39 @@ npx serve .          # або: python3 -m http.server 8000
 <details>
 <summary>Робота зі стилями</summary>
 
-Runtime і деплой лишаються build-free: `index.html` і згенерований `tailwind.css` комітяться й віддаються як статичні файли. npm потрібен лише для зміни utility-класів або теми.
+Runtime і деплой лишаються build-free: `index.html` і згенерований `tailwind.css` комітяться й віддаються як статичні файли. Інструментарій потрібен лише для зміни utility-класів або теми.
 
 ```sh
-npm ci
-npm run build:css    # одноразова детермінована збірка
-npm run watch:css    # перебудова під час редагування
+corepack enable pnpm
+pnpm install
+pnpm build:css       # одноразова детермінована збірка
+pnpm watch:css       # перебудова під час редагування
 ```
 
-Node.js 20+. `tailwindcss` і `@tailwindcss/cli` зафіксовані на `4.3.3`. Preflight свідомо не підключено, щоб не змінювати нативний вигляд form controls. Перед передачею роботи запускати `npm run build:css`. Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
+Node.js 22+ і pnpm 11 (з V2 репозиторій — це pnpm-воркспейс, див. нижче). `tailwindcss` і `@tailwindcss/cli` зафіксовані на `4.3.3`. Preflight свідомо не підключено, щоб не змінювати нативний вигляд form controls. Перед передачею роботи запускати `pnpm build:css`. Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
+
+## Структура репозиторію
+
+V1 — прототип, описаний вище, — це статичний застосунок у корені репозиторію. V2, перехід на local-first, живе поруч як pnpm-воркспейс:
+
+| Шлях | Що це |
+|------|-------|
+| `apps/web` | Застосунок Vite + TanStack Start; цю саму збірку згодом загорне Capacitor |
+| `packages/core` | Доменна логіка чистим TypeScript: генератор тижня, калорії, правила провенансу |
+| `packages/db` | Drizzle-схема й міграції для Supabase Postgres |
+| `infra` | Docker Compose, Caddyfile, конфіг PowerSync, приклад `.env` |
+
+```sh
+pnpm install
+pnpm dev             # apps/web на http://localhost:3000
+pnpm build           # усі пакети
+pnpm lint
+pnpm typecheck
+pnpm format
+pnpm db:migrate
+```
 
 ## Документація
 
