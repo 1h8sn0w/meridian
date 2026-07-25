@@ -212,6 +212,7 @@ const UI_CLASSES = Object.freeze({
   "step-num": "flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-xs font-medium text-accent",
   "step-text": "text-sm leading-normal",
   "recipe-actions": "mt-4 flex gap-2 [&_.btn]:flex-1 [&_.btn:disabled]:cursor-not-allowed [&_.btn:disabled]:opacity-50",
+  "taste-row": "mt-4 flex gap-2 [&_.btn]:flex-1 [&_.btn.on]:border-accent [&_.btn.on]:bg-accent-soft [&_.btn.on]:text-accent [&_.btn.no.on]:border-warning [&_.btn.no.on]:bg-transparent [&_.btn.no.on]:text-warning",
   tappable: "cursor-pointer",
   "meal-edit": "cursor-pointer rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm leading-none text-muted [&:hover]:border-accent [&:hover]:text-accent",
   "today-slot": "mb-0.5 mt-0 text-sm text-muted",
@@ -609,7 +610,11 @@ const MealStore = (function () {
     const meals = readRaw();
     const next = meals.filter((m) => m.id !== id);
     writeRaw(next);
-    return next.length !== meals.length;
+    const removed = next.length !== meals.length;
+    // MER-18: смак видаленої страви не тримаємо — інакше він «оживе» на страві
+    // з тим самим id після повторного сіду демо-пулу.
+    if (removed && MealPrefs.get(id)) MealPrefs.set(id, null);
+    return removed;
   }
 
   /** Очистити пул повністю. */
@@ -628,6 +633,103 @@ const MealStore = (function () {
   }
 
   return { getAll, getById, save, saveMany, remove, clear, filterByType, sumCalories };
+})();
+
+/* ============================================================================
+ * MER-18 — MealPrefs: смаки користувача («улюблене» / «не подобається»).
+ * ----------------------------------------------------------------------------
+ * Окреме сховище, а не поле страви — свідомо:
+ *  - смак не з плану дієтолога, тож у моделі страви йому не місце (провенанс
+ *    даних, AGENTS.md), і він не має ламати хеші демо-сіду (MER-37);
+ *  - у знімках плану й календаря смак застигав би, а він мусить бути живим:
+ *    позначили «улюблене» — генератор враховує це вже наступного разу.
+ * Смаки спільні для профілів, як і сам пул страв (meridian.meals.v1): сім'я
+ * планує один раціон, тож окремі набори смаків на спільний план нічого не дають.
+ * Формат: { "<mealId>": "favorite" | "disliked" } — записи невідомих страв і
+ * невідомі значення відкидаються під час читання.
+ * ========================================================================== */
+const MealPrefs = (function () {
+  const KEY = "meridian.mealPrefs.v1";
+  const VALUES = Object.freeze(["favorite", "disliked"]);
+
+  function read() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+      const out = {};
+      Object.keys(raw).forEach((id) => { if (VALUES.includes(raw[id])) out[id] = raw[id]; });
+      return out;
+    } catch (e) {
+      console.warn("MealPrefs: не вдалося прочитати смаки, починаю з порожніх.", e);
+      return {};
+    }
+  }
+
+  function write(map) {
+    localStorage.setItem(KEY, JSON.stringify(map));
+  }
+
+  /** Смак страви: "favorite" | "disliked" | null (позначки немає). */
+  function get(id) {
+    return read()[String(id)] || null;
+  }
+
+  function isFavorite(id) { return get(id) === "favorite"; }
+  function isDisliked(id) { return get(id) === "disliked"; }
+
+  /** Поставити смак (null — прибрати позначку). Повертає збережене значення. */
+  function set(id, value) {
+    const key = String(id == null ? "" : id).trim();
+    if (!key) throw new Error("MealPrefs.set: потрібен id страви.");
+    if (value !== null && !VALUES.includes(value)) {
+      throw new Error("MealPrefs.set: невідомий смак «" + value + "». Дозволено: " +
+        VALUES.join(", ") + " або null.");
+    }
+    const map = read();
+    if (value === null) delete map[key];
+    else map[key] = value;
+    write(map);
+    return value;
+  }
+
+  /** Перемкнути: той самий смак — прибрати, інший — замінити. Повертає новий стан. */
+  function toggle(id, value) {
+    return set(id, get(id) === value ? null : value);
+  }
+
+  /** Множина id страв із заданим смаком. */
+  function ids(value) {
+    const map = read();
+    return new Set(Object.keys(map).filter((id) => map[id] === value));
+  }
+
+  /** Знімок для генератора й рендера: {favorites, disliked} — одне читання. */
+  function snapshot() {
+    const map = read();
+    const favorites = new Set(), disliked = new Set();
+    Object.keys(map).forEach((id) => {
+      (map[id] === "favorite" ? favorites : disliked).add(id);
+    });
+    return { favorites, disliked };
+  }
+
+  /** Прибрати позначки страв, яких уже немає в пулі. Повертає true, якщо чистило. */
+  function prune(meals) {
+    const alive = new Set((meals || MealStore.getAll()).map((m) => m.id));
+    const map = read();
+    let changed = false;
+    Object.keys(map).forEach((id) => {
+      if (!alive.has(id)) { delete map[id]; changed = true; }
+    });
+    if (changed) write(map);
+    return changed;
+  }
+
+  function clear() {
+    localStorage.removeItem(KEY);
+  }
+
+  return { VALUES, get, set, toggle, isFavorite, isDisliked, ids, snapshot, prune, clear };
 })();
 
 /* ============================================================================
@@ -794,10 +896,20 @@ const MealsScreen = (function () {
     }
   }
 
-  /** Чіпи фільтра: Усі + чотири типи (з кількістю страв). */
+  /** Страви за активним фільтром: тип слота або смак (MER-18). */
+  function filtered(meals, prefs) {
+    if (filter === "all") return meals;
+    if (filter === "favorite") return meals.filter((m) => prefs.favorites.has(m.id));
+    if (filter === "disliked") return meals.filter((m) => prefs.disliked.has(m.id));
+    return meals.filter((m) => m.type === filter);
+  }
+
+  /** Чіпи фільтра: Усі + чотири типи (з кількістю страв); за наявності позначок
+   *  (MER-18) — ще «♥ Улюблені» та «🚫 Небажані». */
   function renderFilter() {
     const box = document.getElementById("meals-filter");
     const meals = MealStore.getAll();
+    const prefs = MealPrefs.snapshot();
     box.innerHTML = "";
 
     const options = [{ id: "all", label: "Усі", count: meals.length }].concat(
@@ -805,7 +917,9 @@ const MealsScreen = (function () {
         id: t,
         label: MEAL_TYPE_LABELS[t],
         count: meals.filter((m) => m.type === t).length,
-      }))
+      })),
+      prefs.favorites.size ? [{ id: "favorite", label: "♥ Улюблені", count: prefs.favorites.size }] : [],
+      prefs.disliked.size ? [{ id: "disliked", label: "🚫 Небажані", count: prefs.disliked.size }] : []
     );
 
     options.forEach((o) => {
@@ -821,7 +935,10 @@ const MealsScreen = (function () {
   /** Список страв за активним фільтром. */
   function renderList() {
     const box = document.getElementById("meals-list");
-    const meals = filter === "all" ? MealStore.getAll() : MealStore.filterByType(filter);
+    // MER-18: смаки й історія — по одному читанню на весь список.
+    const prefs = MealPrefs.snapshot();
+    const history = MealHistory.stats();
+    const meals = filtered(MealStore.getAll(), prefs);
 
     if (!meals.length) {
       if (filter === "all") {
@@ -832,7 +949,10 @@ const MealsScreen = (function () {
         restore.addEventListener("click", () => { DemoPool.seed(); render(); });
         box.appendChild(restore);
       } else {
-        box.innerHTML = '<div class="' + uiClass("empty") + '">Немає страв цього типу.</div>';
+        const empty = filter === "favorite" ? "Немає страв із позначкою «улюблене»."
+          : filter === "disliked" ? "Немає страв із позначкою «не подобається»."
+          : "Немає страв цього типу.";
+        box.innerHTML = '<div class="' + uiClass("empty") + '">' + empty + "</div>";
       }
       return;
     }
@@ -848,9 +968,20 @@ const MealsScreen = (function () {
       const name = document.createElement("div");
       name.className = uiClass("name");
       name.textContent = m.name;
+      // MER-18: позначка смаку — одразу видно, що впливає на генератор.
+      const taste = prefs.favorites.has(m.id) ? ["accent", "♥"]
+        : prefs.disliked.has(m.id) ? ["warn", "🚫"] : null;
+      if (taste) {
+        name.appendChild(document.createTextNode(" "));
+        name.appendChild(el("span", "tag " + taste[0], taste[1]));
+      }
       const meta = document.createElement("div");
       meta.className = uiClass("meta");
-      meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) + (m.source ? " · " + m.source : "");
+      // MER-18: легка історія — скільки разів страва траплялась за 30 днів.
+      const hist = history[m.id];
+      meta.textContent = (MEAL_TYPE_LABELS[m.type] || m.type) +
+        (m.source ? " · " + m.source : "") +
+        (hist ? " · " + hist.month + "× за 30 дн." : "");
       left.appendChild(name);
       left.appendChild(meta);
 
@@ -880,6 +1011,11 @@ const MealsScreen = (function () {
   function render() {
     formPanel.hidden = true;
     listPanel.hidden = false;
+    // MER-18: смакового фільтра могло не стати (позначку прибрали чи страву
+    // видалили) — тоді повертаємось до «Усі», щоб не показувати порожній список.
+    if ((filter === "favorite" || filter === "disliked") && !MealPrefs.ids(filter).size) {
+      filter = "all";
+    }
     renderFilter();
     renderList();
     refreshSubtitle();
@@ -1724,14 +1860,23 @@ const WeekGenerator = (function () {
   const DAY_CANDS = 24;           // варіантів дня на вузлі пошуку
   const WEEK_NODE_BUDGET = 12000; // стеля розстановок дня на одну спробу
 
-  /* Перетасована копія масиву (Фішер–Єйтс) — джерело випадковості генератора. */
-  function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    return a;
+  /* MER-18: вага улюбленої страви в доборі. Не «завжди перша» — інакше кожен
+   * тиждень був би той самий; просто вчетверо більший шанс стати попереду
+   * інших кандидатів слота. Правила калорій, типу й антиповтору не чіпаємо. */
+  const FAVORITE_WEIGHT = 4;
+
+  /* Перетасована копія масиву з вагами — джерело випадковості генератора.
+   * Алгоритм Ефраїмідіса–Спіракіса: ключ = U^(1/вага), сортування за спаданням
+   * ключа. Це вибірка без повторів із вагами: за однакових ваг вироджується у
+   * звичайний рівномірний перетас. weightOf може бути null (усі ваги 1). */
+  function weightedShuffle(arr, weightOf) {
+    return arr
+      .map((item) => {
+        const w = weightOf ? Number(weightOf(item)) : 1;
+        return { item, key: Math.pow(Math.random(), 1 / (w > 0 ? w : 1)) };
+      })
+      .sort((a, b) => b.key - a.key)
+      .map((x) => x.item);
   }
 
   /**
@@ -1740,11 +1885,14 @@ const WeekGenerator = (function () {
    * вужчі (з меншим вибором) першими; гілки без шансів на суму відсікаються
    * за мінімально/максимально можливим залишком. Повертає {type: страва}
    * або null, якщо валідної комбінації не існує.
+   *
+   * weightOf (MER-18) — вага страви в переборі: важчі кандидати частіше стають
+   * попереду, тож частіше потрапляють у перші знайдені розстановки дня.
    */
-  function dayCandidates(byType, bannedIds, minSum, maxSum, limit) {
+  function dayCandidates(byType, bannedIds, minSum, maxSum, limit, weightOf) {
     const slots = MEAL_TYPES.map((type) => ({
       type,
-      candidates: shuffle(byType[type].filter((m) => !bannedIds.has(m.id))),
+      candidates: weightedShuffle(byType[type].filter((m) => !bannedIds.has(m.id)), weightOf),
     }));
     if (slots.some((s) => s.candidates.length === 0)) return [];
     slots.sort((a, b) => a.candidates.length - b.candidates.length);
@@ -1793,7 +1941,7 @@ const WeekGenerator = (function () {
    * заповнюють вікно антиповтору перед днем 0, тож перший день нового тижня не
    * повторює страв останніх днів попереднього (стик тижнів).
    */
-  function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum, precedingDays) {
+  function tryBuildWeek(byType, days, antiRepeatDays, minSum, maxSum, precedingDays, weightOf) {
     const week = [];
     let budget = WEEK_NODE_BUDGET;
     const prev = precedingDays || [];
@@ -1815,7 +1963,7 @@ const WeekGenerator = (function () {
     function dfs(d) {
       if (d === days) return true;
       if (budget <= 0) return false;
-      const cands = dayCandidates(byType, bansFor(d), minSum, maxSum, DAY_CANDS);
+      const cands = dayCandidates(byType, bansFor(d), minSum, maxSum, DAY_CANDS, weightOf);
       for (const meals of cands) {
         if (budget <= 0) return false;
         budget--;
@@ -1904,7 +2052,9 @@ const WeekGenerator = (function () {
    *                профілю або його id: підставляє свої ціль і коридор; явно
    *                передані опції мають пріоритет над профілем. precedingDays
    *                (MER-29) — id страв попередніх реальних днів для антиповтору
-   *                на стику тижнів (найближчий день перший).
+   *                на стику тижнів (найближчий день перший). prefs (MER-18) —
+   *                смаки {favorites, disliked} (Set або масив id); типово
+   *                беруться зі MealPrefs.
    * @returns {ok:true, days:[{meals:{type:страва}, calories}], params,
    *           usedCorridor, sources, warnings} або {ok:false, error} зі
    *           зрозумілим українським поясненням.
@@ -1945,43 +2095,37 @@ const WeekGenerator = (function () {
     // реальних днів (найближчий перший) заповнюють вікно перед днем 0.
     const precedingDays = Array.isArray(o.precedingDays) ? o.precedingDays : [];
 
+    // MER-18: смаки. Улюблені отримують вагу в доборі; небажані виключаємо з
+    // пулу окремою спробою (див. attempts нижче). Смаки можна передати явно —
+    // цим користується самоперевірка; типово читаємо збережені.
+    const rawPrefs = o.prefs && typeof o.prefs === "object" ? o.prefs : MealPrefs.snapshot();
+    const toSet = (v) => (v instanceof Set ? v : new Set(v || []));
+    const favorites = toSet(rawPrefs.favorites);
+    const disliked = toSet(rawPrefs.disliked);
+    const weightOf = favorites.size
+      ? (m) => (favorites.has(m.id) ? FAVORITE_WEIGHT : 1)
+      : null;
+
     // Достатність пулу: вікно антиповтору вимагає щонайменше n страв кожного типу.
-    const byType = {};
-    const shortage = [];
-    MEAL_TYPES.forEach((t) => {
-      byType[t] = meals.filter((m) => m.type === t);
-      if (byType[t].length < n) {
-        shortage.push(MEAL_TYPE_LABELS[t] + " — " + byType[t].length + " (потрібно ≥ " + n + ")");
-      }
-    });
-    if (shortage.length) {
-      return {
-        ok: false,
-        error: "Недостатньо страв у пулі. Правило «не частіше, ніж раз на " + n +
-          " дн.» вимагає щонайменше " + n + " страв кожного типу, а зараз: " +
-          shortage.join("; ") + ". Додайте страви на екрані «Страви» або зменшіть антиповтор.",
-      };
-    }
+    const byTypeOf = (list) => {
+      const out = {};
+      MEAL_TYPES.forEach((t) => { out[t] = list.filter((m) => m.type === t); });
+      return out;
+    };
+    const shortageOf = (byType) => MEAL_TYPES
+      .filter((t) => byType[t].length < n)
+      .map((t) => MEAL_TYPE_LABELS[t] + " — " + byType[t].length + " (потрібно ≥ " + n + ")");
 
     // MER-30: мікс можливий, лише коли ЖОДЕН єдиний план не покриває весь пул
     // (є страви, специфічні для різних тижнів). Спільні десерти «Тиждень 1–2»
     // самі міксу не роблять — вони належать обом планам.
-    const universe = poolPlans(meals);
-    const mixPossible = universe.size >= 2 && plansCovering(meals, universe).size === 0;
+    const mixPossibleIn = (list) => {
+      const universe = poolPlans(list);
+      return universe.size >= 2 && plansCovering(list, universe).size === 0;
+    };
+    const mixPossibleFull = mixPossibleIn(meals);
 
     const params = { targetCalories: target, corridor, antiRepeatDays: n, days };
-    const finish = (week, usedCorridor, warnings) => ({
-      ok: true,
-      days: week,
-      params,
-      usedCorridor,
-      sources: Array.from(weekSources(week)).sort(),
-      // MER-30: чи тиждень справді зміксований (структурно) і чи мікс був
-      // узагалі можливий — щоб single-source-релаксацію було видно окремо.
-      mixed: isMixedWeek(week, universe),
-      mixPossible,
-      warnings,
-    });
 
     // Рівні коридору: від запитаного кроком CORRIDOR_STEP до CORRIDOR_MAX.
     // Крок може «перестрибнути» максимум (напр. 125→175→…→475→525), тож додаємо
@@ -1992,38 +2136,92 @@ const WeekGenerator = (function () {
     corridorLevels.push(Math.max(corridor, CORRIDOR_MAX));
     const maxCorridorTried = corridorLevels[corridorLevels.length - 1];
 
-    // Пробуємо з запитаним коридором; не виходить — послаблюємо крок за кроком.
-    let fallback = null; // валідний, але не зміксований тиждень — про запас
-    for (const c of corridorLevels) {
-      for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
-        const week = tryBuildWeek(byType, days, n, target - c, target + c, precedingDays);
-        if (!week) continue;
-        if (mixPossible && !isMixedWeek(week, universe)) {
-          if (!fallback) fallback = { week, usedCorridor: c };
-          continue; // мікс обов'язковий — пробуємо ще
-        }
-        const warnings = [];
-        if (c > corridor) {
-          warnings.push("Не вдалося втриматись у ±" + corridor + " ккал — коридор розширено до ±" + c + " ккал.");
-        }
-        if (!mixPossible) {
-          warnings.push("Пул не дозволяє мікс планів — усі страви покриває один план.");
-        }
-        return finish(week, c, warnings);
+    /* Повний пошук на заданому пулі: достатність, послаблення коридору, мікс. */
+    function buildFrom(list) {
+      const byType = byTypeOf(list);
+      const shortage = shortageOf(byType);
+      if (shortage.length) {
+        return {
+          ok: false,
+          error: "Недостатньо страв у пулі. Правило «не частіше, ніж раз на " + n +
+            " дн.» вимагає щонайменше " + n + " страв кожного типу, а зараз: " +
+            shortage.join("; ") + ". Додайте страви на екрані «Страви» або зменшіть антиповтор.",
+        };
       }
-    }
-    if (fallback) {
-      const warnings = ["Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела."];
-      if (fallback.usedCorridor > corridor) {
-        warnings.push("Коридор розширено до ±" + fallback.usedCorridor + " ккал.");
+
+      const universe = poolPlans(list);
+      const mixPossible = mixPossibleIn(list);
+      const finish = (week, usedCorridor, warnings) => ({
+        ok: true,
+        days: week,
+        params,
+        usedCorridor,
+        sources: Array.from(weekSources(week)).sort(),
+        // MER-30: чи тиждень справді зміксований (структурно) і чи мікс був
+        // узагалі можливий — щоб single-source-релаксацію було видно окремо.
+        mixed: isMixedWeek(week, universe),
+        mixPossible,
+        warnings,
+      });
+
+      // Пробуємо з запитаним коридором; не виходить — послаблюємо крок за кроком.
+      let fallback = null; // валідний, але не зміксований тиждень — про запас
+      for (const c of corridorLevels) {
+        for (let attempt = 0; attempt < WEEK_TRIES; attempt++) {
+          const week = tryBuildWeek(byType, days, n, target - c, target + c, precedingDays, weightOf);
+          if (!week) continue;
+          if (mixPossible && !isMixedWeek(week, universe)) {
+            if (!fallback) fallback = { week, usedCorridor: c };
+            continue; // мікс обов'язковий — пробуємо ще
+          }
+          const warnings = [];
+          if (c > corridor) {
+            warnings.push("Не вдалося втриматись у ±" + corridor + " ккал — коридор розширено до ±" + c + " ккал.");
+          }
+          if (!mixPossible) {
+            // MER-18: якщо мікс убили саме позначки «не подобається» — кажемо це прямо.
+            warnings.push(mixPossibleFull
+              ? "Позначки «не подобається» звузили пул — мікс планів став неможливим."
+              : "Пул не дозволяє мікс планів — усі страви покриває один план.");
+          }
+          return finish(week, c, warnings);
+        }
       }
-      return finish(fallback.week, fallback.usedCorridor, warnings);
+      if (fallback) {
+        const warnings = ["Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела."];
+        if (fallback.usedCorridor > corridor) {
+          warnings.push("Коридор розширено до ±" + fallback.usedCorridor + " ккал.");
+        }
+        return finish(fallback.week, fallback.usedCorridor, warnings);
+      }
+      return {
+        ok: false,
+        error: "Не вдалося зібрати тиждень під " + target + " ккал/день навіть із коридором ±" +
+          maxCorridorTried + " ккал. Змініть ціль або поповніть пул страв.",
+      };
     }
-    return {
-      ok: false,
-      error: "Не вдалося зібрати тиждень під " + target + " ккал/день навіть із коридором ±" +
-        maxCorridorTried + " ккал. Змініть ціль або поповніть пул страв.",
-    };
+
+    /* MER-18: спроби по черзі. Перша — пул без небажаних страв (беремо її лише
+     * якщо в ньому взагалі можна зібрати тиждень); резервна — повний пул, бо
+     * правила дієтолога (калорії, тип, антиповтор) головніші за смак. */
+    const attempts = [];
+    const kept = disliked.size ? meals.filter((m) => !disliked.has(m.id)) : meals;
+    if (kept.length !== meals.length && !shortageOf(byTypeOf(kept)).length) attempts.push(kept);
+    attempts.push(meals);
+
+    let last = null;
+    for (const list of attempts) {
+      last = buildFrom(list);
+      if (!last.ok) continue;
+      // Небажана страва в тижні означає, що без неї план не збирався.
+      if (disliked.size && allWeekMeals(last.days).some((m) => disliked.has(m.id))) {
+        last.warnings = last.warnings.concat(
+          "Без страв із позначкою «не подобається» тиждень не збирається — " +
+          "вони лишились у плані. Приберіть позначку або поповніть пул.");
+      }
+      return last;
+    }
+    return last;
   }
 
   /**
@@ -2040,8 +2238,11 @@ const WeekGenerator = (function () {
    * @param slotType слот із MEAL_TYPES.
    * @returns {ok:true, current, target, corridor, mixRequired,
    *           candidates:[{meal, dayCalories, withinCorridor, repeatSoon,
-   *           mixOk, valid, reasons}]} або {ok:false, error} з поясненням.
+   *           mixOk, favorite, disliked, valid, reasons}]} або {ok:false, error}
+   *          з поясненням.
    *          valid=false — заміна порушила б коридор/антиповтор/мікс; UI її блокує.
+   *          favorite/disliked (MER-18) — лише порядок і позначка в UI: ручний
+   *          вибір за користувачем, тож смак валідності не змінює.
    */
   function suggestReplacements(pool, plan, dayIndex, slotType) {
     if (!plan || !Array.isArray(plan.days) || !plan.params) {
@@ -2086,6 +2287,9 @@ const WeekGenerator = (function () {
       if (!(di === i && t === slotType) && d.meals[t]) fixedWeekMeals.push(d.meals[t]);
     }));
 
+    // MER-18: смаки — улюблені підняти, небажані опустити (валідності не чіпають).
+    const prefs = MealPrefs.snapshot();
+
     // MER-28: позначаємо кожного кандидата як валідного чи ні (коридор,
     // антиповтор, мікс). UI блокує невалідних, тож зберегти невалідний тиждень
     // ручною заміною більше не можна.
@@ -2103,11 +2307,14 @@ const WeekGenerator = (function () {
         if (!mixOk) reasons.push("ламає мікс планів");
         return {
           meal: m, dayCalories, withinCorridor, repeatSoon, mixOk,
+          favorite: prefs.favorites.has(m.id), disliked: prefs.disliked.has(m.id),
           valid: reasons.length === 0, reasons,
         };
       })
       .sort((a, b) =>
         (b.valid - a.valid) ||
+        (a.disliked - b.disliked) ||
+        (b.favorite - a.favorite) ||
         (b.withinCorridor - a.withinCorridor) ||
         (a.repeatSoon - b.repeatSoon) ||
         (Math.abs(a.dayCalories - target) - Math.abs(b.dayCalories - target)));
@@ -2287,6 +2494,15 @@ function dayMealsApprox(meals) {
 /* Префікс «≈» для суми, якщо серед складників є приблизні. */
 function approxPrefix(hasApprox) { return hasApprox ? "≈" : ""; }
 
+/* MER-18: позначка смаку перед назвою страви в компактних рядках (план тижня,
+ * картка «Сьогодні»). prefs — знімок MealPrefs, щоб не читати сховище на слот. */
+function tasteMark(meal, prefs) {
+  if (!meal || !prefs) return "";
+  if (prefs.favorites.has(meal.id)) return "♥ ";
+  if (prefs.disliked.has(meal.id)) return "🚫 ";
+  return "";
+}
+
 /* MER-41: базове керування фокусом у модалці — перенести фокус усередину,
  * тримати Tab у межах діалогу й повернути на елемент-тригер при закритті.
  * Повертає функцію release() для виклику під час закриття. */
@@ -2456,6 +2672,9 @@ const WeekScreen = (function () {
     }
     box.appendChild(top);
 
+    // MER-18: смаки — одне читання на весь рендер (позначка ♥/🚫 у рядках слотів).
+    const prefs = MealPrefs.snapshot();
+
     // Картки днів.
     plan.days.forEach((day, i) => {
       const date = dayDate(plan, i);
@@ -2487,7 +2706,7 @@ const WeekScreen = (function () {
           RecipeScreen.open(meal, isPast ? null : { dayIndex: i, slot: t });
         });
         row.appendChild(el("span", "slot-type", MEAL_TYPE_LABELS[t]));
-        row.appendChild(el("span", "slot-name", meal.name));
+        row.appendChild(el("span", "slot-name", tasteMark(meal, prefs) + meal.name));
         row.appendChild(el("span", "slot-kcal", fmtMealKcal(meal)));
         if (!isPast) {
           const swap = el("button", "slot-swap", "⇄");
@@ -2614,6 +2833,12 @@ const SwapDialog = (function () {
 
         const left = el("div");
         const name = el("div", "name", c.meal.name);
+        // MER-18: смак — позначкою; валідність він не змінює, лише порядок.
+        if (c.favorite || c.disliked) {
+          name.appendChild(document.createTextNode(" "));
+          name.appendChild(el("span", c.favorite ? "tag accent" : "tag warn",
+            c.favorite ? "♥ улюблене" : "🚫 не подобається"));
+        }
         c.reasons.forEach((r) => {
           name.appendChild(document.createTextNode(" "));
           name.appendChild(el("span", "tag", r));
@@ -2853,6 +3078,51 @@ const RecipeScreen = (function () {
       });
     }
 
+    // MER-18: легка історія — скільки разів страва вже траплялась у прожитих
+    // днях календаря. Немає в історії — секції немає.
+    const histLabel = MealHistory.label(MealHistory.forMeal(meal.id));
+    if (histLabel) {
+      sheet.appendChild(el("div", "recipe-sec", "Уже їли"));
+      sheet.appendChild(el("p", "hint", histLabel));
+    }
+
+    // MER-18: смаки. Впливають на генератор: улюблені він добирає частіше,
+    // небажані обходить, поки правила калорій це дозволяють. Лише для страв із
+    // пулу — у знімка видаленої страви позначати нічого.
+    if (MealStore.getById(meal.id)) {
+      const taste = el("div", "taste-row");
+      const buttons = [];
+      const sync = () => {
+        const cur = MealPrefs.get(meal.id);
+        buttons.forEach((b) => {
+          const on = cur === b.dataset.taste;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+      };
+      [["favorite", "♥ Улюблене", ""], ["disliked", "🚫 Не подобається", " no"]]
+        .forEach((pair) => {
+          const b = el("button", "btn" + pair[2], pair[1]);
+          b.type = "button";
+          b.id = "recipe-taste-" + pair[0];
+          b.dataset.taste = pair[0];
+          b.addEventListener("click", () => {
+            MealPrefs.toggle(meal.id, pair[0]);
+            sync();
+            // Позначки видно в списках і в плані — перемалювати те, що відкрито.
+            if (AppState.get("activeTab") === "meals") MealsScreen.render();
+            if (AppState.get("activeTab") === "week") WeekScreen.render();
+            if (AppState.get("activeTab") === "today") TodayCard.render();
+          });
+          buttons.push(b);
+          taste.appendChild(b);
+        });
+      sync();
+      sheet.appendChild(taste);
+      sheet.appendChild(el("p", "hint",
+        "Улюблені страви генератор добирає частіше, небажані обходить — поки це не ламає коридор калорій і антиповтор."));
+    }
+
     // Дії: «Замінити» (лише зі слота плану, MER-12) і «Готую зараз».
     const actions = el("div", "recipe-actions");
     if (ctx && ctx.slot != null && ctx.dayIndex != null && WeekStore.get()) {
@@ -2950,7 +3220,8 @@ const TodayCard = (function () {
     // Дотик по картці страви відкриває сторінку рецепта (MER-22).
     row.addEventListener("click", () => RecipeScreen.open(meal, { dayIndex, slot }));
     const left = el("div");
-    left.appendChild(el("div", "name", meal.name));
+    // MER-18: позначка смаку — та сама, що в плані тижня.
+    left.appendChild(el("div", "name", tasteMark(meal, MealPrefs.snapshot()) + meal.name));
     if (meal.source) left.appendChild(el("div", "meta", meal.source));
     row.appendChild(left);
     row.appendChild(el("div", "kcal", fmtMealKcal(meal)));
@@ -3083,6 +3354,12 @@ const CalendarStore = (function () {
     return read(profileId).days[key] || null;
   }
 
+  /** Усі дні календаря профілю: «YYYY-MM-DD» → день. Одне читання — потрібно
+   *  історії страв (MER-18), щоб не парсити сховище на кожен день окремо. */
+  function getDays(profileId) {
+    return read(profileId).days;
+  }
+
   /* Записати послідовні дні від startDate — перекриває лише ці дати.
    * MER-33: минулі дати не чіпаємо — історія незмінна. Тож re-mirror плану,
    * що зачіпає минулі дні (напр. після заміни в майбутньому дні), не перезапише
@@ -3179,7 +3456,65 @@ const CalendarStore = (function () {
     localStorage.removeItem(keyFor(profileId));
   }
 
-  return { dateKey, keyToDate, addDays, startOfWeek, getDay, recordPlan, bounds, nextFreeStart, generateAhead, clear };
+  return { dateKey, keyToDate, addDays, startOfWeek, getDay, getDays, recordPlan, bounds, nextFreeStart, generateAhead, clear };
+})();
+
+/* ============================================================================
+ * MER-18 — MealHistory: легка історія «що вже їли».
+ * ----------------------------------------------------------------------------
+ * Джерело — календар профілю (CalendarStore): дні, що вже настали, разом із
+ * сьогоднішнім. Майбутні дні — це план, а не історія, тож вони не рахуються.
+ * До самої страви нічого не додаємо (провенанс даних, AGENTS.md) — це підрахунок
+ * за власними планами застосунку. Вікна: 7 днів («за тиждень») і 30 («за місяць»).
+ * ========================================================================== */
+const MealHistory = (function () {
+  const WEEK_DAYS = 7;
+  const MONTH_DAYS = 30;
+
+  /** Історія всіх страв одним проходом календаря:
+   *  { [mealId]: {week, month, lastKey} }. now — для тестів. */
+  function stats(profileId, now) {
+    const days = CalendarStore.getDays(profileId);
+    const today = now ? new Date(now) : new Date();
+    today.setHours(0, 0, 0, 0);
+    // Ключі «YYYY-MM-DD» порівнюються як рядки — це той самий порядок, що й дати.
+    const todayKey = CalendarStore.dateKey(today);
+    const monthKey = CalendarStore.dateKey(CalendarStore.addDays(today, -(MONTH_DAYS - 1)));
+    const weekKey = CalendarStore.dateKey(CalendarStore.addDays(today, -(WEEK_DAYS - 1)));
+
+    const out = {};
+    Object.keys(days).forEach((key) => {
+      if (key > todayKey || key < monthKey) return; // майбутнє й давніше за вікно
+      const meals = days[key].meals || {};
+      MEAL_TYPES.forEach((t) => {
+        const meal = meals[t];
+        if (!meal || !meal.id) return;
+        const rec = out[meal.id] || (out[meal.id] = { week: 0, month: 0, lastKey: null });
+        rec.month++;
+        if (key >= weekKey) rec.week++;
+        if (!rec.lastKey || key > rec.lastKey) rec.lastKey = key;
+      });
+    });
+    return out;
+  }
+
+  /** Історія однієї страви: {week, month, lastKey} (нулі, якщо не траплялась). */
+  function forMeal(mealId, profileId, now) {
+    return stats(profileId, now)[mealId] || { week: 0, month: 0, lastKey: null };
+  }
+
+  /** Підпис для UI або null, якщо страви в історії немає (тоді секції не буде). */
+  function label(rec) {
+    if (!rec || !rec.month) return null;
+    const bits = ["за тиждень: " + rec.week, "за 30 днів: " + rec.month];
+    if (rec.lastKey) {
+      bits.push("останній раз " + CalendarStore.keyToDate(rec.lastKey)
+        .toLocaleDateString("uk-UA", { day: "numeric", month: "long" }));
+    }
+    return bits.join(" · ");
+  }
+
+  return { WEEK_DAYS, MONTH_DAYS, stats, forMeal, label };
 })();
 
 /* ============================================================================
@@ -5280,7 +5615,7 @@ const Reminders = (function () {
   };
 })();
 
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, Reminders, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, SHOPPING_CATEGORIES, ShoppingList, ShoppingStore, ShoppingScreen, switchTab };
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, MealPrefs, MealHistory, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, Reminders, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, SHOPPING_CATEGORIES, ShoppingList, ShoppingStore, ShoppingScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -7335,6 +7670,200 @@ PWA.register();
         Reminders.getSettings().enabled === false &&
         Reminders.schedule(null, W20).length === MEAL_TYPES.length &&
         Reminders.tick(fireAt20(2), notifier20).length === 0));
+    })();
+
+    // --- MER-18: смаки страв (улюблене / не подобається) + легка історія ---
+    out.push("");
+    out.push("MER-18: смаки, вплив на генератор і легка історія");
+
+    (function () {
+      /* Пул із рівними калоріями дня: будь-яка комбінація тримає коридор ±0,
+       * тож на вибір впливають лише смаки — частоту можна виміряти чесно.
+       * Одне джерело на весь пул → мікс не вимагається й у добір не втручається. */
+      const mk18 = (name, type, calories) =>
+        createMeal({ name, type, calories, source: "План №18" });
+      const bfs18 = [1, 2, 3, 4].map((i) => mk18("Сніданок " + i, "breakfast", 400));
+      const lunch18 = mk18("Обід", "lunch", 600);
+      const pool18 = bfs18.concat([lunch18, mk18("Вечеря", "dinner", 700), mk18("Перекус", "snack", 300)]);
+      const gen18 = () => WeekGenerator.generateWeek(pool18,
+        { targetCalories: 2000, corridor: 0, antiRepeatDays: 1, days: 7 });
+      /* Частка днів, у яких сніданком стала страва id (за weeks тижнів). */
+      const breakfastShare = (id, weeks) => {
+        let hits = 0, total = 0;
+        for (let w = 0; w < weeks; w++) {
+          const r = gen18();
+          if (!r.ok) return -1;
+          r.days.forEach((d) => { total++; if (d.meals.breakfast.id === id) hits++; });
+        }
+        return total ? hits / total : -1;
+      };
+
+      // Сховище смаків: поставити, перемкнути на той самий (прибрати), на інший
+      // (замінити); невідоме значення — помилка з українським текстом.
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[0].id, "favorite");
+      const removed18 = MealPrefs.toggle(bfs18[0].id, "favorite");
+      MealPrefs.set(bfs18[0].id, "favorite");
+      const flipped18 = MealPrefs.toggle(bfs18[0].id, "disliked");
+      let badPref18 = false;
+      try { MealPrefs.set(bfs18[0].id, "meh"); } catch (e) { badPref18 = true; }
+      mark(check("MER-18: позначку можна поставити, прибрати й замінити; невідомий смак відхилено",
+        removed18 === null && flipped18 === "disliked" &&
+        MealPrefs.isDisliked(bfs18[0].id) === true && MealPrefs.isFavorite(bfs18[0].id) === false &&
+        badPref18 === true));
+
+      // Смак — не поле страви: у знімку плану його немає (провенанс + MER-35).
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[0].id, "favorite");
+      mark(check("MER-18: смак живе окремим ключем сховища, а не в моделі страви",
+        !!localStorage.getItem("meridian.mealPrefs.v1") &&
+        Object.keys(createMeal(bfs18[0])).indexOf("favorite") < 0 &&
+        MealStore.save(bfs18[0]).id === bfs18[0].id));
+
+      // Критерій: небажані практично не трапляються.
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[3].id, "disliked");
+      let dislikedHits18 = 0, weeksOk18 = true;
+      for (let w = 0; w < 12; w++) {
+        const r = gen18();
+        if (!r.ok) { weeksOk18 = false; break; }
+        r.days.forEach((d) => { if (d.meals.breakfast.id === bfs18[3].id) dislikedHits18++; });
+      }
+      mark(check("MER-18: небажана страва не потрапляє в плани (12 тижнів × 7 днів)",
+        weeksOk18 === true && dislikedHits18 === 0));
+
+      // Критерій: улюблені помітно частіше. Порівнюємо частку з тією самою
+      // стравою без позначки (рівномірний базовий рівень — 1 із 4 сніданків).
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[0].id, "favorite");
+      const favShare18 = breakfastShare(bfs18[0].id, 20);
+      MealPrefs.clear();
+      const baseShare18 = breakfastShare(bfs18[0].id, 20);
+      mark(check("MER-18: улюблена страва помітно частіше в планах — " +
+        Math.round(favShare18 * 100) + "% днів проти " + Math.round(baseShare18 * 100) + "% без позначки",
+        favShare18 >= 0.4 && favShare18 > baseShare18 + 0.1));
+
+      // Правила дієтолога головніші за смак: якщо без небажаної страви тиждень
+      // не збирається (вона єдина свого типу) — вона лишається, але з попередженням.
+      MealPrefs.clear();
+      MealPrefs.set(lunch18.id, "disliked");
+      const forced18 = gen18();
+      mark(check("MER-18: єдину небажану страву типу генератор бере з попередженням",
+        forced18.ok === true &&
+        forced18.days.every((d) => d.meals.lunch.id === lunch18.id) &&
+        forced18.warnings.some((w) => w.indexOf("не подобається") >= 0)));
+
+      // Порядок кандидатів заміни: улюблений вище, небажаний нижче (валідність
+      // смак не змінює — ручний вибір лишається за користувачем).
+      MealPrefs.clear();
+      const plan18 = gen18();
+      const others18 = bfs18.filter((m) => m.id !== plan18.days[0].meals.breakfast.id);
+      MealPrefs.set(others18[0].id, "favorite");
+      MealPrefs.set(others18[1].id, "disliked");
+      const sug18 = WeekGenerator.suggestReplacements(pool18, plan18, 0, "breakfast");
+      const firstC18 = sug18.ok ? sug18.candidates[0] : null;
+      const lastC18 = sug18.ok ? sug18.candidates[sug18.candidates.length - 1] : null;
+      mark(check("MER-18: у заміні улюблений кандидат перший, небажаний — останній",
+        sug18.ok === true && !!firstC18 && !!lastC18 &&
+        firstC18.meal.id === others18[0].id && firstC18.favorite === true && firstC18.valid === true &&
+        lastC18.meal.id === others18[1].id && lastC18.disliked === true && lastC18.valid === true));
+
+      // Легка історія: сьогоднішній день плану вже історія, майбутні — ні.
+      MealPrefs.clear();
+      MealStore.clear();
+      MealStore.saveMany(pool18);
+      const active18 = ProfileStore.getActive();
+      ProfileStore.save(Object.assign({}, active18,
+        { targetCalories: 2000, corridor: 0, mealIds: null }));
+      const histPlan18 = gen18();
+      WeekStore.save(histPlan18);
+      const todayBf18 = histPlan18.days[0].meals.breakfast;
+      const h0 = MealHistory.forMeal(todayBf18.id);
+      // Історією є лише сьогоднішній день плану: 4 слоти, а не 7 днів × 4.
+      const stats18 = MealHistory.stats();
+      const totalMonth18 = Object.keys(stats18)
+        .reduce((acc, id) => acc + stats18[id].month, 0);
+      mark(check("MER-18: історія рахує лише прожиті дні — сьогоднішні 4 слоти, майбутні дні ні",
+        h0.week === 1 && h0.month === 1 &&
+        h0.lastKey === CalendarStore.dateKey(new Date()) &&
+        totalMonth18 === MEAL_TYPES.length));
+
+      // Вікна історії: 10 днів тому — у місячному, але не в тижневому.
+      const old18 = bfs18.find((m) => m.id !== todayBf18.id);
+      const calKey18 = "meridian.calendar.v1." + ProfileStore.planOwnerId();
+      const cal18 = JSON.parse(localStorage.getItem(calKey18) || '{"days":{}}');
+      const t18 = new Date(); t18.setHours(0, 0, 0, 0);
+      const oldKey18 = CalendarStore.dateKey(CalendarStore.addDays(t18, -10));
+      cal18.days[oldKey18] = { meals: { breakfast: old18 }, calories: 400, target: 2000, corridor: 0 };
+      localStorage.setItem(calKey18, JSON.stringify(cal18));
+      const h10 = MealHistory.forMeal(old18.id);
+      mark(check("MER-18: страва 10 днів тому — у місячному вікні, поза тижневим",
+        h10.month === 1 && h10.week === 0 && h10.lastKey === oldKey18 &&
+        MealHistory.label(h10).indexOf("за тиждень: 0") === 0));
+
+      // UI рецепта: кнопки смаку перемикають позначку, секція історії з'являється.
+      MealPrefs.clear();
+      RecipeScreen.open(bfs18[0]);
+      const favBtn18 = document.getElementById("recipe-taste-favorite");
+      favBtn18.click();
+      mark(check("MER-18: кнопка «Улюблене» в рецепті ставить позначку (aria-pressed)",
+        !!favBtn18 && favBtn18.getAttribute("aria-pressed") === "true" &&
+        favBtn18.classList.contains("on") && MealPrefs.isFavorite(bfs18[0].id) === true));
+      document.getElementById("recipe-taste-disliked").click();
+      mark(check("MER-18: «Не подобається» замінює позначку, а не додає другу",
+        MealPrefs.isDisliked(bfs18[0].id) === true &&
+        document.getElementById("recipe-taste-favorite").getAttribute("aria-pressed") === "false"));
+      RecipeScreen.close();
+
+      RecipeScreen.open(todayBf18);
+      mark(check("MER-18: у рецепті з'явилась секція історії «Уже їли»",
+        document.getElementById("recipe-overlay").textContent.indexOf("Уже їли") >= 0));
+      RecipeScreen.close();
+
+      // Пул «Страви»: чип-фільтр смаку й позначка в рядку.
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[0].id, "favorite");
+      MealsScreen.render();
+      const chips18 = () => document.querySelectorAll("#meals-filter .chip");
+      const favChip18 = Array.prototype.filter.call(chips18(), (c) => c.textContent.indexOf("♥") === 0)[0];
+      mark(check("MER-18: у пулі з'явився чип «♥ Улюблені» з кількістю",
+        !!favChip18 && favChip18.textContent === "♥ Улюблені · 1"));
+      favChip18.click();
+      const rows18 = document.querySelectorAll("#meals-list .meal-item");
+      mark(check("MER-18: фільтр «♥ Улюблені» показує лише позначені страви",
+        rows18.length === 1 && rows18[0].textContent.indexOf(bfs18[0].name) >= 0 &&
+        rows18[0].textContent.indexOf("♥") >= 0));
+      MealPrefs.clear();
+      MealsScreen.render(); // позначок не стало → фільтр сам повертається до «Усі»
+      mark(check("MER-18: без позначок смаковий фільтр повертається до «Усі»",
+        document.querySelectorAll("#meals-list .meal-item").length === pool18.length));
+
+      // План тижня й діалог заміни: позначка видна там, де страва трапляється.
+      MealPrefs.set(todayBf18.id, "favorite");
+      WeekScreen.render();
+      mark(check("MER-18: у плані тижня улюблена страва позначена «♥»",
+        Array.prototype.some.call(document.querySelectorAll("#week-content .slot-name"),
+          (n) => n.textContent === "♥ " + todayBf18.name)));
+
+      MealPrefs.clear();
+      MealPrefs.set(others18[0].id === todayBf18.id ? others18[1].id : others18[0].id, "favorite");
+      SwapDialog.open(0, "breakfast");
+      const swapRows18 = document.querySelectorAll("#swap-overlay .swap-row");
+      mark(check("MER-18: у діалозі заміни улюблений кандидат перший і з позначкою",
+        swapRows18.length > 0 && swapRows18[0].textContent.indexOf("♥ улюблене") >= 0));
+      SwapDialog.close();
+
+      // Видалення страви прибирає її смак — щоб він не «оживав» на новому сіді.
+      MealPrefs.clear();
+      MealPrefs.set(bfs18[0].id, "favorite");
+      MealStore.remove(bfs18[0].id);
+      mark(check("MER-18: видалення страви прибирає її позначку смаку",
+        MealPrefs.get(bfs18[0].id) === null));
+      MealStore.save(bfs18[0]);
+      MealPrefs.set("mer18-ghost", "disliked");
+      const pruned18 = MealPrefs.prune();
+      mark(check("MER-18: prune чистить позначки страв, яких уже немає в пулі",
+        pruned18 === true && MealPrefs.get("mer18-ghost") === null));
     })();
 
   } catch (e) {
