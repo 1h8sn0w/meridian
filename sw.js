@@ -53,6 +53,19 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/* Meal reminders (MER-20) are shown through this worker so they survive a
+ * backgrounded page. A click focuses an open Meridian window or opens one. */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((c) => c.url.startsWith(self.registration.scope));
+      if (open && "focus" in open) return open.focus();
+      return self.clients.openWindow ? self.clients.openWindow("./index.html") : undefined;
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;

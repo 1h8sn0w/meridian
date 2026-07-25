@@ -51,6 +51,14 @@
     </div>
 
     <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
+      <!-- Нагадування перед прийомами (MER-20): наповнює Reminders -->
+      <details class="windows [&_summary]:cursor-pointer [&_summary]:select-none [&_summary]:text-sm [&_summary]:text-muted">
+        <summary>Нагадування перед прийомами</summary>
+        <div class="mt-2" id="reminders-form"></div>
+      </details>
+    </div>
+
+    <div class="panel mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
       <!-- Підпис «· Ім'я» додає ProfileSwitcher, коли профілів кілька (MER-17) -->
       <h2 class="mb-2 mt-0 text-base" id="today-meal-title">Поточна страва</h2>
       <!-- Картка активного прийому (MER-11) з кнопкою «Замінити страву» (MER-12): наповнює TodayCard -->
@@ -831,7 +839,7 @@ function switchTab(tabId) {
   document.getElementById("screen-subtitle").textContent = tab.subtitle();
 
   if (tab.id === "meals") MealsScreen.render();
-  if (tab.id === "today") { ProfileSwitcher.render(); MealClock.render(); MealClock.renderSettings(); TodayCard.render(); }
+  if (tab.id === "today") { ProfileSwitcher.render(); MealClock.render(); MealClock.renderSettings(); Reminders.renderSettings(); TodayCard.render(); }
   if (tab.id === "week") WeekScreen.render();
   if (tab.id === "calendar") CalendarScreen.render();
 
@@ -1292,6 +1300,8 @@ const MealClock = (function () {
           }
           errHint.hidden = true;
           render();
+          // MER-20: розклад нагадувань рахується від вікон — оновити підпис.
+          Reminders.renderSettings();
         }
       };
       start.addEventListener("change", onChange);
@@ -5287,7 +5297,325 @@ const PWA = (function () {
   return { SW_URL, canRegister, register };
 })();
 
-window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, MealPrefs, MealHistory, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, SHOPPING_CATEGORIES, ShoppingList, ShoppingStore, ShoppingScreen, switchTab };
+/* ============================================================================
+ * MER-20 — Нагадування перед прийомами їжі.
+ * ----------------------------------------------------------------------------
+ * Локальні сповіщення за N хвилин до початку вікна прийому (годинник дня,
+ * MER-9). Текст показує, що саме заплановано на цей слот у збереженому плані
+ * (MER-10); плану немає — так і кажемо, страву не вигадуємо.
+ *
+ * Чесна межа POC: сервера пушів немає (бекенду немає свідомо, AGENTS.md), тож
+ * нагадування шле сама сторінка — вони приходять, поки застосунок відкритий
+ * (вкладка або встановлений PWA). Такт — раз на пів хвилини; у фоні браузер
+ * сповільнює таймери, тому пропущене «доганяємо» в межах CATCH_UP_MIN, а
+ * давніше не шлемо: після повернення в застосунок не має сипатись десяток
+ * старих сповіщень. Кожен слот шлеться раз на добу — позначка в AppState.
+ * ========================================================================== */
+const Reminders = (function () {
+  const KEY = "reminders";             // налаштування в AppState
+  const FIRED_KEY = "remindersFired";  // {date:"YYYY-MM-DD", types:{breakfast:true}}
+  const LEAD_OPTIONS = Object.freeze([5, 10, 15, 30, 60]); // хвилини випередження
+  const DEFAULTS = Object.freeze({ enabled: false, leadMinutes: 15 });
+  const CATCH_UP_MIN = 5;   // наскільки пізно ще можна надіслати пропущене
+  const TICK_MS = 30000;    // такт перевірки — як у годиннику дня
+
+  /* «HH:MM» → хвилини від півночі. */
+  function toMin(hhmm) {
+    const parts = String(hhmm).split(":");
+    return (((Number(parts[0]) || 0) % 24) * 60 + (Number(parts[1]) || 0)) % 1440;
+  }
+
+  /* Хвилини від півночі → «HH:MM» (для підпису розкладу). */
+  function fmtMin(minutes) {
+    const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+  }
+
+  /** Поточні налаштування поверх типових (з валідацією збереженого). */
+  function getSettings() {
+    const saved = AppState.get(KEY);
+    const s = Object.assign({}, DEFAULTS, saved && typeof saved === "object" ? saved : {});
+    return {
+      enabled: s.enabled === true,
+      leadMinutes: LEAD_OPTIONS.includes(Number(s.leadMinutes))
+        ? Number(s.leadMinutes) : DEFAULTS.leadMinutes,
+    };
+  }
+
+  /** Змінити налаштування (частково). {ok:false, error} — випередження поза списком. */
+  function setSettings(patch) {
+    const p = patch || {};
+    const next = getSettings();
+    if (p.leadMinutes !== undefined) {
+      const lead = Number(p.leadMinutes);
+      if (!LEAD_OPTIONS.includes(lead)) {
+        return { ok: false,
+          error: "Випередження має бути одним із: " + LEAD_OPTIONS.join(", ") + " хв." };
+      }
+      next.leadMinutes = lead;
+    }
+    if (p.enabled !== undefined) next.enabled = p.enabled === true;
+    AppState.set(KEY, next);
+    return { ok: true, settings: next };
+  }
+
+  function supported() {
+    return typeof Notification !== "undefined";
+  }
+
+  /** "granted" | "denied" | "default" | "unsupported". */
+  function permission() {
+    return supported() ? Notification.permission : "unsupported";
+  }
+
+  /** Увімкнути: спершу дозвіл браузера (потрібен жест користувача), тоді запис. */
+  function enable() {
+    if (!supported()) {
+      return Promise.resolve({ ok: false, error: "Цей браузер не підтримує сповіщень." });
+    }
+    const ask = Notification.permission === "default"
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
+    return Promise.resolve(ask).then((state) => {
+      if (state !== "granted") {
+        return { ok: false, error: state === "denied"
+          ? "Сповіщення заблоковані для цього сайту — дозвольте їх у налаштуваннях браузера."
+          : "Дозвіл на сповіщення не надано." };
+      }
+      return setSettings({ enabled: true });
+    }).catch((e) => ({ ok: false, error: "Не вдалося запитати дозвіл: " + e.message }));
+  }
+
+  function disable() {
+    return setSettings({ enabled: false });
+  }
+
+  /**
+   * Розклад на добу: по одному нагадуванню на кожне ввімкнене вікно прийому.
+   * fireMin — хвилина доби, коли слати; startAt — початок прийому «HH:MM».
+   * Вимкнене вікно (кінець не пізніше початку) пропускаємо — як у годиннику.
+   * Якщо випередження заходить за північ, шлемо о 00:00 тієї самої доби:
+   * переносити на попередній день не можна — то вже інший день плану.
+   */
+  function schedule(settings, windows) {
+    const s = settings || getSettings();
+    const w = windows || MealClock.getWindows();
+    return MEAL_TYPES
+      .filter((t) => toMin(w[t].end) > toMin(w[t].start))
+      .map((t) => ({
+        type: t,
+        startAt: w[t].start,
+        fireMin: Math.max(0, toMin(w[t].start) - s.leadMinutes),
+      }))
+      .sort((a, b) => a.fireMin - b.fireMin);
+  }
+
+  /* Позначки надісланого за поточну добу; інша дата — вчорашнє само зникає. */
+  function firedOn(dateKey) {
+    const raw = AppState.get(FIRED_KEY);
+    return raw && raw.date === dateKey && raw.types && typeof raw.types === "object"
+      ? raw.types : {};
+  }
+
+  function markFired(dateKey, type) {
+    const types = Object.assign({}, firedOn(dateKey));
+    types[type] = true;
+    AppState.set(FIRED_KEY, { date: dateKey, types });
+  }
+
+  /** Забути надіслане (потрібно налаштуванням і самоперевірці). */
+  function clearFired() {
+    AppState.set(FIRED_KEY, null);
+  }
+
+  /**
+   * Що треба надіслати просто зараз: вікно спрацювання —
+   * [fireMin, fireMin + CATCH_UP_MIN] і ще не надіслане сьогодні.
+   * Вимкнені нагадування не дають нічого.
+   */
+  function due(now, settings, windows) {
+    const s = settings || getSettings();
+    if (!s.enabled) return [];
+    const at = now || new Date();
+    const minutes = at.getHours() * 60 + at.getMinutes();
+    const fired = firedOn(CalendarStore.dateKey(at));
+    return schedule(s, windows).filter((item) =>
+      !fired[item.type] && minutes >= item.fireMin && minutes <= item.fireMin + CATCH_UP_MIN);
+  }
+
+  /**
+   * Текст нагадування. Страва — зі збереженого плану на сьогодні (MER-10);
+   * плану на цей слот немає — так і пишемо (нічого не вигадуємо, AGENTS.md).
+   */
+  function textFor(item, now) {
+    const at = now || new Date();
+    const lead = Math.max(0, toMin(item.startAt) - item.fireMin);
+    const plan = WeekStore.get();
+    const dayIndex = plan ? WeekScreen.todayIndex(plan) : -1;
+    const day = dayIndex >= 0 && dayIndex < plan.days.length ? plan.days[dayIndex] : null;
+    const meal = day ? day.meals[item.type] : null;
+    return {
+      title: MEAL_TYPE_LABELS[item.type] + (lead ? " за " + lead + " хв" : " починається") +
+        " · о " + item.startAt,
+      body: meal
+        ? meal.name + " · " + fmtMealKcal(meal)
+        : "На цей прийом плану немає — згенеруйте тиждень.",
+      // Один тег на слот і добу: повторне сповіщення замінює попереднє, а не множиться.
+      tag: "meridian-" + CalendarStore.dateKey(at) + "-" + item.type,
+    };
+  }
+
+  /** Показати сповіщення. Через service worker, якщо він керує сторінкою —
+   *  лише так воно доживає до згорнутого застосунку; інакше — напряму. */
+  function notify(msg) {
+    if (permission() !== "granted") return Promise.resolve(false);
+    const options = {
+      body: msg.body, tag: msg.tag, lang: "uk",
+      icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+    };
+    const direct = () => {
+      try { new Notification(msg.title, options); return true; }
+      catch (e) { console.warn("MER-20: не вдалося показати сповіщення.", e); return false; }
+    };
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      return navigator.serviceWorker.ready
+        .then((reg) => reg.showNotification(msg.title, options))
+        .then(() => true)
+        .catch(() => direct());
+    }
+    return Promise.resolve(direct());
+  }
+
+  /**
+   * Один такт: розіслати те, що настало. notifier — для самоперевірки, щоб не
+   * смикати справжні сповіщення. Позначку ставимо ДО відправки: інакше збій
+   * показу повторював би спробу щотакту. Повертає надіслані пункти.
+   */
+  function tick(now, notifier) {
+    const at = now || new Date();
+    const items = due(at);
+    if (!items.length) return [];
+    const send = notifier || notify;
+    const dateKey = CalendarStore.dateKey(at);
+    items.forEach((item) => {
+      markFired(dateKey, item.type);
+      send(textFor(item, at), item);
+    });
+    return items;
+  }
+
+  /** Налаштування на екрані «Сьогодні»: вмикання, випередження, розклад доби. */
+  function renderSettings() {
+    const box = document.getElementById("reminders-form");
+    if (!box) return;
+    const s = getSettings();
+    const perm = permission();
+    box.innerHTML = "";
+
+    const err = el("p", "window-err");
+    err.setAttribute("role", "alert");
+    err.hidden = true;
+
+    const row = el("div", "window-row");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.id = "reminders-enabled";
+    cb.checked = s.enabled && perm === "granted";
+    cb.disabled = perm === "unsupported";
+    const label = el("label", "wlabel", "Нагадувати перед прийомами");
+    label.htmlFor = cb.id;
+    cb.addEventListener("change", () => {
+      if (!cb.checked) { disable(); renderSettings(); return; }
+      // Дозвіл питаємо саме тут — це жест користувача, без нього браузер відмовить.
+      enable().then((r) => {
+        if (!r.ok) {
+          cb.checked = false;
+          err.textContent = r.error;
+          err.hidden = false;
+          return;
+        }
+        clearFired(); // щойно ввімкнули — сьогоднішні позначки не мають глушити
+        renderSettings();
+      });
+    });
+    row.appendChild(label);
+    row.appendChild(cb);
+    box.appendChild(row);
+
+    const leadRow = el("div", "window-row");
+    leadRow.appendChild(el("span", "wlabel", "Випередження"));
+    const sel = document.createElement("select");
+    sel.id = "reminders-lead";
+    sel.className = uiClass("window-time");
+    LEAD_OPTIONS.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = String(m);
+      opt.textContent = m + " хв";
+      sel.appendChild(opt);
+    });
+    sel.value = String(s.leadMinutes);
+    sel.addEventListener("change", () => {
+      const r = setSettings({ leadMinutes: Number(sel.value) });
+      if (!r.ok) { err.textContent = r.error; err.hidden = false; return; }
+      clearFired(); // новий час випередження стосується вже сьогоднішнього дня
+      renderSettings();
+    });
+    leadRow.appendChild(sel);
+    box.appendChild(leadRow);
+    box.appendChild(err);
+
+    // Розклад на сьогодні — видно, коли саме прийде кожне нагадування.
+    const plan = schedule(s);
+    box.appendChild(el("p", "hint mt-2", plan.length
+      ? "Сьогодні: " + plan.map((i) => MEAL_TYPE_LABELS[i.type] + " — " + fmtMin(i.fireMin)).join(" · ")
+      : "Усі часові вікна прийомів вимкнено — нагадувати нема про що."));
+
+    if (perm === "unsupported") {
+      box.appendChild(el("p", "window-err", "Цей браузер не підтримує сповіщень."));
+    } else if (perm === "denied") {
+      box.appendChild(el("p", "window-err",
+        "Сповіщення заблоковані для цього сайту — дозвольте їх у налаштуваннях браузера."));
+    }
+
+    box.appendChild(el("p", "hint mt-2",
+      "Нагадування шле сама сторінка, тож вони приходять, поки застосунок відкритий: " +
+      "сервера пушів у POC немає. На iPhone сповіщення працюють лише у встановленому " +
+      "застосунку («Додати на екран «Додому»»)."));
+
+    const test = el("button", "btn block mt-2", "Надіслати тестове сповіщення");
+    test.type = "button";
+    test.id = "reminders-test-btn";
+    test.addEventListener("click", () => {
+      if (permission() !== "granted") {
+        err.textContent = "Спершу увімкніть нагадування — потрібен дозвіл браузера.";
+        err.hidden = false;
+        return;
+      }
+      err.hidden = true;
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      // Найближчий наступний прийом, а поза розкладом — перший у добі.
+      const items = schedule(getSettings());
+      const next = items.find((i) => i.fireMin >= minutes) || items[0];
+      if (next) notify(textFor(next, now));
+    });
+    box.appendChild(test);
+  }
+
+  /* Такт: перевіряємо щопівхвилини незалежно від відкритого екрана — нагадування
+   * мають приходити й тоді, коли користувач на «Тижні» чи «Стравах». */
+  setInterval(() => {
+    if (getSettings().enabled && permission() === "granted") tick();
+  }, TICK_MS);
+
+  return {
+    LEAD_OPTIONS, DEFAULTS, CATCH_UP_MIN,
+    getSettings, setSettings, supported, permission, enable, disable,
+    schedule, due, textFor, notify, tick, clearFired, renderSettings,
+  };
+})();
+
+window.Meridian = { MEAL_TYPES, MEAL_TYPE_LABELS, createMeal, MealStore, MealPrefs, MealHistory, AppState, MealClock, MealsScreen, DemoPool, Ingredients, Portions, RecipeScreen, createProfile, ProfileStore, PROFILE_COLORS, ProfileSwitcher, ProfilesScreen, applyProfileAccent, PdfImport, PWA, Reminders, WeekGenerator, WeekStore, WeekScreen, SwapDialog, TodayCard, CalendarStore, CalendarScreen, SHOPPING_CATEGORIES, ShoppingList, ShoppingStore, ShoppingScreen, switchTab };
 
 /* ============================================================================
  * Старт застосунку: демо-пул (перший запуск) + таб-бар + остання вкладка.
@@ -7200,6 +7528,148 @@ PWA.register();
       trig.remove();
       mark(check("MER-41: модалка бере фокус усередину й повертає на тригер",
         inside41 === true && restored41 === true));
+    })();
+
+    // --- MER-20: нагадування перед прийомами їжі ---
+    out.push("");
+    out.push("MER-20: нагадування (розклад, спрацювання, текст, налаштування)");
+
+    await (async function () {
+      /* Фіксовані вікна прийомів — щоб перевіряти розклад незалежно від того,
+       * що лишили в AppState попередні перевірки. */
+      const W20 = {
+        breakfast: { start: "06:00", end: "11:00" }, lunch: { start: "11:00", end: "15:00" },
+        snack: { start: "15:00", end: "18:00" }, dinner: { start: "18:00", end: "22:00" },
+      };
+      /* Час «сьогодні о H:M» (або зі зсувом на dayShift діб). */
+      const at20 = (h, m, dayShift) => {
+        const d = new Date();
+        if (dayShift) d.setDate(d.getDate() + dayShift);
+        d.setHours(h, m, 0, 0);
+        return d;
+      };
+
+      // Типові налаштування й валідація випередження.
+      AppState.set("reminders", null);
+      const def20 = Reminders.getSettings();
+      const badLead20 = Reminders.setSettings({ leadMinutes: 7 });
+      const okLead20 = Reminders.setSettings({ leadMinutes: 30 });
+      mark(check("MER-20: типово вимкнено, випередження 15 хв; значення поза списком — відмова",
+        def20.enabled === false && def20.leadMinutes === 15 &&
+        badLead20.ok === false && badLead20.error.indexOf("Випередження") === 0 &&
+        okLead20.ok === true && Reminders.getSettings().leadMinutes === 30));
+
+      // Розклад доби: по одному пункту на ввімкнене вікно, за випередженням.
+      Reminders.setSettings({ enabled: true, leadMinutes: 15 });
+      const sch20 = Reminders.schedule(null, W20);
+      mark(check("MER-20: розклад — по нагадуванню на вікно, за 15 хв до початку (05:45/10:45/14:45/17:45)",
+        sch20.length === MEAL_TYPES.length && sch20[0].type === "breakfast" &&
+        sch20[0].fireMin === 345 && sch20[1].fireMin === 645 &&
+        sch20[2].fireMin === 885 && sch20[3].fireMin === 1065));
+
+      // Вимкнене вікно (кінець не пізніше початку) нагадування не дає — як у годиннику.
+      const offW20 = Object.assign({}, W20, { snack: { start: "15:00", end: "15:00" } });
+      mark(check("MER-20: вимкнене вікно прийому нагадування не дає",
+        Reminders.schedule(null, offW20).length === MEAL_TYPES.length - 1));
+
+      // Випередження, що заходить за північ, лишається в тій самій добі.
+      const nightW20 = Object.assign({}, W20, { breakfast: { start: "00:30", end: "10:00" } });
+      mark(check("MER-20: випередження за північ не переносить нагадування на попередню добу",
+        Reminders.schedule({ enabled: true, leadMinutes: 60 }, nightW20)[0].fireMin === 0));
+
+      // Спрацювання: вчасно, з допуском на приспані фонові таймери — і не пізніше.
+      Reminders.clearFired();
+      const dueOn20 = Reminders.due(at20(5, 45), null, W20);
+      const dueLate20 = Reminders.due(at20(5, 48), null, W20);
+      const dueTooLate20 = Reminders.due(at20(5, 52), null, W20);
+      const dueEarly20 = Reminders.due(at20(5, 30), null, W20);
+      mark(check("MER-20: настає рівно за 15 хв, доганяє пропущене ≤ 5 хв, раніше й пізніше — ні",
+        dueOn20.length === 1 && dueOn20[0].type === "breakfast" && dueOn20[0].startAt === "06:00" &&
+        dueLate20.length === 1 && dueTooLate20.length === 0 && dueEarly20.length === 0));
+
+      Reminders.disable();
+      mark(check("MER-20: вимкнені нагадування не спрацьовують зовсім",
+        Reminders.due(at20(5, 45), null, W20).length === 0));
+
+      // Текст: прийом, час і саме та страва, що запланована на сьогодні.
+      DemoPool.seed();
+      const gen20 = WeekGenerator.generateWeek(null, { profile: ProfileStore.getActive() });
+      WeekStore.save(gen20);
+      Reminders.setSettings({ enabled: true, leadMinutes: 15 });
+      const item20 = Reminders.schedule(null, W20)[0];
+      const plan20 = WeekStore.get();
+      const idx20 = WeekScreen.todayIndex(plan20);
+      const todayMeal20 = idx20 >= 0 ? plan20.days[idx20].meals.breakfast : null;
+      const msg20 = Reminders.textFor(item20, at20(5, 45));
+      mark(check("MER-20: текст — прийом, час і страва сьогоднішнього дня плану",
+        !!todayMeal20 && msg20.title === "Сніданок за 15 хв · о 06:00" &&
+        msg20.body === todayMeal20.name + " · " + fmtMealKcal(todayMeal20) &&
+        msg20.tag === "meridian-" + CalendarStore.dateKey(new Date()) + "-breakfast"));
+
+      WeekStore.clear();
+      mark(check("MER-20: без плану страву не вигадуємо — кажемо, що плану немає",
+        Reminders.textFor(item20, at20(5, 45)).body.indexOf("плану немає") >= 0));
+      WeekStore.save(gen20);
+
+      // Такт: кожен слот раз на добу; повтор того ж дня — тиша, нова доба — знову.
+      // Час беремо з реального розкладу (вікна MealClock), щоб перевіряти саме tick().
+      Reminders.clearFired();
+      const sent20 = [];
+      const notifier20 = (msg) => { sent20.push(msg); };
+      // Реальні вікна годинника — типові: попередні перевірки могли їх міняти,
+      // а tick() бере саме їх (аргументом вікна не передаються).
+      MEAL_TYPES.forEach((t) => MealClock.setWindow(t, W20[t].start, W20[t].end));
+      const first20 = Reminders.schedule()[0];
+      const fireAt20 = (shift) => at20(Math.floor(first20.fireMin / 60), first20.fireMin % 60, shift);
+      const fired20 = Reminders.tick(fireAt20(0), notifier20);
+      const again20 = Reminders.tick(fireAt20(0), notifier20);
+      const tomorrow20 = Reminders.tick(fireAt20(1), notifier20);
+      mark(check("MER-20: слот шлеться раз на добу — повтор того ж дня тиша, наступна доба знову",
+        fired20.length === 1 && fired20[0].type === first20.type &&
+        again20.length === 0 && tomorrow20.length === 1 &&
+        sent20.length === 2 && sent20[0].title.indexOf(MEAL_TYPE_LABELS[first20.type]) === 0));
+
+      // Без дозволу браузера показ не відбувається (і нічого не падає).
+      const shown20 = await Reminders.notify({ title: "т", body: "т", tag: "т" });
+      mark(check("MER-20: без дозволу браузера сповіщення не показується",
+        Reminders.permission() === "granted" ? shown20 === true : shown20 === false));
+
+      // UI налаштувань: перемикач, випередження, розклад доби, чесне обмеження.
+      Reminders.setSettings({ enabled: false, leadMinutes: 15 });
+      Reminders.renderSettings();
+      const cb20 = document.getElementById("reminders-enabled");
+      const sel20 = document.getElementById("reminders-lead");
+      const formText20 = document.getElementById("reminders-form").textContent;
+      mark(check("MER-20: у налаштуваннях є вмикання, випередження, розклад на сьогодні й межа POC",
+        !!cb20 && cb20.checked === false &&
+        !!sel20 && sel20.value === "15" && sel20.options.length === Reminders.LEAD_OPTIONS.length &&
+        formText20.indexOf("Сьогодні:") >= 0 &&
+        formText20.indexOf("поки застосунок відкритий") >= 0));
+
+      sel20.value = "30";
+      sel20.dispatchEvent(new Event("change"));
+      mark(check("MER-20: зміна випередження зберігається й зсуває розклад (05:30 замість 05:45)",
+        Reminders.getSettings().leadMinutes === 30 &&
+        Reminders.schedule(null, W20)[0].fireMin === 330 &&
+        document.getElementById("reminders-lead").value === "30" &&
+        document.getElementById("reminders-form").textContent.indexOf("Сьогодні:") >= 0));
+
+      if (Reminders.permission() === "granted") {
+        out.push("  [SKIP] Дозвіл на сповіщення вже надано — перевірку відмови пропущено");
+      } else {
+        document.getElementById("reminders-test-btn").click();
+        const alert20 = document.querySelector("#reminders-form p[role=alert]");
+        mark(check("MER-20: тестове сповіщення без дозволу пояснює причину, а не мовчить",
+          !!alert20 && alert20.hidden === false && alert20.textContent.indexOf("дозвіл") >= 0));
+      }
+
+      // Вимкнути — щоб такт не смикав сповіщень після самоперевірки.
+      Reminders.disable();
+      Reminders.clearFired();
+      mark(check("MER-20: перемикач справді вимикає — розклад лишається, спрацювань немає",
+        Reminders.getSettings().enabled === false &&
+        Reminders.schedule(null, W20).length === MEAL_TYPES.length &&
+        Reminders.tick(fireAt20(2), notifier20).length === 0));
     })();
 
     // --- MER-18: смаки страв (улюблене / не подобається) + легка історія ---
