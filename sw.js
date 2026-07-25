@@ -2,12 +2,12 @@
  * Meridian service worker (MER-19: PWA + offline).
  *
  * User data lives in localStorage and does not need the network. This worker
- * caches only the application shell: index.html, demo source data, compiled
- * styles, the manifest, icons, and vendored scripts.
+ * caches only the application shell: index.html, demo source data, the
+ * manifest, icons, and vendored scripts.
  *
  * Strategies:
  *  - navigation: network first, cached index.html offline;
- *  - tailwind.css and data/demo-recipes.js: network first, cached fallback;
+ *  - data/demo-recipes.js: network first, cached fallback;
  *  - icons, vendored scripts, and manifest: cache first, then network.
  *
  * Relative paths support both a root deployment (localhost:8137) and a
@@ -18,12 +18,11 @@
  * activate removes the previous shell cache. Navigation is network-first, so
  * an index.html-only application change does not require a cache bump. */
 const CACHE_PREFIX = "meridian-shell-";
-const CACHE_NAME = CACHE_PREFIX + "v3";
+const CACHE_NAME = CACHE_PREFIX + "v4";
 
 const SHELL = [
   "./index.html",
   "./data/demo-recipes.js",
-  "./tailwind.css",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -90,10 +89,8 @@ self.addEventListener("fetch", (event) => {
   }
 
   /* Revalidate mutable shell assets so a new index.html is not paired with
-   * stale source data or styles. Keep a cached offline fallback. */
-  const isRevalidatedAsset =
-    requestUrl.pathname.endsWith("/tailwind.css") ||
-    requestUrl.pathname.endsWith("/data/demo-recipes.js");
+   * stale source data. Keep a cached offline fallback. */
+  const isRevalidatedAsset = requestUrl.pathname.endsWith("/data/demo-recipes.js");
   if (isRevalidatedAsset) {
     const revalidatedRequest = new Request(req, { cache: "no-cache" });
     const networkResponse = fetch(revalidatedRequest);
