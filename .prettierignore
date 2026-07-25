@@ -1,0 +1,27 @@
+node_modules
+pnpm-lock.yaml
+dist
+.output
+
+# Генерується TanStack Router — форматувати не можна (перезаписується)
+apps/web/src/routeTree.gen.ts
+
+# Метадані стартера TanStack (перезаписуються самим CLI)
+apps/web/.cta.json
+
+# Документація пишеться й переноситься руками — Prettier її не переформатовує
+*.md
+
+
+# V1 — статичний застосунок у корені репозиторію.
+# Він деплоїться як є (GitHub Pages) і форматується вручну; Prettier його не чіпає.
+index.html
+sw.js
+manifest.webmanifest
+tailwind.css
+tailwind.input.css
+data/
+icons/
+tests/
+vendor/
+docs/

@@ -1,0 +1,22 @@
+{
+  "name": "@meridian/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@tanstack/eslint-config": "^0.4.0",
+    "@types/node": "^26.1.1",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.8.0",
+    "typescript": "^6.0.2"
+  }
+}

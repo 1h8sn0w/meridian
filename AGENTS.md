@@ -121,11 +121,11 @@
 ### Збірка CSS
 
 Runtime і деплой лишаються build-free: `index.html` та згенерований `tailwind.css`
-зберігаються в репозиторії й віддаються як статичні файли. npm потрібен лише під час
-розробки стилів. Node.js 20+ і npm потрібні лише авторам: після зміни
-utility-класів або `tailwind.input.css` виконати `npm ci` (перший запуск) і
-`npm run build:css`; для безперервної роботи є
-`npm run watch:css`. Версії `tailwindcss` та `@tailwindcss/cli` зафіксовані на
+зберігаються в репозиторії й віддаються як статичні файли. Інструментарій потрібен
+лише під час розробки стилів. Node.js 22+ і pnpm 11 потрібні лише авторам: після
+зміни utility-класів або `tailwind.input.css` виконати `pnpm install` (перший
+запуск) і `pnpm build:css`; для безперервної роботи є
+`pnpm watch:css`. Версії `tailwindcss` та `@tailwindcss/cli` зафіксовані на
 `4.3.3`. Tailwind Preflight свідомо не підключено, щоб не змінювати нативний
 вигляд form controls; потрібні reset-властивості задано utility-класами. Не
 додавати Play CDN, PostCSS, JS-конфіг чи бандлер застосунку.
@@ -219,6 +219,41 @@ variants на кшталт `[&.active]` або `[&_input]` дозволені: �
 **Синергія рішень:** Supabase видає JWT нативно — саме це потрібно PowerSync; на Capacitor PowerSync бере нативний SQLite (немає ризику LRU-евікшну iOS). Найбільше напруження — вага інфраструктури (Supabase ~11 сервісів + PowerSync) проти «не ускладнювати»; правило перенесено на рівень коду.
 
 **Спільний доступ сім'ї:** усі записи ключуються `family_id`; sync-правила PowerSync віддають кожному клієнту лише дані його сім'ї.
+
+### Каркас монорепо (MER-42)
+
+Репозиторій — **pnpm-воркспейс**. V1 лишається статичним застосунком у корені
+(`index.html`, `tailwind.css`, `sw.js`, `data/`, `vendor/`, `tests/`) і деплоїться
+як є; V2 живе поруч у воркспейс-пакетах.
+
+| Каталог | Призначення |
+|---------|-------------|
+| `apps/web` | Vite + TanStack Start. Цю ж збірку згодом загортає Capacitor |
+| `packages/core` | Доменна логіка чистим TS. Без залежностей від фреймворків і від БД |
+| `packages/db` | Drizzle-схема + міграції для Supabase Postgres |
+| `infra` | Docker Compose, Caddyfile, конфіг PowerSync, приклад `.env` (MER-43) |
+
+**Інструментарій:** pnpm 11 (`packageManager` у корені), Node.js 22+, TypeScript,
+Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожному пакеті свій.
+Конфіг `apps/web` згенеровано офіційним стартером TanStack Start
+(`npx @tanstack/cli create`, add-ons `eslint` + `nitro`) — руками його не
+переписувати, оновлювати тим самим стартером.
+
+**Команди з кореня:** `pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,
+`pnpm typecheck`, `pnpm format`, `pnpm db:migrate` — рекурсивні по воркспейсу,
+крім `dev` і `db:migrate` (адресні). V1 лишає свої: `pnpm test`, `pnpm build:css`,
+`pnpm watch:css`. Один менеджер пакетів на репозиторій — `package-lock.json`
+прибрано, лок-файл тепер `pnpm-lock.yaml`.
+
+**Форматування спільне:** `prettier.config.js` у корені (`semi: false`,
+`singleQuote: true`, `trailingComma: 'all'` — зі стартера). `.prettierignore`
+свідомо виключає V1: його файли форматуються вручну, автоформат зробив би
+некерований діф у `index.html`.
+
+**Прод-збірка веба:** `pnpm --filter @meridian/web build` дає самодостатній
+Node-сервер — `.output/server/index.mjs` (клієнт — `.output/public`), запуск
+`pnpm --filter @meridian/web start`, порт із `PORT`. Саме це піде в контейнер
+у MER-43.
 
 ---
 
