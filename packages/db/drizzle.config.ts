@@ -1,7 +1,7 @@
 import { defineConfig } from 'drizzle-kit'
 
-// Схема й міграції — MER-44. Тут лише конфіг drizzle-kit, щоб працювала
-// команда `pnpm db:migrate` з кореня воркспейсу.
+// Конфіг drizzle-kit: `pnpm db:migrate` з кореня воркспейсу застосовує
+// міграції з ./drizzle, `generate` створює нові за ./src/schema.ts.
 export default defineConfig({
   dialect: 'postgresql',
   schema: './src/schema.ts',
@@ -9,5 +9,11 @@ export default defineConfig({
   dbCredentials: {
     // Postgres-рядок інстансу Supabase; береться із середовища (див. infra/.env.example).
     url: process.env.DATABASE_URL ?? '',
+  },
+  // Ролі Supabase (`authenticated`, `anon`, `service_role`) заводить сам
+  // Supabase — drizzle-kit не має ні створювати їх, ні видаляти, лише
+  // посилатися на них у політиках RLS.
+  entities: {
+    roles: { provider: 'supabase' },
   },
 })
