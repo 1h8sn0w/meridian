@@ -589,5 +589,7 @@ test("index and service worker load the standalone classic script", async () => 
   assert.match(index, /const\s+dataset\s*=\s*window\.MeridianDemoData/);
   assert.match(index, /const\s+DEMO_MEALS\s*=\s*dataset\.demoMeals/);
   assert.match(serviceWorker, /["']\.\/data\/demo-recipes\.js["']/);
-  assert.match(serviceWorker, /CACHE_NAME\s*=\s*CACHE_PREFIX\s*\+\s*["']v3["']/);
+  /* MER-53: tailwind.css вийшов зі складу SHELL, тому версію кешу піднято до v4. */
+  assert.match(serviceWorker, /CACHE_NAME\s*=\s*CACHE_PREFIX\s*\+\s*["']v4["']/);
+  assert.doesNotMatch(serviceWorker, /tailwind\.css/);
 });

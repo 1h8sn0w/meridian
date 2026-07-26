@@ -41,16 +41,13 @@ npx serve .          # або: python3 -m http.server 8000
 <details>
 <summary>Робота зі стилями</summary>
 
-Runtime і деплой лишаються build-free: `index.html` і згенерований `tailwind.css` комітяться й віддаються як статичні файли. Інструментарій потрібен лише для зміни utility-класів або теми.
+Tailwind у репозиторії рівно один, і живе він в `apps/web`: офіційний плагін `@tailwindcss/vite`, точка входу — `apps/web/src/styles.css`. `pnpm dev` підхоплює зміни теми одразу, окремого кроку збірки CSS немає.
 
-```sh
-corepack enable pnpm
-pnpm install
-pnpm build:css       # одноразова детермінована збірка
-pnpm watch:css       # перебудова під час редагування
-```
+Старий підхід V1 — `@tailwindcss/cli`, що збирав закомічений `tailwind.css`, — прибрано в MER-53 разом зі скриптами `build:css` / `watch:css`. Дизайн-токени переїхали в `apps/web/src/styles.css` без змін. Preflight так само свідомо не підключено, щоб не змінювати нативний вигляд form controls; ті кілька reset-властивостей, які справді потрібні, оголошені в шарі `base`.
 
-Node.js 22+ і pnpm 11 (з V2 репозиторій — це pnpm-воркспейс, див. нижче). `tailwindcss` і `@tailwindcss/cli` зафіксовані на `4.3.3`. Preflight свідомо не підключено, щоб не змінювати нативний вигляд form controls. Перед передачею роботи запускати `pnpm build:css`. Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
+**Наслідок у гілці `staging`:** V1 у корені репозиторію й макети в `docs/design/` там без стилів — таблиці, на яку вони посилались, більше немає. На `main`, який деплоїться на GitHub Pages, це не впливає; V1 буде замінено V2, коли `staging` зіллється.
+
+Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
 

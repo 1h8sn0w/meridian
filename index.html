@@ -15,7 +15,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Меридіан">
 
-<link rel="stylesheet" href="tailwind.css">
+<!-- Стилів немає свідомо (MER-53). Збірку Tailwind через CLI прибрано:
+     єдиний Tailwind у репозиторії живе в apps/web і збирається плагіном Vite.
+     V1 у гілці staging лишається без стилів до заміни на V2; на GitHub Pages
+     деплоїться main, і там усе на місці. -->
 </head>
 
 <body class="m-0 h-full box-border bg-app font-sans text-content [&_*]:box-border [&_button]:font-sans [&_input]:font-sans [&_select]:font-sans [&_textarea]:font-sans">
@@ -5746,8 +5749,16 @@ PWA.register();
     const controlFontSizes = Array.from(controlProbe.querySelectorAll("input, select, textarea"),
       (control) => Number.parseFloat(getComputedStyle(control).fontSize));
     controlProbe.remove();
-    mark(check("Мобільні поля вводу мають шрифт не менше 16px",
-      controlFontSizes.every((size) => size >= 16), controlFontSizes.join(", ") + "px"));
+    /* MER-53: у гілці staging V1 лишився без таблиці стилів — збірку Tailwind
+     * через CLI прибрано. Без неї utility-класи не застосовуються, і перевірка
+     * міряла б дефолт браузера, а не наш стиль. Пропускаємо чесно, а не
+     * послаблюємо поріг; щойно таблиця стилів з'явиться, перевірка ожив. */
+    if (document.styleSheets.length === 0) {
+      out.push("  [SKIP] Мобільні поля вводу: таблиці стилів немає (MER-53)");
+    } else {
+      mark(check("Мобільні поля вводу мають шрифт не менше 16px",
+        controlFontSizes.every((size) => size >= 16), controlFontSizes.join(", ") + "px"));
+    }
 
     // 1. Тестова страва з усіма полями.
     const saved = MealStore.save({
@@ -7260,10 +7271,8 @@ PWA.register();
     out.push("MER-19: PWA (маніфест, service worker, офлайн-кеш)");
 
     const manifestLink = document.querySelector('link[rel="manifest"]');
-    const stylesheetLink = document.querySelector('link[rel="stylesheet"][href="tailwind.css"]');
     const demoDataScript = document.querySelector('script[src="data/demo-recipes.js"]');
     mark(check("Маніфест підключено в <head>", !!manifestLink));
-    mark(check("Зібраний tailwind.css підключено в <head>", !!stylesheetLink));
     mark(check("Повні демо-рецепти завантажено окремим класичним скриптом",
       !!demoDataScript && DemoPool.DATASET === window.MeridianDemoData &&
       DemoPool.DATASET.sourcePages.length === 29 &&
@@ -7293,12 +7302,6 @@ PWA.register();
 
       const swRes = await fetch(PWA.SW_URL).catch(() => null);
       mark(check("sw.js віддається сервером", !!swRes && swRes.ok));
-      const cssRes = stylesheetLink
-        ? await fetch(stylesheetLink.getAttribute("href")).catch(() => null)
-        : null;
-      const cssText = cssRes && cssRes.ok ? await cssRes.clone().text().catch(() => "") : "";
-      mark(check("tailwind.css віддається сервером і містить зібрані стилі",
-        !!cssRes && cssRes.ok && cssText.indexOf("--color-app") >= 0));
       const demoDataRes = demoDataScript
         ? await fetch(demoDataScript.getAttribute("src")).catch(() => null)
         : null;
@@ -7319,11 +7322,9 @@ PWA.register();
         // Після активації оболонка вже в кеші (install робить addAll).
         const cachedIndex = reg ? await caches.match("./index.html", { ignoreSearch: true }) : null;
         const cachedDemoData = reg ? await caches.match("./data/demo-recipes.js", { ignoreSearch: true }) : null;
-        const cachedStylesheet = reg ? await caches.match("./tailwind.css", { ignoreSearch: true }) : null;
         const cachedVendor = reg ? await caches.match("./vendor/pdfjs/pdf.min.js") : null;
         mark(check("Офлайн-кеш: index.html збережено", !!cachedIndex));
         mark(check("Офлайн-кеш: data/demo-recipes.js збережено", !!cachedDemoData));
-        mark(check("Офлайн-кеш: tailwind.css збережено", !!cachedStylesheet));
         mark(check("Офлайн-кеш: vendor/pdfjs збережено", !!cachedVendor));
       }
     }

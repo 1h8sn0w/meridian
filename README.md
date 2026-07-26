@@ -41,16 +41,13 @@ One HTML file, vanilla JS, `localStorage`, Tailwind CSS v4. No backend, no bundl
 <details>
 <summary>Working on the styles</summary>
 
-Runtime and deploy stay build-free: `index.html` and the generated `tailwind.css` are committed and served as static files. The toolchain is only needed to change utility classes or the theme.
+There is exactly one Tailwind build in the repository, and it lives in `apps/web`: the official `@tailwindcss/vite` plugin, entry point `apps/web/src/styles.css`. `pnpm dev` picks up changes to the theme immediately — no separate CSS step.
 
-```sh
-corepack enable pnpm
-pnpm install
-pnpm build:css       # one-off deterministic build
-pnpm watch:css       # rebuild while editing
-```
+The old V1 setup — `@tailwindcss/cli` producing a committed `tailwind.css` — was removed in MER-53 along with the `build:css` / `watch:css` scripts. The design tokens moved into `apps/web/src/styles.css` unchanged. Preflight is still deliberately left out so native form controls keep their appearance; the few reset properties that are actually needed are declared in the `base` layer.
 
-Node.js 22+ and pnpm 11 (the repo is a pnpm workspace since V2 — see below). `tailwindcss` and `@tailwindcss/cli` are pinned to `4.3.3`. Preflight is deliberately left out so native form controls keep their appearance. Run `pnpm build:css` before handing work over. Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
+**Consequence on `staging`:** V1 at the repository root and the mockups in `docs/design/` render unstyled there, because the stylesheet they used to link no longer exists. `main` — what GitHub Pages deploys — is unaffected, and V1 gets replaced by V2 when `staging` lands.
+
+Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
 
