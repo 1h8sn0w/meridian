@@ -208,6 +208,7 @@ utility-клас. Після
 | [ADR 001 — Архітектура Meridian V2](https://linear.app/meridian-ua/document/adr-001-arhitektura-meridian-v2-224108dca97d) | Повне рішення й обґрунтування |
 | [V2 · Каркас монорепо — інструкція для виконавця](https://linear.app/meridian-ua/document/v2-karkas-monorepo-instrukciya-dlya-vikonavcya-82bee887ca94) | Що будувати і як: рішення, обмеження, критерії приймання по кожній задачі MER-42…50 |
 | [V2 · Дослідження 00 — Огляд і рекомендація](https://linear.app/meridian-ua/document/v2-doslidzhennya-00-oglyad-i-rekomendaciya-08ace4e1430b) | Точка входу; далі 01–05: три варіанти, мобільні підходи, розбір стеку |
+| [V2 · ER-схема БД (MER-44)](https://linear.app/meridian-ua/document/v2-er-shema-bd-mer-44-9e855efdb7ab) | Таблиці, зв'язки, звідки кожне поле у V1, RLS і реплікація |
 
 Колишні `docs/adr/`, `docs/research/*.md` і `docs/v2-skeleton/` прибрано з репозиторію свідомо. Скелет замінено на інструкцію: конфіги PowerSync, TanStack Start і Supabase збираються за їхньою офіційною документацією, а не копіюються з напівготових файлів. Це те саме правило провенансу, застосоване до коду.
 
@@ -299,6 +300,31 @@ Supabase — каталог `docker/` репозиторію `supabase/supabase`
 
 Рішення по сховищу бакетів, реплікації та маршрутизації — з обґрунтуванням і
 наслідками для наступних задач — в `infra/README.md`. Тут вони не дублюються.
+
+### Схема БД (MER-44)
+
+Сім таблиць у `packages/db/src/schema.ts`: `family`, `profile`, `meal`,
+`recipe`, `week_plan`, `plan_slot`, `pdf_import`. Модель V1 перенесена **як є**
+— тверді правила при роботі з нею:
+
+- **`source` — це план дієтолога** («Тиждень 2»), яким генератор міксує тиждень.
+  Не провенанс-енум: `'pdf' | 'manual'` тут ламають генератор.
+- **Провенанс лишається правилом у коді** (`packages/core`), а не колонкою.
+  Нових полів у V2 рівно три — `family_id`, `updated_at`, `deleted_at`.
+- **Порожнє лишається порожнім.** Nullable-колонки не заповнюються нулями:
+  нуль — це справжній нуль, а не «невідомо».
+- **Видалення — це `deleted_at`.** Фізичного DELETE немає ні в коді, ні в
+  правах: sync-рушій не вміє довозити те, чого в базі вже немає.
+- **RLS по `family_id` — на всіх таблицях без винятку**, через
+  `public.current_family_id()` (claim `family_id` із JWT).
+
+Міграції — `packages/db/drizzle/`, застосовуються `pnpm db:migrate` при
+заданому `DATABASE_URL`. Схема правиться в `schema.ts`, далі
+`pnpm --filter @meridian/db generate`; SQL, який Drizzle не описує (тригери,
+права, публікація реплікації), — окремою `generate --custom`. Нову таблицю
+треба **явно додати в публікацію `powersync`**, інакше вона не поїде на
+пристрої. Рішення, розбіжності й перевірка міграцій без Supabase — у
+`packages/db/README.md`; карта таблиць — в ER-документі (посилання вище).
 
 ---
 

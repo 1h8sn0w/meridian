@@ -9,6 +9,9 @@ apps/web/src/routeTree.gen.ts
 # Метадані стартера TanStack (перезаписуються самим CLI)
 apps/web/.cta.json
 
+# Знімки схеми drizzle-kit — машинні, їх переписує `drizzle-kit generate`
+packages/db/drizzle/meta/
+
 # Документація пишеться й переноситься руками — Prettier її не переформатовує
 *.md
 
