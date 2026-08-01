@@ -208,7 +208,7 @@ utility-клас. Після
 | [ADR 001 — Архітектура Meridian V2](https://linear.app/meridian-ua/document/adr-001-arhitektura-meridian-v2-224108dca97d) | Повне рішення й обґрунтування |
 | [V2 · Каркас монорепо — інструкція для виконавця](https://linear.app/meridian-ua/document/v2-karkas-monorepo-instrukciya-dlya-vikonavcya-82bee887ca94) | Що будувати і як: рішення, обмеження, критерії приймання по кожній задачі MER-42…50 |
 | [V2 · Дослідження 00 — Огляд і рекомендація](https://linear.app/meridian-ua/document/v2-doslidzhennya-00-oglyad-i-rekomendaciya-08ace4e1430b) | Точка входу; далі 01–05: три варіанти, мобільні підходи, розбір стеку |
-| [V2 · ER-схема БД](https://linear.app/meridian-ua/document/v2-er-shema-bd-mer-44-mer-55-9e855efdb7ab) | Таблиці, зв'язки, звідки кожне поле у V1, RLS і реплікація |
+| [V2 · ER-схема БД](https://linear.app/meridian-ua/document/v2-er-shema-bd-mer-44-mer-55-mer-45-9e855efdb7ab) | Таблиці, зв'язки, звідки кожне поле у V1, RLS і реплікація |
 
 Колишні `docs/adr/`, `docs/research/*.md` і `docs/v2-skeleton/` прибрано з репозиторію свідомо. Скелет замінено на інструкцію: конфіги PowerSync, TanStack Start і Supabase збираються за їхньою офіційною документацією, а не копіюються з напівготових файлів. Це те саме правило провенансу, застосоване до коду.
 
