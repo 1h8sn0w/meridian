@@ -29,6 +29,13 @@
       "when": 1785617193689,
       "tag": "0003_prefs_shopping",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785620027381,
+      "tag": "0004_auth",
+      "breakpoints": true
     }
   ]
 }

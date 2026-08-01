@@ -10,6 +10,7 @@ Drizzle-схема (`src/schema.ts`) і міграції (`drizzle/`) для с�
 | `0001_schema.sql` | Сім таблиць, енум `meal_type`, індекси, RLS і політики — згенеровано з `src/schema.ts` |
 | `0002_replication.sql` | Тригери `updated_at`, привілеї ролей, роль і публікація для PowerSync |
 | `0003_prefs_shopping.sql` | MER-55: `meal_pref` і `shopping_check` — таблиці, тригери, права й доповнення публікації в одному файлі |
+| `0004_auth.sql` | MER-45: `family_member` і `family_invite`, хук доступу GoTrue (claim `family_id`) і три RPC — створити сім'ю, зробити код, прийняти код |
 
 ## Таблиці
 
@@ -24,6 +25,8 @@ Drizzle-схема (`src/schema.ts`) і міграції (`drizzle/`) для с�
 | `pdf_import` | Джерельний текст імпортованого плану | `PdfImport` (у V1 не зберігався) |
 | `meal_pref` | Смак страви: «улюблене» / «не подобається» | `meridian.mealPrefs.v1` (MER-18) |
 | `shopping_check` | Позначка «куплено» в списку покупок | `meridian.shopping.v1` → `checked` (MER-16) |
+| `family_member` | Акаунт GoTrue у сім'ї | Нова: у V1 акаунтів немає (MER-45) |
+| `family_invite` | Одноразовий код запрошення | Нова (MER-45) |
 
 Кожна таблиця має однаковий службовий набір sync: `id`, `family_id`,
 `created_at`, `updated_at`, `deleted_at`. RLS увімкнено скрізь.
@@ -95,9 +98,50 @@ last-write-wins на рівні слота, як домовлено в інст�
 звіряє `id`.
 
 **Сім'я клієнта — одна функція `public.current_family_id()`.** Вона читає claim
-`family_id` із JWT (верхній рівень або `app_metadata` — MER-45 остаточно
-вибере, де саме). Коли вибере — правити доведеться одну функцію, а не політики
-на семи таблицях.
+`family_id` із JWT. MER-45 вибрав **верхній рівень**, а не `app_metadata`: так
+робить документований приклад RBAC у Supabase, і так простіше правилам
+PowerSync. Другу гілку у функції лишено як була — вона нічого не коштує.
+
+**Claim кладе хук доступу GoTrue** (`public.custom_access_token_hook`, MER-45).
+Хук читає `family_member` і додає `family_id` у claims кожного токена — і при
+вході, і при оновленні. Немає членства — немає й claim, і клієнт не бачить
+нічого: це нормальний стан щойно зареєстрованого акаунта, а не поломка.
+Увімкнути хук треба на боці Supabase (`infra/README.md`) — без цього все
+зібрано правильно й мовчить.
+
+**Хук — `SECURITY DEFINER`, і це свідома розбіжність із прикладом у
+документації.** Там хук виконується правами `supabase_auth_admin`, а таблиця
+відкривається йому окремим GRANT і окремою політикою «цій ролі видно все». Тут
+таблиця — `family_member`, чий єдиний сенс в ізоляції по сім'ї; така політика
+суперечила б їй буквально. Тому функція ходить правами власника, а EXECUTE на
+неї має лише сервер авторизації.
+
+**Членство змінюють тільки функції, а не клієнт напряму.** `create_family`,
+`create_family_invite` і `accept_family_invite` — теж `SECURITY DEFINER`, бо
+акаунт без сім'ї не має claim, а отже, RLS не пропустить його ні до `family`,
+ні до коду запрошення. Ключова властивість: акаунт вони беруть **із токена**
+(`public.current_user_id()`), а не з аргументу — інакше будь-хто вписав би в
+сім'ю будь-кого.
+
+Наслідок прав на самі таблиці варто знати: член сім'ї може правити рядки
+членства **своєї** сім'ї, зокрема м'яко видалити другого. Це та сама межа
+довіри, що й для решти даних — усередині сім'ї всі рівні. Межа, яка тут справді
+щось тримає, інша: `WITH CHECK` не дасть вписати себе в ЧУЖУ сім'ю, бо в того,
+хто сім'ї не має, `current_family_id()` порожній.
+
+**Один акаунт — рівно одна сім'я.** У JWT їде один `family_id`; членство у двох
+сім'ях зробило б claim неоднозначним, а RLS — недетермінованою.
+
+**Запрошення кодом, а не листом.** Self-host без SMTP пошти не надішле, а
+обіцяти в інтерфейсі лист, якого не буде, — та сама неправда, що й вигадане
+значення. Код — 12 шістнадцяткових символів (48 біт) із `gen_random_uuid()`,
+одноразовий, живе тиждень.
+
+**Зовнішнього ключа на `auth.users` немає**, хоч `user_id` саме звідти. Три
+причини: міграції мають застосовуватися на чистому Postgres (саме так їх і
+перевіряють); FK без `ON DELETE` заблокував би видалення користувача з боку
+GoTrue; а дописаний руками constraint на таблиці, яку описує Drizzle, наступний
+`generate` зняв би як дрейф.
 
 ## Що лишається на пристрої
 
@@ -145,16 +189,29 @@ docker run -d --name mer-pg -e POSTGRES_PASSWORD=postgres -p 55432:5432 postgres
 ```
 
 ```bash
-docker exec mer-pg psql -U postgres -c "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
+docker exec mer-pg psql -U postgres -c "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls; create role supabase_auth_admin noinherit login password 'x';"
 ```
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:55432/postgres pnpm db:migrate
 ```
 
+`supabase_auth_admin` потрібен від MER-45: саме йому міграція видає EXECUTE на
+хук доступу. Ролі немає — гілка з GRANT просто не виконається, і міграція
+пройде без неї (на чистому Postgres кликати хук однаково нікому).
+
 Далі RLS перевіряється так: `SET ROLE authenticated`, потім
 `select set_config('request.jwt.claims', '{"family_id":"…"}', false)` — і клієнт
-бачить рівно рядки своєї сім'ї.
+бачить рівно рядки своєї сім'ї. Тим самим способом перевіряються й функції
+MER-45: підставити claims із `sub`, викликати `public.create_family(…)`, потім
+`public.custom_access_token_hook(...)` із синтетичною подією — і побачити
+`family_id` у поверненому `claims`.
+
+На справжньому GoTrue те саме перевіряється без застосунку: підняти поруч
+`supabase/gotrue` (схему `auth` створити заздалегідь і задати ролі
+`search_path = auth`), зареєструвати два акаунти, провести їх через
+`create_family` / `accept_family_invite` і подивитися вміст виданих
+`access_token` — в обох має бути один і той самий `family_id`.
 
 ## Якщо додаєте таблицю
 

@@ -10,7 +10,9 @@
       "@/*": ["./src/*"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    /* `node` доданий у MER-45: серверні функції TanStack Start читають
+       process.env, і без цього типів для `node:process` немає. */
+    "types": ["vite/client", "node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

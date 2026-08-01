@@ -9,6 +9,20 @@ pnpm install
 pnpm dev
 ```
 
+# Configuration (MER-45)
+
+The browser talks to Supabase directly, so it needs the project URL and the
+anon key. Both are read from the server at **runtime** — one image can be
+deployed to any self-host without a rebuild — and handed to the browser during
+SSR (`src/lib/public-env.ts`).
+
+For `pnpm dev`, copy `.env.example` to `.env` and fill it in; the names are the
+same as in `infra/.env.example` on purpose. In production the same names come
+from the `web` service environment (`infra/docker-compose.yml`).
+
+Without them the app renders an explicit "not configured" screen instead of
+failing silently.
+
 # Building For Production
 
 To build this application for production:

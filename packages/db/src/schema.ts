@@ -1,5 +1,5 @@
 /**
- * @meridian/db — схема Supabase Postgres (MER-44, MER-55).
+ * @meridian/db — схема Supabase Postgres (MER-44, MER-55, MER-45).
  *
  * Модель перенесена з V1 (`index.html`: `createMeal`, `createProfile`,
  * `WeekStore`, `CalendarStore`) як є. Правило провенансу діє й тут: жодного
@@ -15,6 +15,10 @@
  *  - похідних значень: калорійність дня — сума слотів, а не колонка;
  *  - стану пристрою: активний профіль, охоплення списку покупок і нагадування
  *    (MER-20) на сервер не їдуть — рішення MER-55, обґрунтування в README.
+ *
+ * Окремо стоять дві таблиці MER-45 — `family_member` і `family_invite`. Вони не
+ * з моделі V1: у V1 акаунтів немає взагалі. Це облік доступу, який тримає claim
+ * `family_id` у JWT, а на ньому вже тримається вся RLS нижче.
  *
  * RLS — на всіх таблицях без винятку, по `family_id`, через
  * `public.current_family_id()` (заводиться першою міграцією).
@@ -102,8 +106,88 @@ export const family = pgTable(
 ).enableRLS()
 
 /* ==========================================================================
+ * family_member — акаунт у сім'ї (MER-45). Єдиний місток між GoTrue і схемою:
+ * `user_id` — це `auth.users.id`, і саме з цієї таблиці хук доступу бере
+ * `family_id`, який їде в JWT кожного токена.
+ *
+ * Зовнішнього ключа на `auth.users` немає навмисно: міграції цього пакета
+ * застосовуються й на чистому Postgres — так їх перевіряють без усього стека
+ * Supabase (див. README). Ключ додає та сама міграція, але лише якщо схема
+ * `auth` існує.
+ *
+ * Один акаунт — рівно одна сім'я: у JWT їде один `family_id`, тож членство в
+ * двох сім'ях зробило б claim неоднозначним, а RLS — недетермінованою.
+ * ======================================================================== */
+export const familyMember = pgTable(
+  'family_member',
+  {
+    ...syncColumns,
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => family.id),
+    /** `auth.users.id` — власник сесії GoTrue. */
+    userId: uuid('user_id').notNull(),
+    /**
+     * Пошта акаунта на момент приєднання — щоб екран сім'ї міг показати, хто в
+     * ній, не читаючи схему `auth`. NULL, якщо в токені пошти не було: порожнє
+     * лишається порожнім, вигадувати підпис нікому.
+     */
+    email: text('email'),
+  },
+  (t) => [
+    // М'яко видалений рядок ключ не тримає — вихід із сім'ї має лишати
+    // можливість приєднатися знову.
+    uniqueIndex('family_member_user_id_key')
+      .on(t.userId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('family_member_family_id_idx').on(t.familyId),
+    familyPolicy('family_member_family'),
+  ],
+).enableRLS()
+
+/* ==========================================================================
+ * family_invite — запрошення другого члена сім'ї (MER-45). Кодом, а не листом:
+ * self-host без SMTP не вміє надсилати пошту, а обіцяти в UI лист, якого не
+ * буде, — та сама неправда, що й вигадане значення.
+ *
+ * Код одноразовий і з терміном: прийняте запрошення отримує `accepted_at`, а не
+ * `deleted_at` — видно, хто і коли ним скористався.
+ * ======================================================================== */
+export const familyInvite = pgTable(
+  'family_invite',
+  {
+    ...syncColumns,
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => family.id),
+    /** 12 шістнадцяткових символів у верхньому регістрі; UI ділить на трійки. */
+    code: text('code').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    /** `auth.users.id` того, хто прийняв. Без FK — з тієї ж причини. */
+    acceptedBy: uuid('accepted_by'),
+  },
+  (t) => [
+    uniqueIndex('family_invite_code_key')
+      .on(t.code)
+      .where(sql`${t.deletedAt} IS NULL`),
+    check('family_invite_code_format', sql`${t.code} ~ '^[0-9A-F]{12}$'`),
+    check(
+      'family_invite_accepted_together',
+      sql`(${t.acceptedAt} IS NULL) = (${t.acceptedBy} IS NULL)`,
+    ),
+    index('family_invite_family_id_idx').on(t.familyId),
+    familyPolicy('family_invite_family'),
+  ],
+).enableRLS()
+
+/* ==========================================================================
  * profile — профіль (MER-21, MER-17, MER-24). Планується не «для користувача»,
  * а для профілю: у сім'ї їх кілька, пул страв при цьому спільний.
+ *
+ * Із акаунтом (`family_member`) профіль не пов'язаний: профіль — це раціон
+ * («Я», «Дружина»), а не вхід. У сім'ї з двома акаунтами профілів може бути
+ * скільки завгодно, і обидва акаунти бачать усі.
  * ======================================================================== */
 export const profile = pgTable(
   'profile',

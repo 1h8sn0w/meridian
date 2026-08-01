@@ -1,0 +1,26 @@
+# Накладка на ОФІЦІЙНИЙ compose Supabase — вмикає хук доступу (MER-45).
+#
+# Цей файл не для нашого стека: його копіюють у каталог, де лежить
+# docker-compose.yml Supabase, і Compose підхоплює його автоматично за іменем.
+# Так офіційний файл лишається недоторканим — правило «не переписувати compose
+# Supabase руками» (MER-43) діє й тут.
+#
+#   cp infra/supabase/docker-compose.override.yml supabase-project/
+#   cd supabase-project && docker compose up -d auth
+#
+# Навіщо. GoTrue за замовчуванням кладе в JWT лише свої claims. `family_id`
+# туди додає функція `public.custom_access_token_hook` із міграції
+# packages/db/drizzle/0004_auth.sql — але лише якщо GoTrue сказали її кликати.
+# Не сказали — і claim не з'явиться, RLS не покаже жодного рядка, а sync-правила
+# PowerSync (MER-46) віддадуть порожньо. Помилка мовчазна, тому й окремий файл.
+#
+# Імена змінних звірені з `example.env` репозиторію supabase/auth; формат
+# `pg-functions://<база>/<схема>/<функція>` — з документації Supabase Auth Hooks
+# і з `validatePostgresPath` у самому GoTrue. В офіційному
+# docker-compose.yml Supabase цих змінних немає — тому їх і додає накладка.
+
+services:
+  auth:
+    environment:
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: 'true'
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: 'pg-functions://postgres/public/custom_access_token_hook'

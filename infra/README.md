@@ -11,6 +11,7 @@
 | `caddy/Caddyfile` | Два хости — застосунок і sync-ендпоінт. HTTPS Caddy бере сам |
 | `powersync/service.yaml` | Конфіг PowerSync Service, монтується лише для читання |
 | `powersync/sync-config.yaml` | Правила синхронізації. Поки порожні — MER-46 |
+| `supabase/docker-compose.override.yml` | Накладка на compose **Supabase**: вмикає хук доступу (MER-45). Копіюється туди, не запускається звідси |
 | `.env.example` | Контракт змінних; секретні значення порожні |
 
 ---
@@ -34,7 +35,21 @@ cp supabase/docker/.env.example supabase-project/.env
 
 Далі — згенерувати секрети (`sh utils/generate-keys.sh`,
 `sh utils/add-new-auth-keys.sh` у каталозі проєкту) і замінити **всі** дефолтні
-значення в `.env`. Запуск:
+значення в `.env`.
+
+**Обов'язковий крок MER-45:** покласти поруч накладку, яка вмикає хук доступу.
+Без неї в JWT не буде claim `family_id` — і застосунок не побачить жодного
+рядка, мовчки:
+
+```bash
+cp infra/supabase/docker-compose.override.yml supabase-project/
+```
+
+Локально ще варто ввімкнути `ENABLE_EMAIL_AUTOCONFIRM=true` у `.env` Supabase:
+SMTP у типовому self-host не налаштований, тож лист із підтвердженням нікуди не
+піде й акаунт лишиться неактивованим.
+
+Запуск:
 
 ```bash
 cd supabase-project && docker compose up -d
@@ -53,7 +68,8 @@ cp infra/.env.example infra/.env
 ```
 
 Заповнити `infra/.env`: `POSTGRES_PASSWORD`, `ANON_KEY`, `SERVICE_ROLE_KEY` —
-ті самі значення, що в `.env` Supabase. Решта має робочі локальні дефолти.
+ті самі значення, що в `.env` Supabase. Решта має робочі локальні дефолти;
+`PUBLIC_SUPABASE_ANON_KEY` підставляється з `ANON_KEY` сам.
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d
@@ -127,9 +143,22 @@ docker exec -it supabase-db psql -U postgres -c "ALTER ROLE powersync_role WITH 
 (`http://localhost:8000`) — так задано в інструкції V2. Якщо колись знадобиться
 HTTPS і для Supabase, це ще один блок у `Caddyfile`, без нових сервісів.
 
-**`web` не під'єднаний до мережі Supabase.** Зараз серверу застосунку Supabase
-не потрібен — браузер ходить туди сам. Коли SSR почне звертатися до GoTrue
-(MER-45), сервісу `web` треба буде додати мережу `supabase`.
+**`web` не під'єднаний до мережі Supabase — і вже не буде.** Тут очікувалося, що
+MER-45 приведе SSR до GoTrue й доведеться додати сервісу `web` мережу
+`supabase`. Не довелося: вхід робить браузер, сесія живе на пристрої, а сервер
+про неї не знає свідомо — інакше застосунок перестав би бути local-first. Від
+сервера потрібен лише публічний конфіг (`PUBLIC_SUPABASE_URL`,
+`PUBLIC_SUPABASE_ANON_KEY`), який він віддає під час SSR.
+
+**Хук доступу вмикається на боці Supabase, а не нашого стека** (MER-45). Claim
+`family_id` у JWT кладе Postgres-функція з міграції
+`packages/db/drizzle/0004_auth.sql`, але кличе її GoTrue — і лише якщо їй про це
+сказали двома змінними середовища. В офіційному compose Supabase їх немає, тому
+поруч кладеться `infra/supabase/docker-compose.override.yml`. Перевірити на
+живому стеку можна так: увійти, взяти `access_token` і подивитися його вміст —
+`family_id` має бути **верхнього рівня**. Немає claim — RLS не покаже жодного
+рядка, а sync-правила (MER-46) віддадуть порожньо, і жодної помилки при цьому
+ніде не буде.
 
 ---
 
