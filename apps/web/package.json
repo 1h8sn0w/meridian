@@ -17,6 +17,7 @@
     "check": "prettier --check ."
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",

@@ -27,6 +27,9 @@ services:
       # запікаються у клієнтський бандл. Якщо MER-49 вирішить інакше —
       # вони переїдуть у build args (Vite інлайнить env на етапі збірки).
       PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL}
+      # Anon-ключ для браузера (MER-45): вхід через GoTrue робить клієнт, а не
+      # SSR, тож і мережа Supabase сервісу `web` так і не знадобилася.
+      PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY}
       PUBLIC_POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL}
       POWERSYNC_URL: ${POWERSYNC_URL}
     expose:
