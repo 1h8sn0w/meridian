@@ -16,7 +16,24 @@
 
 ---
 
-## Запуск
+## Швидкий шлях
+
+```bash
+corepack pnpm bootstrap
+```
+
+`infra/bootstrap.mjs` робить усе, що описано нижче: бере офіційний compose
+Supabase, генерує секрети **його ж** скриптом, вмикає хук доступу, піднімає
+стек, застосовує міграції й заповнює `infra/.env` та `apps/web/.env`. Далі —
+`corepack pnpm dev`. З `--full` додатково піднімає наші три сервіси.
+
+Скрипт ідемпотентний: повторний запуск нічого не перегенеровує й наявні `.env`
+не чіпає. Ручні кроки нижче лишаються джерелом істини про те, **що саме** він
+робить і чому.
+
+---
+
+## Запуск руками
 
 Порядок обов'язковий: **спершу Supabase, потім наш стек** — наш compose
 приєднується до вже створеної мережі Supabase.
@@ -44,6 +61,19 @@ cp supabase/docker/.env.example supabase-project/.env
 ```bash
 cp infra/supabase/docker-compose.override.yml supabase-project/
 ```
+
+⚠️ **І дописати її в `COMPOSE_FILE`.** Ім'я `docker-compose.override.yml`
+Compose підхоплює сам лише доти, доки `COMPOSE_FILE` не задано, — а Supabase у
+своєму `.env` його задає. Тому там має стати:
+
+```
+COMPOSE_PATH_SEPARATOR=:
+COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml
+```
+
+Роздільник задається явно, бо типовий залежить від ОС. Не зробити цього —
+найдорожча помилка всієї установки: стек піднімається, реєстрація й RPC
+працюють, а даних клієнт не бачить ніколи й ніде не бачить помилки.
 
 Локально ще варто ввімкнути `ENABLE_EMAIL_AUTOCONFIRM=true` у `.env` Supabase:
 SMTP у типовому self-host не налаштований, тож лист із підтвердженням нікуди не

@@ -171,12 +171,18 @@ GoTrue; а дописаний руками constraint на таблиці, як�
 
 ## Застосувати міграції
 
+Найпростіше — `corepack pnpm bootstrap`: він підіймає Supabase й застосовує
+міграції сам. Руками:
+
 ```bash
-DATABASE_URL=postgresql://postgres:ПАРОЛЬ@localhost:5432/postgres pnpm db:migrate
+DATABASE_URL=postgresql://postgres.ОРЕНДАР:ПАРОЛЬ@localhost:5432/postgres pnpm db:migrate
 ```
 
 Адреса — хостова (supavisor Supabase), не та, якою ходить PowerSync; різниця
-пояснена в `infra/README.md`. Нові міграції — `pnpm --filter @meridian/db
+пояснена в `infra/README.md`. **`ОРЕНДАР` — це `POOLER_TENANT_ID` із `.env`
+Supabase**, і без цього суфікса пулер відповідає «no tenant identifier
+provided». На чистому Postgres (перевірка нижче) пулера немає, тож там
+користувач просто `postgres` — саме тому розбіжність не спливала до MER-45. Нові міграції — `pnpm --filter @meridian/db
 generate` після зміни `src/schema.ts` (або `generate --custom` для чистого SQL).
 
 ## Перевірити без Supabase

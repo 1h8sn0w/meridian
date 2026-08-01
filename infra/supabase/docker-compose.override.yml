@@ -1,12 +1,22 @@
 # Накладка на ОФІЦІЙНИЙ compose Supabase — вмикає хук доступу (MER-45).
 #
 # Цей файл не для нашого стека: його копіюють у каталог, де лежить
-# docker-compose.yml Supabase, і Compose підхоплює його автоматично за іменем.
-# Так офіційний файл лишається недоторканим — правило «не переписувати compose
-# Supabase руками» (MER-43) діє й тут.
+# docker-compose.yml Supabase. Так офіційний файл лишається недоторканим —
+# правило «не переписувати compose Supabase руками» (MER-43) діє й тут.
+#
+# ⚠️ САМОГО ІМЕНІ НЕ ДОСТАТЬ. Compose підхоплює `docker-compose.override.yml`
+# автоматично лише доти, доки не задано `COMPOSE_FILE` — а Supabase у своєму
+# `.env` його задає (`COMPOSE_FILE=docker-compose.yml`). Тому накладку треба
+# дописати туди руками, інакше вона просто мовчки не діє:
 #
 #   cp infra/supabase/docker-compose.override.yml supabase-project/
+#   # у supabase-project/.env:
+#   COMPOSE_PATH_SEPARATOR=:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml
 #   cd supabase-project && docker compose up -d auth
+#
+# Усе це робить `pnpm bootstrap` (infra/bootstrap.mjs) — руками лише якщо
+# піднімаєте стек іншим шляхом.
 #
 # Навіщо. GoTrue за замовчуванням кладе в JWT лише свої claims. `family_id`
 # туди додає функція `public.custom_access_token_hook` із міграції
