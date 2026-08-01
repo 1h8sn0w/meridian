@@ -253,7 +253,8 @@ Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожн�
 (`npx @tanstack/cli create`, add-ons `eslint` + `nitro`) — руками його не
 переписувати, оновлювати тим самим стартером.
 
-**Команди з кореня:** `pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,
+**Команди з кореня:** `pnpm bootstrap` (підняти все з нуля — розділ нижче),
+`pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,
 `pnpm typecheck`, `pnpm format`, `pnpm db:migrate` — рекурсивні по воркспейсу,
 крім `dev` і `db:migrate` (адресні). V1 лишає свій `pnpm test`; скриптів збірки
 CSS у корені більше немає (MER-53). Один менеджер пакетів на репозиторій —
@@ -278,6 +279,14 @@ Node-сервер — `.output/server/index.mjs` (клієнт — `.output/publ
 потрібні кореневі маніфести й лок-файл).
 
 ### Інфраструктура self-host (MER-43)
+
+**Підняти все з нуля — `pnpm bootstrap`** (`infra/bootstrap.mjs`). Бере
+офіційний compose Supabase, генерує секрети **його ж** `utils/generate-keys.sh`
+(в одноразовому контейнері, щоб не залежати від sh/openssl на хості), вмикає
+хук доступу, піднімає стек, застосовує міграції й заповнює `infra/.env` та
+`apps/web/.env`. Ідемпотентний: секрети не перегенеровує, наявні `.env` не
+чіпає. Ручні кроки лишаються в `infra/README.md` — вони пояснюють, що саме він
+робить.
 
 **Два compose, не один.** Supabase піднімається власним офіційним compose
 (~11 сервісів) — його не дублюють і не переписують руками. Наш

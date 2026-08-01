@@ -24,5 +24,9 @@ dist/
 .env
 .env.local
 
+# Офіційний compose Supabase — чужий код зі своїм життєвим циклом.
+# Кладе його сюди `pnpm bootstrap` (infra/bootstrap.mjs).
+/supabase-project/
+
 # Локальний аналіз/рев'ю — не для репо
 docs/POC_REVIEW.md
