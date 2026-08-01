@@ -10,14 +10,23 @@ import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { formatDate, formatInviteCode } from '../lib/messages'
 import type { Failure } from '../lib/messages'
-import { Button, Card, Notice, Screen } from './ui'
+import {
+  AuthShell,
+  Avatar,
+  Button,
+  ErrorText,
+  Hint,
+  LinkButton,
+  Panel,
+  Tag,
+} from './ui'
 
 export function FamilyScreen() {
-  const { email, family, members, invite, createInvite, signOut } = useAuth()
+  const { userId, family, members, invite, createInvite, signOut } = useAuth()
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
 
-  const invited = async () => {
+  const requestInvite = async () => {
     setBusy(true)
     setFailure(null)
     const result = await createInvite()
@@ -26,67 +35,61 @@ export function FamilyScreen() {
   }
 
   return (
-    <Screen>
-      <Card
-        title={family?.name ?? 'Сім’я'}
-        subtitle="Страви, тижневий план і список покупок спільні для всіх, хто тут."
-      >
-        <h2 className="text-sm text-muted">У сім’ї</h2>
-        <ul className="mt-2 flex flex-col gap-2">
+    <AuthShell
+      title={family?.name ?? 'Сім’я'}
+      subtitle="Страви, тижневий план і список покупок — спільні"
+    >
+      <Panel title="У сім’ї">
+        <ul className="m-0 list-none p-0">
           {members.map((member) => (
             <li
               key={member.id}
-              className="flex items-center justify-between rounded-xl border border-line px-3 py-2 text-sm"
+              className="flex items-center gap-2.5 border-b border-line py-2.5 last:border-b-0 last:pb-0"
             >
-              {/* Пошти може не бути: у токені її не завжди видно, і вигадувати
-                  підпис нема з чого. */}
-              <span className="text-content">
+              {/* Літера з пошти — як аватар профілю у V1. Пошти може не бути:
+                  у токені вона не завжди є, і вигадувати підпис нема з чого. */}
+              <Avatar letter={(member.email?.[0] ?? '?').toUpperCase()} />
+              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm">
                 {member.email ?? 'акаунт без пошти'}
               </span>
-              {member.email === email ? (
-                <span className="text-xs text-subtle">це ви</span>
-              ) : null}
+              {member.userId === userId ? <Tag>це ви</Tag> : null}
             </li>
           ))}
         </ul>
+      </Panel>
 
-        <h2 className="mt-6 text-sm text-muted">Запросити</h2>
+      <Panel title="Запросити">
         {invite ? (
-          <div className="mt-2 rounded-xl border border-line px-3 py-3">
-            <p className="font-mono text-lg tracking-widest text-content">
-              {formatInviteCode(invite.code)}
-            </p>
-            <p className="mt-1 text-xs text-subtle">
-              {/* Формат uk-UA сам дає «9 серпня 2026 р.» — крапка вже своя. */}
+          <>
+            <div className="rounded-xl bg-accent-soft px-3 py-3 text-center">
+              <div className="font-mono text-xl font-semibold tracking-widest text-accent">
+                {formatInviteCode(invite.code)}
+              </div>
+            </div>
+            <p className="mb-3 mt-2 text-xs leading-normal text-muted">
               Одноразовий, дійсний до {formatDate(invite.expiresAt)} Продиктуйте
               його тому, кого запрошуєте — він введе код після реєстрації.
             </p>
-          </div>
+          </>
         ) : (
-          <p className="mt-2 text-sm text-subtle">
+          <Hint>
             Активного коду немає. Створіть — і передайте другому члену сім’ї.
-          </p>
+          </Hint>
         )}
-        <div className="mt-3">
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void invited()}
-          >
-            {busy ? 'Готуємо код…' : invite ? 'Новий код' : 'Створити код'}
-          </Button>
-        </div>
-
-        {failure ? <Notice tone="error" failure={failure} /> : null}
-
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="mt-6 w-full text-sm text-subtle"
+        <Button
+          block
+          variant={invite ? 'default' : 'primary'}
+          disabled={busy}
+          onClick={() => void requestInvite()}
         >
-          Вийти
-        </button>
-      </Card>
-    </Screen>
+          {busy ? 'Готуємо код…' : invite ? 'Новий код' : 'Створити код'}
+        </Button>
+        {failure ? <ErrorText failure={failure} /> : null}
+      </Panel>
+
+      <p className="mt-4 text-center">
+        <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>
+      </p>
+    </AuthShell>
   )
 }

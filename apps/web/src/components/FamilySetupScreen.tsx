@@ -1,13 +1,24 @@
 /**
- * Увійшли, але сім'ї ще немає (MER-45). Два шляхи: завести свою або приєднатися
- * до чужої за кодом. Третього немає — доки акаунт поза сім'єю, у токені немає
- * `family_id`, а отже, застосунок не бачить жодного рядка.
+ * Увійшли, але сім'ї ще немає (MER-45). Два шляхи — завести свою або
+ * приєднатися за кодом — стоять окремими панелями, а не однією формою з
+ * роздільником: це два різні наміри, і людина приходить сюди вже знаючи свій.
+ *
+ * Третього шляху немає: доки акаунт поза сім'єю, у токені немає `family_id`, а
+ * отже, застосунок не бачить жодного рядка.
  */
 
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import type { Failure } from '../lib/messages'
-import { Button, Card, Field, Notice, Screen } from './ui'
+import {
+  AuthShell,
+  Button,
+  ErrorText,
+  Field,
+  Hint,
+  LinkButton,
+  Panel,
+} from './ui'
 
 export function FamilySetupScreen() {
   const { email, createFamily, joinFamily, signOut } = useAuth()
@@ -28,13 +39,16 @@ export function FamilySetupScreen() {
   }
 
   return (
-    <Screen>
-      <Card
-        title="Оберіть сім’ю"
-        subtitle={`Ви увійшли як ${email ?? 'невідомий акаунт'}. Раціон, страви й список покупок спільні для всієї сім’ї.`}
-      >
+    <AuthShell
+      title="Сім’я"
+      subtitle={`Ви увійшли як ${email ?? 'невідомий акаунт'}`}
+    >
+      <Panel title="Створити сім’ю">
+        <Hint>
+          Раціон, пул страв і список покупок будуть спільні для всіх, кого ви
+          сюди запросите.
+        </Hint>
         <form
-          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault()
             void run('create')
@@ -46,19 +60,25 @@ export function FamilySetupScreen() {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <Button type="submit" disabled={busy !== null}>
-            {busy === 'create' ? 'Створюємо…' : 'Створити сім’ю'}
-          </Button>
+          <div className="mt-3.5">
+            <Button
+              type="submit"
+              variant="primary"
+              block
+              disabled={busy !== null}
+            >
+              {busy === 'create' ? 'Створюємо…' : 'Створити'}
+            </Button>
+          </div>
         </form>
+      </Panel>
 
-        <div className="my-6 flex items-center gap-3 text-xs text-subtle">
-          <span className="h-px flex-1 bg-line" />
-          або
-          <span className="h-px flex-1 bg-line" />
-        </div>
-
+      <Panel title="Приєднатися за кодом">
+        <Hint>
+          Код дає той, хто вже в сім’ї — на своєму екрані сім’ї. Дефіси, пробіли
+          й регістр значення не мають.
+        </Hint>
         <form
-          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault()
             void run('join')
@@ -69,25 +89,25 @@ export function FamilySetupScreen() {
             placeholder="A1B2-C3D4-E5F6"
             required
             autoComplete="off"
-            hint="Код дає той, хто вже в сім’ї. Дефіси й регістр значення не мають."
+            autoCapitalize="characters"
+            spellCheck={false}
+            className="font-mono uppercase tracking-widest"
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
-          <Button type="submit" variant="ghost" disabled={busy !== null}>
-            {busy === 'join' ? 'Приєднуємось…' : 'Приєднатися за кодом'}
-          </Button>
+          <div className="mt-3.5">
+            <Button type="submit" block disabled={busy !== null}>
+              {busy === 'join' ? 'Приєднуємось…' : 'Приєднатися'}
+            </Button>
+          </div>
         </form>
+      </Panel>
 
-        {failure ? <Notice tone="error" failure={failure} /> : null}
+      {failure ? <ErrorText failure={failure} /> : null}
 
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="mt-6 w-full text-sm text-subtle"
-        >
-          Вийти
-        </button>
-      </Card>
-    </Screen>
+      <p className="mt-4 text-center">
+        <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>
+      </p>
+    </AuthShell>
   )
 }

@@ -51,6 +51,8 @@ export type Result<T> = { ok: true; value: T } | { ok: false; failure: Failure }
 type AuthValue = {
   status: Status
   email: string | null
+  /** `auth.users.id` поточної сесії — щоб упізнати свій рядок у складі сім'ї. */
+  userId: string | null
   familyId: string | null
   family: Family | null
   members: Array<FamilyMember>
@@ -175,6 +177,7 @@ export function AuthProvider({
     return {
       status,
       email: session?.user.email ?? null,
+      userId: session?.user.id ?? null,
       familyId,
       family,
       members,
