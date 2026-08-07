@@ -1,8 +1,68 @@
 // @meridian/core — доменна логіка Meridian чистим TypeScript:
-// генератор тижня, розрахунок калорій, правила провенансу.
-// Без залежностей від фреймворків і від БД — щоб той самий код викликався
-// з веба, з Capacitor і з майбутнього нативу.
+// генератор тижня, розрахунок калорій, правила провенансу (MER-47).
 //
-// Порожній навмисно: логіка переноситься з V1 у MER-47.
+// Без залежностей від фреймворків і від БД — щоб той самий код викликався
+// з веба, з Capacitor і з майбутнього нативу. Єдиний модуль, що знає про форму
+// рядка локального SQLite, — `rows.ts`, і він лише мапить рядок у доменний
+// об'єкт; далі по коду ходять уже об'єкти.
 
-export {}
+export { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+export type {
+  DayCalories,
+  Err,
+  Ingredient,
+  Meal,
+  MealPrefValue,
+  MealType,
+  PlanDay,
+  PlannedMeal,
+  Portion,
+  PortionLetter,
+  Profile,
+  Result,
+  TastePrefs,
+  WeekParams,
+  WeekPlan,
+} from './types.ts'
+
+export {
+  dayCalories,
+  formatCalories,
+  formatDayCalories,
+  formatMacro,
+  formatMealCalories,
+  hasMacros,
+  hasValue,
+  optionalNumber,
+} from './provenance.ts'
+
+export {
+  allWeekMeals,
+  isMixedWeek,
+  mealPlans,
+  mixPossibleIn,
+  plansCovering,
+  poolPlans,
+  weekSources,
+} from './plans.ts'
+
+export { planOwnerId, poolForProfile } from './profile.ts'
+
+export { DEFAULTS, generateWeek } from './generator.ts'
+export type { GenerateOptions, GenerateResult, Random } from './generator.ts'
+
+export { replaceSlot, suggestReplacements } from './replace.ts'
+export type { Replacements, ReplacementCandidate } from './replace.ts'
+
+export {
+  addDays,
+  dateKey,
+  planSlots,
+  precedingMealIds,
+  precedingWindow,
+  startOfWeek,
+} from './calendar.ts'
+export type { CalendarSlot } from './calendar.ts'
+
+export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
+export type { Row } from './rows.ts'

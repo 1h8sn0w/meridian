@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @meridian/db migrate",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs && pnpm --recursive --if-present test"
   },
   "devDependencies": {
     "prettier": "^3.8.1",

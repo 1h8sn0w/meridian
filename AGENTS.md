@@ -243,7 +243,7 @@ utility-клас. Після
 | Каталог | Призначення |
 |---------|-------------|
 | `apps/web` | Vite + TanStack Start. Цю ж збірку згодом загортає Capacitor |
-| `packages/core` | Доменна логіка чистим TS. Без залежностей від фреймворків і від БД |
+| `packages/core` | Доменна логіка чистим TS: генератор тижня, калорії, провенанс. Без залежностей від фреймворків і від БД — рішення порту в `packages/core/README.md` (MER-47) |
 | `packages/db` | Drizzle-схема + міграції для Supabase Postgres |
 | `infra` | Docker Compose нашого стека, Caddyfile, конфіг PowerSync, `.env.example` |
 
@@ -256,8 +256,9 @@ Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожн�
 **Команди з кореня:** `pnpm bootstrap` (підняти все з нуля — розділ нижче),
 `pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,
 `pnpm typecheck`, `pnpm format`, `pnpm db:migrate` — рекурсивні по воркспейсу,
-крім `dev` і `db:migrate` (адресні). V1 лишає свій `pnpm test`; скриптів збірки
-CSS у корені більше немає (MER-53). Один менеджер пакетів на репозиторій —
+крім `dev` і `db:migrate` (адресні). `pnpm test` проганяє тести V1 у корені, а
+далі — тести пакетів (зараз це юніт-тести `packages/core` на `node --test`, без
+окремого фреймворку). Скриптів збірки CSS у корені більше немає (MER-53). Один менеджер пакетів на репозиторій —
 `package-lock.json` прибрано, лок-файл тепер `pnpm-lock.yaml`.
 
 **Форматування спільне:** `prettier.config.js` у корені (`semi: false`,
