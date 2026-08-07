@@ -13,12 +13,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
     "lint": "eslint"
   },
   "devDependencies": {
     "@tanstack/eslint-config": "^0.4.0",
+    "@types/node": "^26.1.1",
     "eslint": "^10.8.0",
     "typescript": "^6.0.2"
   }

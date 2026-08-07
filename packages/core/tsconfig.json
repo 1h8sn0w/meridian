@@ -3,6 +3,21 @@
   "include": ["src/**/*.ts"],
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+
+    // Модулі імпортують одне одного з розширенням `.ts` — саме так їх бачить
+    // `node --test` (Node стирає типи, але шляхів не переписує). На збірці
+    // `rewriteRelativeImportExtensions` міняє `.ts` на `.js` в емітованому коді.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    // Лише той TS, який стирається без трансформації — інакше юніт-тести не
+    // запустяться без збірки (без enum, namespace і параметрів-властивостей).
+    "erasableSyntaxOnly": true,
+
+    // Потрібні ЛИШЕ юніт-тестам (`node:test`, `node:assert`). Сам домен про
+    // Node нічого не знає й знати не має — тому в збірці цей список порожній
+    // (`tsconfig.build.json`), щоб глобалі Node не протекли в `dist`.
+    "types": ["node"]
   }
 }
