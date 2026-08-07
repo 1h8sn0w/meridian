@@ -180,6 +180,32 @@ export const AppSchema = new Schema({
 /** Рядки локальних таблиць — типи для запитів. */
 export type AppDatabase = (typeof AppSchema)['types']
 
+/**
+ * Колонки, які на пристрої лежать НЕ в тому вигляді, у якому їх чекає Postgres
+ * (MER-49).
+ *
+ * У SQLite три типи, тож `jsonb` живе тут рядком, а `boolean` — числом 0/1.
+ * Читання це розбирає (`rows.ts` у ядрі), але вивантаження теж мусить: PostgREST
+ * кладе значення в колонку як є, і JSON-рядок стає jsonb-РЯДКОМ, а не масивом —
+ * `jsonb_typeof(...) = 'array'` у схемі відкидає такий запис, а конектор
+ * відкидає саму зміну. Ознака в консолі — `23514 ... violates check constraint`.
+ *
+ * Списки живуть поруч із самою схемою навмисно: нова jsonb- або boolean-колонка
+ * має дописатися сюди тим самим рухом, що й у таблицю вище.
+ */
+export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  profile: ['meal_ids'],
+  meal: ['ingredients', 'portions'],
+  recipe: ['steps'],
+  week_plan: ['sources', 'warnings'],
+}
+
+export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
+  {
+    meal: ['calories_approx'],
+    shopping_check: ['checked'],
+  }
+
 /** Таблиці, які синхронізуються. Порядок — як у sync-config.yaml. */
 export const SYNCED_TABLES = [
   'profile',

@@ -1,10 +1,16 @@
 /**
- * Життєвий цикл синхронізації в React (MER-46).
+ * Життєвий цикл локальної бази й синхронізації в React (MER-46, MER-49).
  *
- * Правило одне: з'єднання існує рівно доти, доки є `family_id` у токені. Немає
- * сім'ї — немає й чого синхронізувати; вийшли — від'єднуємось. Стан входу вже
- * зведений до одного значення в `lib/auth.tsx`, тож тут його не перевіряють
- * удруге.
+ * Два різні питання, і плутати їх не можна:
+ *
+ *  - **база пристрою існує, доки є `family_id` у токені.** Вона — джерело істини
+ *    для інтерфейсу, тож відкривається завжди, коли є кому належати;
+ *  - **з'єднання із сервісом існує, доки ще й задана його адреса.** Немає
+ *    `PUBLIC_POWERSYNC_URL` — застосунок працює повністю, просто лишається на
+ *    одному пристрої (MER-49: екрани читають SQLite, а не мережу).
+ *
+ * Стан входу вже зведений до одного значення в `lib/auth.tsx`, тож тут його не
+ * перевіряють удруге.
  *
  * `@powersync/web` вантажиться **динамічно**: у ньому WASM і web-workers, яких
  * на сервері немає. SSR через це рендерить той самий каркас, що й до першої
@@ -23,7 +29,7 @@ import type { PublicEnv } from '../public-env'
 export type SyncState = {
   /** Чи задана адреса сервісу. Без неї застосунок працює, але лише тут. */
   configured: boolean
-  /** База пристрою; `null`, доки не під'єдналися (або поза браузером). */
+  /** База пристрою; `null`, доки не відкрилася (або поза браузером). */
   db: PowerSyncDatabase | null
 }
 
@@ -48,7 +54,11 @@ export function SyncProvider({
   const [db, setDb] = useState<PowerSyncDatabase | null>(null)
 
   useEffect(() => {
-    if (!configured || !familyId) return
+    if (!familyId) {
+      // Вийшли з акаунта — базу з контексту прибираємо, з диска ні.
+      setDb(null)
+      return
+    }
 
     // Сім'я може змінитися, доки база відкривається, — тоді результат уже
     // нікому. Той самий прийом, що й у запитах складу сім'ї (lib/auth.tsx).
@@ -58,25 +68,35 @@ export function SyncProvider({
     const aborted = () => stale.signal.aborted
 
     void (async () => {
-      const [{ connectPowerSync, disconnectPowerSync }, { createConnector }] =
-        await Promise.all([import('./db'), import('./connector')])
+      const [
+        { openPowerSync, connectPowerSync, disconnectPowerSync },
+        connectorModule,
+      ] = await Promise.all([import('./db'), import('./connector')])
       if (aborted()) return
 
-      const connector = createConnector(getSupabase(env), env.powersyncUrl)
-      const opened = await connectPowerSync(connector, familyId)
+      const opened = await openPowerSync(familyId)
+      if (aborted()) return
+      setDb(opened)
+
+      if (!configured) return
+      const connector = connectorModule.createConnector(
+        getSupabase(env),
+        env.powersyncUrl,
+      )
+      await connectPowerSync(connector)
       // Поки з'єднувалися, сім'я могла змінитись — тоді від'єднуємось відразу,
       // інакше з'єднання пережило б власний ефект.
-      if (aborted()) {
-        await disconnectPowerSync()
-        return
-      }
-      setDb(opened)
+      if (aborted()) await disconnectPowerSync()
     })()
 
     return () => {
       stale.abort()
-      setDb(null)
-      // База лишається на пристрої — стирає її лише зміна сім'ї (db.ts).
+      // `setDb(null)` тут НЕ робимо навмисно: база пристрою переживає і зміну
+      // токена, і повторний запуск ефекту, а зайве обнулення давало б екранам
+      // порожній контекст на кожному оновленні сесії. Прибирає її лише гілка
+      // «сім'ї немає» вище.
+      //
+      // База лишається й на диску — стирає її тільки зміна сім'ї (db.ts).
       void import('./db').then(({ disconnectPowerSync }) =>
         disconnectPowerSync(),
       )

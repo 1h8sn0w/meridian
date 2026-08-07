@@ -30,6 +30,7 @@ import type {
   PowerSyncCredentials,
 } from '@powersync/web'
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import { BOOLEAN_COLUMNS, JSON_COLUMNS } from './schema'
 
 /**
  * Коди Postgres, після яких повторювати марно (з офіційного прикладу):
@@ -48,10 +49,52 @@ const FATAL_RESPONSE_CODES = [/^22...$/, /^23...$/, /^42501$/]
  */
 const SERVER_OWNED_COLUMNS = ['created_at', 'updated_at']
 
-function forServer(data: Record<string, unknown>): Record<string, unknown> {
+/**
+ * Рядок SQLite → JSON для `jsonb`-колонки.
+ *
+ * Якщо текст не розбирається, віддаємо його як є: сервер відповість своїм
+ * CHECK-обмеженням, і в логу буде видно справжню причину. Тихо підставити
+ * порожній масив означало б втратити дані користувача й ще й приховати це.
+ */
+function asJson(value: unknown): unknown {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+/** 0/1 із SQLite → `boolean`, якого чекає Postgres. */
+function asBoolean(value: unknown): unknown {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') return value === '1' || value === 'true'
+  return value
+}
+
+/**
+ * Локальний рядок → тіло запиту PostgREST.
+ *
+ * Крім службових колонок сервера, тут відбувається зворотне перетворення типів
+ * (MER-49): у SQLite їх три, тож `jsonb` приїхав рядком, а `boolean` — числом,
+ * і без цього кроку сервер відкидає запис на CHECK-обмеженні. Перелік колонок —
+ * у `schema.ts`, поруч зі схемою, яку він описує.
+ */
+function forServer(
+  table: string,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const jsonColumns = JSON_COLUMNS[table] ?? []
+  const booleanColumns = BOOLEAN_COLUMNS[table] ?? []
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(data)) {
-    if (!SERVER_OWNED_COLUMNS.includes(key)) out[key] = value
+    if (SERVER_OWNED_COLUMNS.includes(key)) continue
+    if (jsonColumns.includes(key)) out[key] = asJson(value)
+    else if (booleanColumns.includes(key)) out[key] = asBoolean(value)
+    else out[key] = value
   }
   return out
 }
@@ -74,7 +117,7 @@ export async function applyCrudEntry(
   entry: CrudEntry,
 ): Promise<{ error: PostgrestError | null }> {
   const table = supabase.from(entry.table)
-  const data = forServer(entry.opData ?? {})
+  const data = forServer(entry.table, entry.opData ?? {})
 
   switch (entry.op) {
     case UpdateType.PUT:

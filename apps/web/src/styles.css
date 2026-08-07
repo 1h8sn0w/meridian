@@ -64,7 +64,10 @@
   --color-accent: var(--accent, #4f9dff);
   --color-accent-soft: var(--accent-soft, rgba(79, 157, 255, 0.12));
   --color-profile: var(--profile-color, var(--accent, #4f9dff));
-  --color-profile-soft: var(--profile-soft, var(--accent-soft, rgba(79, 157, 255, 0.12)));
+  --color-profile-soft: var(
+    --profile-soft,
+    var(--accent-soft, rgba(79, 157, 255, 0.12))
+  );
   --color-swatch: var(--swatch-color, #4f9dff);
 }
 
