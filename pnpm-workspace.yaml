@@ -6,7 +6,13 @@ packages:
 # esbuild і lightningcss — зі стартера TanStack Start; решта — нативні модулі
 # наших же інструментів: unrs-resolver (eslint-plugin-import-x),
 # @parcel/watcher (drizzle-kit).
+#
+# @journeyapps/wa-sqlite (MER-46) — не збірка, а завантаження: його postinstall
+# тягне бінарник ядра SQLite під версію PowerSync (`powersync-version` у самому
+# пакеті). Без нього @powersync/web падає вже в рантаймі, тож заборонити цей
+# скрипт означає не мати клієнтського SQLite взагалі.
 allowBuilds:
+  '@journeyapps/wa-sqlite': true
   '@parcel/watcher': true
   esbuild: true
   lightningcss: true

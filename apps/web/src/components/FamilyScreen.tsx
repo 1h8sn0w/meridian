@@ -20,6 +20,7 @@ import {
   Panel,
   Tag,
 } from './ui'
+import { SyncPanel } from './SyncPanel'
 
 export function FamilyScreen() {
   const { userId, family, members, invite, createInvite, signOut } = useAuth()
@@ -86,6 +87,8 @@ export function FamilyScreen() {
         </Button>
         {failure ? <ErrorText failure={failure} /> : null}
       </Panel>
+
+      <SyncPanel />
 
       <p className="mt-4 text-center">
         <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>

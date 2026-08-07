@@ -55,6 +55,9 @@ services:
       PS_DATABASE_URI: ${PS_DATABASE_URI}
       PS_STORAGE_URI: ${PS_STORAGE_URI}
       PS_JWKS_URL: ${PS_JWKS_URL}
+      # Секрет HS256 самого Supabase: його токени self-host підписує саме ним
+      # (MER-46). Порожньо — якщо проєкт уже на асиметричних ключах.
+      PS_JWT_SECRET: ${JWT_SECRET}
       PS_PORT: ${PS_PORT:-8080}
     healthcheck:
       test:

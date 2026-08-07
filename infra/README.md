@@ -10,7 +10,7 @@
 | `web.Dockerfile` | Прод-образ `apps/web`. Контекст збірки — корінь репозиторію (pnpm-воркспейс) |
 | `caddy/Caddyfile` | Два хости — застосунок і sync-ендпоінт. HTTPS Caddy бере сам |
 | `powersync/service.yaml` | Конфіг PowerSync Service, монтується лише для читання |
-| `powersync/sync-config.yaml` | Правила синхронізації. Поки порожні — MER-46 |
+| `powersync/sync-config.yaml` | Правила синхронізації (MER-46): один стрім на сім'ю, сім таблиць |
 | `supabase/docker-compose.override.yml` | Накладка на compose **Supabase**: вмикає хук доступу (MER-45). Копіюється туди, не запускається звідси |
 | `.env.example` | Контракт змінних; секретні значення порожні |
 
@@ -180,6 +180,26 @@ MER-45 приведе SSR до GoTrue й доведеться додати се�
 сервера потрібен лише публічний конфіг (`PUBLIC_SUPABASE_URL`,
 `PUBLIC_SUPABASE_ANON_KEY`), який він віддає під час SSR.
 
+**PowerSync перевіряє токени спільним секретом, а не JWKS** (MER-46). Офіційний
+self-hosted Supabase досі підписує токени симетричним ключем: у них немає `kid`,
+а `/auth/v1/.well-known/jwks.json` віддає `{"keys":[]}`. Тому в `service.yaml`
+поруч із `jwks_uri` стоїть `supabase_jwt_secret: !env PS_JWT_SECRET`, а в
+`.env` — `JWT_SECRET` із `.env` самого Supabase. Без нього sync відповідає
+`401 PSYNC_S2101` («no key matched the token KID»), і виглядає це як «правила не
+працюють», хоч і правила, і claim правильні. Обидва способи лишаються поруч
+навмисно: після переходу на асиметричні ключі (`utils/add-new-auth-keys.sh`)
+JWKS наповниться й почне вигравати сам.
+
+**Перевірити синхронізацію на живому стеку:**
+
+```bash
+docker logs meridian-powersync-1 | grep "Sync stream started"
+```
+
+Після входу в застосунок у логах має з'явитися `New checkpoint` із бакетом
+`family_data|0["<family_id>"]` — це і є доказ, що claim доїхав і правила його
+прочитали. Порожньо й без помилок — див. абзац про хук доступу нижче.
+
 **Хук доступу вмикається на боці Supabase, а не нашого стека** (MER-45). Claim
 `family_id` у JWT кладе Postgres-функція з міграції
 `packages/db/drizzle/0004_auth.sql`, але кличе її GoTrue — і лише якщо їй про це
@@ -195,17 +215,20 @@ MER-45 приведе SSR до GoTrue й доведеться додати се�
 ## Розбіжності з інструкцією V2
 
 Інструкція вимагає звіряти кожне ім'я з офіційною документацією і фіксувати
-розбіжності. Знайдено дві:
+розбіжності. Знайдено чотири:
 
 | В інструкції | Насправді | Джерело |
 |--------------|-----------|---------|
 | конфіг називається `powersync.yaml` | `service.yaml` (+ окремий `sync-config.yaml`), шлях задається `POWERSYNC_CONFIG_PATH` | `powersync-ja/self-host-demo` |
 | `client_auth.allow_local_jwks` вмикає локальні JWKS-адреси | такого ключа більше немає; є зворотний `block_local_jwks` (типово `false`, тобто локальні адреси й так дозволені) | JSON-схема `@powersync/service-schema` |
+| «bucket по `family_id`» | бакети — це legacy `bucket_definitions`; актуальні Sync Streams з `config: edition: 3`, параметр читається `auth.parameter('family_id')` | docs.powersync.com/sync/streams |
+| для перевірки токенів досить `PS_JWKS_URL` | self-host Supabase лишається на HS256, JWKS порожній — потрібен ще `client_auth.supabase_jwt_secret` | розділ вище, перевірено на живому стеку |
 
 Імена змінних середовища з контракту (`PS_DATABASE_URI`, `PS_JWKS_URL`,
 `POWERSYNC_URL`, `PUBLIC_*`) збережено як є: у конфізі PowerSync вони
 підставляються через `!env`, а той приймає будь-яке ім'я з префіксом `PS_`.
-Додано одну змінну — `PS_STORAGE_URI` — разом із вибором Postgres як сховища.
+Додано дві змінні — `PS_STORAGE_URI` разом із вибором Postgres як сховища і
+`PS_JWT_SECRET` разом із перевіркою токенів (MER-46).
 
 ---
 
