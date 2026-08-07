@@ -48,6 +48,8 @@ const SUPABASE_DIR = path.resolve(
 /* Локальні адреси зі стандартного .env Supabase (KONG_HTTP_PORT=8000). */
 const SUPABASE_URL = 'http://localhost:8000'
 const APP_DEV_URL = 'http://localhost:3000'
+/* Порт PowerSync на петлі — так його публікує infra/docker-compose.yml. */
+const POWERSYNC_DEV_URL = 'http://localhost:8080'
 
 function argValue(flag) {
   const i = args.indexOf(flag)
@@ -433,7 +435,10 @@ function writeOurEnvFiles(secrets) {
     writeFileSync(
       webEnv,
       `PUBLIC_SUPABASE_URL=${SUPABASE_URL}\n` +
-        `PUBLIC_SUPABASE_ANON_KEY=${secrets.ANON_KEY}\n`,
+        `PUBLIC_SUPABASE_ANON_KEY=${secrets.ANON_KEY}\n` +
+        // Адреса sync-сервісу для браузера (MER-46). У `pnpm dev` це порт
+        // PowerSync на петлі: наш compose публікує його на 127.0.0.1.
+        `PUBLIC_POWERSYNC_URL=${POWERSYNC_DEV_URL}\n`,
       'utf8',
     )
     ok('apps/web/.env — для `pnpm dev`')
@@ -472,6 +477,10 @@ async function main() {
   const envFile = path.join(SUPABASE_DIR, '.env')
   const secrets = {
     POSTGRES_PASSWORD: readEnvValue(envFile, 'POSTGRES_PASSWORD'),
+    // Ним GoTrue підписує токени, і ним же PowerSync їх перевіряє (MER-46):
+    // JWKS у self-host лишається порожнім, доки не перейти на асиметричні
+    // ключі. Без цього значення синхронізація відповідає 401.
+    JWT_SECRET: readEnvValue(envFile, 'JWT_SECRET'),
     ANON_KEY: readEnvValue(envFile, 'ANON_KEY'),
     SERVICE_ROLE_KEY: readEnvValue(envFile, 'SERVICE_ROLE_KEY'),
   }

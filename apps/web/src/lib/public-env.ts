@@ -22,6 +22,8 @@ import { createServerFn } from '@tanstack/react-start'
 export type PublicEnv = {
   supabaseUrl: string
   supabaseAnonKey: string
+  /** Адреса sync-сервісу PowerSync для браузера (MER-46). */
+  powersyncUrl: string
 }
 
 /**
@@ -39,9 +41,23 @@ export const getPublicEnv = createServerFn({ method: 'GET' }).handler(
       process.env.PUBLIC_SUPABASE_ANON_KEY ??
       import.meta.env.PUBLIC_SUPABASE_ANON_KEY ??
       '',
+    powersyncUrl:
+      process.env.PUBLIC_POWERSYNC_URL ??
+      import.meta.env.PUBLIC_POWERSYNC_URL ??
+      '',
   }),
 )
 
 export function isPublicEnvReady(env: PublicEnv): boolean {
   return env.supabaseUrl !== '' && env.supabaseAnonKey !== ''
+}
+
+/**
+ * Синхронізація перевіряється окремо від входу (MER-46) навмисно: без адреси
+ * PowerSync застосунок цілком робочий — просто лишається на одному пристрої.
+ * Гасити через це весь інтерфейс було б перебільшенням, а мовчати про це —
+ * тією самою тихою поломкою, від якої тут скрізь застереження.
+ */
+export function isSyncConfigured(env: PublicEnv): boolean {
+  return isPublicEnvReady(env) && env.powersyncUrl !== ''
 }

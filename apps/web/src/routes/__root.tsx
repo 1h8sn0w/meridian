@@ -5,6 +5,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import appCss from '../styles.css?url'
 import { getPublicEnv } from '../lib/public-env'
 import { AuthProvider } from '../lib/auth'
+import { SyncProvider } from '../lib/powersync/provider'
 
 export const Route = createRootRoute({
   // Публічний конфіг береться рантаймом сервера й приїжджає в браузер разом із
@@ -43,7 +44,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="bg-app font-sans text-content">
-        <AuthProvider env={env}>{children}</AuthProvider>
+        {/* Синхронізація — усередині входу: вона живе з токена, і без нього
+            їй нічого робити (MER-46). */}
+        <AuthProvider env={env}>
+          <SyncProvider env={env}>{children}</SyncProvider>
+        </AuthProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',

@@ -9,19 +9,33 @@ pnpm install
 pnpm dev
 ```
 
-# Configuration (MER-45)
+# Configuration (MER-45, MER-46)
 
-The browser talks to Supabase directly, so it needs the project URL and the
-anon key. Both are read from the server at **runtime** — one image can be
-deployed to any self-host without a rebuild — and handed to the browser during
-SSR (`src/lib/public-env.ts`).
+The browser talks to Supabase directly, so it needs the project URL, the anon
+key and the PowerSync endpoint. All three are read from the server at
+**runtime** — one image can be deployed to any self-host without a rebuild —
+and handed to the browser during SSR (`src/lib/public-env.ts`).
 
 For `pnpm dev`, copy `.env.example` to `.env` and fill it in; the names are the
 same as in `infra/.env.example` on purpose. In production the same names come
 from the `web` service environment (`infra/docker-compose.yml`).
 
-Without them the app renders an explicit "not configured" screen instead of
-failing silently.
+Without the Supabase pair the app renders an explicit "not configured" screen
+instead of failing silently. Without `PUBLIC_POWERSYNC_URL` the app still works,
+but stays on one device — and the sync panel says so.
+
+## Local database (MER-46)
+
+`src/lib/powersync/` holds the local-first layer: the client SQLite schema, the
+Supabase connector and the React lifecycle. `@powersync/web` ships WASM and web
+workers, so it is imported **dynamically, from an effect only** — importing it
+at module scope would break SSR. Rules and reasoning live in `AGENTS.md`; the
+sync rules themselves are `infra/powersync/sync-config.yaml`.
+
+In development the database is also exposed as `window.Meridian.sync`, the same
+way V1 exposed `window.Meridian` — until the real screens land (MER-49) that is
+the way to write something and watch it reach the other device. The branch is
+compiled out of production builds.
 
 # Building For Production
 
