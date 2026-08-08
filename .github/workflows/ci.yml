@@ -1,27 +1,44 @@
 name: CI
 
+# Ті самі перевірки, що й локально: скрипти вже є в кореневому package.json,
+# workflow їх лише обгортає (MER-58). Нічого свого тут не дублюється — якщо
+# перевірка змінилась, вона змінюється у package.json, а не тут.
+#
+# `main` у списку гілок стоїть свідомо, хоч там досі V1 з іншим набором
+# скриптів: push-workflow запускається лише з тієї гілки, у якій він сам
+# лежить, а на `main` цього файлу ще немає. Тобто до злиття staging → main
+# він працює на `staging`, а після злиття `main` підхопить його сам.
 on:
   pull_request:
   push:
     branches: [main, staging]
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      # Версія pnpm береться з поля packageManager у кореневому package.json,
+      # тому input `version` не задається: задати обидва — помилка дії.
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      # Порядок обов'язковий: setup-node з `cache: pnpm` кличе `pnpm store
+      # path`, тож pnpm має бути вже поставлений. Версія Node — 22, як у
+      # infra/web.Dockerfile і в полі engines.
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
+      # Лок-файл — джерело істини: розбіжність із package.json має валити
+      # збірку, а не мовчки ставити інші версії.
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
 
+      # Всередині спершу збирає packages/core: apps/web залежить від нього
+      # через workspace:* і бачить лише dist.
       - run: pnpm typecheck
 
       - run: pnpm test

@@ -140,6 +140,83 @@ docker compose -f infra/docker-compose.yml down
 
 ---
 
+## Як розгорнути готовий образ
+
+Замість збірки `web` з вихідників (крок 2 вище) можна забрати вже зібраний
+образ із Docker Hub. Тоді хостинг не вимагає ні клонувати репозиторій, ні мати
+на машині Node з pnpm — досить Docker.
+
+```bash
+docker pull citynight/meridian:staging
+```
+
+Публікує його `.github/workflows/docker-publish.yml` (MER-58) — той самий
+`infra/web.Dockerfile`, лише зібраний на CI.
+
+### Теги
+
+| Тег | Звідки береться |
+|-----|-----------------|
+| `latest` | пуш у гілку за замовчуванням (`main`) і git-тег `vX.Y.Z` |
+| `staging` | пуш у `staging` — поки V2 живе саме там, це найсвіжіший образ |
+| `main` | пуш у `main` |
+| `sha-<короткий-sha>` | кожен пуш — щоб відкотитись на конкретний коміт |
+| `X.Y.Z` | git-тег `vX.Y.Z` |
+
+До злиття `staging` → `main` тег `latest` не оновлюється: на `main` усе ще
+статичний V1 без `apps/web`, і сам workflow туди ще не потрапив. Для self-host
+V2 сьогодні брати `staging` або конкретний `sha-…`.
+
+### Автономний запуск, без Compose
+
+```bash
+docker run -p 3000:3000 \
+  -e PUBLIC_SUPABASE_URL=... \
+  -e PUBLIC_SUPABASE_ANON_KEY=... \
+  -e PUBLIC_POWERSYNC_URL=... \
+  -e POWERSYNC_URL=... \
+  citynight/meridian:staging
+```
+
+Змінні — ті самі, що й у `infra/.env` (крок 2 вище): три `PUBLIC_*` їдуть у
+браузер, `POWERSYNC_URL` потрібен серверу. Порт слухається з `PORT`, типово
+`3000`. Це лише сам застосунок — Supabase і PowerSync мають бути підняті
+окремо, інакше йому нема з чим говорити.
+
+### У складі `docker-compose.yml`
+
+У сервісі `web` закоментувати `build:` і розкоментувати рядок `image:` — він
+там уже стоїть:
+
+```yaml
+web:
+  image: citynight/meridian:staging
+  # build:
+  #   context: ..
+  #   dockerfile: infra/web.Dockerfile
+```
+
+Далі `docker compose -f infra/docker-compose.yml up -d` підтягне образ сам;
+оновити його потім — `docker compose -f infra/docker-compose.yml pull web`.
+PowerSync, Caddy й мережа Supabase лишаються без змін: образ стосується тільки
+`web`.
+
+### Секрети репозиторію
+
+Workflow нічого не публікує, доки в налаштуваннях репозиторію
+(Settings → Secrets and variables → Actions) не з'являться два секрети:
+
+| Секрет | Значення |
+|--------|----------|
+| `DOCKERHUB_USERNAME` | ім'я користувача Docker Hub — власник namespace `citynight` |
+| `DOCKERHUB_TOKEN` | **access token** Docker Hub із правом `Read & Write`, не пароль акаунта |
+
+Токен, а не пароль: його видно в списку, можна відкликати окремо й він не
+відмикає сам акаунт. Без секретів крок логіну падає — образ не публікується,
+але код у репозиторії від цього не страждає.
+
+---
+
 ## Рішення, які тут прийняті
 
 **Сховище бакетів — Postgres, не MongoDB.** Демо PowerSync використовує
