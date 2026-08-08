@@ -17,6 +17,13 @@ services:
   # --- Застосунок ------------------------------------------------------------
   # Прод-збірка apps/web: самодостатній Node-сервер .output/server/index.mjs.
   web:
+    # Альтернатива збірці з вихідників — готовий образ із Docker Hub (MER-58):
+    # закоментувати `build:` нижче й розкоментувати рядок `image:`. Тоді хостинг
+    # не вимагає клонувати репозиторій — досить цього файлу й .env. Тег саме
+    # `staging`, а не `latest`: поки V2 живе у staging, `latest` ще не
+    # оновлюється. Перелік тегів — infra/README.md, «Як розгорнути готовий
+    # образ».
+    # image: citynight/meridian:staging
     build:
       context: ..
       dockerfile: infra/web.Dockerfile

@@ -1,0 +1,59 @@
+name: Docker Publish
+
+# Публікація прод-образу apps/web на Docker Hub (MER-58), щоб self-host можна
+# було підняти через `docker pull` — без клонування репозиторію й збірки з
+# вихідників. PowerSync і Caddy в infra/docker-compose.yml уже тягнуться з
+# Docker Hub, тож усі три сервіси лежать в одному реєстрі.
+#
+# `main` у списку гілок стоїть свідомо, хоч там досі V1 без apps/web:
+# push-workflow запускається лише з тієї гілки, у якій він сам лежить, а на
+# `main` цього файлу ще немає. Тобто до злиття staging → main публікація йде зі
+# `staging`, а після злиття `main` підхопить її сам, без правок тут.
+on:
+  push:
+    branches: [main, staging]
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Токен доступу Docker Hub, не пароль: його можна відкликати окремо.
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: citynight/meridian
+          # `latest` — лише з гілки за замовчуванням (`main`) і з git-тегів
+          # `v*` (типовий flavor latest=auto). Кожна гілка дає ще й тег зі
+          # своїм іменем (`staging`), а short-SHA — щоб відкотитись на
+          # конкретний коміт. Перелік тегів продубльовано в infra/README.md.
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - uses: docker/build-push-action@v7
+        with:
+          # Контекст — КОРІНЬ репозиторію, а не infra/: Dockerfile збирає
+          # pnpm-воркспейс, і йому потрібні кореневі маніфести й лок-файл.
+          context: .
+          file: infra/web.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Кеш шарів між запусками — інакше кожна публікація ставить
+          # залежності воркспейсу з нуля.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

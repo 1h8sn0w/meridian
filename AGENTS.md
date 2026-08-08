@@ -282,6 +282,16 @@ Node-сервер — `.output/server/index.mjs` (клієнт — `.output/publ
 `infra/web.Dockerfile` (контекст збірки — корінь репозиторію, бо воркспейсу
 потрібні кореневі маніфести й лок-файл).
 
+**CI/CD — два workflow у `.github/workflows/` (MER-58).** `ci.yml` на кожен PR
+проганяє `pnpm lint`, `typecheck`, `test` і `format:check` — рівно ті самі
+кореневі скрипти, нічого свого він не дублює. `docker-publish.yml` на пуш у
+гілку збирає `infra/web.Dockerfile` і публікує образ на Docker Hub
+(`citynight/meridian`), щоб self-host піднімався через `docker pull`. Обидва
+перелічують у тригерах і `main`, і `staging`, хоч на `main` досі V1: workflow
+запускається лише з тієї гілки, у якій він сам лежить, тож до злиття
+`staging` → `main` вони працюють на `staging`, а після злиття `main` підхопить
+їх сам. Теги образу й секрети репозиторію — `infra/README.md`.
+
 ### Інфраструктура self-host (MER-43)
 
 **Підняти все з нуля — `pnpm bootstrap`** (`infra/bootstrap.mjs`). Бере
