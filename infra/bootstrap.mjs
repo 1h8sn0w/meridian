@@ -50,6 +50,8 @@ const SUPABASE_URL = 'http://localhost:8000'
 const APP_DEV_URL = 'http://localhost:3000'
 /* Порт PowerSync на петлі — так його публікує infra/docker-compose.yml. */
 const POWERSYNC_DEV_URL = 'http://localhost:8080'
+/* Ім'я орендаря supavisor замість заглушки `your-tenant-id` (див. крок 4). */
+const POOLER_TENANT_ID = 'meridian'
 
 function argValue(flag) {
   const i = args.indexOf(flag)
@@ -327,6 +329,23 @@ function configureSupabase() {
     ok('COMPOSE_FILE доповнено накладкою — інакше Compose її не бачить')
   }
 
+  // Ім'я орендаря supavisor. У прикладі Supabase лежить заглушка
+  // `your-tenant-id`, а воно потрапляє в кожен рядок підключення з хоста
+  // (користувач — `postgres.<орендар>`) і в логи пулера, тож має називати
+  // проєкт.
+  //
+  // Міняємо ЛИШЕ заглушку. На вже піднятому стеку перейменування завело б
+  // другого орендаря (`volumes/pooler/pooler.exs` створює його, якщо такого
+  // ще немає), а всі наявні рядки підключення з хоста мовчки перестали б
+  // працювати — за це не варто платити красивішим іменем.
+  const tenant = readEnvValue(envFile, 'POOLER_TENANT_ID')
+  if (tenant && tenant !== 'your-tenant-id') {
+    skip(`POOLER_TENANT_ID=${tenant} — уже задано, не чіпаємо`)
+  } else {
+    setEnvValue(envFile, 'POOLER_TENANT_ID', POOLER_TENANT_ID)
+    ok(`POOLER_TENANT_ID=${POOLER_TENANT_ID}`)
+  }
+
   if (readEnvValue(envFile, 'ENABLE_EMAIL_AUTOCONFIRM') === 'true') {
     skip('ENABLE_EMAIL_AUTOCONFIRM уже true')
   } else {
@@ -413,15 +432,24 @@ function applyMigrations(postgresPassword, tenantId) {
 
 /* --- 7 · Файли .env для нашого стека ------------------------------------- */
 
-function writeOurEnvFiles(secrets) {
+function writeOurEnvFiles(fromSupabaseEnv) {
   step('Конфіг Meridian')
 
   const infraEnv = path.join(INFRA, '.env')
   if (existsSync(infraEnv)) {
     skip('infra/.env уже є — не чіпаємо')
+    // Один виняток — ім'я орендаря. Джерело правди для нього в `.env`
+    // Supabase, а тут воно лише копія; розійшлися — і `pnpm db:migrate` з
+    // хоста падає на «no tenant identifier provided». Вирівняти дешевше, ніж
+    // ловити це потім.
+    const tenant = fromSupabaseEnv.POOLER_TENANT_ID
+    if (readEnvValue(infraEnv, 'POOLER_TENANT_ID') !== tenant) {
+      setEnvValue(infraEnv, 'POOLER_TENANT_ID', tenant)
+      warn(`POOLER_TENANT_ID вирівняно з .env Supabase (${tenant})`)
+    }
   } else {
     let text = readFileSync(path.join(INFRA, '.env.example'), 'utf8')
-    for (const [key, value] of Object.entries(secrets)) {
+    for (const [key, value] of Object.entries(fromSupabaseEnv)) {
       text = text.replace(new RegExp(`^${key}=.*$`, 'm'), `${key}=${value}`)
     }
     writeFileSync(infraEnv, text, 'utf8')
@@ -435,7 +463,7 @@ function writeOurEnvFiles(secrets) {
     writeFileSync(
       webEnv,
       `PUBLIC_SUPABASE_URL=${SUPABASE_URL}\n` +
-        `PUBLIC_SUPABASE_ANON_KEY=${secrets.ANON_KEY}\n` +
+        `PUBLIC_SUPABASE_ANON_KEY=${fromSupabaseEnv.ANON_KEY}\n` +
         // Адреса sync-сервісу для браузера (MER-46). У `pnpm dev` це порт
         // PowerSync на петлі: наш compose публікує його на 127.0.0.1.
         `PUBLIC_POWERSYNC_URL=${POWERSYNC_DEV_URL}\n`,
@@ -492,7 +520,9 @@ async function main() {
 
   await startSupabase(secrets.ANON_KEY)
   applyMigrations(secrets.POSTGRES_PASSWORD, tenantId)
-  writeOurEnvFiles(secrets)
+  // Ім'я орендаря — не секрет, але так само мусить збігатися з `.env`
+  // Supabase, тому їде в infra/.env тим самим шляхом, що й ключі.
+  writeOurEnvFiles({ ...secrets, POOLER_TENANT_ID: tenantId })
   if (FULL) startOurStack()
 
   console.log('\n[32m[1mГотово.[0m')

@@ -79,6 +79,13 @@ COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml
 SMTP у типовому self-host не налаштований, тож лист із підтвердженням нікуди не
 піде й акаунт лишиться неактивованим.
 
+І там же — `POOLER_TENANT_ID=meridian` замість заглушки `your-tenant-id`: це
+ім'я орендаря supavisor, воно видно в кожному рядку підключення з хоста й у
+логах пулера. Те саме значення має стояти в `infra/.env` — саме з нього
+збирається `DATABASE_URL`. Перейменовувати вже піднятий стек не варто:
+`volumes/pooler/pooler.exs` заводить орендаря, лише якщо такого ще немає, тож
+вийде другий, а старі рядки підключення перестануть працювати.
+
 Запуск:
 
 ```bash
@@ -89,7 +96,8 @@ cd supabase-project && docker compose up -d
 своїм життєвим циклом. Тримати його поруч із репозиторієм або в іншому місці.
 
 Після старту: Studio і REST — на `http://localhost:8000`, Postgres через пулер
-supavisor — на `localhost:5432`.
+supavisor — на `localhost:5432` (користувач `postgres.meridian`, session-режим;
+6543 — той самий пулер у transaction-режимі).
 
 ### 2 · Наш стек
 
