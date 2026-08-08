@@ -9,6 +9,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
+import { minutesOf, useNow } from '../lib/use-now'
 import type { Failure } from '../lib/messages'
 import { DayClock } from './DayClock'
 import {
@@ -32,6 +33,8 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [confirmSent, setConfirmSent] = useState('')
+  const now = useNow()
+  const minutes = now === null ? null : minutesOf(now)
 
   const submit = async () => {
     setBusy(true)
@@ -58,7 +61,7 @@ export function AuthScreen() {
   return (
     <AuthShell title="Meridian" subtitle="Планувальник харчування для сім’ї">
       <div className="mb-4 mt-2">
-        <DayClock />
+        <DayClock minutes={minutes} />
       </div>
 
       <Panel title={mode === 'sign-in' ? 'Вхід' : 'Реєстрація'}>

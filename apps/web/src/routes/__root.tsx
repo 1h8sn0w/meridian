@@ -6,6 +6,7 @@ import appCss from '../styles.css?url'
 import { getPublicEnv } from '../lib/public-env'
 import { AuthProvider } from '../lib/auth'
 import { SyncProvider } from '../lib/powersync/provider'
+import { AppGate } from '../components/AppGate'
 
 export const Route = createRootRoute({
   // Публічний конфіг береться рантаймом сервера й приїжджає в браузер разом із
@@ -33,6 +34,9 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  // Стан входу перевіряється один раз для всіх маршрутів (MER-49): екрани
+  // застосунку рендеряться лише тоді, коли є сесія й сім'я.
+  component: AppGate,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {

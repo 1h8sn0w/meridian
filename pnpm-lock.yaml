@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@meridian/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@powersync/react':
         specifier: ^2.0.0
         version: 2.0.0(@powersync/common@2.0.0)(react@19.2.8)

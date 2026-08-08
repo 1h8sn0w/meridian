@@ -1,40 +1,41 @@
 /**
- * Знак Meridian на екранах входу (MER-45) — кільце доби з вікнами прийомів.
+ * Годинник дня (MER-45, MER-49) — кільце доби з вікнами прийомів.
  *
- * Малюється в два кроки навмисно: кільце приїжджає з сервера як частина
- * розмітки, а стрілка й підпис зʼявляються вже у браузері. Час — це стан
- * пристрою, і рендерити його на сервері означало б показати чужий годинник, а
- * потім смикнути розмітку під час гідратації.
+ * Два розміри однієї фігури: значок на екранах входу й повний циферблат на
+ * «Сьогодні». Різниця лише в підписах — геометрія спільна, бо це той самий знак
+ * застосунку.
+ *
+ * Час приходить згори (`useNow`), а не читається тут: активний прийом і картка
+ * страви під ним мусять показувати одну й ту саму хвилину. Доки часу немає
+ * (сервер, перший кадр) — малюємо кільце без стрілки: чужий годинник показувати
+ * не можна.
  */
 
-import { useEffect, useState } from 'react'
 import {
+  CENTER,
   CLOCK_SIZE,
+  HOUR_MARKS,
   MEAL_WINDOWS,
   RING_RADIUS,
   RING_WIDTH,
   arcPath,
   formatMinute,
   handPoints,
+  labelPoint,
   slotAt,
+  windowMiddle,
 } from '../lib/day-clock'
 
 /** Зазор 6 хв з кожного боку — щоб межі вікон читались, як у V1. */
 const GAP = 6
 
-export function DayClock() {
-  const [minutes, setMinutes] = useState<number | null>(null)
-
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date()
-      setMinutes(now.getHours() * 60 + now.getMinutes())
-    }
-    tick()
-    const timer = window.setInterval(tick, 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
-
+export function DayClock({
+  minutes,
+  full = false,
+}: {
+  minutes: number | null
+  full?: boolean
+}) {
   const active = minutes === null ? null : slotAt(minutes)
   const hand = minutes === null ? null : handPoints(minutes)
 
@@ -42,19 +43,39 @@ export function DayClock() {
     <div className="flex flex-col items-center">
       <svg
         viewBox={`0 0 ${CLOCK_SIZE} ${CLOCK_SIZE}`}
-        width="132"
-        height="132"
+        className={full ? 'block h-auto w-full max-w-xs' : 'block'}
+        width={full ? undefined : 132}
+        height={full ? undefined : 132}
         role="img"
         aria-label="Годинник прийомів їжі"
       >
         <circle
           className="stroke-line opacity-50"
-          cx={CLOCK_SIZE / 2}
-          cy={CLOCK_SIZE / 2}
+          cx={CENTER}
+          cy={CENTER}
           r={RING_RADIUS}
           fill="none"
           strokeWidth={RING_WIDTH}
         />
+
+        {full
+          ? HOUR_MARKS.map((mark) => {
+              const point = labelPoint(mark)
+              return (
+                <text
+                  key={mark}
+                  className="fill-muted text-xs opacity-70"
+                  x={point.x.toFixed(1)}
+                  y={point.y.toFixed(1)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  {String(mark / 60).padStart(2, '0')}
+                </text>
+              )
+            })
+          : null}
+
         {MEAL_WINDOWS.map((w) => (
           <path
             key={w.type}
@@ -67,6 +88,30 @@ export function DayClock() {
             strokeLinecap="butt"
           />
         ))}
+
+        {full
+          ? MEAL_WINDOWS.map((w) => {
+              const point = labelPoint(windowMiddle(w))
+              const on = active?.type === w.type
+              return (
+                <text
+                  key={w.type}
+                  className={
+                    on
+                      ? 'fill-accent text-xs font-semibold'
+                      : 'fill-muted text-xs'
+                  }
+                  x={point.x.toFixed(1)}
+                  y={point.y.toFixed(1)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  {w.label}
+                </text>
+              )
+            })
+          : null}
+
         {hand ? (
           <line
             className="stroke-warning"
@@ -78,11 +123,38 @@ export function DayClock() {
             y2={hand.y2}
           />
         ) : null}
+
+        {full && active ? (
+          <>
+            <text
+              className="fill-content text-base font-semibold"
+              x={CENTER}
+              y={CENTER - 4}
+              textAnchor="middle"
+            >
+              {active.type ? active.window.label : 'Ніч'}
+            </text>
+            <text
+              className="fill-muted text-xs"
+              x={CENTER}
+              y={CENTER + 17}
+              textAnchor="middle"
+            >
+              {active.type
+                ? 'до ' + formatMinute(active.window.endMinute)
+                : active.next
+                  ? active.next.label.toLowerCase() +
+                    ' о ' +
+                    formatMinute(active.next.startMinute)
+                  : ''}
+            </text>
+          </>
+        ) : null}
       </svg>
 
       {/* Поки годинник не прочитано, місце під підпис лишається зайнятим —
           інакше форма підстрибує на першому кадрі після гідратації. */}
-      <p className="mb-0 mt-2 min-h-5 text-sm text-muted">
+      <p className="mb-0 mt-2 min-h-5 text-center text-sm text-muted">
         {minutes === null || active === null ? null : active.type ? (
           <>
             Зараз <span className="text-accent">{formatMinute(minutes)}</span> —

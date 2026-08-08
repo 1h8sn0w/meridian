@@ -29,6 +29,28 @@ const FAMILY_KEY = 'meridian.sync.family.v2'
 let database: PowerSyncDatabase | null = null
 
 /**
+ * Черга операцій із базою (MER-49).
+ *
+ * `disconnectAndClear`, `connect` і `disconnect` беруть внутрішні блокування, і
+ * запущені паралельно вони заплітаються: база лишається відкритою, але
+ * незʼєднаною, а інтерфейс — у стані «готуємо локальну базу…» назавжди. Саме це
+ * й ловилось, коли `refreshSession()` після створення сім'ї на мить віддавав
+ * порожню сесію: ефект встигав прибрати за собою рівно тоді, коли наступний
+ * запуск уже відкривав базу.
+ *
+ * Тому всі операції шикуються в один ланцюжок: остання виграє, і виграє
+ * передбачувано. Помилка однієї не рве чергу — інакше одна невдала спроба
+ * зʼєднатися заблокувала б застосунок до перезавантаження.
+ */
+let queue: Promise<unknown> = Promise.resolve()
+
+function enqueue<T>(work: () => Promise<T>): Promise<T> {
+  const next = queue.then(work, work)
+  queue = next.catch(() => undefined)
+  return next
+}
+
+/**
  * База одна на вкладку. PowerSync сам ділить її між вкладками через
  * SharedWorker, тож другий екземпляр на той самий файл — це дві незалежні
  * спроби писати в одне сховище.
@@ -50,10 +72,10 @@ export function getPowerSync(): PowerSyncDatabase {
 /**
  * Ручка для перевірок у розробці — рівно як `window.Meridian` у V1.
  *
- * Доки екранів на нових даних немає (MER-49), це єдиний спосіб написати щось у
- * локальну базу й побачити, що зміна доїхала до сервера й на інший пристрій.
- * У продакшн-збірці гілка вирізається цілком: `import.meta.env.DEV` — константа
- * етапу збірки.
+ * Екрани (MER-49) читають ту саму базу, але писати в неї запитом із консолі
+ * лишається найкоротшим способом перевірити, що зміна доїхала до сервера й на
+ * інший пристрій. У продакшн-збірці гілка вирізається цілком:
+ * `import.meta.env.DEV` — константа етапу збірки.
  */
 function exposeForDev(db: PowerSyncDatabase): void {
   if (!import.meta.env.DEV) return
@@ -62,30 +84,42 @@ function exposeForDev(db: PowerSyncDatabase): void {
 }
 
 /**
- * Під'єднатися до сервісу для вказаної сім'ї.
+ * Відкрити базу пристрою для вказаної сім'ї — без мережі й без сервісу.
+ *
+ * Відкриття відокремлене від з'єднання навмисно (MER-49): джерело істини для
+ * інтерфейсу — саме локальний SQLite, тож екрани мусять працювати й тоді, коли
+ * адреси PowerSync немає взагалі. Тоді застосунок повноцінний, просто лишається
+ * на одному пристрої — і панель синхронізації каже це прямо.
  *
  * Якщо база тримає дані іншої сім'ї — спершу стираємо. Це той випадок, коли на
  * пристрої змінився акаунт: у токені один `family_id`, і показати старі дані
  * новому власнику пристрою було б не «застарілим станом», а чужими даними.
+ */
+export function openPowerSync(familyId: string): Promise<PowerSyncDatabase> {
+  return enqueue(async () => {
+    const db = getPowerSync()
+
+    if (window.localStorage.getItem(FAMILY_KEY) !== familyId) {
+      // Разом із даними зникає й черга вивантаження — але вона тут і не могла б
+      // належати новій сім'ї.
+      await db.disconnectAndClear()
+      window.localStorage.setItem(FAMILY_KEY, familyId)
+    }
+
+    return db
+  })
+}
+
+/**
+ * Під'єднати відкриту базу до сервісу синхронізації.
  *
  * Підписуватися на стріми окремо не треба: `family_data` оголошений із
  * `auto_subscribe: true`, тож дані їдуть відразу після з'єднання.
  */
-export async function connectPowerSync(
+export function connectPowerSync(
   connector: PowerSyncBackendConnector,
-  familyId: string,
-): Promise<PowerSyncDatabase> {
-  const db = getPowerSync()
-
-  if (window.localStorage.getItem(FAMILY_KEY) !== familyId) {
-    // Разом із даними зникає й черга вивантаження — але вона тут і не могла б
-    // належати новій сім'ї.
-    await db.disconnectAndClear()
-    window.localStorage.setItem(FAMILY_KEY, familyId)
-  }
-
-  await db.connect(connector)
-  return db
+): Promise<void> {
+  return enqueue(() => getPowerSync().connect(connector))
 }
 
 /**
@@ -94,9 +128,11 @@ export async function connectPowerSync(
  * Саме так виглядає вихід із застосунку: локальна база переживає його, і той
  * самий користувач після входу бачить свої дані відразу, ще до першої
  * синхронізації, — а невідправлені зміни лишаються в черзі й доїжджають.
- * Стирає базу лише зміна сім'ї (див. `connectPowerSync`).
+ * Стирає базу лише зміна сім'ї (див. `openPowerSync`).
  */
-export async function disconnectPowerSync(): Promise<void> {
-  if (!database) return
-  await database.disconnect()
+export function disconnectPowerSync(): Promise<void> {
+  return enqueue(async () => {
+    if (!database) return
+    await database.disconnect()
+  })
 }

@@ -1,25 +1,18 @@
 /**
- * Сім'я зібрана (MER-45): хто в ній і як покликати другого.
+ * Сім'я (MER-45): хто в ній, як покликати другого і в якому стані синхронізація.
  *
- * Це не головний екран застосунку — «Сьогодні», «Тиждень» і «Страви» на нових
- * даних робить MER-49. Тут рівно те, що доводить готовність цієї задачі: двоє
- * акаунтів в одній сім'ї й жива сесія.
+ * Четверта вкладка застосунку. Раціон живе на трьох інших екранах, тут — усе
+ * про доступ: склад сім'ї, одноразовий код запрошення й вихід. Панель
+ * синхронізації теж тут, а не на головній: користувач іде дивитися на неї
+ * свідомо, коли щось не сходиться між пристроями.
  */
 
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { formatDate, formatInviteCode } from '../lib/messages'
 import type { Failure } from '../lib/messages'
-import {
-  AuthShell,
-  Avatar,
-  Button,
-  ErrorText,
-  Hint,
-  LinkButton,
-  Panel,
-  Tag,
-} from './ui'
+import { AppShell } from './AppShell'
+import { Avatar, Button, ErrorText, Hint, LinkButton, Panel, Tag } from './ui'
 import { SyncPanel } from './SyncPanel'
 
 export function FamilyScreen() {
@@ -36,7 +29,7 @@ export function FamilyScreen() {
   }
 
   return (
-    <AuthShell
+    <AppShell
       title={family?.name ?? 'Сім’я'}
       subtitle="Страви, тижневий план і список покупок — спільні"
     >
@@ -93,6 +86,6 @@ export function FamilyScreen() {
       <p className="mt-4 text-center">
         <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>
       </p>
-    </AuthShell>
+    </AppShell>
   )
 }

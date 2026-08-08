@@ -180,7 +180,8 @@ DATABASE_URL=postgresql://postgres.ОРЕНДАР:ПАРОЛЬ@localhost:5432/po
 
 Адреса — хостова (supavisor Supabase), не та, якою ходить PowerSync; різниця
 пояснена в `infra/README.md`. **`ОРЕНДАР` — це `POOLER_TENANT_ID` із `.env`
-Supabase**, і без цього суфікса пулер відповідає «no tenant identifier
+Supabase** (у нас `meridian` — його ставить `bootstrap` замість заглушки
+`your-tenant-id`), і без цього суфікса пулер відповідає «no tenant identifier
 provided». На чистому Postgres (перевірка нижче) пулера немає, тож там
 користувач просто `postgres` — саме тому розбіжність не спливала до MER-45. Нові міграції — `pnpm --filter @meridian/db
 generate` після зміни `src/schema.ts` (або `generate --custom` для чистого SQL).
