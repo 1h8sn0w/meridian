@@ -1,26 +1,44 @@
-# Два імені хостів: застосунок і sync-ендпоінт. HTTPS Caddy бере сам —
-# сертифікатних скриптів тут немає й бути не повинно.
+# Єдиний вхід у стек. Одне походження, чотири маршрути — і жодного порту в
+# браузері.
 #
-# Значення підставляються з environment сервісу caddy у docker-compose.yml.
-# Синтаксис {$VAR:default} — офіційний Caddyfile: підстановка відбувається
-# ДО парсингу конфігу.
+# Адреса сайту приходить зі змінної APP_URL (див. compose.yaml). Схема в ній
+# значуща для Caddy:
+#   http://localhost              — простий HTTP, без сертифікатів;
+#   https://meridian.example.com  — Caddy сам візьме сертифікат Let's Encrypt.
+# Типове значення — http://localhost, тому локально браузер не лається на
+# невідомий центр сертифікації: сертифіката просто немає, і він не потрібен.
 #
-# Локально хости за замовчуванням — localhost і sync.localhost: для них Caddy
-# видає сертифікати власним внутрішнім CA, без звернення до Let's Encrypt.
-# Для реального домену досить задати APP_HOST і SYNC_HOST у .env.
+# Синтаксис {$VAR:default} — офіційний Caddyfile, підстановка відбувається до
+# парсингу конфігу.
 
-{$APP_HOST:localhost} {
-	encode zstd gzip
-	reverse_proxy web:{$WEB_PORT:3000}
-}
-
-{$SYNC_HOST:sync.localhost} {
+{$APP_URL:http://localhost} {
 	encode zstd gzip
 
-	reverse_proxy powersync:{$PS_PORT:8080} {
-		# Потік синхронізації — довгоживучий і поступовий. flush_interval -1
-		# вимикає буферизацію відповіді й віддає дані одразу після кожного
-		# запису. Апгрейд до WebSocket Caddy проксіює автоматично.
-		flush_interval -1
+	# handle_path — саме він зрізає префікс: сервіси нижче нічого не знають про
+	# те, під яким шляхом їх видно ззовні, і працюють як у власному корені.
+
+	# GoTrue. Шлях /auth/v1 — той самий, що в офіційному Supabase (там його
+	# роздає kong), тому supabase-js працює без налаштувань.
+	handle_path /auth/v1/* {
+		reverse_proxy auth:9999
+	}
+
+	# PostgREST.
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+
+	# PowerSync. Потік синхронізації довгоживучий і поступовий: flush_interval
+	# -1 вимикає буферизацію відповіді й віддає дані одразу після кожного
+	# запису. Апгрейд до WebSocket Caddy проксіює сам.
+	handle_path /sync/* {
+		reverse_proxy powersync:8080 {
+			flush_interval -1
+		}
+	}
+
+	# Усе інше — сам застосунок.
+	handle {
+		reverse_proxy web:3000
 	}
 }

@@ -1,0 +1,25 @@
+# Накладка: `web` береться готовим образом замість збірки з вихідників.
+#
+#   docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d
+#
+# Навіщо. Збірка застосунку — найдовший і найважчий крок першого запуску, а на
+# хостах з іншою архітектурою CPU (ARM) вона ще й довша за все решта разом.
+# Образ на CI вже зібрано (.github/workflows/docker-publish.yml, MER-58), тож
+# лишається його забрати.
+#
+# Образ задається змінною WEB_IMAGE у .env — namespace реєстру свій у кожного,
+# хто публікує, тому в репозиторії його немає:
+#
+#   WEB_IMAGE=<namespace>/meridian:staging
+#
+# Що це НЕ прибирає: репозиторій усе одно потрібен. Конфіги (infra/caddy,
+# infra/powersync, infra/init, infra/db) сервіси монтують із нього, а `migrate`
+# збирається з packages/db — саме тому образ підмінюється лише один.
+#
+# `!reset null` знімає ключ `build`, успадкований з compose.yaml. Без нього
+# Compose спробував би і зібрати, і завантажити образ.
+
+services:
+  web:
+    image: ${WEB_IMAGE:?задайте WEB_IMAGE у .env, напр. <namespace>/meridian:staging}
+    build: !reset null
