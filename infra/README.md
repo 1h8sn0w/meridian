@@ -7,6 +7,7 @@
 | Файл | Призначення |
 |------|-------------|
 | `docker-compose.yml` | Рівно три сервіси: `web`, `powersync`, `caddy`. Підключаються до мережі Supabase як до зовнішньої |
+| `docker-compose.prebuilt.yml` | Той самий стек для будь-якого хосту без клонування репозиторію: `web` бере готовий образ з реєстру (`WEB_IMAGE`) замість локальної збірки (MER-58) |
 | `web.Dockerfile` | Прод-образ `apps/web`. Контекст збірки — корінь репозиторію (pnpm-воркспейс) |
 | `caddy/Caddyfile` | Два хости — застосунок і sync-ендпоінт. HTTPS Caddy бере сам |
 | `powersync/service.yaml` | Конфіг PowerSync Service, монтується лише для читання |
@@ -147,10 +148,15 @@ docker compose -f infra/docker-compose.yml down
 на машині Node з pnpm — досить Docker.
 
 ```bash
-docker pull citynight/meridian:staging
+docker pull <namespace>/meridian:staging
 ```
 
-Публікує його `.github/workflows/docker-publish.yml` (MER-58) — той самий
+`<namespace>` — власник образу в реєстрі, тобто той самий обліковий запис, що
+в секреті `DOCKERHUB_USERNAME` (таблиця нижче). У репозиторії конкретне ім'я
+ніде не зашите: compose бере образ зі змінної `WEB_IMAGE` в `infra/.env`, а
+workflow — із секрету. Форку, що публікує у свій namespace, правити нічого.
+
+Публікує образ `.github/workflows/docker-publish.yml` (MER-58) — той самий
 `infra/web.Dockerfile`, лише зібраний на CI.
 
 ### Теги
@@ -175,7 +181,7 @@ docker run -p 3000:3000 \
   -e PUBLIC_SUPABASE_ANON_KEY=... \
   -e PUBLIC_POWERSYNC_URL=... \
   -e POWERSYNC_URL=... \
-  citynight/meridian:staging
+  <namespace>/meridian:staging
 ```
 
 Змінні — ті самі, що й у `infra/.env` (крок 2 вище): три `PUBLIC_*` їдуть у
@@ -186,14 +192,18 @@ docker run -p 3000:3000 \
 ### У складі `docker-compose.yml`
 
 У сервісі `web` закоментувати `build:` і розкоментувати рядок `image:` — він
-там уже стоїть:
+там уже стоїть, — а сам образ задати в `infra/.env`:
 
 ```yaml
 web:
-  image: citynight/meridian:staging
+  image: ${WEB_IMAGE}
   # build:
   #   context: ..
   #   dockerfile: infra/web.Dockerfile
+```
+
+```
+WEB_IMAGE=<namespace>/meridian:staging
 ```
 
 Далі `docker compose -f infra/docker-compose.yml up -d` підтягне образ сам;
@@ -208,12 +218,55 @@ Workflow нічого не публікує, доки в налаштуванн�
 
 | Секрет | Значення |
 |--------|----------|
-| `DOCKERHUB_USERNAME` | ім'я користувача Docker Hub — власник namespace `citynight` |
+| `DOCKERHUB_USERNAME` | ім'я користувача Docker Hub — воно ж namespace, у який публікується образ |
 | `DOCKERHUB_TOKEN` | **access token** Docker Hub із правом `Read & Write`, не пароль акаунта |
 
 Токен, а не пароль: його видно в списку, можна відкликати окремо й він не
 відмикає сам акаунт. Без секретів крок логіну падає — образ не публікується,
 але код у репозиторії від цього не страждає.
+
+---
+
+## Віддалений хост (готовий образ + свій домен)
+
+Той самий стек, але без клонування репозиторію —
+`infra/docker-compose.prebuilt.yml` замість `infra/docker-compose.yml`. На хост
+переносяться лише чотири речі: сам файл, заповнений `infra/.env`, і каталоги
+`powersync/` та `caddy/` — без змін. `apps/`, `packages/`, `web.Dockerfile` не
+потрібні, образ уже зібраний на CI.
+
+**Порядок — той самий, що й у «Запуск руками» вище:** спершу Supabase
+(розділ «1 · Supabase» — не міняється залежно від хоста), потім цей файл. Якщо
+Supabase на хості ще нема — почати з нього.
+
+1. Тека на хості, наприклад `/srv/meridian/`: покласти туди
+   `docker-compose.prebuilt.yml`, `powersync/`, `caddy/`.
+2. `cp infra/.env.example infra/.env` → заповнити, як у кроці 2 «Запуску
+   руками», і додати образ та реальний домен:
+   ```
+   WEB_IMAGE=<namespace>/meridian:staging
+   APP_HOST=app.example.com
+   SYNC_HOST=sync.example.com
+   ```
+   Обом іменам — A/AAAA-записи на публічну IP хоста (або DDNS-ім'я).
+3. Порти **80 і 443** мають доходити до хоста ззовні (TCP; 443 ще й UDP — для
+   HTTP/3); за NAT це проброс на роутері. Caddy сам візьме сертифікат
+   Let's Encrypt, щойно домен резолвиться й порти відкриті — жодних ручних
+   ACME-кроків.
+4. ⚠️ І мають бути вільні на самому хості. Вбудована веб-панель керування чи
+   інший реверс-проксі часто вже слухають 80/443 — тоді Caddy впаде на
+   біндингу порту, а в GUI-обгортках над Compose це не завжди видно як явну
+   помилку.
+5. `docker compose -f docker-compose.prebuilt.yml up -d`. Через GUI (Portainer,
+   Container Manager тощо) — імпорт теки з кроку 1; такі обгортки зазвичай
+   очікують ім'я `docker-compose.yml`, тож файл варто перейменувати або вказати
+   назву явно, а `.env` вони підхоплюють із тієї ж теки самі.
+6. Міграції (`pnpm db:migrate`) — з робочої машини, не з хоста: `DATABASE_URL`
+   тимчасово вказати на хост через LAN/VPN. Порт 5432 (supavisor) назовні
+   постійно не виносити — крім пароля Postgres, там більше нічого не захищає.
+
+Тег у `WEB_IMAGE` — `staging`, той самий принцип, що й у таблиці тегів вище:
+зміниться на `latest` після злиття `staging` → `main`.
 
 ---
 
