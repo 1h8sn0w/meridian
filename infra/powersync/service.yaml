@@ -16,8 +16,8 @@ telemetry:
 replication:
   connections:
     - type: postgresql
-      # Пряме підключення до Postgres Supabase (сервіс `db`), НЕ через пулер
-      # supavisor: логічна реплікація потребує прямого з'єднання.
+      # Пряме підключення до сервісу `db`: логічна реплікація потребує прямого
+      # з'єднання й пулера не терпить (тому його в стеку й немає).
       uri: !env PS_DATABASE_URI
       # Усередині docker-мережі TLS немає — перевіряти нічого.
       sslmode: disable
@@ -63,7 +63,7 @@ client_auth:
 
 # --- Проби ------------------------------------------------------------------
 # HTTP-проби: GET /probes/liveness і GET /probes/startup. Саме liveness смикає
-# healthcheck контейнера в docker-compose.yml.
+# healthcheck контейнера в compose.yaml.
 healthcheck:
   probes:
     use_http: true

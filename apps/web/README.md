@@ -16,9 +16,10 @@ key and the PowerSync endpoint. All three are read from the server at
 **runtime** — one image can be deployed to any self-host without a rebuild —
 and handed to the browser during SSR (`src/lib/public-env.ts`).
 
-For `pnpm dev`, copy `.env.example` to `.env` and fill it in; the names are the
-same as in `infra/.env.example` on purpose. In production the same names come
-from the `web` service environment (`infra/docker-compose.yml`).
+For `pnpm dev`, copy `.env.example` to `.env` and fill it in — it carries the
+one command that reads the values out of a running stack, since the anon key is
+generated inside it. In production the same names come from the `web` service
+environment (`compose.yaml`), so nothing has to be filled in at all.
 
 Without the Supabase pair the app renders an explicit "not configured" screen
 instead of failing silently. Without `PUBLIC_POWERSYNC_URL` the app still works,

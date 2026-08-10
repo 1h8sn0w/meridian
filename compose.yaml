@@ -1,0 +1,294 @@
+# Meridian — увесь self-host одним файлом.
+#
+#   git clone … && cd meridian && docker compose up
+#
+# І все. Секрети генеруються самі, схема накочується сама, сервіси знаходять
+# одне одного за іменами всередині мережі Compose. Вводити, вставляти чи
+# звіряти вручну не треба нічого — жодних портів, адрес і ключів.
+#
+# --- Що тут піднімається -----------------------------------------------------
+#
+#   init       одноразово: генерує секрети у спільний том (infra/init)
+#   db         Postgres із образу Supabase — ролі й схема auth уже в ньому
+#   migrate    одноразово: накочує міграції packages/db і виходить
+#   auth       GoTrue — реєстрація й вхід
+#   rest       PostgREST — запис із клієнта (LWW, MER-46)
+#   powersync  сервіс синхронізації на пристрої
+#   web        сам застосунок (SSR, збірка з вихідників)
+#   caddy      єдиний вхід: 80/443, усе інше назовні не публікується
+#
+# Це підмножина офіційного self-host Supabase — рівно ті три сервіси, якими
+# застосунок користується. Studio, Realtime, Storage, edge-функції, аналітика й
+# пулер supavisor не піднімаються: жодного звернення до них у коді немає, а
+# кожен з них — це ще один контейнер, який має оновлюватись і падати. Версії
+# образів узяті з офіційного compose Supabase, щоб їх можна було звіряти.
+#
+# --- Один вхід замість чотирьох портів ---------------------------------------
+#
+# Caddy віддає весь стек з ОДНОГО походження, розкладаючи його шляхами:
+#
+#   /            → web         /auth/v1/* → auth
+#   /rest/v1/*   → rest        /sync/*    → powersync
+#
+# Тому в браузері немає ні портів, ні других імен хостів — усе відносно тієї
+# адреси, яку користувач відкрив. Через це ж APP_URL нижче — ЄДИНА змінна, яку
+# взагалі варто задавати, і та має робочий типовий локальний варіант.
+#
+# --- Свій домен --------------------------------------------------------------
+#
+# Типово стек слухає http://localhost. Для доступу з інтернету достатньо однієї
+# змінної в оточенні або в .env поруч із цим файлом:
+#
+#   APP_URL=https://meridian.example.com
+#
+# Caddy сам візьме сертифікат Let's Encrypt, щойно домен резолвиться на цей
+# хост і 80/443 доходять ззовні. Більше нічого міняти не треба: адресу для
+# браузера, посилання GoTrue і сайт застосунку зібрано з цієї ж змінної.
+#
+# --- Як сюди потрапляють секрети ---------------------------------------------
+#
+# Compose підставляє змінні, коли ЧИТАЄ цей файл, — а секретів на той момент
+# ще не існує: їх пише сервіс `init` уже після старту. Тому сервіси, яким
+# потрібен секрет, запускаються через тонку оболонку: вона читає
+# /secrets/app.env, збирає з нього рядки підключення й через `exec` віддає
+# керування рідній команді образу. `exec` обов'язковий — інакше PID 1 лишиться
+# за sh і сигнал зупинки не дійде до самого сервісу.
+#
+# `$$` у цих рядках — екранований долар: Compose перетворює його на `$`, і до
+# оболонки змінна доходить нерозкритою. Один долар Compose підставив би сам,
+# порожнім рядком.
+#
+# PostgREST — єдиний виняток: в його образі немає навіть /bin/sh, тож він читає
+# згенерований конфіг-файл (див. сервіс `rest`).
+
+name: meridian
+
+services:
+  # --- Секрети ---------------------------------------------------------------
+  init:
+    image: node:22-alpine
+    command: ['node', '/init/generate-secrets.mjs']
+    volumes:
+      - ./infra/init:/init:ro
+      - secrets:/secrets
+    restart: 'no'
+
+  # --- База ------------------------------------------------------------------
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    # POSTGRES_PASSWORD із app.env потрапляє в оточення як є — ім'я збігається,
+    # тож збирати нічого не треба, лише прочитати файл перед запуском.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -a; . /secrets/app.env; set +a
+        exec docker-entrypoint.sh "$$@"
+      - sh
+    command: ['postgres', '-D', '/etc/postgresql']
+    environment:
+      POSTGRES_DB: postgres
+      # Ініціалізація йде через сокет від імені postgres; пароль потрібен лише
+      # для мережевих підключень решти сервісів.
+      POSTGRES_HOST: /var/run/postgresql
+    volumes:
+      - secrets:/secrets:ro
+      # Паролі службових ролей. init-scripts/ виконується після того, як образ
+      # завів самі ролі, але до наших міграцій.
+      - ./infra/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - db-data:/var/lib/postgresql/data
+      # Ключ pgsodium образ кладе сюди й очікує знайти після перезапуску.
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    # Порт назовні не публікується: до бази ходять лише сервіси цього стека.
+    # Для разових запитів є `docker compose exec db psql -U postgres`.
+
+  # --- Схема -----------------------------------------------------------------
+  # Одноразовий сервіс: накочує міграції packages/db і виходить. Усе, що працює
+  # з даними, чекає на його успішне завершення — тож застосунок не може
+  # стартувати на базі без таблиць, RLS і хука доступу.
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/migrate.Dockerfile
+    restart: 'no'
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -a; . /secrets/app.env; set +a
+        export DATABASE_URL="postgresql://postgres:$$POSTGRES_PASSWORD@db:5432/postgres"
+        exec pnpm drizzle-kit migrate
+    volumes:
+      - secrets:/secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  # --- Реєстрація й вхід -----------------------------------------------------
+  auth:
+    image: supabase/gotrue:v2.189.0
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -a; . /secrets/app.env; set +a
+        export GOTRUE_DB_DATABASE_URL="postgres://supabase_auth_admin:$$POSTGRES_PASSWORD@db:5432/postgres"
+        export GOTRUE_JWT_SECRET="$$JWT_SECRET"
+        exec auth
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_EXP: 3600
+      API_EXTERNAL_URL: ${APP_URL:-http://localhost}
+      GOTRUE_SITE_URL: ${APP_URL:-http://localhost}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      # Пошти в стеку немає, тож лист із підтвердженням нікуди б не пішов і
+      # акаунт лишився б неактивованим назавжди. Хто відкриває реєстрацію для
+      # сторонніх — має налаштувати SMTP і вимкнути це (infra/README.md).
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
+      # Заради чого весь MER-45: без цих двох рядків GoTrue не покличе
+      # public.custom_access_token_hook, у токені не буде claim `family_id`, і
+      # застосунок не побачить жодного рядка — мовчки, без помилки.
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: 'true'
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: 'pg-functions://postgres/public/custom_access_token_hook'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:9999/health']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - secrets:/secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # --- Запис із клієнта ------------------------------------------------------
+  # В образі PostgREST немає оболонки, тому секрети він отримує єдиним
+  # доступним способом — конфіг-файлом, який `init` згенерував у спільний том.
+  rest:
+    image: postgrest/postgrest:v14.12
+    restart: unless-stopped
+    command: ['/bin/postgrest', '/secrets/postgrest.conf']
+    volumes:
+      - secrets:/secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # --- Синхронізація ---------------------------------------------------------
+  powersync:
+    image: journeyapps/powersync-service:1.23.3
+    restart: unless-stopped
+    # Імена PS_* обов'язкові: `!env` у service.yaml приймає лише їх.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -a; . /secrets/app.env; set +a
+        export PS_DATABASE_URI="postgresql://postgres:$$POSTGRES_PASSWORD@db:5432/postgres"
+        export PS_STORAGE_URI="$$PS_DATABASE_URI"
+        export PS_JWT_SECRET="$$JWT_SECRET"
+        exec node service/lib/entry.js "$$@"
+      - sh
+    command: ['start', '-r', 'unified']
+    volumes:
+      - ./infra/powersync:/config:ro
+      - secrets:/secrets:ro
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/service.yaml
+      NODE_OPTIONS: --max-old-space-size=1000
+      PS_JWKS_URL: http://auth:9999/.well-known/jwks.json
+      PS_PORT: 8080
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/probes/liveness').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # --- Застосунок ------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: infra/web.Dockerfile
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -a; . /secrets/app.env; set +a
+        export PUBLIC_SUPABASE_ANON_KEY="$$ANON_KEY"
+        exec node .output/server/index.mjs
+    environment:
+      PORT: 3000
+      # Адреси для браузера. Одне походження на все — тому це та сама APP_URL,
+      # яку відкриває користувач, а не окремі порти сервісів.
+      PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
+      PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
+      # Внутрішня адреса для SSR — повз Caddy.
+      POWERSYNC_URL: http://powersync:8080
+    volumes:
+      - secrets:/secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+
+  # --- Єдиний вхід -----------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+      - '${HTTPS_PORT:-443}:443/udp'
+    volumes:
+      - ./infra/caddy:/etc/caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      APP_URL: ${APP_URL:-http://localhost}
+    depends_on:
+      - web
+      - auth
+      - rest
+      - powersync
+
+volumes:
+  secrets:
+  db-data:
+  db-config:
+  caddy-data:
+  caddy-config:

@@ -8,7 +8,7 @@
 # пишемо. Ім'я ключа в service.yaml — `sync_config`, і воно спільне для обох.
 #
 # Зміни цього файлу НЕ підхоплюються на льоту — сервіс треба перезапустити:
-#   docker compose -f infra/docker-compose.yml restart powersync
+#   docker compose restart powersync
 #
 # --- Що тут вирішено ---------------------------------------------------------
 #

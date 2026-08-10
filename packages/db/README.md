@@ -171,20 +171,19 @@ GoTrue; а дописаний руками constraint на таблиці, як�
 
 ## Застосувати міграції
 
-Найпростіше — `corepack pnpm bootstrap`: він підіймає Supabase й застосовує
-міграції сам. Руками:
+Окремої дії не потрібно: міграції накочує сам стек — одноразовий сервіс
+`migrate` у `compose.yaml`, і все, що працює з даними, чекає на його успішне
+завершення. Після зміни міграцій:
 
 ```bash
-DATABASE_URL=postgresql://postgres.ОРЕНДАР:ПАРОЛЬ@localhost:5432/postgres pnpm db:migrate
+docker compose up migrate
 ```
 
-Адреса — хостова (supavisor Supabase), не та, якою ходить PowerSync; різниця
-пояснена в `infra/README.md`. **`ОРЕНДАР` — це `POOLER_TENANT_ID` із `.env`
-Supabase** (у нас `meridian` — його ставить `bootstrap` замість заглушки
-`your-tenant-id`), і без цього суфікса пулер відповідає «no tenant identifier
-provided». На чистому Postgres (перевірка нижче) пулера немає, тож там
-користувач просто `postgres` — саме тому розбіжність не спливала до MER-45. Нові міграції — `pnpm --filter @meridian/db
-generate` після зміни `src/schema.ts` (або `generate --custom` для чистого SQL).
+Рядок підключення він збирає собі сам, із згенерованого секрету, і йде прямо в
+`db:5432` — порт Postgres назовні не публікується. Руками `pnpm db:migrate`
+лишається для чистого Postgres (перевірка нижче): йому потрібен `DATABASE_URL`
+у середовищі. Нові міграції — `pnpm --filter @meridian/db generate` після зміни
+`src/schema.ts` (або `generate --custom` для чистого SQL).
 
 ## Перевірити без Supabase
 

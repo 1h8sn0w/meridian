@@ -7,7 +7,6 @@
     "pnpm": ">=11"
   },
   "scripts": {
-    "bootstrap": "node infra/bootstrap.mjs",
     "dev": "pnpm --filter @meridian/core build && pnpm --filter @meridian/web dev",
     "build": "pnpm --recursive build",
     "lint": "pnpm --recursive lint",
