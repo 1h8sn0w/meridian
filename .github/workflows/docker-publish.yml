@@ -33,7 +33,9 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: citynight/meridian
+          # Namespace — із секрету DOCKERHUB_USERNAME, того самого, під яким
+          # іде логін вище: конкретний власник образу не зашитий у репозиторій.
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/meridian
           # `latest` — лише з гілки за замовчуванням (`main`) і з git-тегів
           # `v*` (типовий flavor latest=auto). Кожна гілка дає ще й тег зі
           # своїм іменем (`staging`), а short-SHA — щоб відкотитись на
