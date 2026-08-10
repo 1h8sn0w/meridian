@@ -27,8 +27,23 @@ COPY apps ./apps
 # — щойно apps/web почне залежати від @meridian/core, нічого міняти не треба.
 RUN pnpm --filter "@meridian/web..." build
 
-FROM base AS runtime
+# Рантайм НЕ успадковує `base` (MER-60). Єдина команда тут — `node
+# .output/server/index.mjs`, а вивід nitro самодостатній, тож ні pnpm, ні
+# corepack, ні npm не запускаються жодного разу. Але npm CLI, вшитий у
+# node:22-alpine, тягне за собою ~185 пакетів — і всі їхні CVE (на 2026-08-10
+# це 1 Critical + 7 High + 8 Medium, які Docker Scout показує на публічному
+# образі self-host). Це мертвий код, який ніхто не виконує, проте сканери на
+# боці користувачів блокують за нього розгортання. Видаляємо менеджери
+# пакетів: 16 CVE → 0, SBOM 211 пакетів → 26.
+#
+# Якщо колись знадобиться повернути `FROM base` — спершу поясніть, навіщо
+# рантайму менеджер пакетів. Правильна відповідь майже напевно «не потрібен».
+FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+WORKDIR /app
 # Вивід nitro самодостатній — node_modules у рантайм не переносяться.
 COPY --from=build /app/apps/web/.output ./.output
 EXPOSE 3000
