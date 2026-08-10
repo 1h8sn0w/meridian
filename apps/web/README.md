@@ -1,239 +1,104 @@
-Welcome to your new TanStack Start app!
+# @meridian/web — застосунок
 
-# Getting Started
+Vite + TanStack Start на Node. Ту саму збірку згодом загортає Capacitor
+(ADR 001), тож серверного в екранах немає й бути не має: усе, що вміє
+застосунок, він уміє з локальної бази на пристрої.
 
-To run this application:
+Конфіги (`vite.config.ts`, `eslint.config.js`, `tsconfig.json`) згенеровано
+офіційним стартером TanStack Start — руками їх не переписувати, оновлювати тим
+самим стартером (`AGENTS.md`). Загальну документацію TanStack цей файл не
+переказує: нижче лише те, що стосується Meridian.
 
-```bash
-pnpm install
-pnpm dev
-```
+## Запуск
 
-# Configuration (MER-45, MER-46)
-
-The browser talks to Supabase directly, so it needs the project URL, the anon
-key and the PowerSync endpoint. All three are read from the server at
-**runtime** — one image can be deployed to any self-host without a rebuild —
-and handed to the browser during SSR (`src/lib/public-env.ts`).
-
-For `pnpm dev`, copy `.env.example` to `.env` and fill it in — it carries the
-one command that reads the values out of a running stack, since the anon key is
-generated inside it. In production the same names come from the `web` service
-environment (`compose.yaml`), so nothing has to be filled in at all.
-
-Without the Supabase pair the app renders an explicit "not configured" screen
-instead of failing silently. Without `PUBLIC_POWERSYNC_URL` the app still works,
-but stays on one device — and the sync panel says so.
-
-## Local database (MER-46)
-
-`src/lib/powersync/` holds the local-first layer: the client SQLite schema, the
-Supabase connector and the React lifecycle. `@powersync/web` ships WASM and web
-workers, so it is imported **dynamically, from an effect only** — importing it
-at module scope would break SSR. Rules and reasoning live in `AGENTS.md`; the
-sync rules themselves are `infra/powersync/sync-config.yaml`.
-
-In development the database is also exposed as `window.Meridian.sync`, the same
-way V1 exposed `window.Meridian` — until the real screens land (MER-49) that is
-the way to write something and watch it reach the other device. The branch is
-compiled out of production builds.
-
-# Building For Production
-
-To build this application for production:
+Застосунок розрахований на піднятий поруч стек — він бере ту саму базу, той
+самий GoTrue і той самий sync, лише з гарячою заміною модулів:
 
 ```bash
-pnpm build
+docker compose up -d          # з кореня репозиторію
+cp apps/web/.env.example apps/web/.env
+pnpm dev                      # http://localhost:3000
 ```
 
-## Deploy with Nitro
+`pnpm dev` запускати з **кореня**: він спершу збирає `packages/core`, від якого
+`apps/web` залежить через `workspace:*` і бачить лише `dist`.
 
-This project uses Nitro as a generic server adapter, so it can run on any
-Node-compatible host — here, the Docker container behind Caddy (MER-43).
+`.env` потрібен тому, що `pnpm dev` — це Vite поза стеком: змінні він
+підставляє на етапі збірки, а anon-ключ генерується всередині стека, тож
+вписувати його нема звідки. Готовий файл робиться однією командою — вона в
+[`.env.example`](.env.example).
+
+Без пари `PUBLIC_SUPABASE_*` застосунок показує явний екран «не налаштовано», а
+не ламається мовчки. Без `PUBLIC_POWERSYNC_URL` він повноцінний, просто
+лишається на одному пристрої — і панель синхронізації каже це прямо.
+
+## Публічний конфіг береться рантаймом (MER-45)
+
+Браузер ходить у Supabase сам, тож йому потрібні адреса проєкту, anon-ключ і
+адреса sync. Усі три сервер читає **рантаймом** і віддає браузеру під час SSR
+(`src/lib/public-env.ts`), а не запікає у бандл. Тому один образ їде на
+будь-який self-host без перезбірки: у стеку ті самі імена приходять з оточення
+сервісу `web` (`compose.yaml`), і заповнювати не треба нічого.
+
+## Що де лежить
+
+| Шлях | Що |
+|------|-----|
+| `src/routes` | Чотири маршрути (MER-49): `/` — «Сьогодні», `/week`, `/meals`, `/family` |
+| `src/components` | Екрани й спільні елементи; каркас — `AppShell`, стан входу — `AppGate` |
+| `src/lib/data` | Читання (`queries.ts`) і записи (`mutations.ts`) локальної бази |
+| `src/lib/powersync` | Клієнтська схема, конектор до Supabase, життєвий цикл React |
+| `src/lib/auth.tsx` | Сесія GoTrue — живе на пристрої, сервер про неї не знає |
+| `src/lib/day-clock.ts` | Вікна прийомів їжі: налаштування пристрою, а не правило дієтолога |
+| `src/styles.css` | Єдиний Tailwind у репозиторії (MER-53): токени в `@theme`, без preflight |
+
+Доменної логіки тут немає — генератор, калорії й провенанс живуть у
+[`packages/core`](../../packages/core).
+
+## Локальна база (MER-46, MER-49)
+
+Джерело істини для інтерфейсу — SQLite на пристрої. Екрани читають реактивними
+запитами й **не чекають мережі ніколи**; PowerSync фоном тримає базу в
+збіжності з Postgres, а записи вивантажує через PostgREST — звідси й LWW.
+Окремого шару кешу (TanStack Query) свідомо немає: реактивний запит до бази на
+пристрої вже дає те, заради чого його зазвичай беруть.
+
+Правила синхронізації — [`infra/powersync/sync-config.yaml`](../../infra/powersync/sync-config.yaml),
+повний перелік твердих правил шару — в `AGENTS.md`. Два, на які найлегше
+наступити саме тут:
+
+- **`@powersync/web` імпортується лише динамічно, з ефекту.** У ньому WASM і
+  web-workers, на сервері їх немає — імпорт на рівні модуля ламає SSR.
+- **Операції з базою серіалізуються** (`enqueue` у `lib/powersync/db.ts`).
+  Паралельні `connect` / `disconnect` беруть внутрішні блокування й лишають базу
+  відкритою, але не з'єднаною — назавжди.
+
+У розробці база лежить ще й на `window.Meridian.sync`, як `window.Meridian` у
+V1: запит із консолі лишається найкоротшим способом перевірити, що зміна доїхала
+до сервера й на інший пристрій. У прод-збірці гілка вирізається цілком
+(`import.meta.env.DEV` — константа етапу збірки).
+
+## Прод-збірка
 
 ```bash
-pnpm build
-pnpm start
+pnpm build      # .output/public + .output/server/index.mjs
+pnpm start      # node .output/server/index.mjs, порт із PORT (типово 3000)
 ```
 
-`pnpm build` emits a self-contained Node server: client assets in
-`.output/public`, server entry in `.output/server/index.mjs` — that is what
-`pnpm start` runs (checked against this build, 26.07.2026; the generated
-README of the CLI names `dist/server/index.mjs`, which this version does not
-produce). The port is taken from `PORT`, default 3000.
+Nitro стоїть як універсальний серверний адаптер (MER-43): вивід самодостатній і
+запускається на будь-якому Node-хості — у нас це контейнер за Caddy
+([`infra/web.Dockerfile`](../../infra/web.Dockerfile)). Шлях звірено з цією
+збіркою 26.07.2026: згенерований README стартера називає
+`dist/server/index.mjs`, якого ця версія не робить.
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-## Linting & Formatting
-
-
-This project uses [eslint](https://eslint.org/) and [prettier](https://prettier.io/) for linting and formatting. Eslint is configured using [tanstack/eslint-config](https://tanstack.com/config/latest/docs/eslint). The following scripts are available:
+## Перевірки
 
 ```bash
 pnpm lint
-pnpm format
-pnpm check
+pnpm typecheck   # tsr generate && tsc --noEmit
+pnpm check       # prettier --check
 ```
 
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+`typecheck` перегенеровує `src/routeTree.gen.ts`. Файл машинний і в Prettier
+ігнорований; якщо він змінився, а маршрутів не додавалось — зміну відкинути, а
+не комітити.
