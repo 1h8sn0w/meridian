@@ -46,7 +46,8 @@ jobs:
             type=sha,format=short
             type=semver,pattern={{version}}
 
-      - uses: docker/build-push-action@v7
+      - id: build
+        uses: docker/build-push-action@v7
         with:
           # Контекст — КОРІНЬ репозиторію, а не infra/: Dockerfile збирає
           # pnpm-воркспейс, і йому потрібні кореневі маніфести й лок-файл.
@@ -59,3 +60,25 @@ jobs:
           # залежності воркспейсу з нуля.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Запобіжник проти регресії MER-60. Рантайм-шар спеціально очищено від
+      # npm/corepack/yarn, і без перевірки це легко скасувати непомітно: досить
+      # повернути `FROM base AS runtime` або отримати нову CVE з оновленням
+      # бази — а образ ПУБЛІЧНИЙ, і «Critical» на ньому бачить кожен, хто
+      # заходить на Docker Hub перед `docker compose up`.
+      #
+      # Скан іде після push: тег на той момент уже опубліковано, тож це сигнал
+      # тривоги, а не шлагбаум. Свідомий вибір — інакше будь-яка свіжа CVE у
+      # базовому образі глушила б публікацію цілком, а лагодити її все одно
+      # доводиться наступним комітом. Ціль задано ДАЙДЖЕСТОМ щойно зібраного
+      # образу, а не тегом: паралельна публікація не підмінить те, що
+      # перевіряємо.
+      - uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/meridian@${{ steps.build.outputs.digest }}
+          only-severities: critical,high
+          exit-code: true
+          summary: true
+          dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
