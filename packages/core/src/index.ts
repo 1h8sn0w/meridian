@@ -68,15 +68,15 @@ export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
 export type { Row } from './rows.ts'
 
 export {
-  MEALS_KEY,
   MERIDIAN_NAMESPACE,
-  PREFS_KEY,
-  PROFILES_KEY,
   derivedId,
-  migrateV1,
-} from './migrate-v1.ts'
+  mealPrefId,
+  shoppingCheckId,
+} from './sync-ids.ts'
+export type { IdKind } from './sync-ids.ts'
+
+export { MEALS_KEY, PREFS_KEY, PROFILES_KEY, migrateV1 } from './migrate-v1.ts'
 export type {
-  IdKind,
   MigratedPref,
   MigratedProfile,
   MigratedRecipe,
