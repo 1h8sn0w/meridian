@@ -230,7 +230,8 @@ export async function importV1(
        * вже у V2 — тоді там лежить рядок із власним випадковим id. Вставка
        * «свого» рядка дала б другий живий смак тієї самої страви, і сервер
        * відкинув би весь запис на індексі. Той самий прийом, що в
-       * `setMealPref`. */
+       * `setMealPref`; новий рядок обидва шляхи створюють з тим самим
+       * виведеним id (`mealPrefId`, MER-57). */
       const live = await tx.getOptional<{ id: string }>(
         'SELECT id FROM meal_pref WHERE meal_id = ? AND deleted_at IS NULL',
         [pref.mealId],

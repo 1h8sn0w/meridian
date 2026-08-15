@@ -17,7 +17,7 @@
  *    означає «в джерелі немає», і підміняти його нулем не можна.
  */
 
-import { planSlots, weekSources } from '@meridian/core'
+import { mealPrefId, planSlots, weekSources } from '@meridian/core'
 import type {
   Ingredient,
   MealPrefValue,
@@ -145,9 +145,20 @@ export async function deleteMeal(db: Db, id: string): Promise<void> {
 /**
  * Поставити або зняти позначку смаку. `null` — зняти.
  *
- * Живий рядок на страву рівно один (частковий унікальний індекс у схемі), тож
- * зміна — це UPDATE наявного, а не другий рядок: інакше два пристрої, які
- * позначили ту саму страву, зіткнулися б на індексі.
+ * Живий рядок на страву рівно один (частковий унікальний індекс
+ * `meal_pref_meal_id_key`), тож зміна — це UPDATE наявного. Але LWW розсуджує
+ * лише зміни наявного рядка: дві незалежні спроби СТВОРИТИ його — двоє
+ * позначили ту саму страву офлайн — сервер розсудити не може, і другу вставку
+ * відкидає на індексі, а конектор через це втрачає зміну (MER-57).
+ *
+ * Тому новий рядок створюється з **виведеним** id (`mealPrefId`): обидва
+ * пристрої рахують той самий, вивантаження стає upsert одного рядка — і далі
+ * працює звичайний LWW.
+ *
+ * **Наявний рядок шукається за стравою, а не за виведеним id.** Смаки писалися
+ * ще до цієї зміни, тож у базі лежать рядки з випадковими id; шукати за
+ * виведеним означало б їх не побачити, вставити другий — і відтворити ту саму
+ * колізію рівно на вже позначених стравах.
  */
 export async function setMealPref(
   db: Db,
@@ -155,30 +166,51 @@ export async function setMealPref(
   mealId: string,
   value: MealPrefValue | null,
 ): Promise<void> {
-  const existing = await db.getOptional<{ id: string }>(
-    'SELECT id FROM meal_pref WHERE meal_id = ? AND deleted_at IS NULL',
-    [mealId],
-  )
-  if (!value) {
-    if (existing) {
-      await db.execute('UPDATE meal_pref SET deleted_at = ? WHERE id = ?', [
-        now(),
-        existing.id,
-      ])
+  await db.writeTransaction(async (tx) => {
+    /* Беремо ВСІ рядки страви, живі й м'яко видалені, одним запитом: живий на
+     * страву рівно один, а видалені потрібні нижче — рядок із виведеним id
+     * оживає, а не вставляється наново. */
+    const rows = await tx.getAll<{ id: string; deleted_at: string | null }>(
+      'SELECT id, deleted_at FROM meal_pref WHERE meal_id = ?',
+      [mealId],
+    )
+    const live = rows.find((row) => row.deleted_at === null)
+
+    if (!value) {
+      if (live) {
+        await tx.execute('UPDATE meal_pref SET deleted_at = ? WHERE id = ?', [
+          now(),
+          live.id,
+        ])
+      }
+      return
     }
-    return
-  }
-  if (existing) {
-    await db.execute('UPDATE meal_pref SET value = ? WHERE id = ?', [
-      value,
-      existing.id,
-    ])
-    return
-  }
-  await db.execute(
-    'INSERT INTO meal_pref (id, family_id, meal_id, value) VALUES (?, ?, ?, ?)',
-    [newId(), familyId, mealId, value],
-  )
+    if (live) {
+      await tx.execute('UPDATE meal_pref SET value = ? WHERE id = ?', [
+        value,
+        live.id,
+      ])
+      return
+    }
+
+    /* Живого рядка немає — але міг лишитись м'яко видалений із тим самим
+     * виведеним id: знята й поставлена наново позначка це той самий рядок,
+     * який оживає. Саме тому вибірка вище й не фільтрує `deleted_at` —
+     * інакше вставка зіткнулася б із ним по первинному ключу. */
+    const id = mealPrefId(mealId)
+    if (rows.some((row) => row.id === id)) {
+      await tx.execute(
+        'UPDATE meal_pref SET value = ?, deleted_at = NULL WHERE id = ?',
+        [value, id],
+      )
+      return
+    }
+    await tx.execute(
+      'INSERT INTO meal_pref (id, family_id, meal_id, value)' +
+        ' VALUES (?, ?, ?, ?)',
+      [id, familyId, mealId, value],
+    )
+  })
 }
 
 /* ==========================================================================

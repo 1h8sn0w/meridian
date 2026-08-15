@@ -7,8 +7,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { derivedId, migrateV1 } from './migrate-v1.ts'
+import { migrateV1 } from './migrate-v1.ts'
 import type { MigratedProfile, Skipped, V1Migration } from './migrate-v1.ts'
+import { mealPrefId } from './sync-ids.ts'
 import type { Meal } from './types.ts'
 
 const FAMILY = '11111111-1111-4111-8111-111111111111'
@@ -302,22 +303,13 @@ test('id профілю «default» у різних сім’ях НЕ збіг�
   )
 })
 
-test('різні різновиди рядків не діляться одним id', () => {
-  assert.notEqual(
-    derivedId(FAMILY, 'meal', 'x'),
-    derivedId(FAMILY, 'recipe', 'x'),
-  )
-  assert.notEqual(
-    derivedId(FAMILY, 'profile', 'x'),
-    derivedId(FAMILY, 'meal_pref', 'x'),
-  )
-})
-
-test('виведений id — справжній UUID: інакше колонка його не прийме', () => {
-  assert.match(
-    derivedId(FAMILY, 'meal', 'meal_abc'),
-    /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-  )
+test('id смаку виводиться зі страви, а не з ключа V1 (MER-57)', () => {
+  // Той самий id має порахувати й застосунок, коли смак ставлять уже у V2, —
+  // інакше друга вставка того самого смаку впаде на унікальному індексі.
+  const result = migrateV1(fullDump(), FAMILY)
+  const favorite = result.prefs.find((pref) => pref.value === 'favorite')
+  assert.ok(favorite)
+  assert.equal(favorite.id, mealPrefId(favorite.mealId))
 })
 
 /* ==========================================================================
