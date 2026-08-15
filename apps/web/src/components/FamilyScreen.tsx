@@ -14,6 +14,7 @@ import type { Failure } from '../lib/messages'
 import { AppShell } from './AppShell'
 import { Avatar, Button, ErrorText, Hint, LinkButton, Panel, Tag } from './ui'
 import { SyncPanel } from './SyncPanel'
+import { ImportV1Panel } from './ImportV1Panel'
 
 export function FamilyScreen() {
   const { userId, family, members, invite, createInvite, signOut } = useAuth()
@@ -82,6 +83,8 @@ export function FamilyScreen() {
       </Panel>
 
       <SyncPanel />
+
+      <ImportV1Panel />
 
       <p className="mt-4 text-center">
         <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>

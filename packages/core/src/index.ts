@@ -66,3 +66,20 @@ export type { CalendarSlot } from './calendar.ts'
 
 export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
 export type { Row } from './rows.ts'
+
+export {
+  MEALS_KEY,
+  MERIDIAN_NAMESPACE,
+  PREFS_KEY,
+  PROFILES_KEY,
+  derivedId,
+  migrateV1,
+} from './migrate-v1.ts'
+export type {
+  IdKind,
+  MigratedPref,
+  MigratedProfile,
+  MigratedRecipe,
+  Skipped,
+  V1Migration,
+} from './migrate-v1.ts'
