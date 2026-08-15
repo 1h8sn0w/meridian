@@ -151,6 +151,44 @@ test('нечислова калорійність стає NULL, а не нул�
   assert.equal(mealNamed(result, 'Справжній нуль').calories, 0)
 })
 
+test('пробіли, масив і boolean у полі числа — це NULL, а не нуль', () => {
+  // `Number('   ')`, `Number([])` і `Number(false)` дають нуль, `Number(true)` —
+  // одиницю. Тобто наївний `Number()` вигадав би тут справжню цифру.
+  const result = migrateV1(
+    dump({
+      'meridian.meals.v1': [
+        { ...GRECHKA, id: 'm_space', name: 'Пробіли', calories: '   ' },
+        { ...GRECHKA, id: 'm_arr', name: 'Масив', calories: [] },
+        { ...GRECHKA, id: 'm_bool', name: 'Булеве', calories: true },
+        { ...GRECHKA, id: 'm_str', name: 'Числовий рядок', calories: ' 420 ' },
+      ],
+    }),
+    FAMILY,
+  )
+  assert.equal(mealNamed(result, 'Пробіли').calories, null)
+  assert.equal(mealNamed(result, 'Масив').calories, null)
+  assert.equal(mealNamed(result, 'Булеве').calories, null)
+  // Числовий рядок — це все-таки число: V1 міг зберегти його саме так.
+  assert.equal(mealNamed(result, 'Числовий рядок').calories, 420)
+})
+
+test('булева ціль профілю не стає одиницею, а відкидає профіль', () => {
+  const result = migrateV1(
+    dump({
+      'meridian.profiles.v1': {
+        profiles: [{ ...DEFAULT_PROFILE, targetCalories: true }],
+        activeId: 'default',
+      },
+    }),
+    FAMILY,
+  )
+  assert.equal(result.profiles.length, 0)
+  assert.match(
+    reasons(result.skipped, 'Профіль «Профіль 1»')[0] ?? '',
+    /не число/,
+  )
+})
+
 test("від'ємне число не обнуляється, а відкидає запис із поясненням", () => {
   const result = migrateV1(
     dump({

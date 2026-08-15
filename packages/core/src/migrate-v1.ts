@@ -199,27 +199,44 @@ function required(value: unknown, what: string): string {
 }
 
 /**
- * Число з дампа або null.
+ * Число з дампа або null, якщо числа там немає.
+ *
+ * `Number()` наосліп сюди не годиться, і це не причіпка: `Number('   ')`,
+ * `Number([])` і `Number(false)` дають НУЛЬ, а `Number(true)` — одиницю. Тобто
+ * пробіли й сміття в полі калорійності стали б справжнім нулем — рівно тим
+ * вигаданим значенням, від якого застерігає правило провенансу (нуль ≠
+ * «невідомо»). Тому числами вважаються лише число й числовий рядок.
+ */
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text) return null
+  const n = Number(text)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Необов'язкове число з дампа.
  *
  * «Нечислове → NULL, а не нуль» — головне правило переносу калорійності: у V1
- * вона обов'язкове невід'ємне число, у V2 її може не бути, і сміття на місці
- * цифри означає «невідомо», а не «нуль». Справжній нуль лишається нулем.
+ * вона обов'язкове невід'ємне число, у V2 її може не бути. Справжній нуль
+ * лишається нулем.
  *
  * Від'ємне — не null, а помилка: схема V2 відсікає такі значення CHECK-ами, і
  * тихо обнулити їх означало б вигадати дані.
  */
 function optional(value: unknown, what: string): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const n = Number(value)
-  if (!Number.isFinite(n)) return null
+  const n = toNumber(value)
+  if (n === null) return null
   if (n < 0) throw new Error(what + " має бути невід'ємним, а тут " + n + '.')
   return n
 }
 
 /** Обов'язкове число: V1 завжди його пише, тож відсутнє — це зіпсований запис. */
 function requiredNumber(value: unknown, what: string): number {
-  const n = Number(value)
-  if (!Number.isFinite(n)) throw new Error(what + ' — не число.')
+  const n = toNumber(value)
+  if (n === null) throw new Error(what + ' — не число.')
   return n
 }
 

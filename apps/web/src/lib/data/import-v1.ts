@@ -166,6 +166,41 @@ function prefValues(
 }
 
 /**
+ * Порядок запису профілів: власник спільного плану — перед тим, хто його
+ * ділить (MER-17). На сервері зовнішній ключ `shared_plan_with` не пустить
+ * посилання на рядок, якого ще немає.
+ *
+ * Не простим сортуванням на дві купки: якщо в дампі трапиться ланцюжок
+ * (B ділить із A, а A — з C), обидва опиняться в одній купці й порядок між ними
+ * лишиться довільним. V1 ланцюжки забороняє, але дамп можна відредагувати
+ * руками — а цей модуль саме такому дампу й не довіряє.
+ */
+function inWriteOrder(
+  profiles: ReadonlyArray<MigratedProfile>,
+): Array<MigratedProfile> {
+  const pending = new Map(profiles.map((profile) => [profile.id, profile]))
+  const ordered: Array<MigratedProfile> = []
+
+  let progress = true
+  while (pending.size && progress) {
+    progress = false
+    for (const [id, profile] of pending) {
+      // Власника, який ще чекає своєї черги, треба пропустити — його рядок має
+      // лягти першим.
+      const owner = profile.sharedPlanWith
+      if (owner !== null && pending.has(owner)) continue
+      ordered.push(profile)
+      pending.delete(id)
+      progress = true
+    }
+  }
+  /* Лишок — це цикл посилань, якого в коректних даних не буває. Викидати такі
+   * профілі не можна (це дані користувача), тож пишемо як є: сервер відкине
+   * рівно те посилання, що замикає цикл, а не весь імпорт. */
+  return [...ordered, ...pending.values()]
+}
+
+/**
  * Записати розібраний дамп у базу пристрою.
  *
  * Однією транзакцією: імпорт або застосувався, або ні. Частково перенесені дані
@@ -177,13 +212,7 @@ export async function importV1(
   familyId: string,
   migration: V1Migration,
 ): Promise<ImportStats> {
-  /* Власники спільного плану — перед тими, хто його ділить (MER-17): на сервері
-   * зовнішній ключ `shared_plan_with` не пустить посилання на рядок, якого ще
-   * немає. */
-  const profiles = [...migration.profiles].sort(
-    (a, b) =>
-      Number(a.sharedPlanWith !== null) - Number(b.sharedPlanWith !== null),
-  )
+  const profiles = inWriteOrder(migration.profiles)
 
   await db.writeTransaction(async (tx) => {
     for (const meal of migration.meals) {
@@ -196,7 +225,22 @@ export async function importV1(
       await upsert(tx, 'profile', profile.id, profileValues(familyId, profile))
     }
     for (const pref of migration.prefs) {
-      await upsert(tx, 'meal_pref', pref.id, prefValues(familyId, pref))
+      /* Смак шукаємо за стравою, а не за виведеним id: живий рядок на страву в
+       * схемі рівно один (частковий унікальний індекс), а поставити смак могли
+       * вже у V2 — тоді там лежить рядок із власним випадковим id. Вставка
+       * «свого» рядка дала б другий живий смак тієї самої страви, і сервер
+       * відкинув би весь запис на індексі. Той самий прийом, що в
+       * `setMealPref`. */
+      const live = await tx.getOptional<{ id: string }>(
+        'SELECT id FROM meal_pref WHERE meal_id = ? AND deleted_at IS NULL',
+        [pref.mealId],
+      )
+      await upsert(
+        tx,
+        'meal_pref',
+        live ? live.id : pref.id,
+        prefValues(familyId, pref),
+      )
     }
   })
 
