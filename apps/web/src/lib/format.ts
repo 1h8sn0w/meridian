@@ -31,6 +31,21 @@ export function formatDayTitle(key: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+/**
+ * «14–20 лип. 2026» або «28 лип. – 3 сер. 2026» — діапазон тижня в календарі
+ * (fmtRange із V1). Обидві межі включно.
+ */
+export function formatWeekRange(fromKey: string, toKey: string): string {
+  const from = dateFromKey(fromKey)
+  const to = dateFromKey(toKey)
+  const opts = { day: 'numeric', month: 'short' } as const
+  const end = to.toLocaleDateString('uk-UA', opts) + ' ' + to.getFullYear()
+  return from.getMonth() === to.getMonth() &&
+    from.getFullYear() === to.getFullYear()
+    ? from.getDate() + '–' + end
+    : from.toLocaleDateString('uk-UA', opts) + ' – ' + end
+}
+
 /** «понеділок, 4 серпня» — підзаголовок екрана «Сьогодні». */
 export function formatToday(now: Date): string {
   return now.toLocaleDateString('uk-UA', {

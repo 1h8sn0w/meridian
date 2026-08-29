@@ -182,6 +182,66 @@ export function buildWeekView(
 }
 
 /**
+ * День календаря (MER-61): слоти однієї дати без прив'язки до конкретного
+ * рядка `week_plan`.
+ *
+ * Це навмисно НЕ `DayView`: календар читає слоти за календарним ключем
+ * (профіль + дата, MER-66), і день тут може належати будь-якому поколінню
+ * плану — минулому тижню, поточному чи згенерованому наперед. Полів
+ * `isPast`/`dayIndex` немає, бо екран календаря сам знає вибрану дату, а
+ * порядок днів — це порядок дат.
+ */
+export type CalendarDayView = {
+  /** «YYYY-MM-DD» — локальна дата без UTC-зсувів. */
+  date: string
+  /** Слоти в хронологічному порядку; відсутні типи не вигадуються. */
+  slots: Array<SlotView>
+  calories: DayCalories
+}
+
+/**
+ * Рядки `plan_slot` + пул страв → дні календаря за датами.
+ *
+ * Дублікат типу слота в межах дати (двоє пристроїв устигли вставити свій рядок
+ * до збіжності) не множить рядки на екрані: лишається останній у поданому
+ * порядку — так само, як `buildWeekView` тримає один слот на тип у `byType`.
+ * «Останній» тут має сенс лише тому, що вибірка впорядкована (`queries.ts`):
+ * без цього два пристрої показали б для того самого дня різні страви.
+ */
+export function buildCalendarDays(
+  slotRows: ReadonlyArray<Row>,
+  meals: ReadonlyMap<string, Meal>,
+): Map<string, CalendarDayView> {
+  const byDate = new Map<string, Partial<Record<MealType, SlotView>>>()
+  for (const row of slotRows) {
+    const slot = text(row, 'slot') as MealType
+    if (!MEAL_TYPES.includes(slot)) continue
+    const mealId = text(row, 'meal_id')
+    const view: SlotView = {
+      id: text(row, 'id'),
+      slot,
+      mealId,
+      meal: meals.get(mealId) ?? null,
+    }
+    const date = text(row, 'date')
+    const found = byDate.get(date)
+    if (found) found[slot] = view
+    else byDate.set(date, { [slot]: view })
+  }
+
+  const out = new Map<string, CalendarDayView>()
+  for (const [date, byType] of byDate) {
+    const slots = SLOT_ORDER.map((type) => byType[type]).filter(
+      (view): view is SlotView => view !== undefined,
+    )
+    const forCalories: Partial<Record<MealType, Meal | null>> = {}
+    for (const view of slots) forCalories[view.slot] = view.meal
+    out.set(date, { date, slots, calories: dayCalories(forCalories) })
+  }
+  return out
+}
+
+/**
  * Вигляд екрана → доменний `WeekPlan` для `suggestReplacements` / `replaceSlot`.
  *
  * null, якщо в плані є хоч один слот без страви або без повного набору типів:
