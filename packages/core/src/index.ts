@@ -64,6 +64,20 @@ export {
 } from './calendar.ts'
 export type { CalendarSlot } from './calendar.ts'
 
+export {
+  SHOPPING_CATEGORIES,
+  aggregate,
+  categoryOf,
+  nameKey,
+  planFingerprint,
+} from './shopping.ts'
+export type {
+  PlannedSlot,
+  ShoppingCategory,
+  ShoppingItem,
+  ShoppingItems,
+} from './shopping.ts'
+
 export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
 export type { Row } from './rows.ts'
 
