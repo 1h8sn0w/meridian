@@ -241,52 +241,45 @@ export function useCalendarDays(
   toDate: string,
   meals: ReadonlyArray<Meal>,
 ): Read<ReadonlyMap<string, CalendarDayView>> {
-  const { data, isLoading, isFetching, error } = useQuery<Row>(
+  // `ORDER BY` тут не для показу — дні сортує сам календар. Він потрібен, щоб
+  // дублікат `(дата, слот)` розв'язувався ОДНАКОВО на всіх пристроях: рядки з
+  // випадковими id, створені до MER-66, ще лежать у базах, і без порядку
+  // «останній виграє» (див. `buildCalendarDays`) означало б «як поверне
+  // SQLite» — тобто по-різному на двох телефонах. `id` останнім: він
+  // однаковий скрізь навіть тоді, коли позначки часу записані по-різному.
+  const { data, isLoading, error } = useQuery<Row>(
     'SELECT * FROM plan_slot WHERE profile_id = ? AND deleted_at IS NULL' +
-      ' AND date >= ? AND date <= ?',
+      ' AND date >= ? AND date <= ? ORDER BY updated_at, id',
     [ownerId ?? '', fromDate, toDate],
   )
   const pool = useMemo(() => mealsById(meals), [meals])
   return useMemo(
     () => ({
       data: buildCalendarDays(data, pool),
-      // При зміні діапазону (гортання, вибір дня) хук якийсь час віддає СТАРІ
-      // рядки з `isFetching` — для викликача це теж «ще не завантажилось»,
-      // інакше панель дня встигає чесно збрехати «плану немає».
-      isLoading: isLoading || isFetching,
+      isLoading,
       problems: withQueryError([], error),
     }),
-    [data, error, isFetching, isLoading, pool],
+    [data, error, isLoading, pool],
   )
 }
 
-/** Межі запланованого: перший і останній день, кількість днів із планом. */
-export type CalendarBounds = { first: string; last: string; count: number }
-
-export function useCalendarBounds(
-  ownerId: string | null,
-): Read<CalendarBounds | null> {
-  const { data, isLoading, error } = useQuery<{
-    first: string | null
-    last: string | null
-    days: number | null
-  }>(
-    'SELECT min(date) AS first, max(date) AS last,' +
-      ' count(DISTINCT date) AS days FROM plan_slot' +
+/**
+ * Скільки днів профілю взагалі мають план — підзаголовок екрана й ознака
+ * «історія порожня» (`bounds` із V1, зведений до того, що справді читають).
+ */
+export function usePlannedDayCount(ownerId: string | null): Read<number> {
+  const { data, isLoading, error } = useQuery<{ days: number | null }>(
+    'SELECT count(DISTINCT date) AS days FROM plan_slot' +
       ' WHERE profile_id = ? AND deleted_at IS NULL',
     [ownerId ?? ''],
   )
   return useMemo(() => {
-    const row = data.length ? data[0] : null
-    const bounds =
-      row && row.first && row.last
-        ? {
-            first: row.first,
-            last: row.last,
-            count: Number(row.days) || 0,
-          }
-        : null
-    return { data: bounds, isLoading, problems: withQueryError([], error) }
+    const days = data.length ? Number(data[0].days) : 0
+    return {
+      data: Number.isFinite(days) ? days : 0,
+      isLoading,
+      problems: withQueryError([], error),
+    }
   }, [data, error, isLoading])
 }
 
@@ -302,23 +295,42 @@ export function useCalendarBounds(
 export function useDayPlan(
   ownerId: string | null,
   date: string,
-): { target: number; corridor: number } | null {
-  const { data } = useQuery<Row>(
+): Read<{ target: number; corridor: number } | null> {
+  const { data, isLoading, error } = useQuery<Row>(
     'SELECT * FROM week_plan WHERE profile_id = ? AND deleted_at IS NULL' +
       ' AND start_date <= ? ORDER BY start_date DESC, generated_at DESC LIMIT 1',
     [ownerId && date ? ownerId : '', date],
   )
   return useMemo(() => {
-    if (!data.length) return null
+    const problems = withQueryError([], error)
+    const nothing = { data: null, isLoading, problems }
+    if (!data.length) return nothing
+
     const row = data[0]
     const days = Number(row.days)
-    if (!Number.isFinite(days) || days < 1) return null
-    if (date > addDays(String(row.start_date), days - 1)) return null
     const target = Number(row.target_calories)
     const corridor = Number(row.used_corridor)
-    if (!Number.isFinite(target) || !Number.isFinite(corridor)) return null
-    return { target, corridor }
-  }, [data, date])
+    if (
+      !Number.isFinite(days) ||
+      days < 1 ||
+      !Number.isFinite(target) ||
+      !Number.isFinite(corridor)
+    ) {
+      return nothing
+    }
+
+    // `addDays` кидає на даті не у форматі «YYYY-MM-DD», а `start_date` у
+    // клієнтській схемі — звичайний TEXT без NOT NULL. Ловимо порядково, як
+    // усі читання в цьому файлі: битий рядок плану має стати попередженням
+    // поруч із днем, а не білим екраном замість календаря.
+    try {
+      if (date > addDays(String(row.start_date), days - 1)) return nothing
+    } catch (cause) {
+      return { data: null, isLoading, problems: problems.concat(describe(cause)) }
+    }
+
+    return { data: { target, corridor }, isLoading, problems }
+  }, [data, date, error, isLoading])
 }
 
 /**

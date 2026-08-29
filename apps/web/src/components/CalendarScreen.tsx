@@ -12,6 +12,15 @@
  * слотів був би другим місцем для помилок LWW. Уся арифметика дат — через
  * `addDays`/`startOfWeek` з ядра: календарний зсув, а не «+24 години», інакше
  * осінній перехід DST дублює або з'їдає день (MER-34).
+ *
+ * **Сітка тижня й панель дня — окремі компоненти з `key`.** Кожен має власний
+ * запит до бази, і при зміні діапазону `useQuery` якийсь час віддає ще СТАРІ
+ * рядки. Ключ робить зміну діапазону новим монтуванням: замість чужих даних
+ * компонент чесно починає з «завантажується». Тримати це прапорцем
+ * «зараз перезапитуємо» не вийшло б — той самий прапорець підіймається й на
+ * звичайний прихід даних із sync, і тоді сітка блимала б порожнечею на кожній
+ * порції синхронізації. Кнопки гортання лишаються ЗОВНІ ключа: інакше
+ * перемонтування забирало б у них фокус на кожному натисканні.
  */
 
 import { useState } from 'react'
@@ -25,15 +34,15 @@ import {
   planOwnerId,
   startOfWeek,
 } from '@meridian/core'
+import type { DayCalories, Meal } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
-  useCalendarBounds,
   useCalendarDays,
   useDayPlan,
   useMeals,
+  usePlannedDayCount,
   useProfiles,
 } from '../lib/data/queries'
-import type { CalendarDayView } from '../lib/data/model'
 import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
@@ -41,6 +50,14 @@ import { Button, Hint, Meta, Panel, Tag, Warn } from './ui'
 
 /** Тиждень в Україні — з понеділка, як у `startOfWeek`. */
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
+
+/**
+ * Однакові тексти від різних запитів схлопуємо: та сама помилка бази, показана
+ * двічі, нікому не допомагає — а `key` у React вона ще й ламає.
+ */
+function unique(problems: ReadonlyArray<string>): Array<string> {
+  return [...new Set(problems)]
+}
 
 export function CalendarScreen() {
   const now = useNow()
@@ -63,36 +80,29 @@ export function CalendarScreen() {
   const selected = view ? view.selected : todayKey
   const end = start ? addDays(start, 6) : ''
 
-  const daysRead = useCalendarDays(ownerId, start, end, mealsRead.data)
-  // Вибраний день читається окремо: гортання тижнів не скидає вибір, тож він
-  // може лежати поза видимим діапазоном — і панель дня має показувати його
-  // по-справжньому, а не «плану немає» через звужену вибірку.
-  const selectedRead = useCalendarDays(
-    ownerId,
-    selected,
-    selected,
-    mealsRead.data,
-  )
-  const boundsRead = useCalendarBounds(ownerId)
-  const dayPlan = useDayPlan(ownerId, selected)
-
-  const problems = [
+  const plannedRead = usePlannedDayCount(ownerId)
+  const problems = unique([
     ...mealsRead.problems,
     ...profilesRead.problems,
-    ...daysRead.problems,
-    ...selectedRead.problems,
-    ...boundsRead.problems,
-  ]
+    ...plannedRead.problems,
+  ])
 
-  const bounds = boundsRead.data
-  const todayInView = todayKey !== '' && start <= todayKey && todayKey <= end
+  // Кнопка повертає ОБИДВА: і тиждень, і вибір. Тож ховати її можна лише тоді,
+  // коли обидва вже на сьогодні. Інакше після «‹ → вибрати день → ›» вибір
+  // лишався б у минулому тижні, жодна клітинка не була б підсвічена — і
+  // повернутися до сьогодні не було б чим.
+  const atToday =
+    todayKey !== '' &&
+    start <= todayKey &&
+    todayKey <= end &&
+    selected === todayKey
 
   return (
     <AppShell
       title="Календар"
       subtitle={
-        bounds
-          ? `Заплановано ${bounds.count} ${plural(bounds.count, 'день', 'дні', 'днів')}`
+        plannedRead.data > 0
+          ? `Заплановано ${plannedRead.data} ${plural(plannedRead.data, 'день', 'дні', 'днів')}`
           : 'Історія та плани'
       }
     >
@@ -132,67 +142,29 @@ export function CalendarScreen() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-7 gap-1">
-                {DOW_LABELS.map((dow, i) => {
-                  const key = addDays(start, i)
-                  // Доки вибірка тижня в дорозі, у мапі лежить попередній
-                  // діапазон — «без плану» в цю мить було б неправдою.
-                  const day = daysRead.isLoading
-                    ? undefined
-                    : daysRead.data.get(key)
-                  const kcal = day ? formatDayCalories(day.calories) : ''
-                  const isSelected = key === selected
-                  const border = isSelected
-                    ? 'border-accent bg-accent-soft'
-                    : key === todayKey
-                      ? 'border-accent bg-transparent'
-                      : 'border-line bg-transparent'
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-pressed={isSelected}
-                      aria-label={
-                        formatDayTitle(key) +
-                        (day || daysRead.isLoading
-                          ? kcal
-                            ? ', ' + kcal
-                            : ''
-                          : ', без плану')
-                      }
-                      onClick={() => setView({ start, selected: key })}
-                      className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-0 py-1.5 text-content ${border}`}
-                    >
-                      <span className="text-xs text-muted">{dow}</span>
-                      <span className="text-sm font-semibold">
-                        {Number(key.slice(8, 10))}
-                      </span>
-                      {/* «—» — плану немає; порожньо — план є, цифр немає
-                          (або вибірка ще в дорозі). */}
-                      <span className="max-w-full truncate px-0.5 text-xs text-muted">
-                        {day
-                          ? kcal.replace(' ккал', '')
-                          : daysRead.isLoading
-                            ? ''
-                            : '—'}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+              <WeekGrid
+                key={start}
+                ownerId={ownerId}
+                start={start}
+                end={end}
+                selected={selected}
+                todayKey={todayKey}
+                meals={mealsRead.data}
+                onSelect={(date) => setView({ start, selected: date })}
+              />
 
-              {!todayInView ? (
+              {atToday ? null : (
                 <div className="mt-2">
                   <Button block onClick={() => setView(null)}>
                     Сьогодні
                   </Button>
                 </div>
-              ) : null}
+              )}
             </Panel>
           ) : null}
 
           {/* Порожня історія — нормальний перший стан, і кажемо це прямо. */}
-          {!bounds && !boundsRead.isLoading ? (
+          {plannedRead.data === 0 && !plannedRead.isLoading ? (
             <Panel>
               <Hint>
                 Історія порожня — ще жоден тиждень не згенеровано. Згенеруйте
@@ -205,12 +177,12 @@ export function CalendarScreen() {
           ) : null}
 
           {selected ? (
-            <DayPanel
-              day={selectedRead.data.get(selected) ?? null}
-              loading={selectedRead.isLoading}
+            <DaySection
+              key={selected}
+              ownerId={ownerId}
               date={selected}
               todayKey={todayKey}
-              plan={dayPlan}
+              meals={mealsRead.data}
             />
           ) : null}
 
@@ -226,22 +198,104 @@ export function CalendarScreen() {
 }
 
 /* ==========================================================================
+ * Сітка тижня
+ * ======================================================================== */
+
+function WeekGrid({
+  ownerId,
+  start,
+  end,
+  selected,
+  todayKey,
+  meals,
+  onSelect,
+}: {
+  ownerId: string | null
+  start: string
+  end: string
+  selected: string
+  todayKey: string
+  meals: ReadonlyArray<Meal>
+  onSelect: (date: string) => void
+}) {
+  const daysRead = useCalendarDays(ownerId, start, end, meals)
+
+  return (
+    <>
+      {unique(daysRead.problems).map((problem) => (
+        <Warn key={problem}>{problem}</Warn>
+      ))}
+
+      <div className="grid grid-cols-7 gap-1">
+        {DOW_LABELS.map((dow, i) => {
+          const key = addDays(start, i)
+          const day = daysRead.data.get(key)
+          const kcal = day ? formatDayCalories(day.calories) : ''
+          const isSelected = key === selected
+          const border = isSelected
+            ? 'border-accent bg-accent-soft'
+            : key === todayKey
+              ? 'border-accent bg-transparent'
+              : 'border-line bg-transparent'
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={
+                formatDayTitle(key) +
+                (daysRead.isLoading
+                  ? ''
+                  : day
+                    ? kcal
+                      ? ', ' + kcal
+                      : ''
+                    : ', без плану')
+              }
+              onClick={() => onSelect(key)}
+              className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-0 py-1.5 text-content ${border}`}
+            >
+              <span className="text-xs text-muted">{dow}</span>
+              <span className="text-sm font-semibold">
+                {Number(key.slice(8, 10))}
+              </span>
+              {/* «—» — плану немає; порожньо — або план є без цифр, або
+                  вибірка ще в дорозі й стверджувати нічого не можна. */}
+              <span className="max-w-full truncate px-0.5 text-xs text-muted">
+                {daysRead.isLoading
+                  ? ''
+                  : day
+                    ? kcal.replace(' ккал', '')
+                    : '—'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+/* ==========================================================================
  * Панель вибраного дня — лише перегляд
  * ======================================================================== */
 
-function DayPanel({
-  day,
-  loading,
+function DaySection({
+  ownerId,
   date,
   todayKey,
-  plan,
+  meals,
 }: {
-  day: CalendarDayView | null
-  loading: boolean
+  ownerId: string | null
   date: string
   todayKey: string
-  plan: { target: number; corridor: number } | null
+  meals: ReadonlyArray<Meal>
 }) {
+  const daysRead = useCalendarDays(ownerId, date, date, meals)
+  const planRead = useDayPlan(ownerId, date)
+  const day = daysRead.data.get(date) ?? null
+  const problems = unique([...daysRead.problems, ...planRead.problems])
+
   return (
     <Panel>
       <h2 className="mb-2 mt-0 text-base font-bold">
@@ -249,9 +303,13 @@ function DayPanel({
         {date === todayKey ? <Tag tone="accent">сьогодні</Tag> : null}
       </h2>
 
+      {problems.map((problem) => (
+        <Warn key={problem}>{problem}</Warn>
+      ))}
+
       {!day ? (
         // Доки запит у дорозі, «плану немає» було б неправдою — мовчимо.
-        loading ? null : (
+        daysRead.isLoading ? null : (
           <Hint>
             На цей день плану немає.
             {todayKey && date >= todayKey
@@ -282,7 +340,7 @@ function DayPanel({
             </div>
           ))}
 
-          <DaySummary day={day} plan={plan} />
+          <DaySummary calories={day.calories} plan={planRead.data} />
 
           {/* MER-33: минулий день — незмінна історія. */}
           {todayKey && date < todayKey ? (
@@ -300,13 +358,13 @@ function DayPanel({
  * Неповна сума називається неповною окремим текстом, а не «≈» (MER-26).
  */
 function DaySummary({
-  day,
+  calories,
   plan,
 }: {
-  day: CalendarDayView
+  calories: DayCalories
   plan: { target: number; corridor: number } | null
 }) {
-  const total = formatDayCalories(day.calories)
+  const total = formatDayCalories(calories)
   if (!total) {
     return (
       <p className="mb-0 mt-2.5 text-sm text-muted">
@@ -316,8 +374,8 @@ function DaySummary({
   }
   const within =
     plan !== null &&
-    day.calories.unknown === 0 &&
-    Math.abs(day.calories.total - plan.target) <= plan.corridor
+    calories.unknown === 0 &&
+    Math.abs(calories.total - plan.target) <= plan.corridor
   // Без відомої цілі сума — довідка, а не вирок, тож і колір нейтральний.
   const tone =
     plan === null ? 'text-muted' : within ? 'text-success' : 'text-warning'
@@ -325,8 +383,8 @@ function DaySummary({
     <p className={`mb-0 mt-2.5 text-sm ${tone}`}>
       Разом: {total}
       {plan ? ` · ціль ${plan.target} ± ${plan.corridor} ккал` : ''}
-      {day.calories.unknown > 0
-        ? ' · сума неповна: без цифр ' + day.calories.unknown + ' слот(и)'
+      {calories.unknown > 0
+        ? ' · сума неповна: без цифр ' + calories.unknown + ' слот(и)'
         : within || !plan
           ? ''
           : ' · поза коридором'}
