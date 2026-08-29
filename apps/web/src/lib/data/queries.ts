@@ -136,6 +136,40 @@ export function prefOf(
  * ======================================================================== */
 
 /**
+ * Порядок «найпізніше покоління плану» — один на всі вибірки з `week_plan`.
+ *
+ * Константа, а не два однакові рядки: `useWeek` і `useDayPlan` відповідають на
+ * те саме питання («який план чинний для цієї дати»), і якщо їхні `ORDER BY`
+ * розійдуться, екран тижня й підсумок дня в календарі покажуть цілі з РІЗНИХ
+ * поколінь одного профілю.
+ *
+ * **`generated_at` — це `timestamptz`, але в локальному SQLite він лежить
+ * ТЕКСТОМ, і форма тексту залежить від того, хто записав рядок** (те саме
+ * розрізнення описує `formatMoment` у `format.ts`): пристрій пише ISO з `T`
+ * («2026-08-29T09:00:00.000Z»), а реплікація віддає серверну форму з пробілом
+ * («2026-08-29 09:00:00+00»). У ASCII `'T'` (0x54) більший за пробіл (0x20),
+ * тож голий `ORDER BY generated_at DESC` сортує не за часом, а за роздільником:
+ * несинхронізований план, згенерований о 09:00, обходив би синхронізований о
+ * 10:00 — і екран брав би `target_calories`/`used_corridor` СТАРІШОГО
+ * покоління. Ціна помилки не косметична: із них рахується вердикт «поза
+ * коридором» у календарі й попередження «Профіль змінився після генерації».
+ *
+ * Тому сортуємо за нормалізованим «YYYY-MM-DDTHH:MM:SS»: `substr(…, 1, 19)`
+ * відрізає хвіст, який у двох форм різний (`.000Z` проти `+00`), а `replace`
+ * зводить роздільник. Обидві форми — UTC, тож після цього текстове порівняння
+ * знову означає порівняння часу.
+ *
+ * `id DESC` останнім, як і в `useCalendarDays`: два покоління в ту саму секунду
+ * мусять розв'язуватись ОДНАКОВО на всіх пристроях, а не «як поверне SQLite».
+ *
+ * ⚠️ **Не спрощувати назад до `ORDER BY generated_at DESC`** — воно виглядає
+ * тотожним рівно доти, доки всі рядки записані з одного боку.
+ */
+const LATEST_PLAN_ORDER =
+  ' ORDER BY start_date DESC,' +
+  " replace(substr(generated_at, 1, 19), ' ', 'T') DESC, id DESC LIMIT 1"
+
+/**
  * Поточний план профілю-власника. «Поточний» — найпізніший за датою початку:
  * тиждень, згенерований наперед, стає поточним, щойно почнеться. У V1 план був
  * рівно один на профіль (`meridian.week.v1.<id>`); тут рядки накопичуються, і
@@ -148,7 +182,7 @@ export function useWeek(
 ): Read<WeekView | null> {
   const planQuery = useQuery<Row>(
     'SELECT * FROM week_plan WHERE profile_id = ? AND deleted_at IS NULL' +
-      ' ORDER BY start_date DESC, generated_at DESC LIMIT 1',
+      LATEST_PLAN_ORDER,
     [ownerId ?? ''],
   )
   // Через довжину, а не `data[0] ?? null`: у цьому пакеті індексний доступ
@@ -247,6 +281,13 @@ export function useCalendarDays(
   // «останній виграє» (див. `buildCalendarDays`) означало б «як поверне
   // SQLite» — тобто по-різному на двох телефонах. `id` останнім: він
   // однаковий скрізь навіть тоді, коли позначки часу записані по-різному.
+  //
+  // Нормалізації роздільника, як у `LATEST_PLAN_ORDER`, тут НЕ треба:
+  // `updated_at` пише виключно сервер (`SERVER_OWNED_COLUMNS` у
+  // `connector.ts` викидає його з вивантаження), тож усі непорожні значення
+  // мають одну форму. У щойно записаного локально рядка він порожній — NULL
+  // у SQLite сортується першим, тобто такий рядок свідомо програє
+  // синхронізованому дублікату, поки сервер не підтвердить запис.
   const { data, isLoading, error } = useQuery<Row>(
     'SELECT * FROM plan_slot WHERE profile_id = ? AND deleted_at IS NULL' +
       ' AND date >= ? AND date <= ? ORDER BY updated_at, id',
@@ -298,7 +339,8 @@ export function useDayPlan(
 ): Read<{ target: number; corridor: number } | null> {
   const { data, isLoading, error } = useQuery<Row>(
     'SELECT * FROM week_plan WHERE profile_id = ? AND deleted_at IS NULL' +
-      ' AND start_date <= ? ORDER BY start_date DESC, generated_at DESC LIMIT 1',
+      ' AND start_date <= ?' +
+      LATEST_PLAN_ORDER,
     [ownerId && date ? ownerId : '', date],
   )
   return useMemo(() => {
