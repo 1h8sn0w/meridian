@@ -21,7 +21,7 @@
  *    другого джерела правди на екрані немає.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
@@ -78,14 +78,27 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const allOwners = [...new Set(profiles.map(planOwnerId))]
   const weeksRead = useOwnerWeeks(allOwners, mealsRead.data, todayKey)
 
+  /* Страви ще в дорозі — це НЕ «страв немає»: `useMeals` і плани це окремі
+   * підписки, і на кадрі між ними кожен слот виглядав би порожнім. Мовчати
+   * тут чесніше, ніж показати «28 слотів без страви» для цілого плану. */
+  const isLoading =
+    mealsRead.isLoading || profilesRead.isLoading || weeksRead.isLoading
+
   /* Відбиток — по ВСІХ планах сім'ї, а не по вибраному охопленню: позначки
    * спільні, і два пристрої з різним фільтром мусять писати їх під одним
-   * відбитком. Порожній — планів ще немає. */
+   * відбитком. Рахується зі змісту плану — з клітинок і страв у них
+   * (`planFingerprint`), тож однаковий тиждень дає однаковий відбиток на обох
+   * пристроях, чиїм би рядком `week_plan` він не був представлений. Порожній —
+   * плану ще немає. */
   const fingerprint = planFingerprint(
-    weeksRead.data.map((week) => ({
-      ownerId: week.profileId,
-      planId: week.id,
-    })),
+    weeksRead.data.flatMap((week) =>
+      week.days.flatMap((day) =>
+        day.slots.map((slotView) => ({
+          slotId: slotView.id,
+          mealId: slotView.mealId,
+        })),
+      ),
+    ),
   )
 
   const checksRead = useShoppingChecks(fingerprint)
@@ -94,12 +107,15 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
    * MER-55): у список вони й так не потрапляють (читання фільтрує за
    * відбитком), але інакше накопичувалися б назавжди. Свіжих рядків це не
    * чіпає — інакше пристрій зі ще не догнаним планом стирав би позначки, які
-   * інший щойно зробив (див. `clearStaleChecks`). Поки план не приїхав,
-   * відбиток порожній — і тоді не робимо нічого. */
+   * інший щойно зробив (див. `clearStaleChecks`). Доки вибірки в дорозі,
+   * відбиток ще неповний, тож і не прибираємо нічого. */
   useEffect(() => {
-    if (!fingerprint) return
-    void clearStaleChecks(db, fingerprint)
-  }, [db, fingerprint])
+    if (!fingerprint || isLoading) return
+    void clearStaleChecks(db, fingerprint).catch(() => {
+      // Прибирання — не те, заради чого користувач сюди прийшов: список від
+      // нього не залежить, тож невдача лишається тихою й повториться сама.
+    })
+  }, [db, fingerprint, isLoading])
 
   const scopeOwners =
     scope === ALL_PROFILES
@@ -133,12 +149,23 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     ...checksRead.problems,
   ]
 
-  const toggle = (item: ShoppingItem) => {
-    void setShoppingCheck(db, familyId, {
-      itemKey: item.key,
-      fingerprint,
-      checked: !checksRead.data.get(item.key),
-    })
+  /* Позначка малюється ЛИШЕ з бази — локальної копії стану тут немає навмисно
+   * (див. шапку файлу). Тому невдалий запис не просто «не зберігся»: дотик не
+   * дав би взагалі нічого, і мовчки. Кажемо про це вголос, як і решта екранів
+   * із записами. */
+  const [error, setError] = useState<string | null>(null)
+
+  const toggle = async (item: ShoppingItem) => {
+    setError(null)
+    try {
+      await setShoppingCheck(db, familyId, {
+        itemKey: item.key,
+        fingerprint,
+        checked: !checksRead.data.get(item.key),
+      })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }
   }
 
   return (
@@ -154,23 +181,23 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
         <Warn key={problem}>{problem}</Warn>
       ))}
 
+      {error ? <Warn>{error}</Warn> : null}
+
       {profiles.length > 1 ? (
         <ScopeChips profiles={profiles} scope={scope} onChange={setScope} />
       ) : null}
 
-      {!weeks.length ? (
-        // Доки запити в дорозі, «плану немає» було б неправдою — мовчимо.
-        weeksRead.isLoading || profilesRead.isLoading ? null : (
-          <Panel>
-            <Hint>
-              Плану тижня ще немає. Згенеруйте його на екрані «Тиждень» — список
-              збереться з інгредієнтів страв, нічого не вигадуючи.
-            </Hint>
-            <Link to="/week" className="no-underline">
-              <Button block>Відкрити екран «Тиждень»</Button>
-            </Link>
-          </Panel>
-        )
+      {isLoading ? null : !weeks.length ? (
+        // «Плану немає» стверджуємо лише тоді, коли всі вибірки вже відповіли.
+        <Panel>
+          <Hint>
+            Плану тижня ще немає. Згенеруйте його на екрані «Тиждень» — список
+            збереться з інгредієнтів страв, нічого не вигадуючи.
+          </Hint>
+          <Link to="/week" className="no-underline">
+            <Button block>Відкрити екран «Тиждень»</Button>
+          </Link>
+        </Panel>
       ) : (
         <>
           <Panel>
@@ -197,7 +224,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
               <Sections
                 items={withQty}
                 checks={checksRead.data}
-                onToggle={toggle}
+                onToggle={(item) => void toggle(item)}
               />
 
               {noQty.length ? (
@@ -209,7 +236,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                   <Sections
                     items={noQty}
                     checks={checksRead.data}
-                    onToggle={toggle}
+                    onToggle={(item) => void toggle(item)}
                     flat
                   />
                 </Panel>

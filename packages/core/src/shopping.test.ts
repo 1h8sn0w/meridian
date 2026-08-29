@@ -177,40 +177,86 @@ test('назва показується як у джерелі, а нормал�
  * Відбиток планів
  * ======================================================================== */
 
-test('відбиток не залежить від порядку профілів у списку', () => {
+test('відбиток не залежить від порядку рядків із бази', () => {
   const a = planFingerprint([
-    { ownerId: 'p1', planId: 'w1' },
-    { ownerId: 'p2', planId: 'w2' },
+    { slotId: 's1', mealId: 'm1' },
+    { slotId: 's2', mealId: 'm2' },
   ])
   const b = planFingerprint([
-    { ownerId: 'p2', planId: 'w2' },
-    { ownerId: 'p1', planId: 'w1' },
+    { slotId: 's2', mealId: 'm2' },
+    { slotId: 's1', mealId: 'm1' },
   ])
   // Два пристрої читають ті самі рядки в різному порядку — відбиток один.
   assert.equal(a, b)
 })
 
-test('нове покоління плану дає новий відбиток', () => {
-  const before = planFingerprint([{ ownerId: 'p1', planId: 'w1' }])
-  const after = planFingerprint([{ ownerId: 'p1', planId: 'w2' }])
+test('однаковий тиждень дає однаковий відбиток попри різні рядки week_plan', () => {
+  /* Заради цього відбиток і рахується зі змісту. Двоє офлайн згенерували той
+   * самий тиждень: слоти зійшлися на виведених id (MER-66), а рядків
+   * `week_plan` лишилося два — у кожного свій випадковий. Відбиток на змісті
+   * цього не помічає, тож позначка одного потрапляє в список іншого. */
+  const slots = [
+    { slotId: 's1', mealId: 'm1' },
+    { slotId: 's2', mealId: 'm2' },
+  ]
+  assert.equal(planFingerprint(slots), planFingerprint([...slots].reverse()))
+})
+
+test('інша страва в клітинці — інший відбиток', () => {
+  // Перегенерація (як і ручна заміна) міняє склад списку, тож позначки
+  // минулого походу в магазин у новий не течуть.
+  const before = planFingerprint([{ slotId: 's1', mealId: 'm1' }])
+  const after = planFingerprint([{ slotId: 's1', mealId: 'm2' }])
   assert.notEqual(before, after)
 })
 
-test('без планів відбиток порожній', () => {
+test('інша клітинка з тією самою стравою — інший відбиток', () => {
+  // Межа між складниками справжня: («s1», «m1 s2») не має збігтися з
+  // («s1 m1», «s2»).
+  assert.notEqual(
+    planFingerprint([{ slotId: 's1', mealId: 'm1' }]),
+    planFingerprint([{ slotId: 's2', mealId: 'm1' }]),
+  )
+  assert.notEqual(
+    planFingerprint([
+      { slotId: 's1', mealId: 'm1' },
+      { slotId: 's2', mealId: 'm2' },
+    ]),
+    planFingerprint([
+      { slotId: 's1', mealId: 'm1 s2' },
+      { slotId: '', mealId: 'm2' },
+    ]),
+  )
+})
+
+test('відбиток — короткий uuid, а не весь перелік клітинок', () => {
+  // Він лежить на КОЖНОМУ рядку `shopping_check` і їде в кожному вивантаженні.
+  const many = Array.from({ length: 28 }, (_, i) => ({
+    slotId: 'slot-' + i,
+    mealId: 'meal-' + i,
+  }))
+  assert.match(
+    planFingerprint(many),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  )
+})
+
+test('без плану відбиток порожній', () => {
+  // Порожній рядок нікуди не пишеться: `fingerprint` має CHECK на непорожнє.
   assert.equal(planFingerprint([]), '')
 })
 
-test('відбиток спільний на сім’ю: перегенерація в одного скидає весь список', () => {
-  // Відбиток спільний на сім'ю: перегенерація в одного скидає весь список —
-  // так само, як у V1. Інакше два пристрої з різним охопленням писали б
-  // позначки під різними відбитками й не бачили б одне одного.
+test('відбиток спільний на сім’ю: зміна в одного скидає весь список', () => {
+  // Позначки спільні, тож і відбиток один на сім'ю — інакше два пристрої з
+  // різним охопленням писали б їх під різними відбитками й не бачили б одне
+  // одного.
   const before = planFingerprint([
-    { ownerId: 'p1', planId: 'w1' },
-    { ownerId: 'p2', planId: 'w2' },
+    { slotId: 'p1-s1', mealId: 'm1' },
+    { slotId: 'p2-s1', mealId: 'm2' },
   ])
   const after = planFingerprint([
-    { ownerId: 'p1', planId: 'w1' },
-    { ownerId: 'p2', planId: 'w3' },
+    { slotId: 'p1-s1', mealId: 'm1' },
+    { slotId: 'p2-s1', mealId: 'm3' },
   ])
   assert.notEqual(before, after)
 })

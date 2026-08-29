@@ -72,7 +72,7 @@ export {
   planFingerprint,
 } from './shopping.ts'
 export type {
-  PlanStamp,
+  PlannedSlot,
   ShoppingCategory,
   ShoppingItem,
   ShoppingItems,
