@@ -397,6 +397,17 @@ function inList(ids: ReadonlyArray<string>): Array<string> {
 }
 
 /**
+ * Наскільки глибоко в минуле дивиться вибірка слотів списку покупок.
+ *
+ * Це НЕ правило показу, а лише стеля, щоб не тягнути з бази всю історію
+ * календаря: справжню межу — дату початку свого плану — накладає фільтр у
+ * пам'яті. Тому число має бути свідомо завеликим: план завжди починається
+ * сьогоднішнім днем (`saveWeek`), тож навіть давно не перегенерований тиждень
+ * сюди вміщується із запасом.
+ */
+const PLAN_HISTORY_DAYS = 90
+
+/**
  * Поточні плани КІЛЬКОХ профілів-власників — джерело списку покупок.
  *
  * Чому не викликати `useWeek` у циклі: власників стільки, скільки профілів у
@@ -412,6 +423,16 @@ function inList(ids: ReadonlyArray<string>): Array<string> {
  * Слоти беруться за календарним ключем «профіль + дата», як усюди після MER-66,
  * і фільтруються датою початку СВОГО плану вже в пам'яті: у SQL це була б різна
  * межа для кожного власника.
+ *
+ * **Нижня межа вибірки слотів не залежить від результату запиту планів**, хоч
+ * найраніший `start_date` і був би точнішою межею. `useQuery` не переходить у
+ * «завантажується» повторно, коли міняються ПАРАМЕТРИ (це `isFetching`, не
+ * `isLoading`), тож межа, порахована з планів, давала б стабільний кадр, на
+ * якому плани вже приїхали, а слоти під нову межу — ще ні: екран чесно
+ * повідомляв би «у стравах цього тижня немає інгредієнтів» для повного плану.
+ * Груба межа від сьогоднішньої дати цього не робить: обидва запити стартують
+ * з тими самими параметрами, і `isLoading` знову означає те, що каже. Точність
+ * від цього не страждає — рівно ту саму відсікає фільтр у пам'яті нижче.
  */
 export function useOwnerWeeks(
   ownerIds: ReadonlyArray<string>,
@@ -429,23 +450,17 @@ export function useOwnerWeeks(
     owners,
   )
 
-  // Найраніший старт серед узятих планів — нижня межа вибірки слотів. Кожен
-  // власник далі відсікає свою власну; спільна межа тут лише для того, щоб не
-  // тягнути з бази всю історію календаря.
-  const earliestStart = useMemo(() => {
-    let earliest = ''
-    for (const row of planQuery.data) {
-      const start = String(row.start_date)
-      if (!earliest || start < earliest) earliest = start
-    }
-    return earliest
-  }, [planQuery.data])
-
   const slotQuery = useQuery<Row>(
     'SELECT * FROM plan_slot WHERE deleted_at IS NULL' +
       ` AND profile_id IN (${placeholders(owners.length)})` +
-      ' AND date >= ? ORDER BY day_index, date',
-    [...owners, earliestStart || NO_DATE],
+      // `updated_at, id` — той самий розв'язувач дублікатів, що й у
+      // `useCalendarDays`, і тут він потрібен ще й через відбиток списку: поки
+      // дублікат клітинки живий, «останній виграє» в `buildWeekView` має дати
+      // на двох пристроях ОДИН і той самий id слота, інакше однаковий на екрані
+      // список дасть різні відбитки. `day_index, date` попереду лишається:
+      // саме за ним `buildWeekView` бере номер дня.
+      ' AND date >= ? ORDER BY day_index, date, updated_at, id',
+    [...owners, todayKey ? addDays(todayKey, -PLAN_HISTORY_DAYS) : NO_DATE],
   )
 
   const pool = useMemo(() => mealsById(meals), [meals])
@@ -506,8 +521,10 @@ export function useShoppingChecks(
   const { data, isLoading, error } = useQuery<Row>(
     'SELECT item_key, checked FROM shopping_check' +
       ' WHERE fingerprint = ? AND deleted_at IS NULL',
-    // Порожній відбиток — планів немає, і позначок під ним теж бути не може.
-    [fingerprint || ' '],
+    /* Порожній відбиток (плану ще немає) шукаємо як є: колонка під CHECK на
+     * непорожнє значення, тож порожнього рядка в базі не буває — вибірка
+     * свідомо не збігається ні з чим, і окремої заглушки для цього не треба. */
+    [fingerprint],
   )
   return useMemo(() => {
     const checks = new Map<string, boolean>()

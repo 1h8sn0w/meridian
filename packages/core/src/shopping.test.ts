@@ -54,6 +54,21 @@ test('категорія — лише за точним збігом назви,
   assert.equal(categoryOf('драконів фрукт'), 'other')
 })
 
+test('назва зі службового ключа об’єкта не проламує словник', () => {
+  /* Назва інгредієнта — дані користувача. Словник на звичайному об'єкті мав би
+   * успадковані ключі, і «constructor» повернув би функцію замість «other»:
+   * позиція рахувалася б у підсумку, але не належала б жодній секції — тобто
+   * зникла б з екрана. */
+  for (const name of ['constructor', '__proto__', 'toString', 'valueOf']) {
+    assert.equal(categoryOf(name), 'other', name)
+  }
+  const { withQty } = aggregate([
+    withIngredients('a', [{ name: 'constructor', amount: 1, unit: 'шт' }]),
+  ])
+  const known = new Set(SHOPPING_CATEGORIES.map((category) => category.id))
+  assert.ok(known.has(only(withQty).category))
+})
+
 test('кожна категорія словника оголошена в переліку секцій', () => {
   const known = new Set(SHOPPING_CATEGORIES.map((category) => category.id))
   for (const name of ['гречка', 'банан', 'яйця', 'хліба немає в словнику']) {

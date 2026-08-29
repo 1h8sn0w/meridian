@@ -45,8 +45,13 @@ export const SHOPPING_CATEGORIES: ReadonlyArray<ShoppingCategory> = [
  * Словник «назва → категорія». Покриває назви демо-пулу (PDF Menu_2_tyzhni),
  * решта чесно лишається в «Інше»: власна страва користувача може називатися як
  * завгодно, і вгадувати за неї полицю магазину — те саме вигадування даних.
+ *
+ * `Map`, а не об'єкт: назва інгредієнта приходить із даних користувача, а в
+ * звичайного об'єкта є успадковані ключі. Інгредієнт «constructor» знайшовся б
+ * у прототипі, і `categoryOf` повернув би функцію замість «other» — позиція
+ * потрапила б у підсумок, але не в жодну секцію, тобто зникла б з екрана.
  */
-const CATEGORY_BY_NAME: Readonly<Record<string, string>> = Object.fromEntries(
+const CATEGORY_BY_NAME: ReadonlyMap<string, string> = new Map(
   (
     [
       [
@@ -173,7 +178,7 @@ export function nameKey(name: string): string {
 
 /** Категорія назви (id із `SHOPPING_CATEGORIES`); невідома назва → «other». */
 export function categoryOf(name: string): string {
-  return CATEGORY_BY_NAME[nameKey(name)] ?? 'other'
+  return CATEGORY_BY_NAME.get(nameKey(name)) ?? 'other'
 }
 
 /* ==========================================================================
@@ -325,6 +330,14 @@ export type PlannedSlot = { slotId: string; mealId: string }
  * `shopping_check` і їде в кожному вивантаженні. Порожній рядок — плану немає;
  * такий відбиток не записується нікуди (`fingerprint` у схемі має CHECK на
  * непорожнє значення).
+ *
+ * **Що ця функція НЕ прибирає.** Поки пристрій уперше синхронізується, слоти
+ * приїжджають чекпоінтами, і відбиток міняється з кожною порцією. Позначка,
+ * поставлена в ці секунди, лишиться під проміжним відбитком і в підсумковий
+ * список не потрапить. Зникнення при цьому видиме — галочка знімається сама,
+ * коли відбиток стає остаточним, — тож дія втрачається помітно, а не тихо, і
+ * повторний дотик її повертає. Далі відбиток стабільний: усі дані вже на
+ * пристрої, і жодне наступне відкриття екрана його не зрушить.
  */
 export function planFingerprint(slots: ReadonlyArray<PlannedSlot>): string {
   if (!slots.length) return ''
@@ -333,7 +346,7 @@ export function planFingerprint(slots: ReadonlyArray<PlannedSlot>): string {
     // Порядок вибірки з бази між пристроями не гарантований, а відбиток мусить
     // збігатися — тож упорядковуємо самі. Пара «клітинка + страва» йде одним
     // складником: сусідні пари розділяє `derive`, а всередині пари досить
-    // пробілу — обидві половини `uuid`, і пробілу в них не буває.
-    ...slots.map((slot) => slot.slotId + ' ' + slot.mealId).sort(),
+    // «~» — обидві половини `uuid`, і цього символу в них не буває.
+    ...slots.map((slot) => slot.slotId + '~' + slot.mealId).sort(),
   ])
 }
