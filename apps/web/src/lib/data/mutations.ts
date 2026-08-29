@@ -17,7 +17,7 @@
  *    означає «в джерелі немає», і підміняти його нулем не можна.
  */
 
-import { mealPrefId, planSlots, weekSources } from '@meridian/core'
+import { mealPrefId, planSlotId, planSlots, weekSources } from '@meridian/core'
 import type {
   Ingredient,
   MealPrefValue,
@@ -327,6 +327,18 @@ export async function deleteProfile(db: Db, id: string): Promise<void> {
  * Тому перегенерація — це UPDATE наявного рядка дня: слот лишається тим самим
  * рядком, і LWW працює рівно так, як обіцяно — на рівні слота.
  *
+ * UPDATE наявного рятує лише тоді, коли рядок уже є на пристрої. Двоє офлайн,
+ * які генерують тиждень на ті самі дати ВПЕРШЕ, обидва нічого не знаходять і
+ * обидва вставляють — тому новий слот отримує **виведений** id
+ * (`planSlotId`, MER-66): обидва пристрої рахують той самий, і друга вставка
+ * стає upsert того самого рядка замість колізії на індексі (MER-57).
+ *
+ * **Наявний рядок при цьому шукається за природним ключем, а не за виведеним
+ * id.** Тижні генерувалися ще до цієї зміни, тож у базах — і в серверній, і в
+ * локальних SQLite — лежать слоти з випадковими id; шукати за виведеним
+ * означало б їх не побачити і відтворити колізію рівно на заповненому
+ * календарі. Id міграцією не переписуються — рядок живе зі своїм id далі.
+ *
  * Попередній план тих самих дат м'яко видаляється разом зі слотами, які новий
  * план не перекрив (коротший тиждень). Минулі дні при цьому не чіпаються: план
  * починається сьогоднішньою датою, а історія лежить у рядках попередніх планів
@@ -371,33 +383,50 @@ export async function saveWeek(
     )
 
     for (const slot of slots) {
-      const existing = await tx.getOptional<{ id: string }>(
-        'SELECT id FROM plan_slot WHERE profile_id = ? AND date = ?' +
-          ' AND slot = ? AND deleted_at IS NULL',
+      /* Усі рядки клітинки, живі й м'яко видалені, одним запитом — як у
+       * `setMealPref`: живий на клітинку рівно один, а видалені потрібні
+       * нижче, бо рядок із виведеним id оживає, а не вставляється наново. */
+      const rows = await tx.getAll<{ id: string; deleted_at: string | null }>(
+        'SELECT id, deleted_at FROM plan_slot' +
+          ' WHERE profile_id = ? AND date = ? AND slot = ?',
         [ownerId, slot.date, slot.slot],
       )
-      if (existing) {
+      const live = rows.find((row) => row.deleted_at === null)
+      if (live) {
         await tx.execute(
           'UPDATE plan_slot SET week_plan_id = ?, day_index = ?, meal_id = ?' +
             ' WHERE id = ?',
-          [planId, slot.dayIndex, slot.mealId, existing.id],
+          [planId, slot.dayIndex, slot.mealId, live.id],
         )
-      } else {
-        await tx.execute(
-          'INSERT INTO plan_slot (id, family_id, week_plan_id, profile_id,' +
-            ' date, day_index, slot, meal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            newId(),
-            familyId,
-            planId,
-            ownerId,
-            slot.date,
-            slot.dayIndex,
-            slot.slot,
-            slot.mealId,
-          ],
-        )
+        continue
       }
+
+      /* Живого рядка немає — але міг лишитись м'яко видалений із тим самим
+       * виведеним id: «хвіст» коротшого тижня чи слоти видаленого профілю.
+       * Вставка зіткнулася б із ним по первинному ключу, тож він оживає. */
+      const id = planSlotId(ownerId, slot.date, slot.slot)
+      if (rows.some((row) => row.id === id)) {
+        await tx.execute(
+          'UPDATE plan_slot SET week_plan_id = ?, day_index = ?, meal_id = ?,' +
+            ' deleted_at = NULL WHERE id = ?',
+          [planId, slot.dayIndex, slot.mealId, id],
+        )
+        continue
+      }
+      await tx.execute(
+        'INSERT INTO plan_slot (id, family_id, week_plan_id, profile_id,' +
+          ' date, day_index, slot, meal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          id,
+          familyId,
+          planId,
+          ownerId,
+          slot.date,
+          slot.dayIndex,
+          slot.slot,
+          slot.mealId,
+        ],
+      )
     }
 
     for (const row of previous) {

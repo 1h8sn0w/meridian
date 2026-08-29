@@ -71,6 +71,8 @@ export {
   MERIDIAN_NAMESPACE,
   derivedId,
   mealPrefId,
+  planSlotId,
+  recipeId,
   shoppingCheckId,
 } from './sync-ids.ts'
 export type { IdKind } from './sync-ids.ts'
