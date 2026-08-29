@@ -375,6 +375,156 @@ export function useDayPlan(
   }, [data, date, error, isLoading])
 }
 
+/* ==========================================================================
+ * Список покупок (MER-62)
+ * ======================================================================== */
+
+/** Список `?, ?, ?` під `IN` — рівно стільки місць, скільки значень. */
+function placeholders(count: number): string {
+  return Array.from({ length: count }, () => '?').join(', ')
+}
+
+/**
+ * Дата, пізніша за будь-який план, — нижня межа вибірки, коли планів немає
+ * зовсім. `IN ()` і `>= ''` SQLite розуміє по-різному в різних версіях, а
+ * свідомо недосяжна межа читається однозначно: «жодного рядка».
+ */
+const NO_DATE = '9999-12-31'
+
+/** Порожній `IN ()` — синтаксична помилка; порожній uuid не збігається ні з чим. */
+function inList(ids: ReadonlyArray<string>): Array<string> {
+  return ids.length ? [...ids] : ['']
+}
+
+/**
+ * Поточні плани КІЛЬКОХ профілів-власників — джерело списку покупок.
+ *
+ * Чому не викликати `useWeek` у циклі: власників стільки, скільки профілів у
+ * сім'ї, а хуки в циклі викликати не можна. Тому обидва запити беруть усіх
+ * одразу.
+ *
+ * «Поточний план власника» тут означає рівно те саме, що й у `useWeek` — і це
+ * не збіг, а вимога: список покупок мусить збиратися зі страв, які видно на
+ * екрані «Тиждень», інакше в магазин поїде інший тиждень. Тому корельований
+ * підзапит закінчується тим самим `LATEST_PLAN_ORDER`: правило одне, записане
+ * один раз.
+ *
+ * Слоти беруться за календарним ключем «профіль + дата», як усюди після MER-66,
+ * і фільтруються датою початку СВОГО плану вже в пам'яті: у SQL це була б різна
+ * межа для кожного власника.
+ */
+export function useOwnerWeeks(
+  ownerIds: ReadonlyArray<string>,
+  meals: ReadonlyArray<Meal>,
+  todayKey: string,
+): Read<Array<WeekView>> {
+  const owners = inList(ownerIds)
+  const planQuery = useQuery<Row>(
+    'SELECT * FROM week_plan w WHERE w.deleted_at IS NULL' +
+      ` AND w.profile_id IN (${placeholders(owners.length)})` +
+      ' AND w.id = (SELECT x.id FROM week_plan x' +
+      ' WHERE x.profile_id = w.profile_id AND x.deleted_at IS NULL' +
+      LATEST_PLAN_ORDER +
+      ')',
+    owners,
+  )
+
+  // Найраніший старт серед узятих планів — нижня межа вибірки слотів. Кожен
+  // власник далі відсікає свою власну; спільна межа тут лише для того, щоб не
+  // тягнути з бази всю історію календаря.
+  const earliestStart = useMemo(() => {
+    let earliest = ''
+    for (const row of planQuery.data) {
+      const start = String(row.start_date)
+      if (!earliest || start < earliest) earliest = start
+    }
+    return earliest
+  }, [planQuery.data])
+
+  const slotQuery = useQuery<Row>(
+    'SELECT * FROM plan_slot WHERE deleted_at IS NULL' +
+      ` AND profile_id IN (${placeholders(owners.length)})` +
+      ' AND date >= ? ORDER BY day_index, date',
+    [...owners, earliestStart || NO_DATE],
+  )
+
+  const pool = useMemo(() => mealsById(meals), [meals])
+
+  return useMemo(() => {
+    const slotsByOwner = new Map<string, Array<Row>>()
+    for (const row of slotQuery.data) {
+      const ownerId = String(row.profile_id)
+      const found = slotsByOwner.get(ownerId)
+      if (found) found.push(row)
+      else slotsByOwner.set(ownerId, [row])
+    }
+
+    const views = planQuery.data.map((planRow) => {
+      const ownerId = String(planRow.profile_id)
+      const start = String(planRow.start_date)
+      const slots = (slotsByOwner.get(ownerId) ?? []).filter(
+        (row) => String(row.date) >= start,
+      )
+      return buildWeekView(planRow, slots, pool, todayKey)
+    })
+
+    return {
+      data: views,
+      isLoading: planQuery.isLoading || slotQuery.isLoading,
+      problems: withQueryError(
+        withQueryError([], planQuery.error),
+        slotQuery.error,
+      ),
+    }
+  }, [
+    planQuery.data,
+    planQuery.error,
+    planQuery.isLoading,
+    pool,
+    slotQuery.data,
+    slotQuery.error,
+    slotQuery.isLoading,
+    todayKey,
+  ])
+}
+
+/**
+ * Позначки «куплено» під заданим відбитком планів — мапа `item_key` → `checked`.
+ *
+ * Фільтр за відбитком і Є скиданням списку після перегенерації (рішення MER-55):
+ * позначки старого походу в магазин лишаються в базі, але в новий список просто
+ * не потрапляють. Прибирає їх окремо `clearStaleChecks` — це прибирання, а не
+ * умова правильності.
+ *
+ * `checked` — прапорець, а не наявність рядка: знята позначка це UPDATE, який
+ * LWW розсудить за `updated_at`, а не видалення, що конкурує зі вставкою іншого
+ * пристрою.
+ */
+export function useShoppingChecks(
+  fingerprint: string,
+): Read<ReadonlyMap<string, boolean>> {
+  const { data, isLoading, error } = useQuery<Row>(
+    'SELECT item_key, checked FROM shopping_check' +
+      ' WHERE fingerprint = ? AND deleted_at IS NULL',
+    // Порожній відбиток — планів немає, і позначок під ним теж бути не може.
+    [fingerprint || ' '],
+  )
+  return useMemo(() => {
+    const checks = new Map<string, boolean>()
+    for (const row of data) {
+      // SQLite не має boolean: 1/0. Порожній ключ у базу не пройде (CHECK), але
+      // читання все одно не має права видати його за позицію списку.
+      const key = String(row.item_key)
+      if (key) checks.set(key, Number(row.checked) !== 0)
+    }
+    return {
+      data: checks,
+      isLoading,
+      problems: withQueryError([], error),
+    }
+  }, [data, error, isLoading])
+}
+
 /**
  * Чи використовується страва хоч в одному живому слоті плану. Видалення такої
  * страви лишило б у плані дірку (див. `model.ts`), тож екран «Страви» його

@@ -17,7 +17,13 @@
  *    означає «в джерелі немає», і підміняти його нулем не можна.
  */
 
-import { mealPrefId, planSlotId, planSlots, weekSources } from '@meridian/core'
+import {
+  mealPrefId,
+  planSlotId,
+  planSlots,
+  shoppingCheckId,
+  weekSources,
+} from '@meridian/core'
 import type {
   Ingredient,
   MealPrefValue,
@@ -211,6 +217,125 @@ export async function setMealPref(
       [id, familyId, mealId, value],
     )
   })
+}
+
+/* ==========================================================================
+ * Список покупок (MER-62)
+ * ======================================================================== */
+
+/**
+ * Поставити або зняти позначку «куплено».
+ *
+ * Це ТА САМА історія, що й `setMealPref`, і саме заради неї MER-57 узагалі
+ * робився: двоє в магазині відмічають ту саму позицію. Живий рядок на позицію
+ * рівно один (частковий унікальний індекс `shopping_check_item_key_key` на
+ * `(family_id, item_key, fingerprint)`), тож дві незалежні вставки сервер
+ * розсудити не може — другу він відкидає на індексі, а конектор через це
+ * мовчки втрачає дію. Тому новий рядок створюється з **виведеним** id
+ * (`shoppingCheckId`): обидва пристрої рахують той самий, вивантаження стає
+ * upsert одного рядка — і далі працює звичайний LWW.
+ *
+ * **Наявний рядок шукається за природним ключем, без фільтра `deleted_at`.**
+ * Позначку могли зняти прибиранням застарілих відбитків (`clearStaleChecks`) і
+ * поставити знову — це той самий рядок, який оживає, а не другий поруч: вставка
+ * зіткнулася б із ним по первинному ключу.
+ *
+ * **Зняття — це `checked = 0`, а не м'яке видалення** (рішення MER-55, на
+ * відміну від V1, який просто прибирав ключ із мапи). Зняти позначку має бути
+ * звичайним UPDATE, який LWW розсудить за `updated_at`; видалення конкурувало б
+ * зі вставкою іншого пристрою, і хто переміг — залежало б від порядку доставки.
+ */
+export async function setShoppingCheck(
+  db: Db,
+  familyId: string,
+  options: { itemKey: string; fingerprint: string; checked: boolean },
+): Promise<void> {
+  const { itemKey, fingerprint, checked } = options
+  // Обидві колонки під CHECK на непорожнє значення: порожній ключ або відбиток
+  // сервер відкине, а конектор через це втратить чергу вивантаження.
+  if (!itemKey.trim() || !fingerprint.trim()) return
+
+  await db.writeTransaction(async (tx) => {
+    const rows = await tx.getAll<{ id: string; deleted_at: string | null }>(
+      'SELECT id, deleted_at FROM shopping_check' +
+        ' WHERE family_id = ? AND item_key = ? AND fingerprint = ?',
+      [familyId, itemKey, fingerprint],
+    )
+    const live = rows.find((row) => row.deleted_at === null)
+    if (live) {
+      await tx.execute('UPDATE shopping_check SET checked = ? WHERE id = ?', [
+        flag(checked),
+        live.id,
+      ])
+      return
+    }
+
+    const id = shoppingCheckId(familyId, itemKey, fingerprint)
+    if (rows.some((row) => row.id === id)) {
+      await tx.execute(
+        'UPDATE shopping_check SET checked = ?, deleted_at = NULL WHERE id = ?',
+        [flag(checked), id],
+      )
+      return
+    }
+    await tx.execute(
+      'INSERT INTO shopping_check (id, family_id, item_key, fingerprint,' +
+        ' checked) VALUES (?, ?, ?, ?, ?)',
+      [id, familyId, itemKey, fingerprint, flag(checked)],
+    )
+  })
+}
+
+/**
+ * Скільки позначка чужого відбитка має відлежати, перш ніж її прибрати.
+ *
+ * Тиждень — бо саме стільки живе план: за цей час «інший відбиток» перестає
+ * бути кандидатом на «інший пристрій ще не догнав» і стає тим, чим є —
+ * позначкою з попереднього походу в магазин.
+ */
+const STALE_CHECK_DAYS = 7
+
+/**
+ * Прибрати позначки чужих відбитків — тих, що лишилися від минулих походів у
+ * магазин.
+ *
+ * Це саме прибирання, а не скидання списку: новий список і без нього зібрався б
+ * порожнім, бо читання фільтрує за поточним відбитком (`useShoppingChecks`).
+ * Але рядки інакше накопичувалися б у сім'ї назавжди — по одному на кожну
+ * куплену позицію кожного тижня, — тож клієнт їх м'яко видаляє, як і записано в
+ * рішенні MER-55.
+ *
+ * **Прибираються лише СТАРІ рядки, і це головне в цій функції.** «Відбиток не
+ * мій» саме по собі нічого не доводить: поки перегенерований план іншого
+ * пристрою ще не приїхав, тутешній відбиток застарілий — і видалення «чужого»
+ * стерло б позначки ЖИВОГО списку, які той пристрій щойно зробив. Обидва
+ * пристрої робили б це одне одному до збіжності. Вік рядка цю гонку знімає:
+ * позначка, зроблена хвилину тому, не прибирається ніколи, хоч би який відбиток
+ * на ній стояв.
+ *
+ * `updated_at` пише виключно сервер (`SERVER_OWNED_COLUMNS` у `connector.ts`),
+ * тож NULL тут означає «ще не вивантажено» — такий рядок не чіпаємо тим
+ * більше. Форму позначки нормалізуємо так само, як `LATEST_PLAN_ORDER` у
+ * `queries.ts`: у SQLite вона лежить текстом, і роздільник дати й часу
+ * залежить від того, хто рядок записав.
+ *
+ * Порожній відбиток (планів ще немає) не прибирає нічого: «поточного списку
+ * немає» і «поточний список порожній» — різні речі, і стерти позначки за те, що
+ * на цьому пристрої ще не приїхав план, було б знищенням даних.
+ */
+export async function clearStaleChecks(
+  db: Db,
+  fingerprint: string,
+): Promise<void> {
+  if (!fingerprint.trim()) return
+  const cutoff = new Date(Date.now() - STALE_CHECK_DAYS * 24 * 60 * 60 * 1000)
+  await db.execute(
+    'UPDATE shopping_check SET deleted_at = ?' +
+      ' WHERE fingerprint <> ? AND deleted_at IS NULL' +
+      ' AND updated_at IS NOT NULL' +
+      " AND replace(substr(updated_at, 1, 19), ' ', 'T') < ?",
+    [now(), fingerprint, cutoff.toISOString().slice(0, 19)],
+  )
 }
 
 /* ==========================================================================
