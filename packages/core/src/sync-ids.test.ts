@@ -17,12 +17,15 @@ import {
   MERIDIAN_NAMESPACE,
   derivedId,
   mealPrefId,
+  planSlotId,
+  recipeId,
   shoppingCheckId,
 } from './sync-ids.ts'
 
 const FAMILY = '11111111-1111-4111-8111-111111111111'
 const OTHER_FAMILY = '22222222-2222-4222-8222-222222222222'
 const MEAL = '33333333-3333-4333-8333-333333333333'
+const PROFILE = '44444444-4444-4444-8444-444444444444'
 
 /** UUID версії 5 з правильним варіантом — інакше колонка `uuid` його не прийме. */
 const UUID_V5 =
@@ -36,6 +39,8 @@ test('усі виведені id — справжні UUIDv5', () => {
   assert.match(derivedId(FAMILY, 'meal', 'meal_abc'), UUID_V5)
   assert.match(mealPrefId(MEAL), UUID_V5)
   assert.match(shoppingCheckId(FAMILY, 'q:cheese|g', 'fp-1'), UUID_V5)
+  assert.match(planSlotId(PROFILE, '2026-08-24', 'breakfast'), UUID_V5)
+  assert.match(recipeId(MEAL), UUID_V5)
 })
 
 /* ==========================================================================
@@ -51,6 +56,17 @@ test('id позначки списку покупок лишається тим 
     shoppingCheckId(FAMILY, 'q:cheese|g', 'fp-1'),
     'f450c1f5-1245-5242-99f0-d12ff3d19307',
   )
+})
+
+test('id слота плану лишається тим самим назавжди', () => {
+  assert.equal(
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+    '9603b52b-de1c-5e1d-9d63-8bb30aa7053d',
+  )
+})
+
+test('id рецепта лишається тим самим назавжди', () => {
+  assert.equal(recipeId(MEAL), '84647995-fc4f-5304-8868-4dcca6b0e47b')
 })
 
 test('переїзд у sync-ids не зрушив id міграції V1 (MER-48)', () => {
@@ -87,6 +103,35 @@ test('різні різновиди рядків не діляться одни�
   // Різновиди з різних поколінь: у смаку ім'я починається з назви таблиці, у
   // міграції — з id сім'ї, тож збігтися вони не можуть.
   assert.notEqual(mealPrefId(MEAL), derivedId(FAMILY, 'meal', MEAL))
+  // Рецепт тієї самої страви: id з міграції V1 (ім'я від id сім'ї) і
+  // виведений id V2 (ім'я від назви таблиці) — різні рядки, і пошук за
+  // `meal_id` перед записом мусить бачити обидва.
+  assert.notEqual(recipeId(MEAL), derivedId(FAMILY, 'recipe', MEAL))
+  // Смак і рецепт однієї страви — різні таблиці, різні id.
+  assert.notEqual(recipeId(MEAL), mealPrefId(MEAL))
+})
+
+test('два пристрої рахують один id слота — і різні для різних клітинок', () => {
+  // Те, заради чого MER-66 існує: перша генерація тижня офлайн на двох
+  // пристроях мусить зійтись на одному наборі рядків.
+  assert.equal(
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+  )
+  // Клітинка календаря — це всі три складники ключа: зсунувся будь-який —
+  // це вже інший рядок.
+  assert.notEqual(
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+    planSlotId(PROFILE, '2026-08-24', 'lunch'),
+  )
+  assert.notEqual(
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+    planSlotId(PROFILE, '2026-08-25', 'breakfast'),
+  )
+  assert.notEqual(
+    planSlotId(PROFILE, '2026-08-24', 'breakfast'),
+    planSlotId(FAMILY, '2026-08-24', 'breakfast'),
+  )
 })
 
 test('позначка іншої сім’ї — інший id, хоч позиція та сама', () => {
