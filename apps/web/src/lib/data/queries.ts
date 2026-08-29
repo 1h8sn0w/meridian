@@ -155,10 +155,21 @@ export function useWeek(
   // типізується як завжди визначений, тож `??` тут був би мертвим кодом.
   const planRow: Row | null = planQuery.data.length ? planQuery.data[0] : null
 
+  /* Слоти беруться за календарним ключем (профіль + дата), а НЕ за
+   * `week_plan_id` — це пара до виведених id слотів (MER-66). Двоє офлайн
+   * генерують той самий тиждень уперше: слоти сходяться в один набір рядків,
+   * але кожен пристрій вставив СВІЙ рядок `week_plan` (у нього немає
+   * унікального природного ключа), і `week_plan_id` злитих слотів вказує лише
+   * на один із двох. Вибірка за `week_plan_id` на другому пристрої дала б
+   * живий план із порожнім календарем. Календарний ключ цього не боїться:
+   * після `saveWeek` (який переписує слоти за природним ключем) усі живі
+   * слоти з датами від початку плану належать поточному поколінню — чиїм би
+   * рядком плану воно не було представлене. */
   const slotQuery = useQuery<Row>(
-    'SELECT * FROM plan_slot WHERE week_plan_id = ? AND deleted_at IS NULL' +
-      ' ORDER BY day_index, date',
-    [planRow ? String(planRow.id) : ''],
+    'SELECT * FROM plan_slot WHERE profile_id = ? AND date >= ?' +
+      ' AND deleted_at IS NULL ORDER BY day_index, date',
+    // Без плану профіль порожній рядок — вибірка свідомо не збігається ні з чим.
+    [planRow ? (ownerId ?? '') : '', planRow ? String(planRow.start_date) : ''],
   )
 
   const pool = useMemo(() => mealsById(meals), [meals])
