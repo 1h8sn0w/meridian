@@ -16,6 +16,7 @@ import type { ReactNode } from 'react'
 const TABS = [
   { to: '/', label: 'Сьогодні', icon: '☀️' },
   { to: '/week', label: 'Тиждень', icon: '📅' },
+  { to: '/calendar', label: 'Календар', icon: '🗓️' },
   { to: '/meals', label: 'Страви', icon: '🍽️' },
   { to: '/family', label: 'Сім’я', icon: '👥' },
 ] as const

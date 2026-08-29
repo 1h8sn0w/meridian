@@ -18,10 +18,10 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@powersync/react'
-import { mealFromRow, prefsFromRows } from '@meridian/core'
+import { addDays, mealFromRow, prefsFromRows } from '@meridian/core'
 import type { CalendarSlot, Meal, MealType, Row, TastePrefs } from '@meridian/core'
-import { appProfileFromRow, buildWeekView } from './model'
-import type { AppProfile, WeekView } from './model'
+import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
+import type { AppProfile, CalendarDayView, WeekView } from './model'
 
 /** Результат читання: дані плюс чесний перелік того, що не розібралося. */
 export type Read<T> = {
@@ -223,6 +223,102 @@ export function usePrecedingSlots(
       })),
     [data],
   )
+}
+
+/* ==========================================================================
+ * Календар (MER-61): дні за датами, межі історії, план дня
+ * ======================================================================== */
+
+/**
+ * Дні календаря профілю в діапазоні дат (включно з обома межами). Читається за
+ * календарним ключем «профіль + дата», а не за `week_plan_id` — з тієї ж
+ * причини, що й `useWeek` (MER-66): день міг бути записаний будь-яким
+ * поколінням плану, і календарю байдуже, яким саме.
+ */
+export function useCalendarDays(
+  ownerId: string | null,
+  fromDate: string,
+  toDate: string,
+  meals: ReadonlyArray<Meal>,
+): Read<ReadonlyMap<string, CalendarDayView>> {
+  const { data, isLoading, isFetching, error } = useQuery<Row>(
+    'SELECT * FROM plan_slot WHERE profile_id = ? AND deleted_at IS NULL' +
+      ' AND date >= ? AND date <= ?',
+    [ownerId ?? '', fromDate, toDate],
+  )
+  const pool = useMemo(() => mealsById(meals), [meals])
+  return useMemo(
+    () => ({
+      data: buildCalendarDays(data, pool),
+      // При зміні діапазону (гортання, вибір дня) хук якийсь час віддає СТАРІ
+      // рядки з `isFetching` — для викликача це теж «ще не завантажилось»,
+      // інакше панель дня встигає чесно збрехати «плану немає».
+      isLoading: isLoading || isFetching,
+      problems: withQueryError([], error),
+    }),
+    [data, error, isFetching, isLoading, pool],
+  )
+}
+
+/** Межі запланованого: перший і останній день, кількість днів із планом. */
+export type CalendarBounds = { first: string; last: string; count: number }
+
+export function useCalendarBounds(
+  ownerId: string | null,
+): Read<CalendarBounds | null> {
+  const { data, isLoading, error } = useQuery<{
+    first: string | null
+    last: string | null
+    days: number | null
+  }>(
+    'SELECT min(date) AS first, max(date) AS last,' +
+      ' count(DISTINCT date) AS days FROM plan_slot' +
+      ' WHERE profile_id = ? AND deleted_at IS NULL',
+    [ownerId ?? ''],
+  )
+  return useMemo(() => {
+    const row = data.length ? data[0] : null
+    const bounds =
+      row && row.first && row.last
+        ? {
+            first: row.first,
+            last: row.last,
+            count: Number(row.days) || 0,
+          }
+        : null
+    return { data: bounds, isLoading, problems: withQueryError([], error) }
+  }, [data, error, isLoading])
+}
+
+/**
+ * Ціль і коридор плану, що покривав дату, — для підсумку дня в календарі.
+ *
+ * Береться найпізніший план із `start_date <= date`: після перегенерації
+ * посеред тижня слоти від її старту переписані новим поколінням, а дні до
+ * старту лишилися від попереднього — саме його ціль для них і чинна. null,
+ * якщо жоден план дату не покриває або в рядку немає чисел: показати «якусь»
+ * ціль гірше, ніж не показати жодної.
+ */
+export function useDayPlan(
+  ownerId: string | null,
+  date: string,
+): { target: number; corridor: number } | null {
+  const { data } = useQuery<Row>(
+    'SELECT * FROM week_plan WHERE profile_id = ? AND deleted_at IS NULL' +
+      ' AND start_date <= ? ORDER BY start_date DESC, generated_at DESC LIMIT 1',
+    [ownerId && date ? ownerId : '', date],
+  )
+  return useMemo(() => {
+    if (!data.length) return null
+    const row = data[0]
+    const days = Number(row.days)
+    if (!Number.isFinite(days) || days < 1) return null
+    if (date > addDays(String(row.start_date), days - 1)) return null
+    const target = Number(row.target_calories)
+    const corridor = Number(row.used_corridor)
+    if (!Number.isFinite(target) || !Number.isFinite(corridor)) return null
+    return { target, corridor }
+  }, [data, date])
 }
 
 /**
