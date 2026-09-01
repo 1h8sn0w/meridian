@@ -19,6 +19,7 @@ export type {
   Portion,
   PortionLetter,
   Profile,
+  Recipe,
   Result,
   TastePrefs,
   WeekParams,
@@ -78,7 +79,12 @@ export type {
   ShoppingItems,
 } from './shopping.ts'
 
-export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
+export {
+  mealFromRow,
+  prefsFromRows,
+  profileFromRow,
+  recipeFromRow,
+} from './rows.ts'
 export type { Row } from './rows.ts'
 
 export {

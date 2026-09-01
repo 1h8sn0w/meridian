@@ -21,6 +21,7 @@ import {
   mealPrefId,
   planSlotId,
   planSlots,
+  recipeId,
   shoppingCheckId,
   weekSources,
 } from '@meridian/core'
@@ -131,7 +132,7 @@ export async function updateMeal(
   )
 }
 
-/** М'яке видалення страви. Смак страви йде разом із нею. */
+/** М'яке видалення страви. Смак і рецепт страви йдуть разом із нею. */
 export async function deleteMeal(db: Db, id: string): Promise<void> {
   const at = now()
   await db.writeTransaction(async (tx) => {
@@ -140,6 +141,98 @@ export async function deleteMeal(db: Db, id: string): Promise<void> {
       'UPDATE meal_pref SET deleted_at = ?' +
         ' WHERE meal_id = ? AND deleted_at IS NULL',
       [at, id],
+    )
+    await tx.execute(
+      'UPDATE recipe SET deleted_at = ?' +
+        ' WHERE meal_id = ? AND deleted_at IS NULL',
+      [at, id],
+    )
+  })
+}
+
+/* ==========================================================================
+ * Рецепт (MER-22, MER-63)
+ * ======================================================================== */
+
+/** Поля рецепта — рівно ті, що в таблиці. Порожнє поле лишається порожнім. */
+export type RecipeInput = {
+  steps: Array<string>
+  prepTime: number | null
+  servings: number | null
+  photo: string | null
+}
+
+/**
+ * Зберегти рецептну частину страви.
+ *
+ * Той самий клас колізії, що в `setMealPref` і `saveWeek` (MER-57, MER-66):
+ * двоє офлайн додають рецепт тій самій страві, обидва вставляють — і другу
+ * вставку сервер відкидає на унікальному індексі, а конектор через це втрачає
+ * зміну. Тому новий рядок створюється з **виведеним** id (`recipeId`): обидва
+ * пристрої рахують той самий, і вивантаження стає upsert одного рядка.
+ *
+ * **Наявний рядок шукається за стравою, а не за виведеним id — і без фільтра
+ * `deleted_at`.** Тут це жорсткіше, ніж деінде: індекс `recipe_meal_id_key`
+ * НЕ частковий, тож ключ тримає будь-який рядок — живий, м'яко видалений, із
+ * випадковим id чи з id міграції V1 (`derivedId(family, 'recipe', v1Id)`,
+ * MER-48). Будь-який із них блокує вставку, тож його треба оновлювати.
+ *
+ * **Порожній рецепт тому НЕ видаляється м'яко, а лишається порожнім рядком.**
+ * Це виглядає як дрібниця, але саме тут не частковий індекс і кусає: м'яко
+ * видалений рядок зникає з пристрою (`deleted_at IS NULL` у sync-правилах —
+ * це і є доставка видалень), а на сервері ключ далі тримає. Стерти рецепт і
+ * додати наново означало б не побачити його локально, вставити рядок із
+ * виведеним id — і померти на індексі, втративши зміну (MER-57). Порожній
+ * живий рядок коштує кількох байтів і тримає природний ключ на видноті.
+ *
+ * Звідси інваріант, на який спирається пошук: м'яко видалений рецепт буває
+ * лише в м'яко видаленої страви — єдиний, хто його так позначає, це
+ * `deleteMeal`. А без страви немає ні сторінки рецепта, ні шляху додати його
+ * наново, тож і зіткнутися з таким рядком нема кому.
+ */
+export async function saveRecipe(
+  db: Db,
+  familyId: string,
+  mealId: string,
+  input: RecipeInput,
+): Promise<void> {
+  const steps = JSON.stringify(input.steps)
+  await db.writeTransaction(async (tx) => {
+    const rows = await tx.getAll<{ id: string }>(
+      'SELECT id FROM recipe WHERE meal_id = ?',
+      [mealId],
+    )
+    if (rows.length) {
+      await tx.execute(
+        'UPDATE recipe SET steps = ?, prep_time = ?, servings = ?, photo = ?,' +
+          ' deleted_at = NULL WHERE id = ?',
+        [steps, input.prepTime, input.servings, input.photo, rows[0].id],
+      )
+      return
+    }
+    /* Рядка немає й записувати нічого — порожній рецепт створювати не треба:
+     * тримати ключ на видноті нема від чого, а «додав і передумав» не має
+     * лишати по собі рядок. */
+    if (
+      !input.steps.length &&
+      input.prepTime === null &&
+      input.servings === null &&
+      !input.photo
+    ) {
+      return
+    }
+    await tx.execute(
+      'INSERT INTO recipe (id, family_id, meal_id, steps, prep_time, servings,' +
+        ' photo) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        recipeId(mealId),
+        familyId,
+        mealId,
+        steps,
+        input.prepTime,
+        input.servings,
+        input.photo,
+      ],
     )
   })
 }

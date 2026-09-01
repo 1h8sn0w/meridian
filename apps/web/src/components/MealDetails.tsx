@@ -34,10 +34,19 @@ function Macro({ label, value }: { label: string; value: number | null }) {
 export function MealDetails({
   meal,
   portion,
+  hideEmpty = false,
 }: {
   meal: Meal
   /** Порційна літера активного профілю або null — тоді всі рядки дослівно. */
   portion: PortionLetter | null
+  /**
+   * Мовчати про те, чого в даних немає, замість рядка «не вказано» (MER-63).
+   *
+   * На «Сьогодні» це речення потрібне: там страва одна, і без нього незрозуміло,
+   * чому картка коротка. На сторінці рецепта — ні: вона вся про склад страви, і
+   * секція без даних там просто не показується.
+   */
+  hideEmpty?: boolean
 }) {
   return (
     <>
@@ -47,7 +56,7 @@ export function MealDetails({
           <Macro label="Жири" value={meal.fat} />
           <Macro label="Вуглеводи" value={meal.carbs} />
         </div>
-      ) : (
+      ) : hideEmpty ? null : (
         <p className="mb-0 mt-2 text-sm text-muted">БЖВ не вказано.</p>
       )}
 
@@ -62,7 +71,7 @@ export function MealDetails({
             ))}
           </ul>
         </>
-      ) : (
+      ) : hideEmpty ? null : (
         <p className="mb-0 mt-2 text-sm text-muted">Інгредієнти не вказані.</p>
       )}
 

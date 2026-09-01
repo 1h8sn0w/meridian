@@ -219,7 +219,24 @@ export async function importV1(
       await upsert(tx, 'meal', meal.id, mealValues(familyId, meal))
     }
     for (const recipe of migration.recipes) {
-      await upsert(tx, 'recipe', recipe.id, recipeValues(familyId, recipe))
+      /* Рецепт шукаємо за стравою, а не за id міграції — так само, як смак
+       * нижче, і рівно з тієї ж причини: рецепт могли додати вже у V2
+       * (`saveRecipe`, MER-63), і там лежить рядок із виведеним id
+       * `recipeId(mealId)`. Вставка «свого» дала б другий рядок на ту саму
+       * страву, і сервер відкинув би ВЕСЬ імпорт на `recipe_meal_id_key`.
+       *
+       * Фільтра `deleted_at` тут немає навмисно: цей індекс, на відміну від
+       * решти, не частковий — ключ тримає й м'яко видалений рядок. */
+      const existing = await tx.getOptional<{ id: string }>(
+        'SELECT id FROM recipe WHERE meal_id = ?',
+        [recipe.mealId],
+      )
+      await upsert(
+        tx,
+        'recipe',
+        existing ? existing.id : recipe.id,
+        recipeValues(familyId, recipe),
+      )
     }
     for (const profile of profiles) {
       await upsert(tx, 'profile', profile.id, profileValues(familyId, profile))

@@ -262,7 +262,16 @@ function CurrentMeal({
       <div className="flex items-center justify-between gap-2.5 border-b border-line py-2.5">
         <div className="min-w-0 flex-auto">
           <div className="text-sm">
-            {meal.name} <TasteMark value={prefOf(prefs, meal.id)} />
+            {/* Назва веде на сторінку рецепта (MER-63) — саме звідси її
+                відкривають найчастіше: страва вже на столі. */}
+            <Link
+              to="/recipe/$mealId"
+              params={{ mealId: meal.id }}
+              className="text-content underline decoration-line underline-offset-4"
+            >
+              {meal.name}
+            </Link>{' '}
+            <TasteMark value={prefOf(prefs, meal.id)} />
           </div>
           {meal.source ? (
             <div className="mt-0.5 text-xs text-muted">{meal.source}</div>
