@@ -20,12 +20,14 @@ export const Route = createRootRoute({
         charSet: 'utf-8',
       },
       {
-        // `viewport-fit=cover` — не косметика: без нього
-        // `env(safe-area-inset-bottom)` дорівнює нулю, і таб-бар у
-        // standalone-режимі лягає під системну смугу жестів (токени
-        // --spacing-safe-bottom / --spacing-tabbar у styles.css).
+        // Свідомо БЕЗ `viewport-fit=cover`. Він розтягує viewport під вирізи —
+        // і тоді безпечні поля треба відбивати руками з усіх боків, зокрема
+        // згори, де липка шапка лягла б під системну смугу. Токени
+        // --spacing-safe-bottom / --spacing-tabbar (styles.css) від цього не
+        // страждають: без `cover` `env(safe-area-inset-*)` дорівнює нулю саме
+        // тому, що ці поля вже відрізав браузер.
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        content: 'width=device-width, initial-scale=1',
       },
       {
         title: 'Meridian',
@@ -44,10 +46,6 @@ export const Route = createRootRoute({
       {
         name: 'apple-mobile-web-app-capable',
         content: 'yes',
-      },
-      {
-        name: 'apple-mobile-web-app-status-bar-style',
-        content: 'black-translucent',
       },
       {
         name: 'apple-mobile-web-app-title',
