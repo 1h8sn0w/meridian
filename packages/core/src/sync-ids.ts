@@ -53,8 +53,12 @@ const SEP = '\u0000'
  *
  * Перший складник у кожному виклику різний за формою — назва таблиці або id
  * сім'ї, — тож імена різних різновидів не можуть збігтися між собою.
+ *
+ * Експортується для `shopping.ts`: відбиток списку — не id рядка, але
+ * складається за тим самим правилом, і другої копії розділювача в коді бути не
+ * повинно. У `index.ts` не виноситься — це внутрішня деталь ядра.
  */
-function derive(parts: ReadonlyArray<string>): string {
+export function derive(parts: ReadonlyArray<string>): string {
   // Порядок аргументів саме такий: спершу ім'я, потім простір імен.
   return uuidv5(parts.join(SEP), MERIDIAN_NAMESPACE)
 }
@@ -116,8 +120,9 @@ export function mealPrefId(mealId: string): string {
  * збігається легко.
  *
  * Сценарій — той, заради якого взагалі робився sync: двоє в магазині
- * відмічають ту саму позицію. Екрана списку у V2 ще немає (MER-62); коли
- * з'явиться, позначка має створюватися саме з цим id.
+ * відмічають ту саму позицію. Позначку створює `setShoppingCheck`
+ * (`apps/web/src/lib/data/mutations.ts`, MER-62) саме з цим id; сам відбиток
+ * рахує `planFingerprint` у `shopping.ts`.
  */
 export function shoppingCheckId(
   familyId: string,

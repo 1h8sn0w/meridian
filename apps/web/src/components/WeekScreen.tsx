@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
   DEFAULTS,
@@ -159,6 +160,15 @@ export function WeekScreen({ familyId }: { familyId: string }) {
                 ? 'Перегенерувати тиждень'
                 : 'Згенерувати тиждень'}
           </Button>
+
+          {/* MER-62: список покупок збирається з інгредієнтів страв цього
+              плану, тож і вхід у нього — тут, як у V1. Окремої вкладки він не
+              отримує: п'ять уже є, а список без плану порожній за визначенням. */}
+          {view ? (
+            <Link to="/shopping" className="mt-2 block no-underline">
+              <Button block>Список покупок</Button>
+            </Link>
+          ) : null}
 
           {error ? <Warn>{error}</Warn> : null}
           {sharedNote && !error ? <Meta>{sharedNote}</Meta> : null}
