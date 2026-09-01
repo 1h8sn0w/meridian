@@ -141,26 +141,28 @@ export function buildWeekView(
     if (!dayIndexOf.has(date)) dayIndexOf.set(date, int(row, 'day_index'))
   }
 
-  const days: Array<DayView> = [...byDate.keys()].sort().map((date): DayView => {
-    const found = byDate.get(date) ?? []
-    const byType: Partial<Record<MealType, SlotView>> = {}
-    const forCalories: Partial<Record<MealType, Meal | null>> = {}
-    for (const view of found) {
-      byType[view.slot] = view
-      forCalories[view.slot] = view.meal
-    }
-    return {
-      date,
-      dayIndex: dayIndexOf.get(date) ?? 0,
-      slots: SLOT_ORDER.map((type) => byType[type]).filter(
-        (view): view is SlotView => view !== undefined,
-      ),
-      byType,
-      calories: dayCalories(forCalories),
-      isPast: date < todayKey,
-      isToday: date === todayKey,
-    }
-  })
+  const days: Array<DayView> = [...byDate.keys()]
+    .sort()
+    .map((date): DayView => {
+      const found = byDate.get(date) ?? []
+      const byType: Partial<Record<MealType, SlotView>> = {}
+      const forCalories: Partial<Record<MealType, Meal | null>> = {}
+      for (const view of found) {
+        byType[view.slot] = view
+        forCalories[view.slot] = view.meal
+      }
+      return {
+        date,
+        dayIndex: dayIndexOf.get(date) ?? 0,
+        slots: SLOT_ORDER.map((type) => byType[type]).filter(
+          (view): view is SlotView => view !== undefined,
+        ),
+        byType,
+        calories: dayCalories(forCalories),
+        isPast: date < todayKey,
+        isToday: date === todayKey,
+      }
+    })
 
   return {
     id: text(planRow, 'id'),

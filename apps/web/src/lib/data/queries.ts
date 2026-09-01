@@ -409,7 +409,11 @@ export function useDayPlan(
     try {
       if (date > addDays(String(row.start_date), days - 1)) return nothing
     } catch (cause) {
-      return { data: null, isLoading, problems: problems.concat(describe(cause)) }
+      return {
+        data: null,
+        isLoading,
+        problems: problems.concat(describe(cause)),
+      }
     }
 
     return { data: { target, corridor }, isLoading, problems }

@@ -18,11 +18,11 @@ packages/db/drizzle/meta/
 
 # V1 — статичний застосунок у корені репозиторію.
 # Він деплоїться як є (GitHub Pages) і форматується вручну; Prettier його не чіпає.
-index.html
-sw.js
-manifest.webmanifest
-data/
-icons/
-tests/
-vendor/
-docs/
+/index.html
+/sw.js
+/manifest.webmanifest
+/data/
+/icons/
+/tests/
+/vendor/
+/docs/

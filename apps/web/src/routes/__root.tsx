@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -19,17 +20,56 @@ export const Route = createRootRoute({
         charSet: 'utf-8',
       },
       {
+        // Свідомо БЕЗ `viewport-fit=cover`. Він розтягує viewport під вирізи —
+        // і тоді безпечні поля треба відбивати руками з усіх боків, зокрема
+        // згори, де липка шапка лягла б під системну смугу. Токени
+        // --spacing-safe-bottom / --spacing-tabbar (styles.css) від цього не
+        // страждають: без `cover` `env(safe-area-inset-*)` дорівнює нулю саме
+        // тому, що ці поля вже відрізав браузер.
         name: 'viewport',
         content: 'width=device-width, initial-scale=1',
       },
       {
         title: 'Meridian',
       },
+      // PWA (MER-51). Колір той самий, що --color-app: у standalone ним
+      // фарбується системна смуга, і будь-яка інша цифра дала б шов.
+      {
+        name: 'theme-color',
+        content: '#0f1115',
+      },
+      // iOS маніфест не читає — режим і заголовок для нього задаються метами.
+      {
+        name: 'mobile-web-app-capable',
+        content: 'yes',
+      },
+      {
+        name: 'apple-mobile-web-app-capable',
+        content: 'yes',
+      },
+      {
+        name: 'apple-mobile-web-app-title',
+        content: 'Меридіан',
+      },
     ],
     links: [
       {
         rel: 'stylesheet',
         href: appCss,
+      },
+      {
+        rel: 'manifest',
+        href: '/manifest.webmanifest',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '192x192',
+        href: '/icons/icon-192.png',
+      },
+      {
+        rel: 'apple-touch-icon',
+        href: '/icons/apple-touch-icon.png',
       },
     ],
   }),
@@ -39,8 +79,31 @@ export const Route = createRootRoute({
   component: AppGate,
 })
 
+/**
+ * Реєстрація service worker (MER-51).
+ *
+ * У розробці воркера немає навмисно: він кешує оболонку, а `pnpm dev` тим і
+ * цінний, що віддає щоразу свіжий модуль. Зареєстрований у dev воркер пережив
+ * би й перемикання гілок — і потім довго пояснював би собою «чому зміна не
+ * видно».
+ *
+ * Помилку реєстрації ковтати не можна, але й гасити через неї застосунок теж:
+ * без воркера він цілком робочий, просто без офлайн-оболонки.
+ */
+function useServiceWorker() {
+  useEffect(() => {
+    if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return
+
+    navigator.serviceWorker.register('/sw.js').catch((error: unknown) => {
+      console.warn('Не вдалося зареєструвати service worker:', error)
+    })
+  }, [])
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   const env = Route.useLoaderData()
+
+  useServiceWorker()
 
   return (
     <html lang="uk">
