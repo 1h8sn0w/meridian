@@ -94,7 +94,12 @@ export function RecipeScreen({
       </Panel>
 
       <Panel>
-        {editing ? (
+        {/* Форма знімає чернетку з рецепта РІВНО ОДИН раз, тож відкрити її до
+            першого читання не можна: чернетка вийшла б порожньою, а «Зберегти»
+            стерло б те, що вже є в рядку. */}
+        {recipeRead.isLoading ? (
+          <Hint>Читаємо рецепт…</Hint>
+        ) : editing ? (
           <RecipeForm
             mealId={mealId}
             familyId={familyId}
@@ -251,12 +256,18 @@ type Draft = {
   photo: string | null
 }
 
-/** Порожнє поле — «в джерелі немає», а не нуль (як у `MealForm`). */
+/**
+ * Порожнє поле — «в джерелі немає», а не нуль (як у `MealForm`).
+ *
+ * Округлюємо, бо обидві колонки — `integer`: «7,5 хв» дійшло б до Postgres як
+ * `22P02` уже під час вивантаження, тобто мовчки й пізно. Кома як роздільник —
+ * теж звідти: клавіатура телефона українською дає саме її.
+ */
 function optional(value: string): number | null {
   const text = value.trim()
   if (!text) return null
   const n = Number(text.replace(',', '.'))
-  return Number.isFinite(n) ? n : null
+  return Number.isFinite(n) ? Math.round(n) : null
 }
 
 /**

@@ -175,7 +175,19 @@ export type RecipeInput = {
  * НЕ частковий, тож ключ тримає будь-який рядок — живий, м'яко видалений, із
  * випадковим id чи з id міграції V1 (`derivedId(family, 'recipe', v1Id)`,
  * MER-48). Будь-який із них блокує вставку, тож його треба оновлювати.
- * `deleted_at = NULL` при цьому оживляє рецепт, який пішов разом зі стравою.
+ *
+ * **Порожній рецепт тому НЕ видаляється м'яко, а лишається порожнім рядком.**
+ * Це виглядає як дрібниця, але саме тут не частковий індекс і кусає: м'яко
+ * видалений рядок зникає з пристрою (`deleted_at IS NULL` у sync-правилах —
+ * це і є доставка видалень), а на сервері ключ далі тримає. Стерти рецепт і
+ * додати наново означало б не побачити його локально, вставити рядок із
+ * виведеним id — і померти на індексі, втративши зміну (MER-57). Порожній
+ * живий рядок коштує кількох байтів і тримає природний ключ на видноті.
+ *
+ * Звідси інваріант, на який спирається пошук: м'яко видалений рецепт буває
+ * лише в м'яко видаленої страви — єдиний, хто його так позначає, це
+ * `deleteMeal`. А без страви немає ні сторінки рецепта, ні шляху додати його
+ * наново, тож і зіткнутися з таким рядком нема кому.
  */
 export async function saveRecipe(
   db: Db,
@@ -184,13 +196,6 @@ export async function saveRecipe(
   input: RecipeInput,
 ): Promise<void> {
   const steps = JSON.stringify(input.steps)
-  /* Порожній рецепт — це відсутній рецепт, а не рядок із чотирьох порожнеч (те
-   * саме правило, що в `migrateRecipe`): користувач стер усе, що додав. */
-  const empty =
-    !input.steps.length &&
-    input.prepTime === null &&
-    input.servings === null &&
-    !input.photo
   await db.writeTransaction(async (tx) => {
     const rows = await tx.getAll<{ id: string }>(
       'SELECT id FROM recipe WHERE meal_id = ?',
@@ -199,19 +204,22 @@ export async function saveRecipe(
     if (rows.length) {
       await tx.execute(
         'UPDATE recipe SET steps = ?, prep_time = ?, servings = ?, photo = ?,' +
-          ' deleted_at = ? WHERE id = ?',
-        [
-          steps,
-          input.prepTime,
-          input.servings,
-          input.photo,
-          empty ? now() : null,
-          rows[0].id,
-        ],
+          ' deleted_at = NULL WHERE id = ?',
+        [steps, input.prepTime, input.servings, input.photo, rows[0].id],
       )
       return
     }
-    if (empty) return
+    /* Рядка немає й записувати нічого — порожній рецепт створювати не треба:
+     * тримати ключ на видноті нема від чого, а «додав і передумав» не має
+     * лишати по собі рядок. */
+    if (
+      !input.steps.length &&
+      input.prepTime === null &&
+      input.servings === null &&
+      !input.photo
+    ) {
+      return
+    }
     await tx.execute(
       'INSERT INTO recipe (id, family_id, meal_id, steps, prep_time, servings,' +
         ' photo) VALUES (?, ?, ?, ?, ?, ?, ?)',
