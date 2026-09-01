@@ -25,6 +25,7 @@ import type {
   Portion,
   PortionLetter,
   Profile,
+  Recipe,
   TastePrefs,
 } from './types.ts'
 
@@ -138,6 +139,27 @@ export function mealFromRow(row: Row): Meal {
     portions: jsonArray(row, 'portions', what)
       .map(portion)
       .filter((x): x is Portion => x !== null),
+  }
+}
+
+/**
+ * Рядок таблиці `recipe` → рецептна частина страви (MER-63).
+ *
+ * Кроки чистяться так само, як під час міграції з V1 (`migrateRecipe`): порожні
+ * рядки — це артефакт вводу через `textarea`, а не крок приготування. Час і
+ * порції — `optionalNumber`, тож NULL лишається порожнечею, а не нулем.
+ */
+export function recipeFromRow(row: Row): Recipe {
+  const what = 'Рецепт «' + text(row, 'id') + '»'
+  return {
+    id: requiredText(row, 'id', 'Рецепт'),
+    mealId: requiredText(row, 'meal_id', what),
+    steps: jsonArray(row, 'steps', what)
+      .map((step) => String(step).trim())
+      .filter((step) => step.length > 0),
+    prepTime: optionalNumber(row.prep_time),
+    servings: optionalNumber(row.servings),
+    photo: text(row, 'photo').trim() || null,
   }
 }
 

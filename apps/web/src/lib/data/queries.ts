@@ -18,8 +18,20 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@powersync/react'
-import { addDays, mealFromRow, prefsFromRows } from '@meridian/core'
-import type { CalendarSlot, Meal, MealType, Row, TastePrefs } from '@meridian/core'
+import {
+  addDays,
+  mealFromRow,
+  prefsFromRows,
+  recipeFromRow,
+} from '@meridian/core'
+import type {
+  CalendarSlot,
+  Meal,
+  MealType,
+  Recipe,
+  Row,
+  TastePrefs,
+} from '@meridian/core'
 import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
 import type { AppProfile, CalendarDayView, WeekView } from './model'
 
@@ -79,6 +91,35 @@ export function useMeals(): Read<Array<Meal>> {
 /** Пул як мапа id → страва: план посилається на страви саме за id. */
 export function mealsById(meals: ReadonlyArray<Meal>): Map<string, Meal> {
   return new Map(meals.map((meal) => [meal.id, meal]))
+}
+
+/* ==========================================================================
+ * Рецепт (MER-63)
+ * ======================================================================== */
+
+/**
+ * Рецепт страви — окремий рядок, який читається **за стравою**.
+ *
+ * Так фото завжди живе, а не законсервоване: сторінка бере його з рядка
+ * `recipe` за `meal_id`, тож замінене фото видно скрізь, звідки страву
+ * відкривають (граблі MER-40 і MER-35 — знімок із копією фото всередині).
+ *
+ * `null` — рецепта немає взагалі, і це нормальний стан: у V1 ці поля були
+ * необов'язкові, а PDF їх не дає зовсім.
+ */
+export function useRecipe(mealId: string): Read<Recipe | null> {
+  const { data, isLoading, error } = useQuery<Row>(
+    'SELECT * FROM recipe WHERE meal_id = ? AND deleted_at IS NULL LIMIT 1',
+    [mealId],
+  )
+  return useMemo(() => {
+    const { items, problems } = mapRows(data, recipeFromRow)
+    return {
+      data: items.length ? items[0] : null,
+      isLoading,
+      problems: withQueryError(problems, error),
+    }
+  }, [data, error, isLoading])
 }
 
 /* ==========================================================================

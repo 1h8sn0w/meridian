@@ -7,7 +7,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
+import {
+  mealFromRow,
+  prefsFromRows,
+  profileFromRow,
+  recipeFromRow,
+} from './rows.ts'
 
 const mealRow = {
   id: 'm1',
@@ -174,4 +179,47 @@ test('смаки збираються в два набори, невідомі �
   ])
   assert.deepEqual([...prefs.favorites], ['m1'])
   assert.deepEqual([...prefs.disliked], ['m2'])
+})
+
+/* ==========================================================================
+ * Рецепт (MER-63)
+ * ======================================================================== */
+
+test('рядок рецепта: кроки з jsonb-тексту, порожнє лишається порожнім', () => {
+  const recipe = recipeFromRow({
+    id: 'r1',
+    meal_id: 'm1',
+    steps: '["Відварити гречку 15 хв.","  ","Обсмажити філе.  "]',
+    prep_time: 25,
+    servings: null,
+    photo: '',
+  })
+  assert.equal(recipe.id, 'r1')
+  assert.equal(recipe.mealId, 'm1')
+  assert.deepEqual(recipe.steps, ['Відварити гречку 15 хв.', 'Обсмажити філе.'])
+  assert.equal(recipe.prepTime, 25)
+  // Ні порцій, ні фото в джерелі — і жодного нуля чи порожнього рядка замість.
+  assert.equal(recipe.servings, null)
+  assert.equal(recipe.photo, null)
+})
+
+test('рецепт без кроків і без страви: порожній масив проти помилки', () => {
+  const bare = recipeFromRow({
+    id: 'r2',
+    meal_id: 'm2',
+    steps: null,
+    prep_time: null,
+    servings: 2,
+    photo: 'data:image/jpeg;base64,AAA',
+  })
+  assert.deepEqual(bare.steps, [])
+  assert.equal(bare.servings, 2)
+  assert.equal(bare.photo, 'data:image/jpeg;base64,AAA')
+
+  // Рецепт без страви — це не рецепт: `meal_id` і є його природний ключ.
+  assert.throws(() => recipeFromRow({ id: 'r3', meal_id: '' }), /meal_id/)
+  assert.throws(
+    () => recipeFromRow({ id: 'r4', meal_id: 'm4', steps: '{"a":1}' }),
+    /не масив/,
+  )
 })

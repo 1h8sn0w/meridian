@@ -19,6 +19,7 @@ export type {
   Portion,
   PortionLetter,
   Profile,
+  Recipe,
   Result,
   TastePrefs,
   WeekParams,
@@ -64,7 +65,12 @@ export {
 } from './calendar.ts'
 export type { CalendarSlot } from './calendar.ts'
 
-export { mealFromRow, prefsFromRows, profileFromRow } from './rows.ts'
+export {
+  mealFromRow,
+  prefsFromRows,
+  profileFromRow,
+  recipeFromRow,
+} from './rows.ts'
 export type { Row } from './rows.ts'
 
 export {

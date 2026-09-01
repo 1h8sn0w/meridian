@@ -14,6 +14,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as FamilyRouteImport } from './routes/family'
 import { Route as MealsRouteImport } from './routes/meals'
 import { Route as WeekRouteImport } from './routes/week'
+import { Route as RecipeMealIdRouteImport } from './routes/recipe.$mealId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const WeekRoute = WeekRouteImport.update({
   path: '/week',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecipeMealIdRoute = RecipeMealIdRouteImport.update({
+  id: '/recipe/$mealId',
+  path: '/recipe/$mealId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/family': typeof FamilyRoute
   '/meals': typeof MealsRoute
   '/week': typeof WeekRoute
+  '/recipe/$mealId': typeof RecipeMealIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/family': typeof FamilyRoute
   '/meals': typeof MealsRoute
   '/week': typeof WeekRoute
+  '/recipe/$mealId': typeof RecipeMealIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,22 @@ export interface FileRoutesById {
   '/family': typeof FamilyRoute
   '/meals': typeof MealsRoute
   '/week': typeof WeekRoute
+  '/recipe/$mealId': typeof RecipeMealIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/calendar' | '/family' | '/meals' | '/week'
+  fullPaths:
+    '/' | '/calendar' | '/family' | '/meals' | '/week' | '/recipe/$mealId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendar' | '/family' | '/meals' | '/week'
-  id: '__root__' | '/' | '/calendar' | '/family' | '/meals' | '/week'
+  to: '/' | '/calendar' | '/family' | '/meals' | '/week' | '/recipe/$mealId'
+  id:
+    | '__root__'
+    | '/'
+    | '/calendar'
+    | '/family'
+    | '/meals'
+    | '/week'
+    | '/recipe/$mealId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +94,7 @@ export interface RootRouteChildren {
   FamilyRoute: typeof FamilyRoute
   MealsRoute: typeof MealsRoute
   WeekRoute: typeof WeekRoute
+  RecipeMealIdRoute: typeof RecipeMealIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WeekRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recipe/$mealId': {
+      id: '/recipe/$mealId'
+      path: '/recipe/$mealId'
+      fullPath: '/recipe/$mealId'
+      preLoaderRoute: typeof RecipeMealIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +150,7 @@ const rootRouteChildren: RootRouteChildren = {
   FamilyRoute: FamilyRoute,
   MealsRoute: MealsRoute,
   WeekRoute: WeekRoute,
+  RecipeMealIdRoute: RecipeMealIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
   MEAL_TYPES,
@@ -151,13 +152,19 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                 key={meal.id}
                 className="flex items-center justify-between gap-2.5 border-b border-line py-2.5 last:border-b-0"
               >
-                <div className="min-w-0 flex-auto">
+                {/* Рядок веде на сторінку рецепта (MER-63): кроки, фото й
+                    повний склад. Редагування самої страви лишається на «✎». */}
+                <Link
+                  to="/recipe/$mealId"
+                  params={{ mealId: meal.id }}
+                  className="min-w-0 flex-auto text-content no-underline"
+                >
                   <div className="text-sm">{meal.name}</div>
                   <div className="mt-0.5 text-xs text-muted">
                     {MEAL_TYPE_LABELS[meal.type]}
                     {meal.source ? ' · ' + meal.source : ''}
                   </div>
-                </div>
+                </Link>
 
                 <div className="whitespace-nowrap text-sm text-accent">
                   {formatMealCalories(meal)}
