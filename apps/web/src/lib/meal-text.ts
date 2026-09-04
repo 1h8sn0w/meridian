@@ -124,3 +124,19 @@ export function portionsFromText(text: string): Array<Portion> {
     .map(portionFromLine)
     .filter((x): x is Portion => x !== null)
 }
+
+/* ==========================================================================
+ * Числові поля
+ * ======================================================================== */
+
+/**
+ * Число з поля форми: порожньо → `null` («у джерелі немає»), «180» → 180,
+ * «1,5» → 1.5. Не число — теж `null`, і форма про це скаже окремо: тут
+ * розрізняти нема чим, а підставляти нуль не можна.
+ */
+export function numberFromField(value: string): number | null {
+  const text = value.trim()
+  if (!text) return null
+  const n = Number(text.replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}

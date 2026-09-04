@@ -24,6 +24,7 @@ import type { MealInput } from '../lib/data/mutations'
 import {
   ingredientsFromText,
   ingredientsToText,
+  numberFromField,
   portionsFromText,
   portionsToText,
 } from '../lib/meal-text'
@@ -56,14 +57,6 @@ function draftOf(meal: Meal | null): Draft {
   }
 }
 
-/** Порожнє поле — «в джерелі немає», а не нуль. */
-function optional(value: string): number | null {
-  const text = value.trim()
-  if (!text) return null
-  const n = Number(text.replace(',', '.'))
-  return Number.isFinite(n) ? n : null
-}
-
 function validate(draft: Draft): { input: MealInput } | { error: string } {
   const name = draft.name.trim()
   if (!name) return { error: "Назва страви обов'язкова." }
@@ -76,7 +69,7 @@ function validate(draft: Draft): { input: MealInput } | { error: string } {
     ['Жири', draft.fat],
     ['Вуглеводи', draft.carbs],
   ] as const) {
-    const value = optional(raw)
+    const value = numberFromField(raw)
     if (raw.trim() && value === null) {
       return { error: '«' + label + '» має бути числом або лишитись порожнім.' }
     }
@@ -84,15 +77,15 @@ function validate(draft: Draft): { input: MealInput } | { error: string } {
       return { error: '«' + label + "» має бути невід'ємним." }
     }
   }
-  const calories = optional(draft.calories)
+  const calories = numberFromField(draft.calories)
   return {
     input: {
       name,
       type: draft.type,
       calories: calories === null ? null : Math.round(calories),
-      protein: optional(draft.protein),
-      fat: optional(draft.fat),
-      carbs: optional(draft.carbs),
+      protein: numberFromField(draft.protein),
+      fat: numberFromField(draft.fat),
+      carbs: numberFromField(draft.carbs),
       ingredients: ingredientsFromText(draft.ingredients),
       source: draft.source.trim(),
       portions: portionsFromText(draft.portions),

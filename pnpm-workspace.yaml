@@ -17,3 +17,9 @@ allowBuilds:
   esbuild: true
   lightningcss: true
   unrs-resolver: true
+
+# pdfjs-dist (MER-52) має необов'язкову залежність @napi-rs/canvas — це рендер
+# сторінок PDF у Node, 37 МБ нативного бінарника. Нам потрібен лише текстовий
+# шар і лише в браузері, тож ставити її нема за чим.
+ignoredOptionalDependencies:
+  - '@napi-rs/canvas'

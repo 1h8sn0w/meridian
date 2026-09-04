@@ -24,6 +24,7 @@ import { setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealForm } from './MealForm'
+import { PdfImportPanel } from './PdfImportPanel'
 import { Button, Chip, Empty, Hint, Panel, Warn } from './ui'
 
 type Filter = 'all' | MealType | 'favorite' | 'disliked'
@@ -34,6 +35,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const prefsRead = useTastePrefs()
   const [filter, setFilter] = useState<Filter>('all')
   const [editing, setEditing] = useState<{ meal: Meal | null } | null>(null)
+  const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
   const meals = mealsRead.data
@@ -70,6 +72,17 @@ export function MealsScreen({ familyId }: { familyId: string }) {
           meal={editing.meal}
           familyId={familyId}
           onDone={() => setEditing(null)}
+        />
+      </AppShell>
+    )
+  }
+
+  if (importing) {
+    return (
+      <AppShell title="Страви" subtitle={subtitle}>
+        <PdfImportPanel
+          familyId={familyId}
+          onDone={() => setImporting(false)}
         />
       </AppShell>
     )
@@ -122,13 +135,21 @@ export function MealsScreen({ familyId }: { familyId: string }) {
           ))}
         </div>
 
-        <Button
-          block
-          variant="primary"
-          onClick={() => setEditing({ meal: null })}
-        >
-          + Додати страву
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button
+            block
+            variant="primary"
+            onClick={() => setEditing({ meal: null })}
+          >
+            + Додати страву
+          </Button>
+
+          {/* Напівавтоматичний імпорт плану дієтолога (MER-52): розпізнане
+              людина перевіряє й підтверджує перед додаванням у пул. */}
+          <Button block onClick={() => setImporting(true)}>
+            Імпорт із PDF-плану дієтолога
+          </Button>
+        </div>
 
         {failure ? <Warn>{failure}</Warn> : null}
 
