@@ -64,6 +64,11 @@ type AuthValue = {
   createFamily: (name: string) => Promise<Result<null>>
   joinFamily: (code: string) => Promise<Result<null>>
   createInvite: () => Promise<Result<Invite>>
+  /**
+   * Клієнт PostgREST для таблиць поза синхронізацією (`pdf_import`, MER-52).
+   * `null` — конфігу немає або ми на сервері: там сесії не існує.
+   */
+  supabase: SupabaseClient | null
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -182,6 +187,7 @@ export function AuthProvider({
       family,
       members,
       invite,
+      supabase: configured && resolved ? client() : null,
 
       signIn: async (email, password) => {
         const { error } = await client().auth.signInWithPassword({

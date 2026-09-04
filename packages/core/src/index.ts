@@ -97,6 +97,15 @@ export {
 } from './sync-ids.ts'
 export type { IdKind } from './sync-ids.ts'
 
+export { parsePlanText, planEntryKey } from './parse-plan.ts'
+export type {
+  PlanEntry,
+  PlanEntryKind,
+  PlanFlag,
+  PlanParse,
+  PlanStats,
+} from './parse-plan.ts'
+
 export { MEALS_KEY, PREFS_KEY, PROFILES_KEY, migrateV1 } from './migrate-v1.ts'
 export type {
   MigratedPref,
