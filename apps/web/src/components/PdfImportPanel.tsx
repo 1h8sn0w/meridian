@@ -96,13 +96,18 @@ function draftOf(entry: PlanEntry): Draft {
 
 /**
  * Картки з розбору. `inPool` — ключі страв, які вже є: такі типово не
- * позначені, як і дублікати всередині самого тексту.
+ * позначені, як і дублікати всередині самого тексту. `poolKnown` — чи пул
+ * узагалі вдалося прочитати; якщо ні, не позначено нічого.
  *
  * Повтори лишаються в списку, хоч у пул і не йдуть: екран перевірки існує саме
  * для того, щоб бачити розібране поруч із сирим текстом, а блок, який мовчки
  * зник, читався б як загублений плану кусок.
  */
-function cardsOf(parsed: PlanParse, inPool: ReadonlySet<string>): Array<Card> {
+function cardsOf(
+  parsed: PlanParse,
+  inPool: ReadonlySet<string>,
+  poolKnown: boolean,
+): Array<Card> {
   return parsed.entries.map((entry) => {
     const known =
       entry.kind !== 'repeat' &&
@@ -110,7 +115,7 @@ function cardsOf(parsed: PlanParse, inPool: ReadonlySet<string>): Array<Card> {
     return {
       entry,
       draft: draftOf(entry),
-      checked: entry.kind === 'meal' && !known,
+      checked: poolKnown && entry.kind === 'meal' && !known,
       added: false,
       error: null,
       flags: [
@@ -136,7 +141,7 @@ export function PdfImportPanel({
 }) {
   const db = usePowerSync()
   const { supabase } = useAuth()
-  const meals = useMeals().data
+  const pool = useMeals()
 
   const [source, setSource] = useState<Source | null>(null)
   const [cards, setCards] = useState<Array<Card> | null>(null)
@@ -153,16 +158,28 @@ export function PdfImportPanel({
    * скасований імпорт відтворив би екран перевірки поверх нового.
    */
   const op = useRef(0)
+  /** Захист від двох одночасних записів в архів — стан гонки, а не рендеру. */
+  const archiving = useRef(false)
+
+  /* Закриття скасовує читання, що триває (MER-39): інакше pdf.js домелює всі
+   * сторінки в нікуди, а документ у воркері звільниться лише в кінці. */
+  const close = () => {
+    op.current++
+    onDone()
+  }
 
   const inPool = useMemo(
-    () => new Set(meals.map((meal) => planEntryKey(meal.name, meal.type))),
-    [meals],
+    () => new Set(pool.data.map((meal) => planEntryKey(meal.name, meal.type))),
+    [pool.data],
   )
 
   const review = (text: string, fileName: string | null) => {
     const parsed = parsePlanText(text)
     setSource({ fileName, text })
-    setCards(cardsOf(parsed, inPool))
+    /* Пул не прочитався — типово не позначаємо нічого: порожній `inPool`
+     * виглядає точно як «жодної такої страви ще немає», і одне натискання
+     * подвоїло б увесь пул. */
+    setCards(cardsOf(parsed, inPool, pool.problems.length === 0))
     setStats(parsed.stats)
     setStatus(null)
     setProblem(null)
@@ -224,7 +241,11 @@ export function PdfImportPanel({
     setBusy(true)
     setProblem(null)
 
-    const next = [...cards]
+    /* Назад у стан кладемо не знімок карток, а лише наслідки запису. Поля на
+     * час запису й так заблоковані, але зливати знімок означало б тримати цю
+     * обіцянку на самому лише `disabled` — знімок мовчки відкотив би будь-яку
+     * правку, що просочилася повз нього. */
+    const outcomes = new Map<number, Partial<Card>>()
     let added = 0
     let failed = 0
 
@@ -240,16 +261,18 @@ export function PdfImportPanel({
        * у медичних даних (AGENTS.md). */
       const invalid = !name
         ? "Назва страви обов'язкова."
-        : calories === null
+        : draft.calories.trim() === ''
           ? 'Впишіть калорійність — у PDF її немає, а без неї страва не потрапить у пул.'
-          : calories < 0
-            ? "Калорійність має бути невід'ємним числом."
-            : draft.servings.trim() !== '' &&
-                (servings === null || servings < 1)
-              ? 'Порції — ціле число від 1 або порожньо.'
-              : null
+          : calories === null
+            ? 'Калорійність має бути числом — приберіть із поля все, крім цифр.'
+            : calories < 0
+              ? "Калорійність має бути невід'ємним числом."
+              : draft.servings.trim() !== '' &&
+                  (servings === null || servings < 1)
+                ? 'Порції — ціле число від 1 або порожньо.'
+                : null
       if (invalid !== null || calories === null) {
-        next[index] = { ...card, error: invalid }
+        outcomes.set(index, { error: invalid })
         failed++
         continue
       }
@@ -268,28 +291,48 @@ export function PdfImportPanel({
           source: draft.source.trim(),
           portions: portionsFromText(draft.portions),
         })
+        /* Страва вже в базі — картка закрита незалежно від того, що станеться
+         * з рецептом. Інакше невдалий другий запис виглядав би як «не додалося»,
+         * і повторне натискання вставило б ту саму страву вдруге. */
+        outcomes.set(index, { added: true, checked: false, error: null })
+        added++
+
         const steps = draft.steps
           .split('\n')
           .map((line) => line.trim())
           .filter((line) => line.length > 0)
         if (steps.length || servings !== null) {
-          await saveRecipe(db, familyId, mealId, {
-            steps,
-            // Часу приготування план не дає — колонка лишається порожньою.
-            prepTime: null,
-            servings: servings === null ? null : Math.round(servings),
-            photo: null,
-          })
+          try {
+            await saveRecipe(db, familyId, mealId, {
+              steps,
+              // Часу приготування план не дає — колонка лишається порожньою.
+              prepTime: null,
+              servings: servings === null ? null : Math.round(servings),
+              photo: null,
+            })
+          } catch (error) {
+            outcomes.set(index, {
+              added: true,
+              checked: false,
+              error:
+                'Страву додано, але кроки й порційність не збереглися: ' +
+                describe(error),
+            })
+          }
         }
-        next[index] = { ...card, added: true, checked: false, error: null }
-        added++
       } catch (error) {
-        next[index] = { ...card, error: describe(error) }
+        outcomes.set(index, { error: describe(error) })
         failed++
       }
     }
 
-    setCards(next)
+    setCards(
+      (current) =>
+        current?.map((card, i) => {
+          const outcome = outcomes.get(i)
+          return outcome ? { ...card, ...outcome } : card
+        }) ?? null,
+    )
     setStatus(
       (added
         ? 'Додано до пулу: ' +
@@ -321,7 +364,8 @@ export function PdfImportPanel({
    * повторити, коли мережа з'явиться.
    */
   const archive = async () => {
-    if (!source || archived) return
+    if (!source || archived || archiving.current) return
+    archiving.current = true
     try {
       if (!supabase) throw new Error('Сервер Supabase не налаштований.')
       await archivePlanSource(supabase, familyId, source.fileName, source.text)
@@ -333,6 +377,8 @@ export function PdfImportPanel({
           'цього потрібна мережа. ' +
           describe(error),
       )
+    } finally {
+      archiving.current = false
     }
   }
 
@@ -390,7 +436,7 @@ export function PdfImportPanel({
             >
               Розпізнати текст
             </Button>
-            <Button onClick={onDone}>Скасувати</Button>
+            <Button onClick={close}>Скасувати</Button>
           </div>
         </div>
       </Panel>
@@ -411,6 +457,15 @@ export function PdfImportPanel({
         позначки, сирий текст плану — під кожною карткою.
       </Hint>
 
+      {/* Пул не прочитався — тоді жодна картка не позначена, і сказати про це
+          треба прямо: інакше порожній екран виглядав би як «нічого нового». */}
+      {pool.problems.map((issue) => (
+        <Warn key={issue}>
+          Не вдалося прочитати пул страв, тож нічого не позначено наперед —
+          перевірте кожну картку самі. {issue}
+        </Warn>
+      ))}
+
       {cards.length === 0 ? (
         <Empty>
           У тексті не розпізнано жодної страви. Перевірте, що це план із рядками
@@ -422,6 +477,7 @@ export function PdfImportPanel({
         <ReviewCard
           key={index}
           card={card}
+          busy={busy}
           onCheck={(checked) => check(index, checked)}
           onPatch={(part) => patch(index, part)}
         />
@@ -432,7 +488,13 @@ export function PdfImportPanel({
 
       <div className="mt-3 flex flex-wrap gap-2">
         {!archived && cards.some((card) => card.added) ? (
-          <Button disabled={busy} onClick={() => void archive()}>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              void archive().finally(() => setBusy(false))
+            }}
+          >
             Зберегти текст плану в архів
           </Button>
         ) : null}
@@ -446,7 +508,7 @@ export function PdfImportPanel({
         <Button disabled={busy} onClick={restart}>
           Інший файл
         </Button>
-        <Button disabled={busy} onClick={onDone}>
+        <Button disabled={busy} onClick={close}>
           Закрити
         </Button>
       </div>
@@ -456,10 +518,13 @@ export function PdfImportPanel({
 
 function ReviewCard({
   card,
+  busy,
   onCheck,
   onPatch,
 }: {
   card: Card
+  /** Триває запис — правити картку зараз означало б правити те, що вже пишеться. */
+  busy: boolean
   onCheck: (checked: boolean) => void
   onPatch: (part: Partial<Draft>) => void
 }) {
@@ -491,7 +556,7 @@ function ReviewCard({
         <input
           type="checkbox"
           checked={card.checked}
-          disabled={card.added}
+          disabled={card.added || busy}
           onChange={(event) => onCheck(event.target.checked)}
         />
         <span className="text-muted">
@@ -503,11 +568,13 @@ function ReviewCard({
 
       <Field
         label="Назва"
+        disabled={busy}
         value={draft.name}
         onChange={(event) => onPatch({ name: event.target.value })}
       />
       <SelectField
         label="Тип слота"
+        disabled={busy}
         value={draft.type}
         onChange={(event) => onPatch({ type: event.target.value as MealType })}
       >
@@ -519,6 +586,7 @@ function ReviewCard({
       </SelectField>
       <Field
         label="Калорійність, ккал"
+        disabled={busy}
         inputMode="numeric"
         placeholder="немає в PDF"
         value={draft.calories}
@@ -526,6 +594,7 @@ function ReviewCard({
       />
       <Field
         label="Порції"
+        disabled={busy}
         inputMode="numeric"
         placeholder="—"
         value={draft.servings}
@@ -533,23 +602,27 @@ function ReviewCard({
       />
       <Field
         label="Джерело (план дієтолога)"
+        disabled={busy}
         value={draft.source}
         onChange={(event) => onPatch({ source: event.target.value })}
       />
       <TextField
         label="Інгредієнти (по одному в рядку)"
+        disabled={busy}
         rows={Math.min(6, Math.max(2, entry.ingredients.length))}
         value={draft.ingredients}
         onChange={(event) => onPatch({ ingredients: event.target.value })}
       />
       <TextField
         label="Готова порція Ж/Ч (складник — до « — »)"
+        disabled={busy}
         rows={Math.min(4, Math.max(2, entry.portions.length))}
         value={draft.portions}
         onChange={(event) => onPatch({ portions: event.target.value })}
       />
       <TextField
         label="Кроки/нотатки з плану (по одному в рядку)"
+        disabled={busy}
         rows={Math.min(4, Math.max(2, entry.steps.length))}
         value={draft.steps}
         onChange={(event) => onPatch({ steps: event.target.value })}
