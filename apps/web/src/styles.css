@@ -29,7 +29,6 @@
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --color-page: #0b0d11;
   --color-app: #0f1115;
   --color-surface: #1a1d24;
   --color-line: #2a2f3a;
@@ -37,13 +36,6 @@
   --color-muted: #9aa2b1;
   --color-subtle: #5f6675;
   --color-segment: #343b49;
-  --color-blue-soft: #15243b;
-  --color-profile-pink: #e0729c;
-  --color-profile-pink-soft: #2e1622;
-  --color-profile-pink-deep: #3d1c2c;
-  --color-dinner: #d8674f;
-  --color-violet: #7f77dd;
-  --color-step: #c9cdd6;
   --color-success: #46c98b;
   --color-warning: #ffb454;
   --color-button-ink: #0b1220;

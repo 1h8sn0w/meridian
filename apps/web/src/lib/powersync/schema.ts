@@ -177,9 +177,6 @@ export const AppSchema = new Schema({
   shopping_check: shoppingCheck,
 })
 
-/** Рядки локальних таблиць — типи для запитів. */
-export type AppDatabase = (typeof AppSchema)['types']
-
 /**
  * Колонки, які на пристрої лежать НЕ в тому вигляді, у якому їх чекає Postgres
  * (MER-49).

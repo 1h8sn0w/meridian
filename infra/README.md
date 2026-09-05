@@ -342,5 +342,5 @@ docker compose logs powersync | grep "New checkpoint"
 | для перевірки токенів досить `PS_JWKS_URL` | self-host GoTrue лишається на HS256, JWKS порожній — потрібен ще `client_auth.supabase_jwt_secret` | розділ вище, перевірено на живому стеку |
 
 Імена змінних середовища з контракту (`PS_DATABASE_URI`, `PS_JWKS_URL`,
-`POWERSYNC_URL`, `PUBLIC_*`) збережено як є: у конфізі PowerSync вони
-підставляються через `!env`, а той приймає будь-яке ім'я з префіксом `PS_`.
+`PUBLIC_*`) збережено як є: у конфізі PowerSync вони підставляються через
+`!env`, а той приймає будь-яке ім'я з префіксом `PS_`.

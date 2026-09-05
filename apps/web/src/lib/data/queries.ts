@@ -89,7 +89,7 @@ export function useMeals(): Read<Array<Meal>> {
 }
 
 /** Пул як мапа id → страва: план посилається на страви саме за id. */
-export function mealsById(meals: ReadonlyArray<Meal>): Map<string, Meal> {
+function mealsById(meals: ReadonlyArray<Meal>): Map<string, Meal> {
   return new Map(meals.map((meal) => [meal.id, meal]))
 }
 
