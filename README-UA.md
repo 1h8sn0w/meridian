@@ -74,7 +74,7 @@ Tailwind у репозиторії рівно один, і живе він в `a
 | `compose.yaml` | Увесь self-host: вісім сервісів, нуль ручних кроків |
 | `apps/web` | Застосунок Vite + TanStack Start; цю саму збірку згодом загорне Capacitor |
 | `packages/core` | Доменна логіка чистим TypeScript: генератор тижня, калорії, правила провенансу |
-| `packages/db` | Drizzle-схема й міграції для Postgres |
+| `packages/db` | SQL-міграції для Postgres і скрипт, який їх накочує |
 | `infra` | Dockerfile'и, Caddyfile, конфіг PowerSync, генерація секретів, накладка для `compose` |
 | `.github/workflows` | Перевірки на кожен PR; образ застосунку — на кожен пуш |
 

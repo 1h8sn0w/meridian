@@ -255,7 +255,7 @@ utility-клас. Після
 |---------|-------------|
 | `apps/web` | Vite + TanStack Start. Цю ж збірку згодом загортає Capacitor |
 | `packages/core` | Доменна логіка чистим TS: генератор тижня, калорії, провенанс. Без залежностей від фреймворків і від БД — рішення порту в `packages/core/README.md` (MER-47) |
-| `packages/db` | Drizzle-схема + міграції для Supabase Postgres |
+| `packages/db` | SQL-міграції для Supabase Postgres і скрипт, який їх накочує |
 | `infra` | Docker Compose нашого стека, Caddyfile, конфіг PowerSync, `.env.example` |
 
 **Інструментарій:** pnpm 11 (`packageManager` у корені), Node.js 22+, TypeScript,
@@ -377,10 +377,11 @@ Supabase — каталог `docker/` репозиторію `supabase/supabase`
   обґрунтуванням — у `packages/db/README.md`; вигадувати нове рішення по
   ключу, який там уже названо, не треба.
 
-Міграції — `packages/db/drizzle/`, застосовуються `pnpm db:migrate` при
-заданому `DATABASE_URL`. Схема правиться в `schema.ts`, далі
-`pnpm --filter @meridian/db generate`; SQL, який Drizzle не описує (тригери,
-права, публікація реплікації), — окремою `generate --custom`. Нову таблицю
+Міграції — `packages/db/migrations/`, чистий SQL. Накочує їх `psql` зі
+скрипта `packages/db/migrate.sh` — у стеку це сервіс `migrate`, руками —
+`pnpm db:migrate` при заданому `DATABASE_URL`. Журнал застосованого лежить у
+таблиці `migrations.applied` у самій базі; нова міграція — це просто новий файл
+із наступним номером, писаний руками (MER-69). Нову таблицю
 треба **явно додати в публікацію `powersync`**, інакше вона не поїде на
 пристрої. Рішення, розбіжності й перевірка міграцій без Supabase — у
 `packages/db/README.md`; карта таблиць — в ER-документі (посилання вище).

@@ -115,10 +115,10 @@ services:
   # Одноразовий сервіс: накочує міграції packages/db і виходить. Усе, що працює
   # з даними, чекає на його успішне завершення — тож застосунок не може
   # стартувати на базі без таблиць, RLS і хука доступу.
+  # Образу свого не має: міграції накочує psql, а він уже є в образі Postgres —
+  # тому тут той самий образ, що й у `db` (MER-69).
   migrate:
-    build:
-      context: .
-      dockerfile: infra/migrate.Dockerfile
+    image: supabase/postgres:17.6.1.136
     restart: 'no'
     entrypoint:
       - /bin/sh
@@ -126,9 +126,10 @@ services:
       - |
         set -a; . /secrets/app.env; set +a
         export DATABASE_URL="postgresql://postgres:$$POSTGRES_PASSWORD@db:5432/postgres"
-        exec pnpm drizzle-kit migrate
+        exec sh /db/migrate.sh
     volumes:
       - secrets:/secrets:ro
+      - ./packages/db:/db:ro
     depends_on:
       init:
         condition: service_completed_successfully

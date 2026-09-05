@@ -6,9 +6,6 @@ dist
 # Генерується TanStack Router — форматувати не можна (перезаписується)
 apps/web/src/routeTree.gen.ts
 
-# Знімки схеми drizzle-kit — машинні, їх переписує `drizzle-kit generate`
-packages/db/drizzle/meta/
-
 # Документація пишеться й переноситься руками — Prettier її не переформатовує
 *.md
 
