@@ -17,7 +17,12 @@
  */
 
 import { useEffect, useState } from 'react'
-import { dateKey, formatMealCalories, planOwnerId } from '@meridian/core'
+import {
+  MEAL_TYPE_LABELS,
+  dateKey,
+  formatMealCalories,
+  planOwnerId,
+} from '@meridian/core'
 import type { MealType } from '@meridian/core'
 import { useSyncState } from '../lib/powersync/provider'
 import { useActiveProfile } from '../lib/active-profile'
@@ -206,7 +211,12 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
       <Hint>
         Сьогодні:{' '}
         {reminderSchedule(settings.leadMinutes)
-          .map((item) => item.label + ' — ' + formatMinute(item.fireMinute))
+          .map(
+            (item) =>
+              MEAL_TYPE_LABELS[item.type] +
+              ' — ' +
+              formatMinute(item.fireMinute),
+          )
           .join(' · ')}
       </Hint>
 

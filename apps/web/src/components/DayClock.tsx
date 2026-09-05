@@ -11,6 +11,8 @@
  * не можна.
  */
 
+import { MEAL_TYPE_LABELS } from '@meridian/core'
+
 import {
   CENTER,
   CLOCK_SIZE,
@@ -106,7 +108,7 @@ export function DayClock({
                   textAnchor="middle"
                   dominantBaseline="middle"
                 >
-                  {w.label}
+                  {MEAL_TYPE_LABELS[w.type]}
                 </text>
               )
             })
@@ -132,7 +134,7 @@ export function DayClock({
               y={CENTER - 4}
               textAnchor="middle"
             >
-              {active.type ? active.window.label : 'Ніч'}
+              {active.type ? MEAL_TYPE_LABELS[active.type] : 'Ніч'}
             </text>
             <text
               className="fill-muted text-xs"
@@ -143,7 +145,7 @@ export function DayClock({
               {active.type
                 ? 'до ' + formatMinute(active.window.endMinute)
                 : active.next
-                  ? active.next.label.toLowerCase() +
+                  ? MEAL_TYPE_LABELS[active.next.type].toLowerCase() +
                     ' о ' +
                     formatMinute(active.next.startMinute)
                   : ''}
@@ -165,7 +167,7 @@ export function DayClock({
             Зараз <span className="text-accent">{formatMinute(minutes)}</span> —
             нічний час.
             {active.next
-              ? ` ${active.next.label} о ${formatMinute(active.next.startMinute)}.`
+              ? ` ${MEAL_TYPE_LABELS[active.next.type]} о ${formatMinute(active.next.startMinute)}.`
               : null}
           </>
         )}

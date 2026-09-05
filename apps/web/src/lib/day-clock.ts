@@ -17,12 +17,18 @@
  * немає — для нього потрібне сховище стану пристрою, якого схема не описує.
  */
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+import type { MealType } from '@meridian/core'
 
+/**
+ * Вікно прийому: тип із домену плюс те, чого в домені немає — межі доби й
+ * родовий відмінок для підпису.
+ *
+ * Підпису («Сніданок») тут навмисно немає: це `MEAL_TYPE_LABELS` із
+ * `@meridian/core`, і другий його примірник рано чи пізно розійшовся б із
+ * першим (MER-71).
+ */
 export type MealWindow = {
   type: MealType
-  /** MEAL_TYPE_LABELS із V1. */
-  label: string
   /** Родовий відмінок для підпису «час обіду» — GENITIVE із V1. */
   genitive: string
   startMinute: number
@@ -35,28 +41,24 @@ const minute = (hh: number, mm: number) => hh * 60 + mm
 export const MEAL_WINDOWS: Array<MealWindow> = [
   {
     type: 'breakfast',
-    label: 'Сніданок',
     genitive: 'сніданку',
     startMinute: minute(6, 0),
     endMinute: minute(11, 0),
   },
   {
     type: 'lunch',
-    label: 'Обід',
     genitive: 'обіду',
     startMinute: minute(11, 0),
     endMinute: minute(15, 0),
   },
   {
     type: 'dinner',
-    label: 'Вечеря',
     genitive: 'вечері',
     startMinute: minute(18, 0),
     endMinute: minute(22, 0),
   },
   {
     type: 'snack',
-    label: 'Перекус',
     genitive: 'перекусу',
     startMinute: minute(15, 0),
     endMinute: minute(18, 0),

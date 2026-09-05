@@ -259,10 +259,16 @@ utility-клас. Після
 | `infra` | Docker Compose нашого стека, Caddyfile, конфіг PowerSync, `.env.example` |
 
 **Інструментарій:** pnpm 11 (`packageManager` у корені), Node.js 22+, TypeScript,
-Prettier — спільні; ESLint (`@tanstack/eslint-config`) — у кожному пакеті свій.
+Prettier — спільні. ESLint теж спільний: правила лежать в `eslint.config.base.mjs`
+у корені, а `eslint.config.js` кожного пакета лише розгортає базу й додає свій
+`ignores` (MER-71). Flat config шукає конфіг поруч із кодом, тож файл у пакеті
+лишається — але набір правил один, і розійтись мовчки вже не може.
 Конфіг `apps/web` згенеровано офіційним стартером TanStack Start
 (`npx @tanstack/cli create`, add-ons `eslint` + `nitro`) — руками його не
-переписувати, оновлювати тим самим стартером.
+переписувати, оновлювати тим самим стартером. Виняток один і свідомий:
+`eslint.config.js` тепер посилається на кореневу базу (MER-71). `tsconfig.json`
+стартера навмисно НЕ переведено на `tsconfig.base.json` — чому, у
+`apps/web/README.md`.
 
 **Команди з кореня:** `docker compose up` (підняти все з нуля — розділ нижче),
 `pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,

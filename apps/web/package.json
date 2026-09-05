@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsr generate && tsc --noEmit",
     "lint": "pnpm --filter @meridian/core build && eslint",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "pnpm --filter @meridian/core build && node --test \"src/**/*.test.ts\"",
     "format": "prettier --write . && eslint --fix",
     "check": "prettier --check ."
   },
@@ -30,7 +30,6 @@
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "latest",
-    "@tanstack/eslint-config": "latest",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/router-cli": "^1.132.0",

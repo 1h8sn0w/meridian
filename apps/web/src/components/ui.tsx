@@ -179,27 +179,20 @@ export function InfoText({ children }: { children: ReactNode }) {
  * Колір профілю приходить рантаймом, тож підставляється через CSS-змінні, а не
  * arbitrary value в класі: токени `--color-profile` / `--color-profile-soft`
  * оголошені в `@theme inline` саме для цього (правило значень у AGENTS.md).
+ *
+ * Прозорий фон рахує `color-mix` із того самого `--profile-color` (MER-71).
+ * Без кольору аватар лишається на акценті — а це інша частка (12%, не 18%),
+ * тому фон береться іншим токеном, а не тим самим із запасним значенням.
  */
-export function Avatar({
-  letter,
-  color,
-  soft,
-}: {
-  letter: string
-  color?: string
-  soft?: string
-}) {
-  const style =
-    color && soft
-      ? ({
-          '--profile-color': color,
-          '--profile-soft': soft,
-        } as CSSProperties)
-      : undefined
+export function Avatar({ letter, color }: { letter: string; color?: string }) {
   return (
     <span
-      style={style}
-      className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-profile-soft text-xs font-semibold text-profile"
+      style={
+        color ? ({ '--profile-color': color } as CSSProperties) : undefined
+      }
+      className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold text-profile ${
+        color ? 'bg-profile-soft' : 'bg-accent-soft'
+      }`}
     >
       {letter}
     </span>
@@ -332,6 +325,17 @@ export function SelectField({
  * красу: Escape закриває, Tab не виходить за межі діалогу, після закриття фокус
  * повертається на кнопку, що його відкрила. Без цього діалог для клавіатури —
  * пастка.
+ *
+ * Усі три дає нативний `<dialog>` із `showModal()` (MER-71): пастка фокуса,
+ * `cancel` на Escape, повернення фокуса на `close()` і фонова сторінка як
+ * inert — тобто до неї не дотягтись ні Tab'ом, ні мишею.
+ *
+ * Сам `<dialog>` тут — це шар оверлея (звідси `fixed inset-0` і скидання
+ * стилів UA, аж до `text-content`: UA-таблиця задає діалогу власний колір
+ * тексту), а картка лежить усередині: клік по елементу діалогу — це клік повз
+ * картку, тобто закриття. Колір оверлея лишається на самому елементі, а не на
+ * `::backdrop`, щоб не залежати від того, чи успадковує псевдоелемент змінні
+ * теми. `z-index` не потрібен: модальний діалог і так у top layer.
  */
 export function Sheet({
   title,
@@ -342,66 +346,42 @@ export function Sheet({
   onClose: () => void
   children: ReactNode
 }) {
-  const sheet = useRef<HTMLDivElement>(null)
+  const sheet = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    const trigger = document.activeElement as HTMLElement | null
+    sheet.current?.showModal()
+  }, [])
 
-    const focusable = (): Array<HTMLElement> =>
-      [
-        ...(sheet.current?.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        ) ?? []),
-      ].filter((el) => !el.hasAttribute('disabled'))
-
-    focusable()[0]?.focus()
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const items = focusable()
-      if (!items.length) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      trigger?.focus()
-    }
-  }, [onClose])
+  // Спершу `close()`, потім `onClose()`. Фокус на кнопку-відкривач повертає
+  // саме `close()`, і тільки поки елемент у документі: батько знімає аркуш із
+  // дерева, а видалення з DOM забирає діалог із top layer мовчки, без фокуса.
+  const close = () => {
+    sheet.current?.close()
+    onClose()
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-overlay dialog:items-center"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+    <dialog
+      ref={sheet}
+      aria-label={title}
+      onCancel={(event) => {
+        // Escape закрив би діалог сам, але тоді `onClose` дізнався б про це
+        // після; закриваємо своїм шляхом, щоб він був один.
+        event.preventDefault()
+        close()
       }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close()
+      }}
+      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end justify-center border-0 bg-overlay p-0 text-content open:flex dialog:items-center"
     >
-      <div
-        ref={sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-2xl border border-line bg-surface px-4 py-3.5"
-      >
+      <div className="m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-2xl border border-line bg-surface px-4 py-3.5">
         <div className="mb-1.5 flex items-baseline justify-between gap-2.5">
           <h2 className="m-0 text-base font-bold">{title}</h2>
-          <LinkButton onClick={onClose}>Закрити</LinkButton>
+          <LinkButton onClick={close}>Закрити</LinkButton>
         </div>
         {children}
       </div>
-    </div>
+    </dialog>
   )
 }
