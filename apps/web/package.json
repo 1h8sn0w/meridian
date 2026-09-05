@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "typecheck": "tsr generate && tsc --noEmit",
     "lint": "eslint",
+    "test": "node --test \"src/**/*.test.ts\"",
     "format": "prettier --write . && eslint --fix",
     "check": "prettier --check ."
   },

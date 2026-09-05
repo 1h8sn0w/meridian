@@ -76,6 +76,22 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+/* Клік по нагадуванню (MER-65) веде в застосунок: сповіщення, показане
+ * воркером, само нічого не відкриває — без цього обробника воно було б глухим
+ * кутом саме там, де застосунком і користуються, на телефоні. Уже відкриту
+ * вкладку піднімаємо, а не множимо. */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        const open = clients[0]
+        return open ? open.focus() : self.clients.openWindow(SHELL_HTML)
+      }),
+  )
+})
+
 self.addEventListener('fetch', (event) => {
   const request = event.request
   if (request.method !== 'GET') return

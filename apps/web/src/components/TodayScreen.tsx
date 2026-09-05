@@ -37,6 +37,7 @@ import { DayClock } from './DayClock'
 import { MealDetails } from './MealDetails'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
+import { RemindersPanel } from './Reminders'
 import { SwapDialog } from './SwapDialog'
 import { Button, Hint, Panel, Tag, Warn } from './ui'
 
@@ -125,6 +126,11 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           </Button>
         </Panel>
       )}
+
+      {/* Налаштування нагадувань стоять під годинником, бо зсувають саме його
+          вікна (MER-65). Профіль для них не обов'язковий: вікна прийомів — це
+          налаштування пристрою, а не раціону. */}
+      <RemindersPanel week={week.data} />
 
       {managing ? (
         <ProfilesSheet
