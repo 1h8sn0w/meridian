@@ -42,7 +42,9 @@ Caddy is the only thing published outside — one origin serves the app, auth, t
 APP_URL=https://meridian.example.com
 ```
 
-The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, once the domain resolves to this host and 80/443 reach it. Those ports have to be free on the host, or set `HTTP_PORT` / `HTTPS_PORT`. Everything else — the prebuilt image, where the secrets live, SMTP, closing signup — is in [`infra/README.md`](infra/README.md).
+The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, once the domain resolves to this host and 80/443 reach it. Those ports have to be free on the host, or set `HTTP_PORT` / `HTTPS_PORT`.
+
+Signup is open by default, because a fresh stack has to let someone create the first account — so on a stack reachable from the internet, closing it with `GOTRUE_DISABLE_SIGNUP=true` is the last step of the install rather than an afterthought. Two consequences come with it: adding a new family member needs signup reopened for the length of one registration, and password reset does not work at all until you configure SMTP — there is no mail in the stack. The ordered procedure for all of it, along with the prebuilt image and where the secrets live, is in [`infra/README.md`](infra/README.md).
 
 ## Where it stands
 
