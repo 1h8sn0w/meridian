@@ -20,18 +20,6 @@ node_modules
 **/.env
 **/.env.local
 
-# V1 — статичний застосунок, до збірки apps/web стосунку не має
-index.html
-sw.js
-manifest.webmanifest
-tailwind.css
-tailwind.input.css
-data/
-icons/
-vendor/
-tests/
-docs/
-
 # Документація
 *.md
 LICENSE

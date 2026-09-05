@@ -5,7 +5,6 @@
 **A meal planner that assembles your week from your dietitian's approved plans.**
 
 [![CI](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml)
-![V1](https://img.shields.io/badge/V1-shipped%20prototype-46c98b)
 ![V2](https://img.shields.io/badge/V2-local--first%20·%20in%20progress-4f9dff)
 ![license](https://img.shields.io/badge/license-MIT-46c98b)
 
@@ -29,10 +28,6 @@ It lives in [`packages/core`](packages/core) as framework-free TypeScript with n
 
 ## Run it
 
-Two apps live in this repository: **V1**, the single-file prototype that proved the idea, and **V2**, the local-first rewrite that will replace it.
-
-### V2 — the whole stack, one command
-
 ```sh
 git clone https://github.com/1h8sn0w/meridian.git
 cd meridian
@@ -49,34 +44,15 @@ APP_URL=https://meridian.example.com
 
 The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, once the domain resolves to this host and 80/443 reach it. Those ports have to be free on the host, or set `HTTP_PORT` / `HTTPS_PORT`. Everything else — the prebuilt image, where the secrets live, SMTP, closing signup — is in [`infra/README.md`](infra/README.md).
 
-### V1 — the static prototype
-
-```sh
-npx serve .          # or: python3 -m http.server 8000
-```
-
-Open the `http://localhost:…` address it prints — not `index.html` by double-click. `file://` and `localhost` are separate localStorage origins, so data saved under one vanishes under the other, and service workers need `http(s)`.
-
 ## Where it stands
 
-| | V1 — repository root | V2 — `apps/`, `packages/`, `infra/` |
-|---|---|---|
-| Runs on | one HTML file, `localStorage` | on-device SQLite ↔ PowerSync ↔ Postgres |
-| Data | one browser, no accounts | one family, every device, offline-first |
-| Install | serve the directory | `docker compose up` |
-| Deployed | GitHub Pages from `main` | any host that runs Docker |
+V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and seven tables syncing across a family's devices. Still ahead: the Capacitor build.
 
-V1 is the whole product as a prototype: the generator, manual swaps, profiles and shared family plans, PDF plan import, recipes, shopping list, reminders, PWA install and offline.
-
-V2 has, so far: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), four screens — Today, Week, Meals, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, and seven tables syncing across a family's devices. Still V1-only: PDF import, recipes, shopping list, reminders, PWA and the Capacitor build.
-
-V2 lives on `staging` and replaces V1 at the root when it lands on `main`.
+V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity. It stays in git history, and on GitHub Pages until `staging` lands on `main`; the localStorage data it left behind is imported by V2 from the Family screen.
 
 ## Stack
 
-**V2.** The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is Vite + TanStack Start on Node, and Capacitor will later wrap that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
-
-**V1.** One HTML file, vanilla JS, `localStorage`, Tailwind CSS v4. No backend, no bundler, no framework — deliberately, until the idea was proven.
+The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is Vite + TanStack Start on Node, and Capacitor will later wrap that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
 
 <details>
 <summary>Working on the styles</summary>
@@ -85,15 +61,13 @@ There is exactly one Tailwind build in the repository, and it lives in `apps/web
 
 The old V1 setup — `@tailwindcss/cli` producing a committed `tailwind.css` — was removed in MER-53 along with the `build:css` / `watch:css` scripts. The design tokens moved into `apps/web/src/styles.css` unchanged. Preflight is still deliberately left out so native form controls keep their appearance; the few reset properties that are actually needed are declared in the `base` layer.
 
-**Consequence on `staging`:** V1 at the repository root and the mockups in `docs/design/` render unstyled there, because the stylesheet they used to link no longer exists. `main` — what GitHub Pages deploys — is unaffected, and V1 gets replaced by V2 when `staging` lands.
-
 Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
 
 ## Repository layout
 
-V1 is the static app at the repository root. V2 is a pnpm workspace alongside it:
+The repository is a pnpm workspace:
 
 | Path | What |
 |------|------|
@@ -103,7 +77,6 @@ V1 is the static app at the repository root. V2 is a pnpm workspace alongside it
 | `packages/db` | Drizzle schema and migrations for Postgres |
 | `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |
 | `.github/workflows` | Checks on every PR; the app image published on every push |
-| `index.html`, `sw.js`, `data/`, `tests/` | V1, untouched |
 
 Working on the app itself:
 
@@ -113,7 +86,7 @@ pnpm dev             # apps/web on http://localhost:3000
 pnpm build           # every package
 pnpm lint
 pnpm typecheck
-pnpm test            # V1 tests, then packages/core unit tests
+pnpm test            # unit tests of packages/core and apps/web
 pnpm format          # format:check is what CI runs
 pnpm db:migrate
 ```
