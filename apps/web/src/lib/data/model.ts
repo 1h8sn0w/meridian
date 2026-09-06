@@ -110,6 +110,73 @@ export function appProfileFromRow(row: Row): AppProfile {
   }
 }
 
+/** День, зібраний із рядків: спільна частина «Тижня» й «Календаря». */
+type FoldedDay = {
+  dayIndex: number
+  byType: Partial<Record<MealType, SlotView>>
+  slots: Array<SlotView>
+  calories: DayCalories
+}
+
+/**
+ * Рядки `plan_slot` → дні за датами. Один згорток на обидва екрани: «Тиждень»
+ * і «Календар» показують ті самі слоти в тому самому порядку, і рахувати це
+ * двічі означало б рано чи пізно розійтись у калоріях (MER-71).
+ *
+ * Дублікат типу слота в межах дати (двоє пристроїв устигли вставити свій рядок
+ * до збіжності) не множить рядки на екрані: лишається останній у поданому
+ * порядку. «Останній» тут має сенс лише тому, що вибірка впорядкована
+ * (`queries.ts`): без цього два пристрої показали б для того самого дня різні
+ * страви. `missing` при цьому рахує саме рядки, а не типи: слот без страви
+ * лишається дірою в плані навіть тоді, коли його продублювали.
+ *
+ * `dayIndex` бере перший рядок дати; календарю він не потрібен, і в
+ * `CalendarDayView` не потрапляє.
+ */
+function foldSlotRows(
+  slotRows: ReadonlyArray<Row>,
+  meals: ReadonlyMap<string, Meal>,
+): { days: Map<string, FoldedDay>; missing: number } {
+  const byDate = new Map<
+    string,
+    { dayIndex: number; byType: Partial<Record<MealType, SlotView>> }
+  >()
+  let missing = 0
+
+  for (const row of slotRows) {
+    const slot = text(row, 'slot') as MealType
+    if (!MEAL_TYPES.includes(slot)) continue
+    const mealId = text(row, 'meal_id')
+    const meal = meals.get(mealId) ?? null
+    if (!meal) missing += 1
+    const view: SlotView = { id: text(row, 'id'), slot, mealId, meal }
+    const date = text(row, 'date')
+    const found = byDate.get(date)
+    if (found) found.byType[slot] = view
+    else
+      byDate.set(date, {
+        dayIndex: int(row, 'day_index'),
+        byType: { [slot]: view },
+      })
+  }
+
+  const days = new Map<string, FoldedDay>()
+  for (const [date, { dayIndex, byType }] of byDate) {
+    const slots = SLOT_ORDER.map((type) => byType[type]).filter(
+      (view): view is SlotView => view !== undefined,
+    )
+    const forCalories: Partial<Record<MealType, Meal | null>> = {}
+    for (const view of slots) forCalories[view.slot] = view.meal
+    days.set(date, {
+      dayIndex,
+      byType,
+      slots,
+      calories: dayCalories(forCalories),
+    })
+  }
+  return { days, missing }
+}
+
 /**
  * Рядки `week_plan` + `plan_slot` + пул страв → те, що малює екран «Тиждень».
  *
@@ -123,46 +190,16 @@ export function buildWeekView(
   meals: ReadonlyMap<string, Meal>,
   todayKey: string,
 ): WeekView {
-  const byDate = new Map<string, Array<SlotView>>()
-  const dayIndexOf = new Map<string, number>()
-  let missing = 0
+  const folded = foldSlotRows(slotRows, meals)
 
-  for (const row of slotRows) {
-    const slot = text(row, 'slot') as MealType
-    if (!MEAL_TYPES.includes(slot)) continue
-    const mealId = text(row, 'meal_id')
-    const meal = meals.get(mealId) ?? null
-    if (!meal) missing += 1
-    const date = text(row, 'date')
-    const view: SlotView = { id: text(row, 'id'), slot, mealId, meal }
-    const list = byDate.get(date)
-    if (list) list.push(view)
-    else byDate.set(date, [view])
-    if (!dayIndexOf.has(date)) dayIndexOf.set(date, int(row, 'day_index'))
-  }
-
-  const days: Array<DayView> = [...byDate.keys()]
-    .sort()
-    .map((date): DayView => {
-      const found = byDate.get(date) ?? []
-      const byType: Partial<Record<MealType, SlotView>> = {}
-      const forCalories: Partial<Record<MealType, Meal | null>> = {}
-      for (const view of found) {
-        byType[view.slot] = view
-        forCalories[view.slot] = view.meal
-      }
-      return {
-        date,
-        dayIndex: dayIndexOf.get(date) ?? 0,
-        slots: SLOT_ORDER.map((type) => byType[type]).filter(
-          (view): view is SlotView => view !== undefined,
-        ),
-        byType,
-        calories: dayCalories(forCalories),
-        isPast: date < todayKey,
-        isToday: date === todayKey,
-      }
-    })
+  const days: Array<DayView> = [...folded.days]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, day]): DayView => ({
+      date,
+      ...day,
+      isPast: date < todayKey,
+      isToday: date === todayKey,
+    }))
 
   return {
     id: text(planRow, 'id'),
@@ -179,7 +216,7 @@ export function buildWeekView(
     sources: jsonStrings(planRow, 'sources'),
     warnings: jsonStrings(planRow, 'warnings'),
     days,
-    missing,
+    missing: folded.missing,
   }
 }
 
@@ -202,43 +239,18 @@ export type CalendarDayView = {
 }
 
 /**
- * Рядки `plan_slot` + пул страв → дні календаря за датами.
- *
- * Дублікат типу слота в межах дати (двоє пристроїв устигли вставити свій рядок
- * до збіжності) не множить рядки на екрані: лишається останній у поданому
- * порядку — так само, як `buildWeekView` тримає один слот на тип у `byType`.
- * «Останній» тут має сенс лише тому, що вибірка впорядкована (`queries.ts`):
- * без цього два пристрої показали б для того самого дня різні страви.
+ * Рядки `plan_slot` + пул страв → дні календаря за датами. Той самий згорток,
+ * що й у «Тижні» (`foldSlotRows`) — календар лише не бере з нього `byType` і
+ * `dayIndex`.
  */
 export function buildCalendarDays(
   slotRows: ReadonlyArray<Row>,
   meals: ReadonlyMap<string, Meal>,
 ): Map<string, CalendarDayView> {
-  const byDate = new Map<string, Partial<Record<MealType, SlotView>>>()
-  for (const row of slotRows) {
-    const slot = text(row, 'slot') as MealType
-    if (!MEAL_TYPES.includes(slot)) continue
-    const mealId = text(row, 'meal_id')
-    const view: SlotView = {
-      id: text(row, 'id'),
-      slot,
-      mealId,
-      meal: meals.get(mealId) ?? null,
-    }
-    const date = text(row, 'date')
-    const found = byDate.get(date)
-    if (found) found[slot] = view
-    else byDate.set(date, { [slot]: view })
-  }
-
   const out = new Map<string, CalendarDayView>()
-  for (const [date, byType] of byDate) {
-    const slots = SLOT_ORDER.map((type) => byType[type]).filter(
-      (view): view is SlotView => view !== undefined,
-    )
-    const forCalories: Partial<Record<MealType, Meal | null>> = {}
-    for (const view of slots) forCalories[view.slot] = view.meal
-    out.set(date, { date, slots, calories: dayCalories(forCalories) })
+  for (const [date, { slots, calories }] of foldSlotRows(slotRows, meals)
+    .days) {
+    out.set(date, { date, slots, calories })
   }
   return out
 }

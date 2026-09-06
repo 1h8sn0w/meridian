@@ -123,3 +123,19 @@ pnpm check       # prettier --check
 `typecheck` перегенеровує `src/routeTree.gen.ts`. Файл машинний і в Prettier
 ігнорований; якщо він змінився, а маршрутів не додавалось — зміну відкинути, а
 не комітити.
+
+### Чому `tsconfig.json` не розширює кореневий (MER-71)
+
+Сім опцій (`target`, `strict`, `noUnusedLocals`, `noUnusedParameters`,
+`noFallthroughCasesInSwitch`, `skipLibCheck`, `verbatimModuleSyntax`) справді
+повторюють `tsconfig.base.json`. Але база — **бібліотечна**: крім них вона
+вмикає `declaration`, `declarationMap`, `sourceMap`, `isolatedModules` і
+`noUncheckedIndexedAccess`. Застосунок нічого з цього не емітить, а
+`noUncheckedIndexedAccess` тут не діє свідомо (`lib/data/model.ts` покладається
+на це). Тобто `extends` довелося б супроводжувати п'ятьма перевизначеннями —
+файл став би довшим за той, що є, і крихкішим: правка бази мовчки міняла б
+строгість перевірки застосунку. Плюс правило вище — конфіг `apps/web` зі
+стартера. Тому дублювання семи рядків лишається навмисно.
+
+ESLint — інша річ: там спільна частина без побічних ефектів, і вона винесена в
+кореневий `eslint.config.base.mjs`.

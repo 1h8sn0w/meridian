@@ -8,7 +8,6 @@
  */
 
 import { Avatar } from './ui'
-import { hexToRgba } from '../lib/active-profile'
 import type { AppProfile } from '../lib/data/model'
 
 export function ProfileSwitcher({
@@ -42,7 +41,6 @@ export function ProfileSwitcher({
             <Avatar
               letter={profile.name.trim().charAt(0).toUpperCase() || '?'}
               color={profile.color}
-              soft={hexToRgba(profile.color, 0.18)}
             />
             <span className="min-w-0">
               <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-tight">

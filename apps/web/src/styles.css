@@ -51,14 +51,19 @@
 /* Токени, що посилаються на інші CSS-змінні (колір активного профілю
  * підставляється в рантаймі). `inline` потрібен саме тут: без нього
  * utility-клас підставляв би посилання на змінну, а не її значення, і
- * резолвився б у місці оголошення теми, а не там, де змінна справді задана. */
+ * резолвився б у місці оголошення теми, а не там, де змінна справді задана.
+ *
+ * Прозорі варіанти рахує `color-mix`, а не JS: рантайм задає лише сам колір
+ * (`--accent` / `--profile-color`), решту виводить CSS. Через це в
+ * `active-profile.ts` більше немає розбору `#rrggbb` у `rgba()` (MER-71). */
 @theme inline {
   --color-accent: var(--accent, #4f9dff);
-  --color-accent-soft: var(--accent-soft, rgba(79, 157, 255, 0.12));
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
   --color-profile: var(--profile-color, var(--accent, #4f9dff));
-  --color-profile-soft: var(
-    --profile-soft,
-    var(--accent-soft, rgba(79, 157, 255, 0.12))
+  --color-profile-soft: color-mix(
+    in srgb,
+    var(--color-profile) 18%,
+    transparent
   );
   --color-swatch: var(--swatch-color, #4f9dff);
 }

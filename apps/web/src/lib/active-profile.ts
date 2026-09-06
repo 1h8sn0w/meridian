@@ -38,25 +38,17 @@ function write(id: string | null): void {
   else window.localStorage.removeItem(KEY)
 }
 
-/** `#4f9dff` + 0.12 → `rgba(79, 157, 255, 0.12)` (hexToRgba із V1). */
-export function hexToRgba(hex: string, alpha: number): string {
-  const value = hex.replace('#', '')
-  const r = Number.parseInt(value.slice(0, 2), 16)
-  const g = Number.parseInt(value.slice(2, 4), 16)
-  const b = Number.parseInt(value.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
 /**
- * Пофарбувати інтерфейс у колір активного профілю. Токени `--accent` і
- * `--accent-soft` оголошені в `@theme inline` (styles.css) саме заради цього:
- * utility-класи `text-accent`/`bg-accent-soft` читають їх у рантаймі.
+ * Пофарбувати інтерфейс у колір активного профілю. Токен `--accent`
+ * оголошений в `@theme inline` (styles.css) саме заради цього: utility-класи
+ * `text-accent`/`bg-accent-soft` читають його в рантаймі.
+ *
+ * Прозорий варіант звідси не їде: `--color-accent-soft` — це `color-mix` над
+ * тим самим `--accent` (MER-71). Розбирати `#rrggbb` у JS не треба.
  */
 export function applyAccent(color: string): void {
   if (typeof document === 'undefined') return
-  const style = document.documentElement.style
-  style.setProperty('--accent', color)
-  style.setProperty('--accent-soft', hexToRgba(color, 0.12))
+  document.documentElement.style.setProperty('--accent', color)
 }
 
 export type ActiveProfile = {

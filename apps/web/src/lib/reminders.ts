@@ -19,11 +19,14 @@
  * Імпорти тут із розширенням `.ts` — саме так їх бачить `node --test`, який
  * стирає типи, але шляхів не переписує (та сама причина, що в
  * `packages/core/tsconfig.json`). Модуль навмисно без React: юніт-тест має
- * запускатись без збірки й без DOM.
+ * запускатись без DOM. Підписи прийомів беруться з `@meridian/core` (MER-71),
+ * тож перед тестами пакет треба зібрати — це вже робить скрипт `test`.
  */
 
+import { MEAL_TYPE_LABELS } from '@meridian/core'
+import type { MealType } from '@meridian/core'
+
 import { MEAL_WINDOWS, formatMinute } from './day-clock.ts'
-import type { MealType } from './day-clock.ts'
 
 export type ReminderSettings = {
   enabled: boolean
@@ -51,8 +54,6 @@ const FIRED_KEY = 'meridian.reminders.fired.v2'
 
 export type DueReminder = {
   type: MealType
-  /** Підпис прийому — «Сніданок», «Обід» (з вікна годинника дня). */
-  label: string
   /** Початок вікна прийому, хвилини від півночі. */
   startMinute: number
   /** Коли слати, хвилини від півночі. */
@@ -69,7 +70,6 @@ export type DueReminder = {
 export function reminderSchedule(leadMinutes: number): Array<DueReminder> {
   return MEAL_WINDOWS.map((window) => ({
     type: window.type,
-    label: window.label,
     startMinute: window.startMinute,
     fireMinute: Math.max(0, window.startMinute - leadMinutes),
   })).sort((a, b) => a.fireMinute - b.fireMinute)
@@ -109,7 +109,7 @@ export function reminderMessage(
   const lead = item.startMinute - item.fireMinute
   return {
     title:
-      item.label +
+      MEAL_TYPE_LABELS[item.type] +
       (lead ? ' за ' + lead + ' хв' : ' починається') +
       ' · о ' +
       formatMinute(item.startMinute),

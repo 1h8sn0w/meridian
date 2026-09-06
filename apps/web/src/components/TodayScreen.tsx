@@ -254,7 +254,7 @@ function CurrentMeal({
       ')'
     : active.next
       ? 'Далі: ' +
-        active.next.label +
+        MEAL_TYPE_LABELS[active.next.type] +
         ' о ' +
         formatMinute(active.next.startMinute) +
         (dayOffset ? ' (завтра)' : '')

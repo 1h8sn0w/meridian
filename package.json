@@ -17,6 +17,7 @@
     "test": "pnpm --recursive --if-present test"
   },
   "devDependencies": {
+    "@tanstack/eslint-config": "^0.4.0",
     "prettier": "^3.8.1",
     "typescript": "^6.0.2"
   }

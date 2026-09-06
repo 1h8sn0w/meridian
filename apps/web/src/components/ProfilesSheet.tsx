@@ -19,11 +19,7 @@ import type { CSSProperties } from 'react'
 import { usePowerSync } from '@powersync/react'
 import { DEFAULTS, MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
 import type { Meal, PortionLetter } from '@meridian/core'
-import {
-  DEFAULT_PROFILE_COLOR,
-  PROFILE_COLORS,
-  hexToRgba,
-} from '../lib/active-profile'
+import { DEFAULT_PROFILE_COLOR, PROFILE_COLORS } from '../lib/active-profile'
 import {
   deleteProfile,
   insertProfile,
@@ -266,7 +262,6 @@ export function ProfilesSheet({
               <Avatar
                 letter={profile.name.trim().charAt(0).toUpperCase() || '?'}
                 color={profile.color}
-                soft={hexToRgba(profile.color, 0.18)}
               />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm">{profile.name}</span>
