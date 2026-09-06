@@ -16,7 +16,7 @@ export function plural(n: number, one: string, few: string, many: string) {
 }
 
 /** Ключ дати «YYYY-MM-DD» → локальна північ цієї дати (keyToDate із V1). */
-export function dateFromKey(key: string): Date {
+function dateFromKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d)
 }

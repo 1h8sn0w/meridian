@@ -256,8 +256,6 @@ services:
       # яку відкриває користувач, а не окремі порти сервісів.
       PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
       PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
-      # Внутрішня адреса для SSR — повз Caddy.
-      POWERSYNC_URL: http://powersync:8080
     volumes:
       - secrets:/secrets:ro
     depends_on:

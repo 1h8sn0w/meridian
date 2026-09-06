@@ -9,7 +9,6 @@
 export { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
 export type {
   DayCalories,
-  Err,
   Ingredient,
   Meal,
   MealPrefValue,
