@@ -19,7 +19,6 @@ docker compose up
 | `../.env.example` | Необов'язковий: усе має типові значення. Секретів тут немає й не буде |
 | `init/generate-secrets.mjs` | Генерує секрети у спільний том при першому запуску |
 | `db/roles.sql` | Паролі службових ролей Postgres — раз, під час ініціалізації бази |
-| `migrate.Dockerfile` | Одноразовий образ для міграцій `packages/db` |
 | `web.Dockerfile` | Прод-образ `apps/web`. Контекст збірки — корінь репозиторію |
 | `caddy/Caddyfile` | Єдиний вхід: одне походження, чотири маршрути |
 | `powersync/service.yaml` | Конфіг PowerSync Service, монтується лише для читання |
@@ -148,7 +147,7 @@ docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d
 `DOCKERHUB_USERNAME`. У репозиторії конкретне ім'я ніде не зашите.
 
 Репозиторій при цьому все одно потрібен: конфіги (`caddy/`, `powersync/`,
-`init/`, `db/`) сервіси монтують із нього, а `migrate` збирається з
+`init/`, `db/`) сервіси монтують із нього, а `migrate` монтує з нього ж
 `packages/db`. Накладка економить збірку застосунку, не клонування.
 
 ### Теги
@@ -270,7 +269,9 @@ PostgREST, Postgres). Решта — Studio, Realtime, Storage, edge-функц�
 
 **Схему накочує стек, а не людина.** `migrate` — одноразовий сервіс, і все, що
 працює з даними, чекає на його успішне завершення (`service_completed_successfully`).
-Тому застосунок не може стартувати на базі без таблиць, RLS і хука.
+Тому застосунок не може стартувати на базі без таблиць, RLS і хука. Власного
+образу він не має: міграції накочує `psql` із того самого образу Postgres, що й
+`db` (MER-69) — як саме, у `packages/db/README.md`.
 
 **Сховище бакетів — Postgres, не MongoDB.** Демо PowerSync використовує MongoDB,
 але це +2 сервіси (сам Mongo і ініціалізація реплікасету) й окремий рушій БД.
@@ -280,7 +281,7 @@ Postgres як bucket storage підтримується офіційно з 1.3.
 > **Наслідок для схеми (зроблено в MER-44).** Сховище живе в тій самій базі,
 > яку PowerSync реплікує, тому публікація `powersync` перелічує таблиці явно —
 > `CREATE PUBLICATION powersync FOR TABLE ...` у міграції
-> `packages/db/drizzle/0002_replication.sql`. Варіант `FOR ALL TABLES` затягнув
+> `packages/db/migrations/0002_replication.sql`. Варіант `FOR ALL TABLES` затягнув
 > би в реплікацію власні таблиці PowerSync і зациклив сервіс. Нову таблицю
 > треба додавати в публікацію руками — інакше вона не поїде на пристрої.
 > Так і зроблено в MER-55: `0003_prefs_shopping.sql` доповнює публікацію

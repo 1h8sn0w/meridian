@@ -74,7 +74,7 @@ The repository is a pnpm workspace:
 | `compose.yaml` | The self-host stack, whole: eight services, zero manual steps |
 | `apps/web` | Vite + TanStack Start app; Capacitor will later wrap this same build |
 | `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
-| `packages/db` | Drizzle schema and migrations for Postgres |
+| `packages/db` | SQL migrations for Postgres and the script that applies them |
 | `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |
 | `.github/workflows` | Checks on every PR; the app image published on every push |
 
