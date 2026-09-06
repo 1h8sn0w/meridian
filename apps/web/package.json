@@ -6,6 +6,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "build:native": "vite build --mode native",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "typecheck": "tsr generate && tsc --noEmit",
@@ -15,7 +16,10 @@
     "check": "prettier --check ."
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.1",
+    "@capacitor/core": "^8.5.1",
     "@meridian/core": "workspace:*",
+    "@powersync/capacitor": "^0.8.2",
     "@powersync/react": "^2.0.0",
     "@powersync/web": "^2.1.1",
     "@supabase/supabase-js": "^2.111.0",
@@ -29,6 +33,9 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router-devtools": "latest",

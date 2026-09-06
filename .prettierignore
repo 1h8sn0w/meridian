@@ -9,3 +9,8 @@ apps/web/src/routeTree.gen.ts
 # Документація пишеться й переноситься руками — Prettier її не переформатовує
 *.md
 
+# Нативні проєкти Capacitor (MER-50) — їх малює `npx cap add`, а `cap sync`
+# кладе всередину копію вебзбірки. Ні перше, ні друге не є кодом репозиторію.
+apps/web/android
+apps/web/ios
+

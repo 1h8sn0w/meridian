@@ -7,7 +7,7 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 
-const config = defineConfig({
+const config = defineConfig(({ mode }) => ({
   // `PUBLIC_` — щоб імена змінних у розробці збігалися з контрактом
   // infra/.env.example, а не жили окремим словником під власним префіксом
   // (MER-45). У продакшні ці ж значення приходять рантаймом, із process.env.
@@ -18,7 +18,21 @@ const config = defineConfig({
   // ж: воркери пакета зібрані як ES-модулі.
   optimizeDeps: { exclude: ['@powersync/web'] },
   worker: { format: 'es' },
-  plugins: [devtools(), nitro(), tailwindcss(), tanstackStart(), viteReact()],
-})
+  plugins: [
+    devtools(),
+    nitro(),
+    tailwindcss(),
+    // `--mode native` — збірка під Capacitor (MER-50): сервера в телефоні немає,
+    // тож `spa.prerender` домальовує статичний `index.html`, який відкриє
+    // webview. Наслідок: `PUBLIC_*` запікаються на етапі ЗБІРКИ, а не рантайму,
+    // — на відміну від вебу (MER-45). Подробиці в apps/web/README.md.
+    tanstackStart(
+      mode === 'native'
+        ? { spa: { enabled: true, prerender: { outputPath: '/index.html' } } }
+        : undefined,
+    ),
+    viteReact(),
+  ],
+}))
 
 export default config

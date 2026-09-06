@@ -9,8 +9,10 @@
  * `provider.tsx`, і перевірка нижче.
  */
 
-import { PowerSyncDatabase } from '@powersync/web'
-import type { PowerSyncBackendConnector } from '@powersync/web'
+import type {
+  PowerSyncBackendConnector,
+  PowerSyncDatabase,
+} from '@powersync/web'
 import { AppSchema } from './schema'
 
 /**
@@ -54,12 +56,27 @@ function enqueue<T>(work: () => Promise<T>): Promise<T> {
  * База одна на вкладку. PowerSync сам ділить її між вкладками через
  * SharedWorker, тож другий екземпляр на той самий файл — це дві незалежні
  * спроби писати в одне сховище.
+ *
+ * Драйвер SQLite обирається на етапі ЗБІРКИ (MER-50), а не рантаймом:
+ * `@powersync/capacitor` статично тягне `@capacitor/core` і
+ * `@capacitor-community/sqlite`, яких у вебі немає, тож у вебзбірку він
+ * потрапити не має права. `import.meta.env.MODE` Vite підставляє константою,
+ * і мертва гілка разом із її `import()` вирізається — саме тому тут тернарний
+ * вираз, а не перевірка платформи в рантаймі.
+ *
+ * Обидва класи — той самий `PowerSyncDatabaseConstructor` з тими самими
+ * опціями; capacitor-версія лише підміняє адаптер на нативний SQLite
+ * (на iOS/Android — замість wa-sqlite у WASM).
  */
-export function getPowerSync(): PowerSyncDatabase {
+async function openDatabase(): Promise<PowerSyncDatabase> {
   if (typeof window === 'undefined') {
     throw new Error('Локальний SQLite доступний лише у браузері')
   }
   if (!database) {
+    const { PowerSyncDatabase } =
+      import.meta.env.MODE === 'native'
+        ? await import('@powersync/capacitor')
+        : await import('@powersync/web')
     database = new PowerSyncDatabase({
       schema: AppSchema,
       database: { dbFilename: DB_FILENAME },
@@ -97,7 +114,7 @@ function exposeForDev(db: PowerSyncDatabase): void {
  */
 export function openPowerSync(familyId: string): Promise<PowerSyncDatabase> {
   return enqueue(async () => {
-    const db = getPowerSync()
+    const db = await openDatabase()
 
     if (window.localStorage.getItem(FAMILY_KEY) !== familyId) {
       // Разом із даними зникає й черга вивантаження — але вона тут і не могла б
@@ -119,7 +136,7 @@ export function openPowerSync(familyId: string): Promise<PowerSyncDatabase> {
 export function connectPowerSync(
   connector: PowerSyncBackendConnector,
 ): Promise<void> {
-  return enqueue(() => getPowerSync().connect(connector))
+  return enqueue(async () => (await openDatabase()).connect(connector))
 }
 
 /**
