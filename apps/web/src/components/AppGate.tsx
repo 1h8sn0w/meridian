@@ -14,6 +14,7 @@ import { Outlet } from '@tanstack/react-router'
 import { useAuth } from '../lib/auth'
 import { AuthScreen } from './AuthScreen'
 import { FamilySetupScreen } from './FamilySetupScreen'
+import { MealReminders } from './Reminders'
 import { AuthShell, Panel } from './ui'
 
 export function AppGate() {
@@ -43,6 +44,14 @@ export function AppGate() {
     case 'no-family':
       return <FamilySetupScreen />
     case 'ready':
-      return <Outlet />
+      // Такт нагадувань — поруч із маршрутами, а не всередині них (MER-65): він
+      // не має перезапускатися на кожному перемиканні вкладки, і працює
+      // незалежно від відкритого екрана.
+      return (
+        <>
+          <MealReminders />
+          <Outlet />
+        </>
+      )
   }
 }
