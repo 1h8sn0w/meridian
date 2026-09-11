@@ -11,6 +11,7 @@
 # кореневі маніфести й лок-файл. Звідси `dockerfile: infra/web.Dockerfile` і
 # `context: .` у compose.yaml.
 
+# --- Застосунок --------------------------------------------------------------
 FROM node:22-alpine AS build
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -34,12 +35,45 @@ COPY apps ./apps
 # а запечене значення перебило б хіба що порожнечу (src/lib/public-env.ts).
 RUN pnpm --filter "@meridian/web..." build
 
+# --- Caddy, зібраний нами ----------------------------------------------------
+# Офіційний `caddy:2-alpine` зібрано 24.06.2026, і Docker Scout знаходить у
+# ньому 1 Critical + 13 High — усі до одної в Go-модулях, вкомпільованих у
+# бінарник: `stdlib` 1.26.3 (CVE-2026-39821 та ще шість), `x/crypto` 0.52.0,
+# `grpc` 1.81.0, `x/net` 0.55.0. `apk upgrade` тут безсилий — це не пакети
+# Alpine, а новішого релізу Caddy не існує: 2.11.4 і є останній (червень).
+#
+# Тому збираємо ТОЙ САМИЙ Caddy 2.11.4 свіжим Go і з піднятими модулями.
+# Версії нижче — мінімум, у якому CVE закриті, взятий із самого звіту Scout:
+#   Go     >= 1.26.6   (тут 1.26-alpine, тобто 1.26.8)
+#   crypto >= 0.56.0   (беремо 0.57.0)
+#   net    >= 0.56.0   (беремо 0.59.0)
+#   grpc   >= 1.83.1   (беремо 1.83.2)
+#
+# Це тимчасовий шар, і його треба прибрати, щойно upstream випустить образ зі
+# свіжими модулями: перевіряти — `docker run --rm --entrypoint caddy
+# caddy:2-alpine build-info`.
+FROM golang:1.26-alpine AS caddy-build
+# Статичний бінарник: у golang:alpine немає C-компілятора, та й musl у
+# рантаймному образі свій.
+ENV CGO_ENABLED=0
+WORKDIR /build
+COPY infra/caddy-build/main.go .
+RUN go mod init meridian/caddy \
+    && go get github.com/caddyserver/caddy/v2@v2.11.4 \
+    && go mod tidy \
+    && go get golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.59.0 google.golang.org/grpc@v1.83.2 \
+    && go build -trimpath -ldflags '-s -w' -o /out/caddy .
+
+# --- Рантайм -----------------------------------------------------------------
+# Базою лишається офіційний образ: із нього беруться XDG_CONFIG_HOME=/config,
+# XDG_DATA_HOME=/data (там живуть сертифікати Let's Encrypt), робочий каталог
+# /srv і команда за замовчуванням. Підміняється рівно бінарник.
 FROM caddy:2-alpine
 # Пакети базового образу — до найсвіжіших у тій самій гілці Alpine, на яку
 # вказує тег (MER-67): тег довго стоїть на одному знімку, а виправлення CVE
-# виходять раніше, ніж базу перезбирають. Повний апгрейд, а не точковий: гілка
-# прибита тегом, тож це патч-рівень, і наступну CVE бази рядок закриє сам.
+# виходять раніше, ніж базу перезбирають.
 RUN apk upgrade --no-cache
+COPY --from=caddy-build /out/caddy /usr/bin/caddy
 # Caddyfile в образ не кладеться: compose монтує infra/caddy, а без маршрутів до
 # auth, rest і sync цей образ окремо однаково нічого не варт.
 COPY --from=build /app/apps/web/dist /srv
