@@ -37,8 +37,19 @@
 		}
 	}
 
-	# Усе інше — сам застосунок.
+	# Усе інше — сам застосунок, статичними файлами з образу (infra/web.Dockerfile).
+	#
+	# `templates` заповнює конфіг в index.html змінними оточення цього сервісу
+	# (див. compose.yaml) — рівно три PUBLIC_* і більше нічого. Типові MIME для
+	# шаблонів — text/html і text/plain, тож бандли, sw.js і маніфест ідуть як є.
+	#
+	# `try_files` віддає index.html на адреси маршрутів (/week, /recipe/…):
+	# файлів із такими іменами немає, маршрут веде роутер у браузері. Справжні
+	# файли — /assets/*, /icons/*, /sw.js — знаходяться першою ж спробою.
 	handle {
-		reverse_proxy web:3000
+		root * /srv
+		templates
+		try_files {path} /index.html
+		file_server
 	}
 }

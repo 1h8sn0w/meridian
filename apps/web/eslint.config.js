@@ -14,8 +14,7 @@ export default [
       // кладе туди копію вебзбірки — лінтувати нема чого.
       'android/',
       'ios/',
-      '.output/',
-      '.nitro/',
+      'dist/',
       '.tanstack/',
       'src/routeTree.gen.ts',
     ],

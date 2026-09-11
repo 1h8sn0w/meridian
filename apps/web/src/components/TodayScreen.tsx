@@ -57,8 +57,8 @@ export function TasteMark({
 
 export function TodayScreen({ familyId }: { familyId: string }) {
   const now = useNow()
-  const minutes = now === null ? null : minutesOf(now)
-  const todayKey = now === null ? '' : dateKey(now)
+  const minutes = minutesOf(now)
+  const todayKey = dateKey(now)
 
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
@@ -84,10 +84,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell
-      title="Сьогодні"
-      subtitle={now === null ? undefined : formatToday(now)}
-    >
+    <AppShell title="Сьогодні" subtitle={formatToday(now)}>
       <Problems of={problems} />
 
       {profilesRead.data.length ? (
@@ -166,7 +163,7 @@ function CurrentMeal({
   prefs,
   onSwap,
 }: {
-  minutes: number | null
+  minutes: number
   week: WeekView | null
   profileName: string
   portion: PortionLetter | null
@@ -194,15 +191,6 @@ function CurrentMeal({
         <Link to="/week" className="no-underline">
           <Button block>Відкрити екран «Тиждень»</Button>
         </Link>
-      </Panel>
-    )
-  }
-
-  if (minutes === null) {
-    return (
-      <Panel>
-        {heading}
-        <Hint>Читаємо годинник пристрою…</Hint>
       </Panel>
     )
   }

@@ -36,8 +36,7 @@ export const DEFAULT_PROFILE_COLOR = PROFILE_COLORS[0]
  * Прозорий варіант звідси не їде: `--color-accent-soft` — це `color-mix` над
  * тим самим `--accent` (MER-71). Розбирати `#rrggbb` у JS не треба.
  */
-export function applyAccent(color: string): void {
-  if (typeof document === 'undefined') return
+function applyAccent(color: string): void {
   document.documentElement.style.setProperty('--accent', color)
 }
 
@@ -48,9 +47,8 @@ export type ActiveProfile = {
 }
 
 /**
- * Активний профіль зі списку сім'ї. Читаємо `localStorage` в ефекті, а не під
- * час рендера: на сервері його немає, і вгадувати вибір користувача до
- * гідратації не можна.
+ * Активний профіль зі списку сім'ї. Читаємо `localStorage` синхронно:
+ * сервера, який віддавав би розмітку без нього, більше немає.
  */
 export function useActiveProfile(
   profiles: ReadonlyArray<AppProfile>,

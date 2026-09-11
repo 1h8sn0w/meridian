@@ -1,13 +1,13 @@
 {
-  "include": ["**/*.ts", "**/*.tsx", "eslint.config.js", "vite.config.js"],
+  "include": ["**/*.ts", "**/*.tsx", "eslint.config.js"],
 
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    /* `node` доданий у MER-45: серверні функції TanStack Start читають
-       process.env, і без цього типів для `node:process` немає. */
+    /* `node` — для юніт-тестів під `node --test` (`node:test`, `node:assert`),
+       і лише для них: коду, що виконується на сервері, у застосунку немає. */
     "types": ["vite/client", "node"],
 
     /* Bundler mode */

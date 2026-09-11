@@ -32,7 +32,7 @@ import type {
 export type AppProfile = Profile & { color: string }
 
 /** Порядок слотів у картці дня — хронологічний, як вікна годинника (MER-9). */
-export const SLOT_ORDER: ReadonlyArray<MealType> = [
+const SLOT_ORDER: ReadonlyArray<MealType> = [
   'breakfast',
   'lunch',
   'snack',

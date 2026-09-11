@@ -1,16 +1,14 @@
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
-
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { nitro } from 'nitro/vite'
 
-const config = defineConfig(({ mode }) => ({
+export default defineConfig({
   // `PUBLIC_` — щоб імена змінних у розробці збігалися з контрактом
   // infra/.env.example, а не жили окремим словником під власним префіксом
-  // (MER-45). У продакшні ці ж значення приходять рантаймом, із process.env.
+  // (MER-45). Запікаються вони лише туди, де шаблон конфігу в index.html ніхто
+  // не заповнює: `pnpm dev` і нативна збірка (src/lib/public-env.ts).
   envPrefix: ['PUBLIC_'],
   // @powersync/web несе WASM і web-workers, і попередня оптимізація Vite їх
   // ламає — це вимога офіційного прикладу (demos/example-vite у
@@ -20,19 +18,10 @@ const config = defineConfig(({ mode }) => ({
   worker: { format: 'es' },
   plugins: [
     devtools(),
-    nitro(),
+    // Роутер — до плагіна React: він генерує src/routeTree.gen.ts і розрізає
+    // файли маршрутів на окремі чанки, які вантажаться при переході.
+    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     tailwindcss(),
-    // `--mode native` — збірка під Capacitor (MER-50): сервера в телефоні немає,
-    // тож `spa.prerender` домальовує статичний `index.html`, який відкриє
-    // webview. Наслідок: `PUBLIC_*` запікаються на етапі ЗБІРКИ, а не рантайму,
-    // — на відміну від вебу (MER-45). Подробиці в apps/web/README.md.
-    tanstackStart(
-      mode === 'native'
-        ? { spa: { enabled: true, prerender: { outputPath: '/index.html' } } }
-        : undefined,
-    ),
     viteReact(),
   ],
-}))
-
-export default config
+})

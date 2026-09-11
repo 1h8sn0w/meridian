@@ -78,12 +78,11 @@ function ReminderTicker() {
   const week = useWeek(
     profile ? planOwnerId(profile) : null,
     meals.data,
-    now === null ? '' : dateKey(now),
+    dateKey(now),
   )
   const plan = week.data
 
   useEffect(() => {
-    if (now === null) return
     // Налаштування й дозвіл читаються щотакту: користувач міг вимкнути
     // нагадування хвилину тому — або заблокувати їх у налаштуваннях браузера,
     // про що застосунку ніхто не повідомляє.
@@ -125,8 +124,8 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const [permission, setPermission] = useState<NotificationState>('default')
   const [error, setError] = useState<string | null>(null)
 
-  // Стан пристрою читається в ефекті, а не під час рендера: на сервері немає ні
-  // `localStorage`, ні `Notification` (той самий прийом, що в `active-profile`).
+  // Дозвіл і налаштування читаються в ефекті: до першого рендера вони не
+  // потрібні, а дозвіл ще й міняється ззовні застосунку.
   // «Заблоковано» видно одразу, ще до дотику до перемикача: інакше єдиною
   // підказкою був би перемикач, що мовчки не вмикається.
   useEffect(() => {
