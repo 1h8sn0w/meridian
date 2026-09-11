@@ -125,8 +125,8 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const [permission, setPermission] = useState<NotificationState>('default')
   const [error, setError] = useState<string | null>(null)
 
-  // Стан пристрою читається в ефекті, а не під час рендера: на сервері немає ні
-  // `localStorage`, ні `Notification` (той самий прийом, що в `active-profile`).
+  // Дозвіл і налаштування читаються в ефекті: до першого рендера вони не
+  // потрібні, а дозвіл ще й міняється ззовні застосунку.
   // «Заблоковано» видно одразу, ще до дотику до перемикача: інакше єдиною
   // підказкою був би перемикач, що мовчки не вмикається.
   useEffect(() => {

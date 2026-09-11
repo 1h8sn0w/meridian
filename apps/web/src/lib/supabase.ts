@@ -18,11 +18,6 @@ import type { PublicEnv } from './public-env'
 let client: SupabaseClient | null = null
 
 export function getSupabase(env: PublicEnv): SupabaseClient {
-  if (typeof window === 'undefined') {
-    // Сервер до GoTrue не ходить свідомо: сесія живе на пристрої, і саме тому
-    // сервісу `web` не потрібна мережа Supabase (див. infra/README.md).
-    throw new Error('Клієнт Supabase доступний лише у браузері')
-  }
   if (!client) {
     client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
       auth: {

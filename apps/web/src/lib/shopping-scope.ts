@@ -31,8 +31,8 @@ export type ActiveScope = {
 }
 
 /**
- * Вибране охоплення. `localStorage` читається в ефекті, а не під час рендера:
- * на сервері його немає, і вгадувати вибір користувача до гідратації не можна.
+ * Вибране охоплення. `localStorage` читається синхронно: сервера, який
+ * віддавав би розмітку без нього, більше немає.
  */
 export function useShoppingScope(
   profiles: ReadonlyArray<AppProfile>,

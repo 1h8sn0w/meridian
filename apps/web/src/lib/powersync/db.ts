@@ -4,9 +4,9 @@
  * Джерело істини для інтерфейсу — саме ця база на пристрої: читання й записи
  * не чекають мережі ніколи. PowerSync фоном тримає її в збіжності з Postgres.
  *
- * Модуль **лише браузерний**. `@powersync/web` тягне WASM і web-workers, тож
- * імпортувати його на сервері не можна — звідси й динамічний імпорт у
- * `provider.tsx`, і перевірка нижче.
+ * Модуль **лише браузерний**: `@powersync/web` тягне WASM і web-workers, і
+ * вантажиться динамічно з ефекту (`provider.tsx`) — у стартовому чанку йому
+ * нема чого робити.
  */
 
 import type {
@@ -69,9 +69,6 @@ function enqueue<T>(work: () => Promise<T>): Promise<T> {
  * (на iOS/Android — замість wa-sqlite у WASM).
  */
 async function openDatabase(): Promise<PowerSyncDatabase> {
-  if (typeof window === 'undefined') {
-    throw new Error('Локальний SQLite доступний лише у браузері')
-  }
   if (!database) {
     const { PowerSyncDatabase } =
       import.meta.env.MODE === 'native'

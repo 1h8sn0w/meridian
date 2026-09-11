@@ -10,15 +10,15 @@
  * вказує в нікуди, вирішує кожен виклик сам — правила самозцілення в них різні.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 /**
  * Збережений вибір пристрою.
  *
- * Читається В ЕФЕКТІ, а не під час рендера: на сервері `localStorage` немає, і
- * вгадувати вибір користувача до гідратації не можна — розмітка смикнулась би.
- * Тому до першого ефекту значення завжди `null`, і це нормальний стан, а не
- * «нічого не вибрано».
+ * Читається синхронно, ще до першого рендера. Раніше читання жило в ефекті,
+ * бо розмітку віддавав сервер, на якому `localStorage` не існує; відколи
+ * застосунок статичний, стану «ще не знаємо» немає — а був він видимий:
+ * перший кадр показував вибір за замовчуванням і аж потім справжній.
  *
  * `null` у сеттері стирає ключ: сентинел на кшталт «усі профілі» не має
  * лишатися в сховищі рядком, який колись доведеться відрізняти від id.
@@ -26,19 +26,14 @@ import { useCallback, useEffect, useState } from 'react'
 export function useStoredChoice(
   key: string,
 ): [string | null, (next: string | null) => void] {
-  const [stored, setStored] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (typeof window !== 'undefined')
-      setStored(window.localStorage.getItem(key))
-  }, [key])
+  const [stored, setStored] = useState<string | null>(() =>
+    window.localStorage.getItem(key),
+  )
 
   const write = useCallback(
     (next: string | null) => {
-      if (typeof window !== 'undefined') {
-        if (next === null) window.localStorage.removeItem(key)
-        else window.localStorage.setItem(key, next)
-      }
+      if (next === null) window.localStorage.removeItem(key)
+      else window.localStorage.setItem(key, next)
       setStored(next)
     },
     [key],

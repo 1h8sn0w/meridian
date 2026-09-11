@@ -124,7 +124,6 @@ export function reminderMessage(
 
 /** Збережене поверх типового, з валідацією: чуже значення мовчки ігнорується. */
 export function readSettings(): ReminderSettings {
-  if (typeof window === 'undefined') return DEFAULT_SETTINGS
   const raw = window.localStorage.getItem(SETTINGS_KEY)
   if (!raw) return DEFAULT_SETTINGS
   try {
@@ -142,14 +141,12 @@ export function readSettings(): ReminderSettings {
 }
 
 export function writeSettings(settings: ReminderSettings): void {
-  if (typeof window === 'undefined') return
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
 }
 
 /* Позначки надісланого за поточну добу: запис іншої дати витісняє вчорашній,
  * тож окремого прибирання не потрібно. */
 export function readFired(dateKey: string): Array<MealType> {
-  if (typeof window === 'undefined') return []
   try {
     const saved = JSON.parse(
       window.localStorage.getItem(FIRED_KEY) ?? 'null',
@@ -163,7 +160,6 @@ export function readFired(dateKey: string): Array<MealType> {
 }
 
 export function markFired(dateKey: string, type: MealType): void {
-  if (typeof window === 'undefined') return
   window.localStorage.setItem(
     FIRED_KEY,
     JSON.stringify({ date: dateKey, types: readFired(dateKey).concat(type) }),
@@ -173,7 +169,6 @@ export function markFired(dateKey: string, type: MealType): void {
 /** Забути надіслане: після вмикання й зміни випередження — щоб сьогоднішні
  *  позначки не глушили те, про що користувач щойно попросив. */
 export function clearFired(): void {
-  if (typeof window === 'undefined') return
   window.localStorage.removeItem(FIRED_KEY)
 }
 
@@ -213,9 +208,7 @@ const direct: Array<Notification> = []
  * розв'язується ніколи, і в `pnpm dev` показ просто завис би. */
 function controllingWorker(): boolean {
   return (
-    typeof navigator !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    navigator.serviceWorker.controller !== null
+    'serviceWorker' in navigator && navigator.serviceWorker.controller !== null
   )
 }
 
