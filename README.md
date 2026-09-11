@@ -48,13 +48,13 @@ Signup is open by default, because a fresh stack has to let someone create the f
 
 ## Where it stands
 
-V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and seven tables syncing across a family's devices. Still ahead: the Capacitor build.
+V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and seven tables syncing across a family's devices. Still ahead: a store release of the mobile build — the wrapper and both native projects are in the repository, but nothing has been compiled on a device yet.
 
 V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity. It stays in git history, and on GitHub Pages until `staging` lands on `main`; the localStorage data it left behind is imported by V2 from the Family screen.
 
 ## Stack
 
-The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is Vite + TanStack Start on Node, and Capacitor will later wrap that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
+The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is a static Vite + TanStack Router SPA — there is no application server at all: Caddy serves the files and fills the browser’s three configuration values into `index.html` as it serves them. Capacitor wraps that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
 
 <details>
 <summary>Working on the styles</summary>
@@ -73,8 +73,8 @@ The repository is a pnpm workspace:
 
 | Path | What |
 |------|------|
-| `compose.yaml` | The self-host stack, whole: eight services, zero manual steps |
-| `apps/web` | Vite + TanStack Start app; Capacitor will later wrap this same build |
+| `compose.yaml` | The self-host stack, whole: seven services, zero manual steps |
+| `apps/web` | Static Vite + TanStack Router app; Capacitor wraps this same build |
 | `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
 | `packages/db` | SQL migrations for Postgres and the script that applies them |
 | `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |

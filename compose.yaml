@@ -14,8 +14,8 @@
 #   auth       GoTrue — реєстрація й вхід
 #   rest       PostgREST — запис із клієнта (LWW, MER-46)
 #   powersync  сервіс синхронізації на пристрої
-#   web        сам застосунок (SSR, збірка з вихідників)
-#   caddy      єдиний вхід: 80/443, усе інше назовні не публікується
+#   caddy      єдиний вхід на 80/443 і сам застосунок — статичні файли в образі
+#              (збірка з вихідників); усе інше назовні не публікується
 #
 # Це підмножина офіційного self-host Supabase — рівно ті три сервіси, якими
 # застосунок користується. Studio, Realtime, Storage, edge-функції, аналітика й
@@ -27,7 +27,7 @@
 #
 # Caddy віддає весь стек з ОДНОГО походження, розкладаючи його шляхами:
 #
-#   /            → web         /auth/v1/* → auth
+#   /            → застосунок  /auth/v1/* → auth
 #   /rest/v1/*   → rest        /sync/*    → powersync
 #
 # Тому в браузері немає ні портів, ні других імен хостів — усе відносно тієї
@@ -238,52 +238,48 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # --- Застосунок ------------------------------------------------------------
-  web:
+  # --- Єдиний вхід і сам застосунок ------------------------------------------
+  # Застосунок — статичні файли в образі Caddy (infra/web.Dockerfile), тож
+  # окремого сервісу під нього немає. Три значення конфігу для браузера Caddy
+  # вписує в index.html сам (`templates`, infra/caddy/Caddyfile).
+  caddy:
     build:
       context: .
       dockerfile: infra/web.Dockerfile
     restart: unless-stopped
+    # З app.env береться РІВНО anon-ключ, і читається файл у підоболонці: у
+    # оточення Caddy не потрапляє ні JWT_SECRET, ні пароль бази. Це важливо саме
+    # тут — `templates` уміє вивести в сторінку будь-яку змінну оточення.
     entrypoint:
       - /bin/sh
       - -c
       - |
-        set -a; . /secrets/app.env; set +a
-        export PUBLIC_SUPABASE_ANON_KEY="$$ANON_KEY"
-        exec node .output/server/index.mjs
-    environment:
-      PORT: 3000
-      # Адреси для браузера. Одне походження на все — тому це та сама APP_URL,
-      # яку відкриває користувач, а не окремі порти сервісів.
-      PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
-      PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
-    volumes:
-      - secrets:/secrets:ro
-    depends_on:
-      init:
-        condition: service_completed_successfully
-      auth:
-        condition: service_healthy
-
-  # --- Єдиний вхід -----------------------------------------------------------
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
+        export PUBLIC_SUPABASE_ANON_KEY="$$(. /secrets/app.env; printf %s "$$ANON_KEY")"
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports:
       - '${HTTP_PORT:-80}:80'
       - '${HTTPS_PORT:-443}:443'
       - '${HTTPS_PORT:-443}:443/udp'
     volumes:
       - ./infra/caddy:/etc/caddy:ro
+      - secrets:/secrets:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:
       APP_URL: ${APP_URL:-http://localhost}
+      # Адреси для браузера. Одне походження на все — тому це та сама APP_URL,
+      # яку відкриває користувач, а не окремі порти сервісів.
+      PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
+      PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
     depends_on:
-      - web
-      - auth
-      - rest
-      - powersync
+      init:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      powersync:
+        condition: service_started
 
 volumes:
   secrets:

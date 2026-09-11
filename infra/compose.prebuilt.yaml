@@ -1,4 +1,5 @@
-# Накладка: `web` береться готовим образом замість збірки з вихідників.
+# Накладка: `caddy` береться готовим образом замість збірки з вихідників —
+# застосунок лежить статичними файлами саме в ньому (infra/web.Dockerfile).
 #
 #   docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d
 #
@@ -20,6 +21,6 @@
 # Compose спробував би і зібрати, і завантажити образ.
 
 services:
-  web:
+  caddy:
     image: ${WEB_IMAGE:?задайте WEB_IMAGE у .env, напр. <namespace>/meridian:staging}
     build: !reset null

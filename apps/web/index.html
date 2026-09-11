@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Свідомо БЕЗ `viewport-fit=cover`: він розтягує viewport під вирізи, і
+         безпечні поля довелося б відбивати руками з усіх боків, зокрема згори,
+         де липка шапка лягла б під системну смугу. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meridian</title>
+    <!-- PWA (MER-51). Колір той самий, що --color-app: у standalone ним
+         фарбується системна смуга, і будь-яка інша цифра дала б шов. -->
+    <meta name="theme-color" content="#0f1115" />
+    <!-- iOS маніфест не читає — режим і заголовок задаються метами. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Меридіан" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/icons/icon-192.png"
+    />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <!-- Публічний конфіг (MER-45). Шаблон заповнює Caddy на кожній відповіді
+         (директива `templates`, infra/caddy/Caddyfile) — так один образ їде на
+         будь-який self-host без перезбірки. Dev-сервер Vite і Capacitor віддають
+         файл як є; тоді шаблон лишається незаповненим, і src/lib/public-env.ts
+         бере значення, запечені під час збірки. Одинарні лапки — не стиль:
+         `js` екранує саме їх, а подвійні живуть усередині шаблону. -->
+    <script>
+      window.__MERIDIAN_ENV__ = {
+        supabaseUrl: '{{env "PUBLIC_SUPABASE_URL" | js}}',
+        supabaseAnonKey: '{{env "PUBLIC_SUPABASE_ANON_KEY" | js}}',
+        powersyncUrl: '{{env "PUBLIC_POWERSYNC_URL" | js}}',
+      }
+    </script>
+  </head>
+  <body class="bg-app font-sans text-content">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
