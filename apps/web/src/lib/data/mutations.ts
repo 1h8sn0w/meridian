@@ -51,6 +51,30 @@ function flag(value: boolean): number {
   return value ? 1 : 0
 }
 
+/**
+ * М'яке видалення: `deleted_at` замість DELETE (правило модуля).
+ *
+ * `AND deleted_at IS NULL` дописується завжди — інакше повторний виклик зрушив
+ * би позначку часу вже видаленому рядку, а це для LWW нова зміна: рядок,
+ * видалений на іншому пристрої хвилину тому, «оживав» би на секунду при кожному
+ * каскаді. Два з восьми викликів цю умову раніше не мали.
+ *
+ * `table` і `where` — ЛІТЕРАЛИ з цього файлу, ніколи не ввід користувача;
+ * значення йдуть параметрами, як і скрізь.
+ */
+function softDelete(
+  tx: Pick<Db, 'execute'>,
+  table: string,
+  where: string,
+  params: ReadonlyArray<unknown>,
+  at: string,
+): Promise<unknown> {
+  return tx.execute(
+    `UPDATE ${table} SET deleted_at = ? WHERE ${where} AND deleted_at IS NULL`,
+    [at, ...params],
+  )
+}
+
 /* ==========================================================================
  * Страви
  * ======================================================================== */
@@ -136,17 +160,9 @@ export async function updateMeal(
 export async function deleteMeal(db: Db, id: string): Promise<void> {
   const at = now()
   await db.writeTransaction(async (tx) => {
-    await tx.execute('UPDATE meal SET deleted_at = ? WHERE id = ?', [at, id])
-    await tx.execute(
-      'UPDATE meal_pref SET deleted_at = ?' +
-        ' WHERE meal_id = ? AND deleted_at IS NULL',
-      [at, id],
-    )
-    await tx.execute(
-      'UPDATE recipe SET deleted_at = ?' +
-        ' WHERE meal_id = ? AND deleted_at IS NULL',
-      [at, id],
-    )
+    await softDelete(tx, 'meal', 'id = ?', [id], at)
+    await softDelete(tx, 'meal_pref', 'meal_id = ?', [id], at)
+    await softDelete(tx, 'recipe', 'meal_id = ?', [id], at)
   })
 }
 
@@ -277,10 +293,7 @@ export async function setMealPref(
 
     if (!value) {
       if (live) {
-        await tx.execute('UPDATE meal_pref SET deleted_at = ? WHERE id = ?', [
-          now(),
-          live.id,
-        ])
+        await softDelete(tx, 'meal_pref', 'id = ?', [live.id], now())
       }
       return
     }
@@ -427,12 +440,13 @@ export async function clearStaleChecks(
 ): Promise<void> {
   if (!fingerprint.trim()) return
   const cutoff = new Date(Date.now() - STALE_CHECK_DAYS * 24 * 60 * 60 * 1000)
-  await db.execute(
-    'UPDATE shopping_check SET deleted_at = ?' +
-      ' WHERE fingerprint <> ? AND deleted_at IS NULL' +
-      ' AND updated_at IS NOT NULL' +
+  await softDelete(
+    db,
+    'shopping_check',
+    'fingerprint <> ? AND updated_at IS NOT NULL' +
       " AND replace(substr(updated_at, 1, 19), ' ', 'T') < ?",
-    [now(), fingerprint, cutoff.toISOString().slice(0, 19)],
+    [fingerprint, cutoff.toISOString().slice(0, 19)],
+    now(),
   )
 }
 
@@ -516,22 +530,14 @@ export async function updateProfile(
 export async function deleteProfile(db: Db, id: string): Promise<void> {
   const at = now()
   await db.writeTransaction(async (tx) => {
-    await tx.execute('UPDATE profile SET deleted_at = ? WHERE id = ?', [at, id])
+    await softDelete(tx, 'profile', 'id = ?', [id], at)
     await tx.execute(
       'UPDATE profile SET shared_plan_with = NULL' +
         ' WHERE shared_plan_with = ? AND deleted_at IS NULL',
       [id],
     )
-    await tx.execute(
-      'UPDATE plan_slot SET deleted_at = ?' +
-        ' WHERE profile_id = ? AND deleted_at IS NULL',
-      [at, id],
-    )
-    await tx.execute(
-      'UPDATE week_plan SET deleted_at = ?' +
-        ' WHERE profile_id = ? AND deleted_at IS NULL',
-      [at, id],
-    )
+    await softDelete(tx, 'plan_slot', 'profile_id = ?', [id], at)
+    await softDelete(tx, 'week_plan', 'profile_id = ?', [id], at)
   })
 }
 
@@ -655,15 +661,8 @@ export async function saveWeek(
     for (const row of previous) {
       // Слоти, які новий план перекрив, уже вказують на нього — під цей UPDATE
       // потрапляють лише «хвости» коротшого тижня.
-      await tx.execute(
-        'UPDATE plan_slot SET deleted_at = ?' +
-          ' WHERE week_plan_id = ? AND deleted_at IS NULL',
-        [at, row.id],
-      )
-      await tx.execute('UPDATE week_plan SET deleted_at = ? WHERE id = ?', [
-        at,
-        row.id,
-      ])
+      await softDelete(tx, 'plan_slot', 'week_plan_id = ?', [row.id], at)
+      await softDelete(tx, 'week_plan', 'id = ?', [row.id], at)
     }
   })
 

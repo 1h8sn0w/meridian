@@ -6,6 +6,11 @@
 // рядка локального SQLite, — `rows.ts`, і він лише мапить рядок у доменний
 // об'єкт; далі по коду ходять уже об'єкти.
 
+// Тут лише те, що справді імпортує споживач. Усе інше лишається видимим
+// усередині пакета (модулі імпортують одне одного напряму, як і тести) — барель
+// описує ПУБЛІЧНУ поверхню, і кожне зайве ім'я в ньому доводиться потім
+// підтримувати як обіцянку. Знадобиться — повертається одним рядком.
+
 export { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
 export type {
   DayCalories,
@@ -14,7 +19,6 @@ export type {
   MealPrefValue,
   MealType,
   PlanDay,
-  PlannedMeal,
   Portion,
   PortionLetter,
   Profile,
@@ -33,18 +37,9 @@ export {
   formatMealCalories,
   hasMacros,
   hasValue,
-  optionalNumber,
 } from './provenance.ts'
 
-export {
-  allWeekMeals,
-  isMixedWeek,
-  mealPlans,
-  mixPossibleIn,
-  plansCovering,
-  poolPlans,
-  weekSources,
-} from './plans.ts'
+export { weekSources } from './plans.ts'
 
 export { planOwnerId, poolForProfile } from './profile.ts'
 
@@ -64,19 +59,8 @@ export {
 } from './calendar.ts'
 export type { CalendarSlot } from './calendar.ts'
 
-export {
-  SHOPPING_CATEGORIES,
-  aggregate,
-  categoryOf,
-  nameKey,
-  planFingerprint,
-} from './shopping.ts'
-export type {
-  PlannedSlot,
-  ShoppingCategory,
-  ShoppingItem,
-  ShoppingItems,
-} from './shopping.ts'
+export { SHOPPING_CATEGORIES, aggregate, planFingerprint } from './shopping.ts'
+export type { ShoppingItem } from './shopping.ts'
 
 export {
   mealFromRow,
@@ -97,19 +81,12 @@ export {
 export type { IdKind } from './sync-ids.ts'
 
 export { parsePlanText, planEntryKey } from './parse-plan.ts'
-export type {
-  PlanEntry,
-  PlanEntryKind,
-  PlanFlag,
-  PlanParse,
-  PlanStats,
-} from './parse-plan.ts'
+export type { PlanEntry, PlanParse } from './parse-plan.ts'
 
 export { MEALS_KEY, PREFS_KEY, PROFILES_KEY, migrateV1 } from './migrate-v1.ts'
 export type {
   MigratedPref,
   MigratedProfile,
   MigratedRecipe,
-  Skipped,
   V1Migration,
 } from './migrate-v1.ts'
