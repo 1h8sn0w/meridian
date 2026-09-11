@@ -50,8 +50,7 @@ import { Button, Hint, Meta, Panel, Problems, Tag, Warn } from './ui'
 
 export function WeekScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
-  const now = useNow()
-  const todayKey = now === null ? '' : dateKey(now)
+  const todayKey = dateKey(useNow())
 
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
@@ -66,7 +65,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const windowSize = precedingWindow(antiRepeatDays)
   const preceding = usePrecedingSlots(
     ownerId,
-    todayKey ? addDays(todayKey, -windowSize) : '',
+    addDays(todayKey, -windowSize),
     todayKey,
   )
 
@@ -87,7 +86,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
       : null
 
   const regenerate = async () => {
-    if (!owner || !ownerId || !todayKey) return
+    if (!owner || !ownerId) return
     setBusy(true)
     setError(null)
     try {
@@ -149,7 +148,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           <Button
             block
             variant="primary"
-            disabled={busy || !!sharedNote || !todayKey}
+            disabled={busy || !!sharedNote}
             onClick={() => void regenerate()}
           >
             {busy

@@ -33,8 +33,7 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [confirmSent, setConfirmSent] = useState('')
-  const now = useNow()
-  const minutes = now === null ? null : minutesOf(now)
+  const minutes = minutesOf(useNow())
 
   const submit = async () => {
     setBusy(true)

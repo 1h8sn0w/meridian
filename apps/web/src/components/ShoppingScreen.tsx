@@ -61,8 +61,7 @@ import {
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
-  const now = useNow()
-  const todayKey = now === null ? '' : dateKey(now)
+  const todayKey = dateKey(useNow())
 
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
@@ -87,12 +86,9 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
    *
    * `isLoading` у `useQuery` показує лише ПЕРШЕ завантаження й більше не
    * підіймається, коли міняються параметри запиту (це `isFetching`). А
-   * параметри тут міняються двічі за старт: `todayKey` приходить із ефекту
-   * (`useNow`), а власники — з відповіді про профілі. Тому обидва перелічені
-   * прямо: доки годинник пристрою не прочитано, ми не знаємо навіть, який
-   * тиждень поточний. */
+   * власники приходять із відповіді про профілі, тобто параметри вибірки планів
+   * міняються вже після старту — тому кожне джерело перелічене тут прямо. */
   const isLoading =
-    !todayKey ||
     mealsRead.isLoading ||
     profilesRead.isLoading ||
     weeksRead.isLoading ||

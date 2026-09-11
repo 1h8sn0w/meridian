@@ -6,9 +6,7 @@
  * застосунку.
  *
  * Час приходить згори (`useNow`), а не читається тут: активний прийом і картка
- * страви під ним мусять показувати одну й ту саму хвилину. Доки часу немає
- * (сервер, перший кадр) — малюємо кільце без стрілки: чужий годинник показувати
- * не можна.
+ * страви під ним мусять показувати одну й ту саму хвилину.
  */
 
 import { MEAL_TYPE_LABELS } from '@meridian/core'
@@ -35,11 +33,11 @@ export function DayClock({
   minutes,
   full = false,
 }: {
-  minutes: number | null
+  minutes: number
   full?: boolean
 }) {
-  const active = minutes === null ? null : slotAt(minutes)
-  const hand = minutes === null ? null : handPoints(minutes)
+  const active = slotAt(minutes)
+  const hand = handPoints(minutes)
 
   return (
     <div className="flex flex-col items-center">
@@ -82,7 +80,7 @@ export function DayClock({
           <path
             key={w.type}
             className={
-              active?.type === w.type ? 'stroke-accent' : 'stroke-segment'
+              active.type === w.type ? 'stroke-accent' : 'stroke-segment'
             }
             d={arcPath(w.startMinute + GAP, w.endMinute - GAP)}
             fill="none"
@@ -94,7 +92,7 @@ export function DayClock({
         {full
           ? MEAL_WINDOWS.map((w) => {
               const point = labelPoint(windowMiddle(w))
-              const on = active?.type === w.type
+              const on = active.type === w.type
               return (
                 <text
                   key={w.type}
@@ -114,19 +112,17 @@ export function DayClock({
             })
           : null}
 
-        {hand ? (
-          <line
-            className="stroke-warning"
-            strokeWidth={2}
-            strokeLinecap="round"
-            x1={hand.x1}
-            y1={hand.y1}
-            x2={hand.x2}
-            y2={hand.y2}
-          />
-        ) : null}
+        <line
+          className="stroke-warning"
+          strokeWidth={2}
+          strokeLinecap="round"
+          x1={hand.x1}
+          y1={hand.y1}
+          x2={hand.x2}
+          y2={hand.y2}
+        />
 
-        {full && active ? (
+        {full ? (
           <>
             <text
               className="fill-content text-base font-semibold"
@@ -154,10 +150,8 @@ export function DayClock({
         ) : null}
       </svg>
 
-      {/* Поки годинник не прочитано, місце під підпис лишається зайнятим —
-          інакше форма підстрибує на першому кадрі після гідратації. */}
-      <p className="mb-0 mt-2 min-h-5 text-center text-sm text-muted">
-        {minutes === null || active === null ? null : active.type ? (
+      <p className="mb-0 mt-2 text-center text-sm text-muted">
+        {active.type ? (
           <>
             Зараз <span className="text-accent">{formatMinute(minutes)}</span> —
             час {active.window.genitive}.

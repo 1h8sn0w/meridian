@@ -52,8 +52,7 @@ import { Button, Hint, Meta, Panel, Problems, Tag } from './ui'
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
 
 export function CalendarScreen() {
-  const now = useNow()
-  const todayKey = now === null ? '' : dateKey(now)
+  const todayKey = dateKey(useNow())
 
   const mealsRead = useMeals()
   const profilesRead = useProfiles()

@@ -78,12 +78,11 @@ function ReminderTicker() {
   const week = useWeek(
     profile ? planOwnerId(profile) : null,
     meals.data,
-    now === null ? '' : dateKey(now),
+    dateKey(now),
   )
   const plan = week.data
 
   useEffect(() => {
-    if (now === null) return
     // Налаштування й дозвіл читаються щотакту: користувач міг вимкнути
     // нагадування хвилину тому — або заблокувати їх у налаштуваннях браузера,
     // про що застосунку ніхто не повідомляє.

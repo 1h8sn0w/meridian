@@ -6,9 +6,10 @@
  * читав `new Date()` сам, і саме з такої розсинхронізації ростуть помилки на
  * межі доби.
  *
- * `null` до першого ефекту — навмисно: на сервері годинника користувача немає,
- * і відрендерити там будь-який час означало б смикнути розмітку під час
- * гідратації (та сама причина, що й у `DayClock` з MER-45).
+ * Час є вже на першому кадрі. Раніше хук починав із `null`, бо розмітку віддавав
+ * сервер, на якому годинника користувача немає; відколи застосунок статичний,
+ * цей стан лишався б лише приводом для кожного екрана описувати «часу ще
+ * немає» — стан, у якому вони вже не бувають.
  */
 
 import { useEffect, useState } from 'react'
@@ -16,13 +17,11 @@ import { useEffect, useState } from 'react'
 /** Пів хвилини — як у V1: активний прийом змінюється не частіше. */
 const TICK_MS = 30_000
 
-export function useNow(): Date | null {
-  const [now, setNow] = useState<Date | null>(null)
+export function useNow(): Date {
+  const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
-    const tick = () => setNow(new Date())
-    tick()
-    const timer = window.setInterval(tick, TICK_MS)
+    const timer = window.setInterval(() => setNow(new Date()), TICK_MS)
     return () => window.clearInterval(timer)
   }, [])
 
