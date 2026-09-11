@@ -46,7 +46,7 @@ import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import { SwapDialog } from './SwapDialog'
 import { TasteMark } from './TodayScreen'
-import { Button, Hint, Meta, Panel, Tag, Warn } from './ui'
+import { Button, Hint, Meta, Panel, Problems, Tag, Warn } from './ui'
 
 export function WeekScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -120,10 +120,10 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
   const view = week.data
   const problems = [
-    ...mealsRead.problems,
-    ...profilesRead.problems,
-    ...prefsRead.problems,
-    ...week.problems,
+    mealsRead.problems,
+    profilesRead.problems,
+    prefsRead.problems,
+    week.problems,
   ]
 
   return (
@@ -135,9 +135,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           : 'План на 7 днів'
       }
     >
-      {problems.map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       {!profile ? (
         <Panel title="Спершу — профіль">

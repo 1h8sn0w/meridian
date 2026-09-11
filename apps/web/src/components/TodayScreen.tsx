@@ -39,7 +39,7 @@ import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RemindersPanel } from './Reminders'
 import { SwapDialog } from './SwapDialog'
-import { Button, Hint, Panel, Tag, Warn } from './ui'
+import { Button, Hint, Panel, Problems, Tag } from './ui'
 
 /** Позначка смаку (MER-18) — та сама, що в плані тижня й у списку страв. */
 export function TasteMark({
@@ -77,10 +77,10 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   } | null>(null)
 
   const problems = [
-    ...mealsRead.problems,
-    ...profilesRead.problems,
-    ...prefsRead.problems,
-    ...week.problems,
+    mealsRead.problems,
+    profilesRead.problems,
+    prefsRead.problems,
+    week.problems,
   ]
 
   return (
@@ -88,9 +88,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
       title="Сьогодні"
       subtitle={now === null ? undefined : formatToday(now)}
     >
-      {problems.map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       {profilesRead.data.length ? (
         <ProfileSwitcher

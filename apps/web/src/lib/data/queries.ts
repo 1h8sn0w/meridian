@@ -70,22 +70,59 @@ function withQueryError(
   return error ? problems.concat('Запит до бази: ' + error.message) : problems
 }
 
+/**
+ * Реактивне читання: запит до локальної бази плюс порядковий розбір рядків.
+ *
+ * Форма відповіді (`data` / `isLoading` / `problems`) однакова для всіх читань
+ * у цьому файлі, і збирали її раніше одинадцять однакових `useMemo`. Сам
+ * розбір лишається порядковим — биті рядки стають попередженнями, а не білим
+ * екраном.
+ *
+ * `reduce` приймає вже розібрані елементи, а не рядки: усе, що вміє кинути,
+ * має пройти через `mapRows`.
+ */
+function useRead<TItem, TOut>(
+  sql: string,
+  params: ReadonlyArray<unknown>,
+  map: (row: Row) => TItem,
+  reduce: (items: Array<TItem>) => TOut,
+  /**
+   * Значення, які `reduce` бере ІЗЗОВНІ (пул страв, наприклад). Самі `map` і
+   * `reduce` в залежностях не мають сенсу — на кожному рендері вони нові, — а
+   * от те, що вони замикають, мінятися може, і пропустити це означало б
+   * показати старий пул під новими рядками.
+   */
+  deps: ReadonlyArray<unknown> = [],
+): Read<TOut> {
+  const { data, isLoading, error } = useQuery<Row>(sql, [...params])
+  return useMemo(() => {
+    const { items, problems } = mapRows(data, map)
+    return {
+      data: reduce(items),
+      isLoading,
+      problems: withQueryError(problems, error),
+    }
+  }, [data, error, isLoading, ...deps])
+}
+
+/** Найчастіший випадок: список розібраних рядків як є. */
+const asList = <T>(items: Array<T>): Array<T> => items
+
+/** Перший рядок або `null` — для читань із `LIMIT 1`. */
+const asFirst = <T>(items: Array<T>): T | null =>
+  items.length ? items[0] : null
+
 /* ==========================================================================
  * Пул страв — спільний для сім'ї (як `meridian.meals.v1` у V1)
  * ======================================================================== */
 
 export function useMeals(): Read<Array<Meal>> {
-  const { data, isLoading, error } = useQuery<Row>(
+  return useRead(
     'SELECT * FROM meal WHERE deleted_at IS NULL ORDER BY name',
+    [],
+    mealFromRow,
+    asList,
   )
-  return useMemo(() => {
-    const { items, problems } = mapRows(data, mealFromRow)
-    return {
-      data: items,
-      isLoading,
-      problems: withQueryError(problems, error),
-    }
-  }, [data, error, isLoading])
 }
 
 /** Пул як мапа id → страва: план посилається на страви саме за id. */
@@ -108,18 +145,12 @@ function mealsById(meals: ReadonlyArray<Meal>): Map<string, Meal> {
  * необов'язкові, а PDF їх не дає зовсім.
  */
 export function useRecipe(mealId: string): Read<Recipe | null> {
-  const { data, isLoading, error } = useQuery<Row>(
+  return useRead(
     'SELECT * FROM recipe WHERE meal_id = ? AND deleted_at IS NULL LIMIT 1',
     [mealId],
+    recipeFromRow,
+    asFirst,
   )
-  return useMemo(() => {
-    const { items, problems } = mapRows(data, recipeFromRow)
-    return {
-      data: items.length ? items[0] : null,
-      isLoading,
-      problems: withQueryError(problems, error),
-    }
-  }, [data, error, isLoading])
 }
 
 /* ==========================================================================
@@ -130,18 +161,13 @@ export function useProfiles(): Read<Array<AppProfile>> {
   // `created_at` ставить сервер, тож у щойно створеного профілю він поки NULL.
   // `created_at IS NULL` (0/1) у сортуванні тримає такі рядки в кінці — інакше
   // новий профіль стрибав би на початок списку й повертався назад після sync.
-  const { data, isLoading, error } = useQuery<Row>(
+  return useRead(
     'SELECT * FROM profile WHERE deleted_at IS NULL' +
       ' ORDER BY created_at IS NULL, created_at, name',
+    [],
+    appProfileFromRow,
+    asList,
   )
-  return useMemo(() => {
-    const { items, problems } = mapRows(data, appProfileFromRow)
-    return {
-      data: items,
-      isLoading,
-      problems: withQueryError(problems, error),
-    }
-  }, [data, error, isLoading])
 }
 
 /* ==========================================================================
@@ -149,16 +175,13 @@ export function useProfiles(): Read<Array<AppProfile>> {
  * ======================================================================== */
 
 export function useTastePrefs(): Read<TastePrefs> {
-  const { data, isLoading, error } = useQuery<Row>(
+  // `prefsFromRows` розбирає НАБІР рядків одразу (смак — це дві множини, а не
+  // список), тож порядкового відображення тут немає: воно тотожне.
+  return useRead(
     'SELECT * FROM meal_pref WHERE deleted_at IS NULL',
-  )
-  return useMemo(
-    () => ({
-      data: prefsFromRows(data),
-      isLoading,
-      problems: withQueryError([], error),
-    }),
-    [data, error, isLoading],
+    [],
+    (row) => row,
+    prefsFromRows,
   )
 }
 
@@ -329,19 +352,15 @@ export function useCalendarDays(
   // мають одну форму. У щойно записаного локально рядка він порожній — NULL
   // у SQLite сортується першим, тобто такий рядок свідомо програє
   // синхронізованому дублікату, поки сервер не підтвердить запис.
-  const { data, isLoading, error } = useQuery<Row>(
+  const pool = useMemo(() => mealsById(meals), [meals])
+  return useRead(
     'SELECT * FROM plan_slot WHERE profile_id = ? AND deleted_at IS NULL' +
       ' AND date >= ? AND date <= ? ORDER BY updated_at, id',
     [ownerId ?? '', fromDate, toDate],
-  )
-  const pool = useMemo(() => mealsById(meals), [meals])
-  return useMemo(
-    () => ({
-      data: buildCalendarDays(data, pool),
-      isLoading,
-      problems: withQueryError([], error),
-    }),
-    [data, error, isLoading, pool],
+    (row) => row,
+    (rows) =>
+      buildCalendarDays(rows, pool) as ReadonlyMap<string, CalendarDayView>,
+    [pool],
   )
 }
 
@@ -350,19 +369,16 @@ export function useCalendarDays(
  * «історія порожня» (`bounds` із V1, зведений до того, що справді читають).
  */
 export function usePlannedDayCount(ownerId: string | null): Read<number> {
-  const { data, isLoading, error } = useQuery<{ days: number | null }>(
+  return useRead(
     'SELECT count(DISTINCT date) AS days FROM plan_slot' +
       ' WHERE profile_id = ? AND deleted_at IS NULL',
     [ownerId ?? ''],
+    (row) => Number(row.days),
+    (counts) => {
+      const days = counts.length ? counts[0] : 0
+      return Number.isFinite(days) ? days : 0
+    },
   )
-  return useMemo(() => {
-    const days = data.length ? Number(data[0].days) : 0
-    return {
-      data: Number.isFinite(days) ? days : 0,
-      isLoading,
-      problems: withQueryError([], error),
-    }
-  }, [data, error, isLoading])
 }
 
 /**
@@ -378,46 +394,33 @@ export function useDayPlan(
   ownerId: string | null,
   date: string,
 ): Read<{ target: number; corridor: number } | null> {
-  const { data, isLoading, error } = useQuery<Row>(
+  return useRead(
     'SELECT * FROM week_plan WHERE profile_id = ? AND deleted_at IS NULL' +
       ' AND start_date <= ?' +
       LATEST_PLAN_ORDER,
     [ownerId && date ? ownerId : '', date],
-  )
-  return useMemo(() => {
-    const problems = withQueryError([], error)
-    const nothing = { data: null, isLoading, problems }
-    if (!data.length) return nothing
-
-    const row = data[0]
-    const days = Number(row.days)
-    const target = Number(row.target_calories)
-    const corridor = Number(row.used_corridor)
-    if (
-      !Number.isFinite(days) ||
-      days < 1 ||
-      !Number.isFinite(target) ||
-      !Number.isFinite(corridor)
-    ) {
-      return nothing
-    }
-
     // `addDays` кидає на даті не у форматі «YYYY-MM-DD», а `start_date` у
-    // клієнтській схемі — звичайний TEXT без NOT NULL. Ловимо порядково, як
-    // усі читання в цьому файлі: битий рядок плану має стати попередженням
-    // поруч із днем, а не білим екраном замість календаря.
-    try {
-      if (date > addDays(String(row.start_date), days - 1)) return nothing
-    } catch (cause) {
-      return {
-        data: null,
-        isLoading,
-        problems: problems.concat(describe(cause)),
+    // клієнтській схемі — звичайний TEXT без NOT NULL. Ловить це `mapRows`, як
+    // і решту читань у цьому файлі: битий рядок плану стає попередженням поруч
+    // із днем, а не білим екраном замість календаря.
+    (row) => {
+      const days = Number(row.days)
+      const target = Number(row.target_calories)
+      const corridor = Number(row.used_corridor)
+      if (
+        !Number.isFinite(days) ||
+        days < 1 ||
+        !Number.isFinite(target) ||
+        !Number.isFinite(corridor)
+      ) {
+        return null
       }
-    }
-
-    return { data: { target, corridor }, isLoading, problems }
-  }, [data, date, error, isLoading])
+      if (date > addDays(String(row.start_date), days - 1)) return null
+      return { target, corridor }
+    },
+    asFirst,
+    [date],
+  )
 }
 
 /* ==========================================================================
@@ -563,28 +566,25 @@ export function useOwnerWeeks(
 export function useShoppingChecks(
   fingerprint: string,
 ): Read<ReadonlyMap<string, boolean>> {
-  const { data, isLoading, error } = useQuery<Row>(
+  return useRead(
     'SELECT item_key, checked FROM shopping_check' +
       ' WHERE fingerprint = ? AND deleted_at IS NULL',
     /* Порожній відбиток (плану ще немає) шукаємо як є: колонка під CHECK на
      * непорожнє значення, тож порожнього рядка в базі не буває — вибірка
      * свідомо не збігається ні з чим, і окремої заглушки для цього не треба. */
     [fingerprint],
+    (row) => row,
+    (rows) => {
+      const checks = new Map<string, boolean>()
+      for (const row of rows) {
+        // SQLite не має boolean: 1/0. Порожній ключ у базу не пройде (CHECK),
+        // але читання все одно не має права видати його за позицію списку.
+        const key = String(row.item_key)
+        if (key) checks.set(key, Number(row.checked) !== 0)
+      }
+      return checks
+    },
   )
-  return useMemo(() => {
-    const checks = new Map<string, boolean>()
-    for (const row of data) {
-      // SQLite не має boolean: 1/0. Порожній ключ у базу не пройде (CHECK), але
-      // читання все одно не має права видати його за позицію списку.
-      const key = String(row.item_key)
-      if (key) checks.set(key, Number(row.checked) !== 0)
-    }
-    return {
-      data: checks,
-      isLoading,
-      problems: withQueryError([], error),
-    }
-  }, [data, error, isLoading])
 }
 
 /**

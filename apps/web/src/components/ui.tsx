@@ -22,6 +22,28 @@ import type {
 import type { Failure } from '../lib/messages'
 
 /**
+ * Липка шапка екрана — одна на обидва каркаси: `AuthShell` тут і `AppShell`
+ * у застосунку. Розмітка стояла двічі, і будь-яка правка відступу лишала шов
+ * рівно на переході «увійшли».
+ */
+export function ScreenHeader({
+  title,
+  subtitle,
+}: {
+  title: string
+  subtitle?: string
+}) {
+  return (
+    <header className="sticky top-0 z-10 border-b border-line bg-app px-4 pb-3 pt-5">
+      <h1 className="m-0 text-xl">{title}</h1>
+      {subtitle ? (
+        <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
+      ) : null}
+    </header>
+  )
+}
+
+/**
  * Каркас екранів входу — той самий, що в застосунку: липка шапка з назвою
  * екрана й підписом, вміст у колонці `max-w-screen-sm`. Нижнього таб-бару тут
  * немає, тож і відступу під нього теж.
@@ -37,12 +59,7 @@ export function AuthShell({
 }) {
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-app px-4 pb-3 pt-5">
-        <h1 className="m-0 text-xl">{title}</h1>
-        {subtitle ? (
-          <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
-        ) : null}
-      </header>
+      <ScreenHeader title={title} subtitle={subtitle} />
       <main className="mx-auto max-w-screen-sm px-4 pb-10 pt-4">
         {children}
       </main>
@@ -251,6 +268,24 @@ export function Empty({ children }: { children: ReactNode }) {
 export function Warn({ children }: { children: ReactNode }) {
   return (
     <p className="mb-0 mt-2 text-sm leading-normal text-warning">{children}</p>
+  )
+}
+
+/**
+ * Те, що не розібралося при читанні бази, — вголос (MER-49).
+ *
+ * Кожен екран зводив свої `Read.problems` руками й однаково їх розгортав, але
+ * дедуплікацію пам'ятав лише один із шести: той самий битий рядок, прочитаний
+ * двома запитами, друкувався двічі (а однакові `key` React ще й лає). Тепер
+ * правило одне: зліпити, прибрати повтори, показати.
+ */
+export function Problems({ of }: { of: ReadonlyArray<ReadonlyArray<string>> }) {
+  return (
+    <>
+      {[...new Set(of.flat())].map((problem) => (
+        <Warn key={problem}>{problem}</Warn>
+      ))}
+    </>
   )
 }
 

@@ -54,6 +54,7 @@ import {
   Hint,
   Meta,
   Panel,
+  Problems,
   SectionLabel,
   Warn,
 } from './ui'
@@ -160,10 +161,10 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const bought = items.filter((item) => checksRead.data.get(item.key)).length
 
   const problems = [
-    ...mealsRead.problems,
-    ...profilesRead.problems,
-    ...weeksRead.problems,
-    ...checksRead.problems,
+    mealsRead.problems,
+    profilesRead.problems,
+    weeksRead.problems,
+    checksRead.problems,
   ]
 
   /* Позначка малюється ЛИШЕ з бази — локальної копії стану тут немає навмисно
@@ -194,9 +195,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
           : weekRangeOf(weeks) || 'Із поточного тижня'
       }
     >
-      {[...new Set(problems)].map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       {error ? <Warn>{error}</Warn> : null}
 

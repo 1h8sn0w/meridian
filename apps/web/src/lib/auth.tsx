@@ -11,14 +11,7 @@
  * неї не знає й не має знати.
  */
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { familyIdFromToken, getSupabase } from './supabase'
@@ -46,7 +39,13 @@ type FamilyRow = { id: string; name: string }
 type MemberRow = { id: string; user_id: string; email: string | null }
 type InviteRow = { code: string; expires_at: string }
 
-export type Result<T> = { ok: true; value: T } | { ok: false; failure: Failure }
+/**
+ * Наслідок дії входу. НЕ `Result` із `@meridian/core`: там форма інша
+ * (`({ ok: true } & T) | Err`, а помилка — рядок). Два різні типи під одним
+ * іменем в одному застосунку — пастка, а не зручність.
+ */
+export type AuthResult<T> =
+  { ok: true; value: T } | { ok: false; failure: Failure }
 
 type AuthValue = {
   status: Status
@@ -57,13 +56,13 @@ type AuthValue = {
   family: Family | null
   members: Array<FamilyMember>
   invite: Invite | null
-  signIn: (email: string, password: string) => Promise<Result<null>>
+  signIn: (email: string, password: string) => Promise<AuthResult<null>>
   /** `false` у значенні — сесії немає: GoTrue чекає підтвердження пошти. */
-  signUp: (email: string, password: string) => Promise<Result<boolean>>
+  signUp: (email: string, password: string) => Promise<AuthResult<boolean>>
   signOut: () => Promise<void>
-  createFamily: (name: string) => Promise<Result<null>>
-  joinFamily: (code: string) => Promise<Result<null>>
-  createInvite: () => Promise<Result<Invite>>
+  createFamily: (name: string) => Promise<AuthResult<null>>
+  joinFamily: (code: string) => Promise<AuthResult<null>>
+  createInvite: () => Promise<AuthResult<Invite>>
   /**
    * Клієнт PostgREST для таблиць поза синхронізацією (`pdf_import`, MER-52).
    * `null` — конфігу немає або ми на сервері: там сесії не існує.
@@ -95,12 +94,11 @@ export function AuthProvider({
 
   const familyId = familyIdFromToken(session?.access_token)
 
-  /** Клієнт існує лише у браузері — на сервері до нього не звертаємось. */
-  const client = useCallback((): SupabaseClient => getSupabase(env), [env])
-
   useEffect(() => {
     if (!configured) return
-    const supabase = client()
+    // `getSupabase` уже тримає один екземпляр на вкладку (supabase.ts), тож
+    // мемоїзувати його виклик нема за чим — звертаємось прямо.
+    const supabase = getSupabase(env)
     // Підписка сама віддає INITIAL_SESSION, тож окремий getSession() не
     // потрібен. У колбеку — лише setState: документація Supabase попереджає не
     // викликати звідси інші методи клієнта.
@@ -109,7 +107,7 @@ export function AuthProvider({
       setResolved(true)
     })
     return () => data.subscription.unsubscribe()
-  }, [client, configured])
+  }, [configured, env])
 
   useEffect(() => {
     if (!configured || !familyId) {
@@ -120,7 +118,7 @@ export function AuthProvider({
     }
     // Сім'я може змінитися, доки запити в дорозі, — тоді відповіді вже нікому.
     const stale = new AbortController()
-    const supabase = client()
+    const supabase = getSupabase(env)
 
     void (async () => {
       // RLS уже звузила вибірку до своєї сім'ї — фільтрувати по family_id у
@@ -166,7 +164,7 @@ export function AuthProvider({
     })()
 
     return () => stale.abort()
-  }, [client, configured, familyId])
+  }, [configured, env, familyId])
 
   const value = useMemo<AuthValue>(() => {
     const status: Status = !configured
@@ -187,10 +185,10 @@ export function AuthProvider({
       family,
       members,
       invite,
-      supabase: configured && resolved ? client() : null,
+      supabase: configured && resolved ? getSupabase(env) : null,
 
       signIn: async (email, password) => {
-        const { error } = await client().auth.signInWithPassword({
+        const { error } = await getSupabase(env).auth.signInWithPassword({
           email,
           password,
         })
@@ -200,7 +198,10 @@ export function AuthProvider({
       },
 
       signUp: async (email, password) => {
-        const { data, error } = await client().auth.signUp({ email, password })
+        const { data, error } = await getSupabase(env).auth.signUp({
+          email,
+          password,
+        })
         if (error) return { ok: false, failure: authFailure(error) }
         // Без сесії GoTrue чекає підтвердження пошти. Кажемо це прямо, а не
         // вдаємо, що вхід стався.
@@ -208,11 +209,11 @@ export function AuthProvider({
       },
 
       signOut: async () => {
-        await client().auth.signOut()
+        await getSupabase(env).auth.signOut()
       },
 
       createFamily: async (name) => {
-        const supabase = client()
+        const supabase = getSupabase(env)
         const { error } = await supabase.rpc('create_family', {
           family_name: name,
         })
@@ -223,7 +224,7 @@ export function AuthProvider({
       },
 
       joinFamily: async (code) => {
-        const supabase = client()
+        const supabase = getSupabase(env)
         const { error } = await supabase.rpc('accept_family_invite', {
           invite_code: code,
         })
@@ -233,7 +234,7 @@ export function AuthProvider({
       },
 
       createInvite: async () => {
-        const supabase = client()
+        const supabase = getSupabase(env)
         const { data, error } = await supabase.rpc('create_family_invite')
         if (error) return { ok: false, failure: rpcFailure(error) }
         const code = String(data)
@@ -251,7 +252,7 @@ export function AuthProvider({
         return { ok: true, value: fresh }
       },
     }
-  }, [client, configured, family, familyId, invite, members, resolved, session])
+  }, [configured, env, family, familyId, invite, members, resolved, session])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

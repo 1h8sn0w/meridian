@@ -27,7 +27,16 @@ import type { RecipeInput } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealDetails } from './MealDetails'
-import { Button, Field, Hint, Panel, SectionLabel, TextField, Warn } from './ui'
+import {
+  Button,
+  Field,
+  Hint,
+  Panel,
+  Problems,
+  SectionLabel,
+  TextField,
+  Warn,
+} from './ui'
 
 export function RecipeScreen({
   mealId,
@@ -45,18 +54,16 @@ export function RecipeScreen({
   const meal = mealsRead.data.find((item) => item.id === mealId) ?? null
   const recipe = recipeRead.data
   const problems = [
-    ...mealsRead.problems,
-    ...profilesRead.problems,
-    ...recipeRead.problems,
+    mealsRead.problems,
+    profilesRead.problems,
+    recipeRead.problems,
   ]
 
   if (!meal) {
     return (
       <AppShell title="Рецепт">
         <Back />
-        {problems.map((problem) => (
-          <Warn key={problem}>{problem}</Warn>
-        ))}
+        <Problems of={problems} />
         <Panel>
           <Hint>
             {mealsRead.isLoading
@@ -76,9 +83,7 @@ export function RecipeScreen({
       }
     >
       <Back />
-      {problems.map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       <Panel>
         <Photo meal={meal} photo={recipe?.photo ?? null} />

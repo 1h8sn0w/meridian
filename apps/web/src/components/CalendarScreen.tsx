@@ -46,18 +46,10 @@ import {
 import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
-import { Button, Hint, Meta, Panel, Tag, Warn } from './ui'
+import { Button, Hint, Meta, Panel, Problems, Tag } from './ui'
 
 /** Тиждень в Україні — з понеділка, як у `startOfWeek`. */
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
-
-/**
- * Однакові тексти від різних запитів схлопуємо: та сама помилка бази, показана
- * двічі, нікому не допомагає — а `key` у React вона ще й ламає.
- */
-function unique(problems: ReadonlyArray<string>): Array<string> {
-  return [...new Set(problems)]
-}
 
 export function CalendarScreen() {
   const now = useNow()
@@ -81,11 +73,11 @@ export function CalendarScreen() {
   const end = start ? addDays(start, 6) : ''
 
   const plannedRead = usePlannedDayCount(ownerId)
-  const problems = unique([
-    ...mealsRead.problems,
-    ...profilesRead.problems,
-    ...plannedRead.problems,
-  ])
+  const problems = [
+    mealsRead.problems,
+    profilesRead.problems,
+    plannedRead.problems,
+  ]
 
   // Кнопка повертає ОБИДВА: і тиждень, і вибір. Тож ховати її можна лише тоді,
   // коли обидва вже на сьогодні. Інакше після «‹ → вибрати день → ›» вибір
@@ -106,9 +98,7 @@ export function CalendarScreen() {
           : 'Історія та плани'
       }
     >
-      {problems.map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       {!profile ? (
         <Panel title="Спершу — профіль">
@@ -222,9 +212,7 @@ function WeekGrid({
 
   return (
     <>
-      {unique(daysRead.problems).map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={[daysRead.problems]} />
 
       <div className="grid grid-cols-7 gap-1">
         {DOW_LABELS.map((dow, i) => {
@@ -294,7 +282,7 @@ function DaySection({
   const daysRead = useCalendarDays(ownerId, date, date, meals)
   const planRead = useDayPlan(ownerId, date)
   const day = daysRead.data.get(date) ?? null
-  const problems = unique([...daysRead.problems, ...planRead.problems])
+  const problems = [daysRead.problems, planRead.problems]
 
   return (
     <Panel>
@@ -303,9 +291,7 @@ function DaySection({
         {date === todayKey ? <Tag tone="accent">сьогодні</Tag> : null}
       </h2>
 
-      {problems.map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={problems} />
 
       {!day ? (
         // Доки запит у дорозі, «плану немає» було б неправдою — мовчимо.

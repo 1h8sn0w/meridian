@@ -13,6 +13,7 @@
 
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { ScreenHeader } from './ui'
 
 const TABS = [
   { to: '/', label: 'Сьогодні', icon: '☀️' },
@@ -33,12 +34,7 @@ export function AppShell({
 }) {
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-app px-4 pb-3 pt-5">
-        <h1 className="m-0 text-xl">{title}</h1>
-        {subtitle ? (
-          <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
-        ) : null}
-      </header>
+      <ScreenHeader title={title} subtitle={subtitle} />
 
       <main className="mx-auto max-w-screen-sm px-4 pb-app-content pt-4">
         {children}

@@ -11,7 +11,8 @@
  * серед профілів, мовчки замінюється першим у списку.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useStoredChoice } from './device-choice'
 import type { AppProfile } from './data/model'
 
 const KEY = 'meridian.profile.v2'
@@ -26,17 +27,6 @@ export const PROFILE_COLORS = [
 ] as const
 
 export const DEFAULT_PROFILE_COLOR = PROFILE_COLORS[0]
-
-function read(): string | null {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(KEY)
-}
-
-function write(id: string | null): void {
-  if (typeof window === 'undefined') return
-  if (id) window.localStorage.setItem(KEY, id)
-  else window.localStorage.removeItem(KEY)
-}
 
 /**
  * Пофарбувати інтерфейс у колір активного профілю. Токен `--accent`
@@ -65,11 +55,7 @@ export type ActiveProfile = {
 export function useActiveProfile(
   profiles: ReadonlyArray<AppProfile>,
 ): ActiveProfile {
-  const [id, setId] = useState<string | null>(null)
-
-  useEffect(() => {
-    setId(read())
-  }, [])
+  const [id, setId] = useStoredChoice(KEY)
 
   const known = profiles.find((p) => p.id === id)
   // Порожній список — це нормальний стан (сім'я щойно створена), тож перший
@@ -80,22 +66,16 @@ export function useActiveProfile(
   const color = profile === null ? DEFAULT_PROFILE_COLOR : profile.color
 
   // Збережений id указує в нікуди (профіль видалили на іншому пристрої) —
-  // тихо переходимо на перший, як `ProfileStore.read` у V1.
+  // тихо переходимо на перший, як `ProfileStore.read` у V1. Тут, на відміну від
+  // охоплення покупок, зцілення ще й ЗАПИСУЄТЬСЯ: вибір профілю мусить пережити
+  // перезавантаження, і другого падіння на перший бути не має.
   useEffect(() => {
-    if (profile !== null && profile.id !== id) {
-      write(profile.id)
-      setId(profile.id)
-    }
-  }, [id, profile])
+    if (profile !== null && profile.id !== id) setId(profile.id)
+  }, [id, profile, setId])
 
   useEffect(() => {
     applyAccent(color)
   }, [color])
 
-  const setActive = useCallback((next: string) => {
-    write(next)
-    setId(next)
-  }, [])
-
-  return { profile, setActive }
+  return { profile, setActive: setId }
 }

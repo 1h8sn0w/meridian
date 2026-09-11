@@ -25,7 +25,7 @@ import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealForm } from './MealForm'
 import { PdfImportPanel } from './PdfImportPanel'
-import { Button, Chip, Empty, Hint, Panel, Warn } from './ui'
+import { Button, Chip, Empty, Hint, Panel, Problems, Warn } from './ui'
 
 type Filter = 'all' | MealType | 'favorite' | 'disliked'
 
@@ -117,9 +117,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   return (
     <AppShell title="Страви" subtitle={subtitle}>
-      {[...mealsRead.problems, ...prefsRead.problems].map((problem) => (
-        <Warn key={problem}>{problem}</Warn>
-      ))}
+      <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>
         <div className="mb-3 flex flex-wrap gap-1.5">
