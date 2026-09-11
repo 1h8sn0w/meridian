@@ -17,7 +17,7 @@ import type { Ingredient, Portion, PortionLetter } from '@meridian/core'
  * ======================================================================== */
 
 /** Назва й кількість окремо: кількість — null, якщо її в джерелі немає. */
-export function ingredientParts(entry: Ingredient): {
+function ingredientParts(entry: Ingredient): {
   name: string
   qty: string | null
 } {
@@ -39,7 +39,7 @@ export function ingredientLabel(entry: Ingredient): string {
  * Рядок форми → інгредієнт. «гречка — 80 г» дає структуру, «овочі на вибір» —
  * просто назву. Порожній рядок — null (відкидається).
  */
-export function ingredientFromLine(line: string): Ingredient | null {
+function ingredientFromLine(line: string): Ingredient | null {
   const value = line.trim()
   if (!value) return null
   const at = value.lastIndexOf(' — ')
@@ -104,7 +104,7 @@ export function portionLine(entry: Portion): string {
  * Рядок форми → порція. Перше « — » ділить складник і текст, але «Ж — 130 г» —
  * це текст порції, а не складник із назвою «Ж».
  */
-export function portionFromLine(line: string): Portion | null {
+function portionFromLine(line: string): Portion | null {
   const value = line.trim()
   if (!value) return null
   const at = value.indexOf(' — ')

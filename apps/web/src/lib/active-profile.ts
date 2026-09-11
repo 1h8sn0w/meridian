@@ -36,7 +36,7 @@ export const DEFAULT_PROFILE_COLOR = PROFILE_COLORS[0]
  * Прозорий варіант звідси не їде: `--color-accent-soft` — це `color-mix` над
  * тим самим `--accent` (MER-71). Розбирати `#rrggbb` у JS не треба.
  */
-export function applyAccent(color: string): void {
+function applyAccent(color: string): void {
   document.documentElement.style.setProperty('--accent', color)
 }
 
