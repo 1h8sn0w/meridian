@@ -300,54 +300,54 @@
     min-height: 100%;
   }
 
-  /* Смуги прокрутки сторінки немає. Класична смуга на десктопі забирала
-   * ширину, щойно екран ставав довшим за вікно, і колонка вмісту (`mx-auto`)
-   * стрибала вбік. Зарезервований жолоб (`scrollbar-gutter`) прибирав стрибок,
-   * але сам лишався смугою: нерухомі шари неба й сяйва в жолоб не малюються.
-   * Гортається сторінка як і раніше — коліщатком, жестом, клавіатурою; на
-   * телефонах смуга й так накладна. */
+  /* Смуга прокрутки є, але місце під неї зарезервоване завжди
+   * (`scrollbar-gutter`): інакше колонка вмісту (`mx-auto`) стрибала б убік
+   * щоразу, коли екран стає довшим за вікно. Доріжка прозора.
+   *
+   * Жолоб фарбує лише фон <html> — нерухомі шари в нього не малюються. Тож
+   * небо намальоване двічі однією й тією ж `--sky-paint` і в однаковій
+   * геометрії (картинка завширшки `100vw` від лівого краю): на <html> — для
+   * жолоба й десктопу, на `body::before` — для iOS, який не вміє
+   * `background-attachment: fixed`. Звідси й сяйво без дрейфу: рухоме сяйво
+   * в жолобі не повторити без перемальовування фону на кожен кадр. */
+  :root {
+    --sky-paint:
+      radial-gradient(
+        circle 45vmax at calc(100% - 10vmax) 0,
+        color-mix(in oklab, var(--sun) 42%, transparent),
+        transparent
+      ),
+      linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 72%);
+  }
+
   html {
-    scrollbar-width: none;
+    scrollbar-gutter: stable;
+    scrollbar-color: color-mix(in oklab, var(--ui-muted) 45%, transparent)
+      transparent;
+    background-color: var(--sky-bottom);
+    background-image: var(--sky-paint);
+    background-size: 100vw 100vh;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 
   body {
     margin: 0;
-    background: var(--sky-bottom);
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Небо — нерухомий шар під усім вмістом. Псевдоелемент, а не фон body:
-   * `background-attachment: fixed` на iOS не працює, а шар, що прокручується
-   * разом зі сторінкою, перемальовувався б на кожен кадр. */
-  body::before,
-  body::after {
+  /* Небо — нерухомий шар під усім вмістом (див. вище, навіщо він поруч із
+   * фоном <html>). */
+  body::before {
     content: '';
     position: fixed;
-    pointer-events: none;
-    z-index: -1;
-  }
-  body::before {
     inset: 0;
-    background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 72%);
-  }
-  /* Сяйво сонця в кутку неба — повільно дрейфує, як світло за вікном. */
-  body::after {
-    width: 90vmax;
-    height: 90vmax;
-    top: -45vmax;
-    right: -35vmax;
-    border-radius: 50%;
-    background: radial-gradient(
-      closest-side,
-      color-mix(in oklab, var(--sun) 42%, transparent),
-      transparent
-    );
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    body::after {
-      animation: drift 38s ease-in-out infinite alternate;
-    }
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--sky-paint);
+    background-size: 100vw 100%;
+    background-repeat: no-repeat;
   }
 
   button,
@@ -359,12 +359,6 @@
 
   ::selection {
     background: color-mix(in oklab, var(--accent, #4f9dff) 35%, transparent);
-  }
-}
-
-@keyframes drift {
-  to {
-    transform: translate(-12vmax, 10vmax) scale(1.15);
   }
 }
 
