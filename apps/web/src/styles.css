@@ -15,10 +15,19 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
-/* --- Дизайн-токени Meridian ------------------------------------------------
- * Значення перенесені з V1 без змін. Кожен токен породжує utility-клас:
- * --color-app → bg-app/text-app, --spacing-tabbar → pb-tabbar,
- * --breakpoint-dialog → dialog:*.
+/* --- Дизайн «Сонячна дуга» -------------------------------------------------
+ * Назва застосунку — від меридіана, полудня. Тож інтерфейс живе за добою:
+ * небо за вмістом змінює колір разом із прийомом їжі (світанок на сніданок,
+ * ясний полудень на обід, золото на перекус, захід на вечерю, ніч поза
+ * вікнами), а годинник дня малює сонце, що йде своєю дугою. Фазу ставить
+ * `components/Sky.tsx` атрибутом `data-phase` на <html>.
+ *
+ * Два шари кольору й вони не змішуються:
+ * - НЕБО (`--sky-*`, `--sun`) — тло й годинник, лише атмосфера;
+ * - АКЦЕНТ (`--accent`) — колір активного профілю, лише інтерактив.
+ *
+ * Світла й темна теми — за налаштуванням системи. Кожен колір нижче
+ * визначено для обох, тож utility-класи тем не знають.
  *
  * Правило значень лишається чинним: замість arbitrary values на кшталт
  * py-[7px] брати найближчий стандартний токен, а те, що не округлюється без
@@ -26,46 +35,255 @@
  * іменованим токеном тут. */
 
 @theme {
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  --color-app: #0f1115;
-  --color-surface: #1a1d24;
-  --color-line: #2a2f3a;
-  --color-content: #e7e9ee;
-  --color-muted: #9aa2b1;
-  --color-subtle: #5f6675;
-  --color-segment: #343b49;
-  --color-success: #46c98b;
-  --color-warning: #ffb454;
-  --color-button-ink: #0b1220;
-  --color-overlay: rgba(8, 10, 14, 0.6);
+  --font-sans:
+    'Geist Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, Menlo, Consolas, monospace;
 
   --spacing-safe-bottom: env(safe-area-inset-bottom);
-  --spacing-tabbar: calc(60px + env(safe-area-inset-bottom));
-  --spacing-app-content: calc(84px + env(safe-area-inset-bottom));
+  /* Док висить над краєм екрана: 64px сам док + 12px відступ знизу. */
+  --spacing-tabbar: calc(76px + env(safe-area-inset-bottom));
+  --spacing-app-content: calc(104px + env(safe-area-inset-bottom));
 
   --breakpoint-dialog: 520px;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Пружина з легким перельотом — для натискань і перемикачів. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-rise: rise 0.7s var(--ease-out-expo) both;
+  --animate-sheet: sheet 0.5s var(--ease-out-expo) both;
+  --animate-fade: fade 0.3s ease-out both;
+  --animate-pop: pop 0.45s var(--ease-spring);
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-draw: draw 1.1s var(--ease-out-expo) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+    }
+  }
+  @keyframes sheet {
+    from {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes pop {
+    40% {
+      transform: scale(1.3);
+    }
+  }
+  @keyframes breathe {
+    50% {
+      transform: scale(1.25);
+      opacity: 0.55;
+    }
+  }
+  @keyframes draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
 }
 
-/* Токени, що посилаються на інші CSS-змінні (колір активного профілю
- * підставляється в рантаймі). `inline` потрібен саме тут: без нього
- * utility-клас підставляв би посилання на змінну, а не її значення, і
- * резолвився б у місці оголошення теми, а не там, де змінна справді задана.
+/* Токени, що посилаються на інші CSS-змінні: тема (світла/темна), фаза неба й
+ * колір активного профілю підставляються в рантаймі. `inline` потрібен саме
+ * тут: без нього utility-клас підставляв би посилання на змінну, а не її
+ * значення, і резолвився б у місці оголошення теми, а не там, де змінна
+ * справді задана.
  *
  * Прозорі варіанти рахує `color-mix`, а не JS: рантайм задає лише сам колір
- * (`--accent` / `--profile-color`), решту виводить CSS. Через це в
- * `active-profile.ts` більше немає розбору `#rrggbb` у `rgba()` (MER-71). */
+ * (`--accent` / `--profile-color`), решту виводить CSS (MER-71). */
 @theme inline {
-  --color-accent: var(--accent, #4f9dff);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  --color-profile: var(--profile-color, var(--accent, #4f9dff));
+  --color-app: var(--ui-well);
+  --color-surface: var(--ui-surface);
+  --color-surface-strong: var(--ui-surface-strong);
+  --color-edge: var(--ui-edge);
+  --color-line: var(--ui-line);
+  --color-content: var(--ui-content);
+  --color-muted: var(--ui-muted);
+  --color-subtle: var(--ui-subtle);
+  --color-segment: var(--ui-segment);
+  --color-success: var(--ui-success);
+  --color-success-soft: color-mix(in oklab, var(--ui-success) 14%, transparent);
+  --color-warning: var(--ui-warning);
+  --color-warning-soft: color-mix(in oklab, var(--ui-warning) 14%, transparent);
+  --color-button-ink: #15131c;
+  --color-overlay: var(--ui-overlay);
+
+  --color-sun: var(--sun);
+  --color-sky: var(--sky-top);
+
+  /* Сирий колір профілю — для заливок (кнопка, повзунок). Текст на ньому
+   * завжди темний: усі кольори палітри профілів світлі. */
+  --color-accent-fill: var(--accent, #4f9dff);
+  /* Колір профілю як ТЕКСТ: у світлій темі затемнений, інакше жовтий чи
+   * рожевий профіль не читався б на білому склі. */
+  --color-accent: var(--ui-accent-ink);
+  --color-accent-soft: color-mix(
+    in oklab,
+    var(--accent, #4f9dff) 16%,
+    transparent
+  );
+  --color-profile: var(--profile-color, var(--ui-accent-ink));
   --color-profile-soft: color-mix(
-    in srgb,
-    var(--color-profile) 18%,
+    in oklab,
+    var(--profile-color, var(--accent, #4f9dff)) 22%,
     transparent
   );
   --color-swatch: var(--swatch-color, #4f9dff);
+
+  --shadow-panel:
+    inset 0 1px 0 var(--ui-edge),
+    0 18px 40px -22px color-mix(in oklab, var(--sun) 55%, transparent),
+    0 2px 6px -2px var(--ui-shade);
+  --shadow-accent: 0 10px 24px -10px
+    color-mix(in oklab, var(--accent, #4f9dff) 80%, transparent);
+}
+
+/* --- Небо ------------------------------------------------------------------
+ * Зареєстровані властивості, щоб зміна фази не перескакувала, а перетікала:
+ * переходити (`transition`) браузер уміє лише між значеннями відомого типу.
+ * Фаза задає `--phase-*`, а небо тягнеться до них. `--phase-top` окремо
+ * читає `Sky.tsx` — для кольору системної смуги PWA. */
+
+@property --sky-top {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #bfe3ff;
+}
+@property --sky-bottom {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f4f6fb;
+}
+@property --sun {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffb31a;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --ui-well: rgb(255 255 255 / 0.72);
+  --ui-surface: rgb(255 255 255 / 0.62);
+  --ui-surface-strong: rgb(255 255 255 / 0.82);
+  --ui-edge: rgb(255 255 255 / 0.75);
+  --ui-shade: rgb(29 27 38 / 0.06);
+  --ui-line: rgb(29 27 38 / 0.1);
+  --ui-content: #1d1b26;
+  --ui-muted: #4f4c5c;
+  --ui-subtle: #7c788b;
+  --ui-segment: rgb(29 27 38 / 0.1);
+  --ui-success: #1a7f52;
+  --ui-warning: #a8540a;
+  --ui-overlay: rgb(20 18 30 / 0.32);
+  --ui-accent-ink: color-mix(in oklab, var(--accent, #4f9dff) 55%, #15131c);
+
+  /* Полудень — запасна фаза, доки `Sky.tsx` не поставив справжню. */
+  --phase-top: #bfe3ff;
+  --phase-bottom: #f4f6fb;
+  --phase-sun: #ffb31a;
+
+  --sky-top: var(--phase-top);
+  --sky-bottom: var(--phase-bottom);
+  --sun: var(--phase-sun);
+  transition:
+    --sky-top 2.4s ease,
+    --sky-bottom 2.4s ease,
+    --sun 2.4s ease;
+}
+
+:root[data-phase='dawn'] {
+  --phase-top: #ffcfb3;
+  --phase-bottom: #f7eef6;
+  --phase-sun: #ff7a45;
+}
+:root[data-phase='noon'] {
+  --phase-top: #bfe3ff;
+  --phase-bottom: #f4f6fb;
+  --phase-sun: #ffb31a;
+}
+:root[data-phase='golden'] {
+  --phase-top: #ffe2a0;
+  --phase-bottom: #f7f3fa;
+  --phase-sun: #f59e0b;
+}
+:root[data-phase='dusk'] {
+  --phase-top: #ffb3a1;
+  --phase-bottom: #ebe4f7;
+  --phase-sun: #ef4f5f;
+}
+:root[data-phase='night'] {
+  --phase-top: #c5caf0;
+  --phase-bottom: #eef0fa;
+  --phase-sun: #5b63c9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-well: rgb(8 7 14 / 0.45);
+    --ui-surface: rgb(26 24 38 / 0.58);
+    --ui-surface-strong: rgb(36 33 52 / 0.78);
+    --ui-edge: rgb(255 255 255 / 0.08);
+    --ui-shade: rgb(0 0 0 / 0.3);
+    --ui-line: rgb(255 255 255 / 0.09);
+    --ui-content: #ecebf3;
+    --ui-muted: #a8a5b8;
+    --ui-subtle: #737086;
+    --ui-segment: rgb(255 255 255 / 0.1);
+    --ui-success: #5ad69b;
+    --ui-warning: #ffb454;
+    --ui-overlay: rgb(5 4 10 / 0.6);
+    --ui-accent-ink: var(--accent, #4f9dff);
+  }
+  :root[data-phase='dawn'] {
+    --phase-top: #3b2231;
+    --phase-bottom: #121019;
+    --phase-sun: #ff9466;
+  }
+  :root,
+  :root[data-phase='noon'] {
+    --phase-top: #15324d;
+    --phase-bottom: #0f1118;
+    --phase-sun: #ffc94d;
+  }
+  :root[data-phase='golden'] {
+    --phase-top: #3a2d12;
+    --phase-bottom: #121016;
+    --phase-sun: #ffbf47;
+  }
+  :root[data-phase='dusk'] {
+    --phase-top: #3e1a2d;
+    --phase-bottom: #100e1a;
+    --phase-sun: #ff6f7d;
+  }
+  :root[data-phase='night'] {
+    --phase-top: #161c3d;
+    --phase-bottom: #08080f;
+    --phase-sun: #c8cdfa;
+  }
+}
+
+/* Скло без прозорості, коли користувач її вимкнув у системі. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --ui-surface: #ffffff;
+    --ui-surface-strong: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ui-surface: #1c1a28;
+      --ui-surface-strong: #24213a;
+    }
+  }
 }
 
 /* --- Мінімальний reset -----------------------------------------------------
@@ -84,5 +302,202 @@
 
   body {
     margin: 0;
+    background: var(--sky-bottom);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
   }
+
+  /* Небо — нерухомий шар під усім вмістом. Псевдоелемент, а не фон body:
+   * `background-attachment: fixed` на iOS не працює, а шар, що прокручується
+   * разом зі сторінкою, перемальовувався б на кожен кадр. */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+    z-index: -1;
+  }
+  body::before {
+    inset: 0;
+    background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 72%);
+  }
+  /* Сяйво сонця в кутку неба — повільно дрейфує, як світло за вікном. */
+  body::after {
+    width: 90vmax;
+    height: 90vmax;
+    top: -45vmax;
+    right: -35vmax;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--sun) 42%, transparent),
+      transparent
+    );
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    body::after {
+      animation: drift 38s ease-in-out infinite alternate;
+    }
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent, #4f9dff) 35%, transparent);
+  }
+}
+
+@keyframes drift {
+  to {
+    transform: translate(-12vmax, 10vmax) scale(1.15);
+  }
+}
+
+/* --- Матеріали й рух ------------------------------------------------------- */
+
+/* Скло: напівпрозора поверхня над небом, світлий край згори (заломлення) і
+ * тінь, підфарбована кольором сонця. Без підтримки blur лишається просто
+ * напівпрозорою поверхнею — читається однаково. */
+@utility glass {
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-line);
+  box-shadow: var(--shadow-panel);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* Діти з'являються сходинкою — вміст екрана «приходить» у порядку читання.
+ * Затримку обмежено вісьмома кроками: далі вже ніхто не помічає порядку,
+ * а довгий список чекав би надто довго. */
+@utility stagger {
+  @media (prefers-reduced-motion: no-preference) {
+    & > * {
+      animation: var(--animate-rise);
+    }
+    & > :nth-child(2) {
+      animation-delay: 50ms;
+    }
+    & > :nth-child(3) {
+      animation-delay: 100ms;
+    }
+    & > :nth-child(4) {
+      animation-delay: 150ms;
+    }
+    & > :nth-child(5) {
+      animation-delay: 200ms;
+    }
+    & > :nth-child(6) {
+      animation-delay: 250ms;
+    }
+    & > :nth-child(7) {
+      animation-delay: 300ms;
+    }
+    & > :nth-child(n + 8) {
+      animation-delay: 350ms;
+    }
+  }
+}
+
+/* Шапка прозора над небом і набирає скло, щойно під неї заїхав вміст. Там,
+ * де анімацій від прокрутки немає, скло є одразу — вміст однаково не ляже
+ * під заголовок нечитабельно. Сторінка, що не прокручується, лишає таймлайн
+ * неактивним, тож базовий стан тут — прозорий, а скло дає сама анімація. */
+@utility header-glass {
+  background-color: var(--header-glass);
+  border-bottom: 1px solid var(--ui-line);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  --header-glass: color-mix(in oklab, var(--sky-top) 72%, transparent);
+  @supports (animation-timeline: scroll()) {
+    background-color: transparent;
+    border-bottom-color: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    animation: header-solidify linear both;
+    animation-timeline: scroll();
+    animation-range: 0 48px;
+  }
+}
+
+@keyframes header-solidify {
+  to {
+    background-color: var(--header-glass);
+    border-bottom-color: var(--ui-line);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+  }
+}
+
+/* Годинник на «Сьогодні» м'яко відступає, коли сторінку гортають до страви. */
+@utility clock-hero {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      animation: clock-exit linear both;
+      animation-timeline: view();
+      animation-range: exit 10% exit 100%;
+    }
+  }
+}
+
+@keyframes clock-exit {
+  to {
+    opacity: 0.2;
+    transform: scale(0.88) translateY(24px);
+  }
+}
+
+/* Сонце на дузі переїжджає плавно, а не стрибком раз на пів хвилини. */
+@utility sun-orbit {
+  transform-box: view-box;
+  transform-origin: center;
+  transition: transform 1.6s var(--ease-out-expo);
+}
+
+/* --- Переходи між екранами (View Transitions, `defaultViewTransition`) ------
+ * Вміст перетікає, док лишається на місці, а підсвітка активної вкладки
+ * перелітає до нової пружиною. Без підтримки API перехід просто миттєвий. */
+
+::view-transition-old(root) {
+  animation: 160ms ease-in both vt-out;
+}
+::view-transition-new(root) {
+  animation: 280ms var(--ease-out-expo) both vt-in;
+}
+::view-transition-group(tab-pill) {
+  animation-duration: 480ms;
+  animation-timing-function: var(--ease-spring);
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Імена для View Transitions: док не перетікає разом зі сторінкою, а
+ * підсвітка вкладки перелітає окремо. */
+@utility vt-dock {
+  view-transition-name: dock;
+}
+@utility vt-tab-pill {
+  view-transition-name: tab-pill;
 }

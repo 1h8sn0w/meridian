@@ -27,6 +27,7 @@ import type { RecipeInput } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealDetails } from './MealDetails'
+import { CaretLeft, PencilSimple, Plus } from '@phosphor-icons/react'
 import {
   Button,
   Field,
@@ -113,9 +114,16 @@ export function RecipeScreen({
           />
         ) : (
           <>
-            <Button block onClick={() => setEditing(true)}>
-              {recipe ? 'Змінити рецепт' : '+ Додати рецепт'}
-            </Button>
+            <div className="mb-3">
+              <Button block onClick={() => setEditing(true)}>
+                {recipe ? (
+                  <PencilSimple aria-hidden size={18} />
+                ) : (
+                  <Plus aria-hidden size={18} weight="bold" />
+                )}
+                {recipe ? 'Змінити рецепт' : 'Додати рецепт'}
+              </Button>
+            </div>
             <Hint>
               Кроки, час і фото — ваші, а не з плану дієтолога: у PDF їх немає.
               Склад і калорійність редагуються на екрані «Страви».
@@ -129,8 +137,12 @@ export function RecipeScreen({
 
 function Back() {
   return (
-    <Link to="/meals" className="text-sm text-accent no-underline">
-      ‹ До страв
+    <Link
+      to="/meals"
+      className="inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5"
+    >
+      <CaretLeft aria-hidden size={14} weight="bold" />
+      До страв
     </Link>
   )
 }
@@ -145,7 +157,7 @@ function Photo({ meal, photo }: { meal: Meal; photo: string | null }) {
     <img
       src={photo}
       alt={'Фото: ' + meal.name}
-      className="mb-2 block max-h-72 w-full rounded-xl object-cover"
+      className="mb-3 block max-h-72 w-full rounded-2xl object-cover motion-safe:animate-fade"
     />
   )
 }
@@ -206,9 +218,11 @@ function Chips({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
       {chips.map((chip) => (
         <div
           key={chip.label}
-          className="flex-1 rounded-xl border border-line bg-app px-2 py-2 text-center"
+          className="flex-1 rounded-2xl bg-app px-2 py-2.5 text-center"
         >
-          <div className="text-sm font-semibold text-accent">{chip.value}</div>
+          <div className="font-mono text-base font-semibold tabular-nums text-accent">
+            {chip.value}
+          </div>
           <div className="mt-0.5 text-xs text-muted">{chip.label}</div>
         </div>
       ))}
@@ -239,7 +253,7 @@ function Steps({
             ' ' +
             plural(servings, 'порцію', 'порції', 'порцій')}
       </SectionLabel>
-      <ol className="mb-0 mt-1 list-decimal pl-5 text-sm leading-relaxed">
+      <ol className="mb-0 mt-1 list-decimal pl-5 text-sm leading-relaxed marker:font-mono marker:text-accent">
         {steps.map((step, index) => (
           <li key={index} className="my-px">
             {step}
@@ -403,7 +417,7 @@ function RecipeForm({
         <input
           type="file"
           accept="image/*"
-          className="mt-1 block w-full text-sm text-muted"
+          className="mt-1.5 block w-full cursor-pointer rounded-2xl border border-line bg-app px-3 py-2.5 text-sm text-content file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-accent-soft file:px-4 file:py-1.5 file:text-sm file:font-medium file:text-accent"
           onChange={(e) => void pick(e.target.files?.[0])}
         />
       </label>

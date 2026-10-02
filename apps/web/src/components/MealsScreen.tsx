@@ -5,7 +5,7 @@
  * бачити лише частину пулу (MER-21), але керується він тут цілком — інакше
  * страву, прибрану з одного профілю, ніхто не зміг би повернути.
  *
- * Позначки «♥» / «🚫» (MER-18) стоять просто в рядку списку: це не косметика,
+ * Позначки «улюблене» / «не подобається» (MER-18) стоять просто в рядку списку: це не косметика,
  * а правило добору в генераторі, і ставити їх має бути так само легко, як
  * подивитися на страву.
  */
@@ -25,7 +25,24 @@ import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealForm } from './MealForm'
 import { PdfImportPanel } from './PdfImportPanel'
-import { Button, Chip, Empty, Hint, Panel, Problems, Warn } from './ui'
+import {
+  FilePdf,
+  Heart,
+  PencilSimple,
+  Plus,
+  Prohibit,
+} from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
+import {
+  Button,
+  Chip,
+  Empty,
+  Hint,
+  IconButton,
+  Panel,
+  Problems,
+  Warn,
+} from './ui'
 
 type Filter = 'all' | MealType | 'favorite' | 'disliked'
 
@@ -88,7 +105,12 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     )
   }
 
-  const chips: Array<{ id: Filter; label: string; count: number }> = [
+  const chips: Array<{
+    id: Filter
+    label: string
+    count: number
+    icon?: Icon
+  }> = [
     { id: 'all', label: 'Усі', count: meals.length },
     ...MEAL_TYPES.map((type) => ({
       id: type,
@@ -99,7 +121,8 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       ? [
           {
             id: 'favorite' as Filter,
-            label: '♥ Улюблені',
+            label: 'Улюблені',
+            icon: Heart,
             count: prefs.favorites.size,
           },
         ]
@@ -108,7 +131,8 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       ? [
           {
             id: 'disliked' as Filter,
-            label: '🚫 Небажані',
+            label: 'Небажані',
+            icon: Prohibit,
             count: prefs.disliked.size,
           },
         ]
@@ -127,8 +151,15 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               active={filter === chip.id}
               onClick={() => setFilter(chip.id)}
             >
+              {chip.icon ? (
+                <chip.icon aria-hidden size={14} weight="fill" />
+              ) : null}
               {chip.label}
-              {chip.count ? ' · ' + chip.count : ''}
+              {chip.count ? (
+                <span className="font-mono tabular-nums opacity-70">
+                  {chip.count}
+                </span>
+              ) : null}
             </Chip>
           ))}
         </div>
@@ -139,19 +170,21 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             variant="primary"
             onClick={() => setEditing({ meal: null })}
           >
-            + Додати страву
+            <Plus aria-hidden size={18} weight="bold" />
+            Додати страву
           </Button>
 
           {/* Напівавтоматичний імпорт плану дієтолога (MER-52): розпізнане
               людина перевіряє й підтверджує перед додаванням у пул. */}
           <Button block onClick={() => setImporting(true)}>
+            <FilePdf aria-hidden size={18} />
             Імпорт із PDF-плану дієтолога
           </Button>
         </div>
 
         {failure ? <Warn>{failure}</Warn> : null}
 
-        <div className="mt-3">
+        <div className="mt-4">
           {shown.length === 0 ? (
             <Empty>
               {filter === 'all'
@@ -169,50 +202,53 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             return (
               <div
                 key={meal.id}
-                className="flex items-center justify-between gap-2.5 border-b border-line py-2.5 last:border-b-0"
+                className="flex items-center justify-between gap-2 border-b border-line py-3 last:border-b-0 last:pb-0"
               >
                 {/* Рядок веде на сторінку рецепта (MER-63): кроки, фото й
                     повний склад. Редагування самої страви лишається на «✎». */}
                 <Link
                   to="/recipe/$mealId"
                   params={{ mealId: meal.id }}
-                  className="min-w-0 flex-auto text-content no-underline"
+                  className="group min-w-0 flex-auto text-content no-underline"
                 >
-                  <div className="text-sm">{meal.name}</div>
+                  <div className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
+                    {meal.name}
+                  </div>
                   <div className="mt-0.5 text-xs text-muted">
+                    {/* Калорійність — у рядку під назвою, а не окремою
+                        колонкою: на телефоні колонка з'їдала б ширину назви. */}
+                    {formatMealCalories(meal) ? (
+                      <span className="font-mono font-medium tabular-nums text-accent">
+                        {formatMealCalories(meal)}
+                      </span>
+                    ) : null}
+                    {formatMealCalories(meal) ? ' · ' : ''}
                     {MEAL_TYPE_LABELS[meal.type]}
                     {meal.source ? ' · ' + meal.source : ''}
                   </div>
                 </Link>
 
-                <div className="whitespace-nowrap text-sm text-accent">
-                  {formatMealCalories(meal)}
-                </div>
-
                 <TasteButton
-                  label="♥"
+                  icon={Heart}
                   title="Улюблене"
                   on={taste === 'favorite'}
                   tone="accent"
                   onClick={() => void toggle(meal, 'favorite')}
                 />
                 <TasteButton
-                  label="🚫"
+                  icon={Prohibit}
                   title="Не подобається"
                   on={taste === 'disliked'}
                   tone="warn"
                   onClick={() => void toggle(meal, 'disliked')}
                 />
 
-                <button
-                  type="button"
-                  title="Редагувати"
-                  aria-label={'Редагувати страву «' + meal.name + '»'}
+                <IconButton
+                  label={'Редагувати страву «' + meal.name + '»'}
                   onClick={() => setEditing({ meal })}
-                  className="flex-none cursor-pointer rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm leading-none text-muted"
                 >
-                  ✎
-                </button>
+                  <PencilSimple size={16} />
+                </IconButton>
               </div>
             )
           })}
@@ -230,14 +266,18 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   )
 }
 
+/**
+ * Позначка смаку. Увімкнення «підстрибує» (`pop`) — підтвердження, що
+ * натискання дійшло, бо сама іконка змінюється ледь помітно.
+ */
 function TasteButton({
-  label,
+  icon: Glyph,
   title,
   on,
   tone,
   onClick,
 }: {
-  label: string
+  icon: Icon
   title: string
   on: boolean
   tone: 'accent' | 'warn'
@@ -245,9 +285,9 @@ function TasteButton({
 }) {
   const look = on
     ? tone === 'accent'
-      ? 'border-accent bg-accent-soft'
-      : 'border-warning'
-    : 'border-line opacity-50'
+      ? 'border-transparent bg-accent-soft text-accent'
+      : 'border-transparent bg-warning-soft text-warning'
+    : 'border-line bg-app text-subtle hover:text-muted'
   return (
     <button
       type="button"
@@ -255,9 +295,14 @@ function TasteButton({
       aria-pressed={on}
       aria-label={title}
       onClick={onClick}
-      className={`flex-none cursor-pointer rounded-lg border bg-transparent px-2 py-1.5 text-sm leading-none ${look}`}
+      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border p-0 transition-all duration-300 ease-spring active:scale-90 ${look}`}
     >
-      {label}
+      <Glyph
+        aria-hidden
+        size={16}
+        weight={on ? 'fill' : 'regular'}
+        className={on ? 'motion-safe:animate-pop' : ''}
+      />
     </button>
   )
 }

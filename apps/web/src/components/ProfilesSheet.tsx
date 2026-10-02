@@ -27,6 +27,7 @@ import {
 } from '../lib/data/mutations'
 import type { ProfileInput } from '../lib/data/mutations'
 import type { AppProfile } from '../lib/data/model'
+import { Plus } from '@phosphor-icons/react'
 import {
   Avatar,
   Button,
@@ -285,7 +286,8 @@ export function ProfilesSheet({
             variant="primary"
             onClick={() => setDraft(draftOf(null))}
           >
-            + Додати профіль
+            <Plus aria-hidden size={18} weight="bold" />
+            Додати профіль
           </Button>
         </div>
       </Sheet>
@@ -327,7 +329,7 @@ export function ProfilesSheet({
       </div>
 
       <div className="mb-2.5">
-        <span className="block text-sm text-muted">Колір</span>
+        <span className="block text-sm font-medium text-muted">Колір</span>
         <div className="mb-0.5 mt-1 flex gap-3">
           {PROFILE_COLORS.map((color) => (
             <button
@@ -337,9 +339,9 @@ export function ProfilesSheet({
               aria-pressed={draft.color === color}
               onClick={() => patch({ color })}
               style={{ '--swatch-color': color } as CSSProperties}
-              className={`h-7 w-7 cursor-pointer rounded-full border-0 bg-swatch p-0 ${
+              className={`h-8 w-8 cursor-pointer rounded-full border-0 bg-swatch p-0 transition-transform duration-300 ease-spring hover:scale-110 active:scale-90 ${
                 draft.color === color
-                  ? 'ring-2 ring-swatch ring-offset-2 ring-offset-surface'
+                  ? 'scale-110 outline-2 outline-offset-2 outline-swatch'
                   : ''
               }`}
             />
@@ -406,7 +408,7 @@ export function ProfilesSheet({
       </div>
 
       <div className="mb-2.5">
-        <span className="block text-sm text-muted">Пул страв</span>
+        <span className="block text-sm font-medium text-muted">Пул страв</span>
         <label className="mt-1 flex items-center gap-2 text-sm text-content">
           <input
             type="checkbox"
@@ -421,7 +423,7 @@ export function ProfilesSheet({
           Увесь спільний пул
         </label>
         {draft.mealIds !== null ? (
-          <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-line px-2.5 py-1">
+          <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border border-line px-2.5 py-1">
             {meals.length === 0 ? (
               <Hint>Пул порожній — додайте страви на екрані «Страви».</Hint>
             ) : null}
@@ -475,7 +477,7 @@ export function ProfilesSheet({
             type="button"
             disabled={busy}
             onClick={() => void remove()}
-            className="cursor-pointer rounded-xl border border-warning bg-transparent px-3.5 py-2.5 text-sm text-warning disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Видалити
           </button>

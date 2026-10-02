@@ -58,6 +58,7 @@ import {
   SectionLabel,
   Warn,
 } from './ui'
+import { Check } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -216,7 +217,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
             Плану тижня ще немає. Згенеруйте його на екрані «Тиждень» — список
             збереться з інгредієнтів страв, нічого не вигадуючи.
           </Hint>
-          <Link to="/week" className="no-underline">
+          <Link to="/week" className="block no-underline">
             <Button block>Відкрити екран «Тиждень»</Button>
           </Link>
         </Panel>
@@ -350,11 +351,15 @@ function Progress({ bought, total }: { bought: number; total: number }) {
       aria-valuemax={total}
       aria-valuenow={bought}
       aria-label={`Куплено ${bought} з ${total}`}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-line"
+      className="h-2 w-full overflow-hidden rounded-full bg-app"
     >
       {/* Ширина приходить рантаймом, тож через `style`, а не arbitrary value
-          в класі (правило значень у AGENTS.md). */}
-      <div className="h-full bg-accent" style={{ width: percent + '%' }} />
+          в класі (правило значень у AGENTS.md). Перехід — щоб кожна позначка
+          було видно як крок уперед. */}
+      <div
+        className="h-full rounded-full bg-accent-fill transition-all duration-700 ease-out-expo"
+        style={{ width: percent + '%' }}
+      />
     </div>
   )
 }
@@ -425,24 +430,28 @@ function ItemRow({
         item.name + (qty ? ', ' + qty : '') + (checked ? ' — куплено' : '')
       }
       onClick={onToggle}
-      className="flex w-full cursor-pointer items-baseline gap-2.5 border-0 border-b border-line bg-transparent px-0 py-2 text-left text-content last:border-b-0"
+      className="group flex w-full cursor-pointer items-baseline gap-3 border-0 border-b border-line bg-transparent px-0 py-2.5 text-left text-content last:border-b-0"
     >
       <span
         aria-hidden
-        className={`inline-flex h-5 w-5 flex-none items-center justify-center self-center rounded border text-xs ${
-          checked ? 'border-accent text-accent' : 'border-line'
+        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition-all duration-300 ease-spring group-active:scale-90 ${
+          checked
+            ? 'border-transparent bg-accent-fill text-button-ink'
+            : 'border-line bg-app'
         }`}
       >
-        {checked ? '✓' : ''}
+        {checked ? (
+          <Check size={14} weight="bold" className="motion-safe:animate-pop" />
+        ) : null}
       </span>
       <span
-        className={`flex-1 text-sm ${checked ? 'text-muted line-through' : ''}`}
+        className={`flex-1 text-sm transition-colors duration-300 ${checked ? 'text-muted line-through' : ''}`}
       >
         {item.name}
       </span>
       {qty ? (
         <span
-          className={`whitespace-nowrap text-xs ${checked ? 'text-subtle line-through' : 'text-muted'}`}
+          className={`whitespace-nowrap font-mono text-xs tabular-nums ${checked ? 'text-subtle line-through' : 'text-muted'}`}
         >
           {qty}
         </span>

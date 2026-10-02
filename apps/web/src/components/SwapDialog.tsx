@@ -27,6 +27,7 @@ import { toWeekPlan } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { replaceSlotMeal } from '../lib/data/mutations'
 import { formatDayTitle } from '../lib/format'
+import { Check, Heart, Prohibit } from '@phosphor-icons/react'
 import { Button, Empty, Sheet, Tag, Warn } from './ui'
 
 export function SwapDialog({
@@ -137,7 +138,7 @@ export function SwapDialog({
       title={MEAL_TYPE_LABELS[slot] + ' · ' + formatDayTitle(day.date)}
       onClose={onClose}
     >
-      <p className="mb-1.5 mt-0 text-sm leading-normal text-muted">
+      <p className="mb-3 mt-0 text-sm leading-relaxed text-muted">
         Зараз: «{result.current.name}»
         {formatMealCalories(result.current)
           ? ' — ' + formatMealCalories(result.current)
@@ -158,27 +159,37 @@ export function SwapDialog({
           type="button"
           disabled={!candidate.valid || busy}
           onClick={() => void apply(candidate.meal)}
-          className="flex w-full cursor-pointer items-center justify-between gap-2.5 border-0 border-b border-line bg-transparent px-0 py-2.5 text-left last:border-b-0 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mb-1.5 flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent bg-app px-3.5 py-3 text-left text-content transition-all duration-300 ease-spring hover:border-accent active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent"
         >
           <span className="min-w-0 flex-auto">
-            <span className="block text-sm">
+            <span className="block text-sm font-medium leading-snug">
               {candidate.meal.name}{' '}
-              {candidate.favorite ? <Tag tone="accent">♥ улюблене</Tag> : null}
+              {candidate.favorite ? (
+                <Tag tone="accent">
+                  <Heart aria-hidden size={12} weight="fill" />
+                  улюблене
+                </Tag>
+              ) : null}
               {candidate.disliked ? (
-                <Tag tone="warn">🚫 не подобається</Tag>
+                <Tag tone="warn">
+                  <Prohibit aria-hidden size={12} weight="bold" />
+                  не подобається
+                </Tag>
               ) : null}
               {candidate.reasons.map((reason) => (
                 <Tag key={reason}>{reason}</Tag>
               ))}
             </span>
-            <span className="mt-0.5 block text-xs text-muted">
+            <span className="mt-1 block font-mono text-xs tabular-nums text-muted">
               {formatMealCalories(candidate.meal)}
               {candidate.meal.source ? ' · ' + candidate.meal.source : ''}
             </span>
           </span>
           <span
-            className={`whitespace-nowrap text-xs ${
-              candidate.withinCorridor ? 'text-success' : 'text-warning'
+            className={`whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-xs tabular-nums ${
+              candidate.withinCorridor
+                ? 'bg-success-soft text-success'
+                : 'bg-warning-soft text-warning'
             }`}
           >
             день →{' '}
@@ -186,7 +197,14 @@ export function SwapDialog({
               candidate.dayCalories,
               otherApprox || candidate.meal.caloriesApprox,
             )}
-            {candidate.withinCorridor ? ' ✓' : ''}
+            {candidate.withinCorridor ? (
+              <Check
+                aria-hidden
+                size={12}
+                weight="bold"
+                className="ml-1 inline align-middle"
+              />
+            ) : null}
           </span>
         </button>
       ))}
@@ -200,9 +218,11 @@ export function SwapDialog({
 
       {failure ? <Warn>{failure}</Warn> : null}
 
-      <Button block onClick={onClose}>
-        Скасувати
-      </Button>
+      <div className="mt-3">
+        <Button block onClick={onClose}>
+          Скасувати
+        </Button>
+      </div>
     </Sheet>
   )
 }

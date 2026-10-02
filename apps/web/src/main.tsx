@@ -13,12 +13,19 @@ import { routeTree } from './routeTree.gen'
 import { readPublicEnv } from './lib/public-env'
 import { AuthProvider } from './lib/auth'
 import { SyncProvider } from './lib/powersync/provider'
+import { Sky, applySky } from './components/Sky'
+import { minutesOf } from './lib/use-now'
+// Шрифти — свої, зі збірки: офлайн-застосунок не має тягнути їх із CDN.
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import './styles.css'
 
 const router = createRouter({
   routeTree,
   scrollRestoration: true,
   defaultPreload: 'intent',
+  // Екрани перетікають один в один, а підсвітка вкладки перелітає (styles.css).
+  defaultViewTransition: true,
 })
 
 declare module '@tanstack/react-router' {
@@ -28,6 +35,9 @@ declare module '@tanstack/react-router' {
 }
 
 const env = readPublicEnv()
+
+// Фаза неба — до першого кадру, інакше застосунок блимав би полуднем.
+applySky(minutesOf(new Date()))
 
 /* Service worker (MER-51) — лише в продакшн-збірці: він кешує оболонку, а
  * `pnpm dev` тим і цінний, що щоразу віддає свіжий модуль. Помилку реєстрації
@@ -43,6 +53,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   // Синхронізація — усередині входу: вона живе з токена, і без нього їй нічого
   // робити (MER-46).
   <AuthProvider env={env}>
+    <Sky />
     <SyncProvider env={env}>
       <RouterProvider router={router} />
     </SyncProvider>
