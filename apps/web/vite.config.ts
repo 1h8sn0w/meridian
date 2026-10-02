@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite'
-import { devtools } from '@tanstack/devtools-vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -17,7 +16,6 @@ export default defineConfig({
   optimizeDeps: { exclude: ['@powersync/web'] },
   worker: { format: 'es' },
   plugins: [
-    devtools(),
     // Роутер — до плагіна React: він генерує src/routeTree.gen.ts і розрізає
     // файли маршрутів на окремі чанки, які вантажаться при переході.
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),

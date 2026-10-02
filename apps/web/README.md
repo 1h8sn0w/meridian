@@ -179,8 +179,10 @@ SDK (простіше через Android Studio); для iOS — macOS, Xcode і
 ```bash
 pnpm lint
 pnpm typecheck   # tsc --noEmit
-pnpm check       # prettier --check
+pnpm test
 ```
+
+Форматування — спільне й перевіряється з кореня: `pnpm format:check`.
 
 `src/routeTree.gen.ts` генерує плагін роутера під час `pnpm dev` і `pnpm build`.
 Файл машинний, у Prettier ігнорований, але **комітиться**: додали маршрут —
