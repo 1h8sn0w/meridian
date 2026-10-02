@@ -21,8 +21,6 @@ export function getSupabase(env: PublicEnv): SupabaseClient {
   if (!client) {
     client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
       auth: {
-        persistSession: true,
-        autoRefreshToken: true,
         // Ні OAuth, ні магічних посилань поки немає — ловити в URL нема чого.
         detectSessionInUrl: false,
         storageKey: 'meridian.auth.v2',

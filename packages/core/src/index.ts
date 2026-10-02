@@ -11,7 +11,7 @@
 // описує ПУБЛІЧНУ поверхню, і кожне зайве ім'я в ньому доводиться потім
 // підтримувати як обіцянку. Знадобиться — повертається одним рядком.
 
-export { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+export { MEAL_TYPES, MEAL_TYPE_LABELS } from './types.ts'
 export type {
   DayCalories,
   Ingredient,
@@ -44,10 +44,8 @@ export { weekSources } from './plans.ts'
 export { planOwnerId, poolForProfile } from './profile.ts'
 
 export { DEFAULTS, generateWeek } from './generator.ts'
-export type { GenerateOptions, GenerateResult, Random } from './generator.ts'
 
 export { replaceSlot, suggestReplacements } from './replace.ts'
-export type { Replacements, ReplacementCandidate } from './replace.ts'
 
 export {
   addDays,
@@ -71,19 +69,16 @@ export {
 export type { Row } from './rows.ts'
 
 export {
-  MERIDIAN_NAMESPACE,
-  derivedId,
   mealPrefId,
   planSlotId,
   recipeId,
   shoppingCheckId,
 } from './sync-ids.ts'
-export type { IdKind } from './sync-ids.ts'
 
 export { parsePlanText, planEntryKey } from './parse-plan.ts'
 export type { PlanEntry, PlanParse } from './parse-plan.ts'
 
-export { MEALS_KEY, PREFS_KEY, PROFILES_KEY, migrateV1 } from './migrate-v1.ts'
+export { migrateV1 } from './migrate-v1.ts'
 export type {
   MigratedPref,
   MigratedProfile,

@@ -203,13 +203,8 @@ export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
     shopping_check: ['checked'],
   }
 
-/** Таблиці, які синхронізуються. Порядок — як у sync-config.yaml. */
-export const SYNCED_TABLES = [
-  'profile',
-  'meal',
-  'recipe',
-  'meal_pref',
-  'week_plan',
-  'plan_slot',
-  'shopping_check',
-] as const
+/**
+ * Таблиці, які синхронізуються, — рівно ключі `AppSchema`, у тому самому
+ * порядку. Окремий список був би ще одним місцем, яке забувають оновити.
+ */
+export const SYNCED_TABLES = AppSchema.tables.map((table) => table.name)
