@@ -128,6 +128,25 @@ export function slotAt(minutes: number): ActiveSlot {
   return { type: null, window: null, next: best ? best.window : null }
 }
 
+export type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
+
+const PHASE_OF: Record<MealType, SkyPhase> = {
+  breakfast: 'dawn',
+  lunch: 'noon',
+  snack: 'golden',
+  dinner: 'dusk',
+}
+
+/**
+ * Фаза неба (дизайн «Сонячна дуга») — активний прийом, названий кольором:
+ * світанок на сніданок, полудень на обід, золото на перекус, захід на вечерю
+ * й ніч поза вікнами. Нових меж доби немає — це той самий `slotAt`.
+ */
+export function phaseAt(minutes: number): SkyPhase {
+  const type = slotAt(minutes).type
+  return type ? PHASE_OF[type] : 'night'
+}
+
 export function formatMinute(minutes: number): string {
   const hh = Math.floor(minutes / 60)
   const mm = minutes % 60

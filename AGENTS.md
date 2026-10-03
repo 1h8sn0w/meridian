@@ -179,7 +179,10 @@ utility-клас. Після
 - **Рух лише осмислений і лише `motion-safe:`** (або під
   `prefers-reduced-motion: no-preference` у CSS): поява вмісту сходинкою
   (`stagger`), відгук на натиск, переходи між екранами (View Transitions,
-  `defaultViewTransition`). Анімуються лише `transform` і `opacity`.
+  `defaultViewTransition`). Анімуються лише `transform` і `opacity`; свідомих
+  винятків два — одноразова поява дуг годинника (`stroke-dashoffset`) і скло
+  шапки, прив'язане до прокрутки. Перехід — `transition` чи
+  `transition-transform`, не `transition-all`.
 
 ---
 

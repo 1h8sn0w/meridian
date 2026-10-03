@@ -199,6 +199,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
           {shown.map((meal) => {
             const taste = prefOf(prefs, meal.id)
+            const calories = formatMealCalories(meal)
             return (
               <div
                 key={meal.id}
@@ -217,12 +218,12 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                   <div className="mt-0.5 text-xs text-muted">
                     {/* Калорійність — у рядку під назвою, а не окремою
                         колонкою: на телефоні колонка з'їдала б ширину назви. */}
-                    {formatMealCalories(meal) ? (
+                    {calories ? (
                       <span className="font-mono font-medium tabular-nums text-accent">
-                        {formatMealCalories(meal)}
+                        {calories}
                       </span>
                     ) : null}
-                    {formatMealCalories(meal) ? ' · ' : ''}
+                    {calories ? ' · ' : ''}
                     {MEAL_TYPE_LABELS[meal.type]}
                     {meal.source ? ' · ' + meal.source : ''}
                   </div>
@@ -295,7 +296,7 @@ function TasteButton({
       aria-pressed={on}
       aria-label={title}
       onClick={onClick}
-      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border p-0 transition-all duration-300 ease-spring active:scale-90 ${look}`}
+      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border p-0 transition duration-300 ease-spring active:scale-90 ${look}`}
     >
       <Glyph
         aria-hidden

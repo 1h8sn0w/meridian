@@ -243,7 +243,7 @@ function WeekGrid({
                     : ', без плану')
               }
               onClick={() => onSelect(key)}
-              className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl border px-0 py-2 transition-all duration-300 ease-spring active:scale-95 ${border}`}
+              className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl border px-0 py-2 transition duration-300 ease-spring active:scale-95 ${border}`}
             >
               <span className="text-xs opacity-70">{dow}</span>
               <span className="font-mono text-base font-semibold tabular-nums">

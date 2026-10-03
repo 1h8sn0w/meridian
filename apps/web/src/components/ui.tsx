@@ -267,7 +267,7 @@ export function Chip({
       type="button"
       aria-pressed={active}
       {...button}
-      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-300 ease-spring active:scale-95 ${
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition duration-300 ease-spring active:scale-95 ${
         active
           ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
           : 'border-line bg-app text-muted hover:text-content'
@@ -381,7 +381,7 @@ export function IconButton({
       title={label}
       aria-label={label}
       {...button}
-      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-all duration-300 ease-spring hover:text-content active:scale-90"
+      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition duration-300 ease-spring hover:text-content active:scale-90"
     >
       {children}
     </button>

@@ -11,23 +11,8 @@
  */
 
 import { useEffect } from 'react'
-import type { MealType } from '@meridian/core'
-import { slotAt } from '../lib/day-clock'
+import { phaseAt } from '../lib/day-clock'
 import { minutesOf, useNow } from '../lib/use-now'
-
-export type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
-
-const PHASE_OF: Record<MealType, SkyPhase> = {
-  breakfast: 'dawn',
-  lunch: 'noon',
-  snack: 'golden',
-  dinner: 'dusk',
-}
-
-export function phaseAt(minutes: number): SkyPhase {
-  const type = slotAt(minutes).type
-  return type ? PHASE_OF[type] : 'night'
-}
 
 /**
  * Поставити фазу на документ. Викликається і до першого рендеру (`main.tsx`),
@@ -45,9 +30,19 @@ export function applySky(minutes: number): void {
   if (top && meta) meta.setAttribute('content', top)
 }
 
-/** Такт неба. Окремий компонент без розмітки — щоб не перемальовувати екрани. */
+/**
+ * Такт неба. Окремий компонент без розмітки — щоб не перемальовувати екрани.
+ * Колір смуги залежить і від теми, тож її перемикання в системі теж
+ * перефарбовує смугу одразу, а не з наступною хвилиною.
+ */
 export function Sky() {
   const minutes = minutesOf(useNow())
-  useEffect(() => applySky(minutes), [minutes])
+  useEffect(() => {
+    applySky(minutes)
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)')
+    const repaint = () => applySky(minutes)
+    scheme.addEventListener('change', repaint)
+    return () => scheme.removeEventListener('change', repaint)
+  }, [minutes])
   return null
 }

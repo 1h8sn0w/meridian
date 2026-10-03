@@ -159,7 +159,7 @@ export function SwapDialog({
           type="button"
           disabled={!candidate.valid || busy}
           onClick={() => void apply(candidate.meal)}
-          className="mb-1.5 flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent bg-app px-3.5 py-3 text-left text-content transition-all duration-300 ease-spring hover:border-accent active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent"
+          className="mb-1.5 flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent bg-app px-3.5 py-3 text-left text-content transition duration-300 ease-spring hover:border-accent active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent"
         >
           <span className="min-w-0 flex-auto">
             <span className="block text-sm font-medium leading-snug">

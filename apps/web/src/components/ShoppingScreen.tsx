@@ -354,11 +354,11 @@ function Progress({ bought, total }: { bought: number; total: number }) {
       className="h-2 w-full overflow-hidden rounded-full bg-app"
     >
       {/* Ширина приходить рантаймом, тож через `style`, а не arbitrary value
-          в класі (правило значень у AGENTS.md). Перехід — щоб кожна позначка
-          було видно як крок уперед. */}
+          в класі (правило значень у AGENTS.md). Масштаб, а не ширина: кожну
+          позначку видно як крок уперед, а анімується лише `transform`. */}
       <div
-        className="h-full rounded-full bg-accent-fill transition-all duration-700 ease-out-expo"
-        style={{ width: percent + '%' }}
+        className="h-full w-full origin-left bg-accent-fill transition-transform duration-700 ease-out-expo"
+        style={{ transform: `scaleX(${percent / 100})` }}
       />
     </div>
   )
@@ -434,7 +434,7 @@ function ItemRow({
     >
       <span
         aria-hidden
-        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition-all duration-300 ease-spring group-active:scale-90 ${
+        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition duration-300 ease-spring group-active:scale-90 ${
           checked
             ? 'border-transparent bg-accent-fill text-button-ink'
             : 'border-line bg-app'

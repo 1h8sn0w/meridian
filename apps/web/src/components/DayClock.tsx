@@ -27,11 +27,11 @@ import {
   arcPath,
   formatMinute,
   labelPoint,
+  phaseAt,
   pointAt,
   slotAt,
   windowMiddle,
 } from '../lib/day-clock'
-import { phaseAt } from './Sky'
 
 /** Зазор 6 хв з кожного боку — щоб межі вікон читались, як у V1. */
 const GAP = 6
@@ -206,7 +206,11 @@ export function DayClock({
 
         {/* Сонце малюється вгорі й повертається на кут поточної хвилини —
             так його переїзд анімує CSS (`sun-orbit`), а не перерахунок точок. */}
+        {/* Ключ за половиною доби: опівночі кут скидається з ~360° на 0°, і
+            перехід провів би сонце назад через увесь циферблат. Новий елемент
+            стає на місце без переходу. */}
         <g
+          key={minutes < 720 ? 'am' : 'pm'}
           className="sun-orbit"
           style={{ transform: `rotate(${angleOf(minutes)}deg)` }}
         >
