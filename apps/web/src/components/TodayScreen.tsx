@@ -39,6 +39,7 @@ import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RemindersPanel } from './Reminders'
 import { SwapDialog } from './SwapDialog'
+import { ArrowsLeftRight, Heart, Prohibit } from '@phosphor-icons/react'
 import { Button, Hint, Panel, Problems, Tag } from './ui'
 
 /** Позначка смаку (MER-18) — та сама, що в плані тижня й у списку страв. */
@@ -49,9 +50,18 @@ export function TasteMark({
 }) {
   if (!value) return null
   return value === 'favorite' ? (
-    <Tag tone="accent">♥</Tag>
+    <Tag tone="accent">
+      <Heart weight="fill" size={12} role="img" aria-label="Улюблене" />
+    </Tag>
   ) : (
-    <Tag tone="warn">🚫</Tag>
+    <Tag tone="warn">
+      <Prohibit
+        weight="bold"
+        size={12}
+        role="img"
+        aria-label="Не подобається"
+      />
+    </Tag>
   )
 }
 
@@ -96,9 +106,10 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         />
       ) : null}
 
-      <Panel>
+      {/* Годинник — герой екрана, тож без картки: він стоїть просто на небі. */}
+      <div className="clock-hero mb-4 px-2">
         <DayClock minutes={minutes} full />
-      </Panel>
+      </div>
 
       {profile ? (
         <CurrentMeal
@@ -172,7 +183,7 @@ function CurrentMeal({
   onSwap: (dayIndex: number, slot: MealType) => void
 }) {
   const heading = (
-    <h2 className="mb-2 mt-0 text-base font-bold">
+    <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
       Поточна страва
       {showProfileName ? (
         <span className="text-accent"> · {profileName}</span>
@@ -188,7 +199,7 @@ function CurrentMeal({
           Плану ще немає — згенеруйте тиждень, і тут з’явиться страва поточного
           прийому.
         </Hint>
-        <Link to="/week" className="no-underline">
+        <Link to="/week" className="block no-underline">
           <Button block>Відкрити екран «Тиждень»</Button>
         </Link>
       </Panel>
@@ -249,27 +260,29 @@ function CurrentMeal({
   return (
     <Panel>
       {heading}
-      <p className="mb-0.5 mt-0 text-sm text-muted">{label}</p>
+      <p className="m-0">
+        <Tag tone="accent">{label}</Tag>
+      </p>
 
-      <div className="flex items-center justify-between gap-2.5 border-b border-line py-2.5">
+      <div className="flex items-end justify-between gap-3 border-b border-line pb-4 pt-3">
         <div className="min-w-0 flex-auto">
-          <div className="text-sm">
+          <div className="text-xl font-semibold leading-snug tracking-tight">
             {/* Назва веде на сторінку рецепта (MER-63) — саме звідси її
                 відкривають найчастіше: страва вже на столі. */}
             <Link
               to="/recipe/$mealId"
               params={{ mealId: meal.id }}
-              className="text-content underline decoration-line underline-offset-4"
+              className="text-content underline decoration-line decoration-2 underline-offset-4 transition-colors hover:decoration-accent"
             >
               {meal.name}
             </Link>{' '}
             <TasteMark value={prefOf(prefs, meal.id)} />
           </div>
           {meal.source ? (
-            <div className="mt-0.5 text-xs text-muted">{meal.source}</div>
+            <div className="mt-1 text-xs text-muted">{meal.source}</div>
           ) : null}
         </div>
-        <div className="whitespace-nowrap text-sm text-accent">
+        <div className="whitespace-nowrap font-mono text-lg font-semibold tabular-nums text-accent">
           {formatMealCalories(meal)}
         </div>
       </div>
@@ -285,6 +298,7 @@ function CurrentMeal({
       {/* MER-33: у прожитому дні заміни немає — історія незмінна. */}
       {day.isPast ? null : (
         <Button block onClick={() => onSwap(dayIndex, slot)}>
+          <ArrowsLeftRight aria-hidden size={18} />
           Замінити страву
         </Button>
       )}
@@ -309,7 +323,7 @@ function DayTotal({
   const total = formatCalories(day.calories.total, day.calories.approx)
   if (!total) {
     return (
-      <p className="mb-3 mt-2.5 text-sm text-muted">
+      <p className="mb-3 mt-3 text-sm text-muted">
         Калорійність дня невідома — у страв цього дня немає цифр.
       </p>
     )
@@ -319,7 +333,7 @@ function DayTotal({
     Math.abs(day.calories.total - target) <= corridor
   return (
     <p
-      className={`mb-3 mt-2.5 text-sm ${within ? 'text-success' : 'text-warning'}`}
+      className={`mb-4 mt-3 rounded-2xl px-3.5 py-2.5 text-sm ${within ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}
     >
       Разом за день: {total} · ціль {target} ± {corridor} ккал
       {day.calories.unknown > 0

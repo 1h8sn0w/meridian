@@ -56,7 +56,7 @@ export function FamilyScreen() {
       <Panel title="Запросити">
         {invite ? (
           <>
-            <div className="rounded-xl bg-accent-soft px-3 py-3 text-center">
+            <div className="rounded-2xl bg-accent-soft px-3 py-3 text-center">
               <div className="font-mono text-xl font-semibold tracking-widest text-accent">
                 {formatInviteCode(invite.code)}
               </div>

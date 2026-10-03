@@ -161,8 +161,8 @@ export function MealForm({
   }
 
   return (
-    <section className="mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
-      <h2 className="mb-2 mt-0 text-base font-bold">
+    <section className="mb-3.5 glass rounded-3xl px-5 py-4">
+      <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
         {meal ? 'Редагувати страву' : 'Нова страва'}
       </h2>
 
@@ -267,7 +267,7 @@ export function MealForm({
             type="button"
             disabled={busy}
             onClick={() => void remove()}
-            className="cursor-pointer rounded-xl border border-warning bg-transparent px-3.5 py-2.5 text-sm text-warning disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Видалити
           </button>

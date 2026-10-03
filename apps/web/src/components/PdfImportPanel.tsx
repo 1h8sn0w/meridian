@@ -412,7 +412,7 @@ export function PdfImportPanel({
             event.target.value = ''
             if (file) void readPdf(file)
           }}
-          className="block w-full cursor-pointer rounded-lg border border-line bg-app px-2.5 py-2 text-sm text-content scheme-dark"
+          className="block w-full cursor-pointer rounded-2xl border border-line bg-app px-3 py-2.5 text-sm text-content file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-accent-soft file:px-4 file:py-1.5 file:text-sm file:font-medium file:text-accent"
         />
 
         {status ? <InfoText>{status}</InfoText> : null}
@@ -535,7 +535,7 @@ function ReviewCard({
    * тут немає навмисно — правити нема чого. */
   if (entry.kind === 'repeat') {
     return (
-      <div className="mb-2.5 rounded-xl border border-line px-3 py-2.5 opacity-70">
+      <div className="mb-2.5 rounded-2xl border border-line px-3 py-2.5 opacity-70">
         <p className="m-0 text-sm text-muted">
           {MEAL_TYPE_LABELS[entry.type]}
           {entry.day ? ' · День ' + entry.day : ''} — повтор
@@ -548,7 +548,7 @@ function ReviewCard({
 
   return (
     <div
-      className={`mb-2.5 rounded-xl border border-line px-3 py-2.5 ${
+      className={`mb-2.5 rounded-2xl border border-line px-3 py-2.5 ${
         card.added ? 'opacity-60' : ''
       }`}
     >
@@ -652,7 +652,7 @@ function RawText({ entry }: { entry: PlanEntry }) {
       <summary className="cursor-pointer text-xs text-muted">
         Сирий текст із плану
       </summary>
-      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-app px-2.5 py-2 font-mono text-xs text-subtle">
+      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-line bg-app px-2.5 py-2 font-mono text-xs text-subtle">
         {entry.raw.join('\n')}
       </pre>
     </details>

@@ -206,7 +206,7 @@ export function ImportV1Panel() {
               event.target.value = ''
               if (file) void readFile(file)
             }}
-            className="block w-full cursor-pointer rounded-lg border border-line bg-app px-2.5 py-2 text-sm text-content scheme-dark"
+            className="block w-full cursor-pointer rounded-2xl border border-line bg-app px-3 py-2.5 text-sm text-content file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-accent-soft file:px-4 file:py-1.5 file:text-sm file:font-medium file:text-accent"
           />
         </>
       )}

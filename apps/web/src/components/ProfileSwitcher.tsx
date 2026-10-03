@@ -7,6 +7,7 @@
  * екран іншого.
  */
 
+import { GearSix } from '@phosphor-icons/react'
 import { Avatar } from './ui'
 import type { AppProfile } from '../lib/data/model'
 
@@ -22,7 +23,7 @@ export function ProfileSwitcher({
   onManage: () => void
 }) {
   return (
-    <div className="mb-3.5 flex gap-1.5 rounded-2xl border border-line bg-surface p-1.5">
+    <div className="glass mb-4 flex gap-1 rounded-full p-1.5">
       {profiles.map((profile) => {
         const active = profile.id === activeId
         return (
@@ -32,10 +33,10 @@ export function ProfileSwitcher({
             aria-pressed={active}
             title={`${profile.name} · ${profile.targetCalories} ± ${profile.corridor} ккал/день`}
             onClick={() => onSelect(profile.id)}
-            className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border bg-transparent px-2 py-1.5 text-left ${
+            className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-full border-0 py-1 pl-1 pr-3 text-left transition duration-300 ease-spring active:scale-97 ${
               active
-                ? 'border-accent bg-accent-soft text-content'
-                : 'border-transparent text-muted'
+                ? 'bg-accent-soft text-content'
+                : 'bg-transparent text-muted'
             }`}
           >
             <Avatar
@@ -43,11 +44,11 @@ export function ProfileSwitcher({
               color={profile.color}
             />
             <span className="min-w-0">
-              <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-tight">
+              <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-tight">
                 {profile.name}
               </span>
               <span
-                className={`block text-xs leading-tight ${
+                className={`block font-mono text-xs leading-tight tabular-nums ${
                   active ? 'text-accent' : 'text-muted'
                 }`}
               >
@@ -63,9 +64,9 @@ export function ProfileSwitcher({
         title="Профілі"
         aria-label="Керувати профілями"
         onClick={onManage}
-        className="flex-none cursor-pointer rounded-xl border-0 bg-transparent px-2 py-0 text-base text-muted"
+        className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center self-center rounded-full border-0 bg-transparent p-0 text-muted transition duration-500 ease-spring hover:rotate-45 hover:text-content active:scale-90"
       >
-        ⚙
+        <GearSix aria-hidden size={20} />
       </button>
     </div>
   )

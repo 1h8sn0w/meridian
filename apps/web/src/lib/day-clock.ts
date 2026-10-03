@@ -65,11 +65,12 @@ export const MEAL_WINDOWS: Array<MealWindow> = [
   },
 ]
 
-/* Геометрія кільця — та сама, що у V1 (SIZE 300, RING_R 95, RING_W 26). */
+/* Геометрія кільця: поле й радіус ті самі, що у V1 (SIZE 300, RING_R 95);
+ * кільце тонше (у V1 — 26), щоб сонце на дузі читалося над ним. */
 export const CLOCK_SIZE = 300
 export const CENTER = CLOCK_SIZE / 2
 export const RING_RADIUS = 95
-export const RING_WIDTH = 26
+export const RING_WIDTH = 14
 /** Радіус підписів навколо кільця — LABEL_R із V1. */
 const LABEL_RADIUS = 127
 const DAY_MINUTES = 1440
@@ -78,7 +79,7 @@ const DAY_MINUTES = 1440
 export const HOUR_MARKS = [0, 360, 720, 1080] as const
 
 /** Точка на колі для хвилини доби: північ угорі, далі за годинниковою. */
-function pointAt(minutes: number, radius: number): [number, number] {
+export function pointAt(minutes: number, radius: number): [number, number] {
   const angle = (minutes / DAY_MINUTES) * 2 * Math.PI
   return [CENTER + radius * Math.sin(angle), CENTER - radius * Math.cos(angle)]
 }
@@ -102,11 +103,9 @@ export function arcPath(from: number, to: number): string {
   return `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${RING_RADIUS} ${RING_RADIUS} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`
 }
 
-/** Риска поточного часу впоперек кільця. */
-export function handPoints(minutes: number) {
-  const [x1, y1] = pointAt(minutes, RING_RADIUS - RING_WIDTH / 2 - 4)
-  const [x2, y2] = pointAt(minutes, RING_RADIUS + RING_WIDTH / 2 + 4)
-  return { x1, y1, x2, y2 }
+/** Кут хвилини доби в градусах: північ угорі, далі за годинниковою. */
+export function angleOf(minutes: number): number {
+  return (minutes / DAY_MINUTES) * 360
 }
 
 export type ActiveSlot =
@@ -127,6 +126,25 @@ export function slotAt(minutes: number): ActiveSlot {
     if (!best || delta < best.delta) best = { window: w, delta }
   }
   return { type: null, window: null, next: best ? best.window : null }
+}
+
+export type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
+
+const PHASE_OF: Record<MealType, SkyPhase> = {
+  breakfast: 'dawn',
+  lunch: 'noon',
+  snack: 'golden',
+  dinner: 'dusk',
+}
+
+/**
+ * Фаза неба (дизайн «Сонячна дуга») — активний прийом, названий кольором:
+ * світанок на сніданок, полудень на обід, золото на перекус, захід на вечерю
+ * й ніч поза вікнами. Нових меж доби немає — це той самий `slotAt`.
+ */
+export function phaseAt(minutes: number): SkyPhase {
+  const type = slotAt(minutes).type
+  return type ? PHASE_OF[type] : 'night'
 }
 
 export function formatMinute(minutes: number): string {

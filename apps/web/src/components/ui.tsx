@@ -1,11 +1,12 @@
 /**
  * Спільні елементи інтерфейсу (MER-45, MER-49).
  *
- * Не нова дизайн-система: класи взяті з `UI_CLASSES` у V1 (`index.html`), щоб
- * V2 виглядав тим самим застосунком. Звідти ж і дрібниці, які легко зробити
- * «по-своєму» й розійтися: панель — `rounded-xl border-line bg-surface`, поле —
- * `rounded-lg` з `scheme-dark`, помилка — `text-warning` (не червоний із палітри
- * страв), заголовок секції — `text-xs uppercase tracking-wider`.
+ * Дизайн «Сонячна дуга» (styles.css). Форми мають одну шкалу заокруглень, і її
+ * легко розхитати «по-своєму», тож правило записане тут:
+ * - скляні картки й аркуші — `rounded-3xl` (утиліта `glass`);
+ * - поля, плитки й рядки всередині картки — `rounded-2xl`;
+ * - усе, що натискається (кнопки, чипи, позначки, іконки-дії), — `rounded-full`.
+ * Помилка — `text-warning` (не червоний із палітри страв).
  *
  * Arbitrary values не використовуємо — правило в AGENTS.md.
  */
@@ -19,12 +20,16 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react'
+import { WarningCircle, X } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
 
 /**
  * Липка шапка екрана — одна на обидва каркаси: `AuthShell` тут і `AppShell`
  * у застосунку. Розмітка стояла двічі, і будь-яка правка відступу лишала шов
  * рівно на переході «увійшли».
+ *
+ * Над небом шапка прозора, скло набирає лише тоді, коли під неї заїхав вміст
+ * (`header-glass` у styles.css).
  */
 export function ScreenHeader({
   title,
@@ -34,11 +39,13 @@ export function ScreenHeader({
   subtitle?: string
 }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-app px-4 pb-3 pt-5">
-      <h1 className="m-0 text-xl">{title}</h1>
-      {subtitle ? (
-        <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
-      ) : null}
+    <header className="header-glass sticky top-0 z-10 px-5 pb-3 pt-6">
+      <div className="mx-auto max-w-screen-sm">
+        <h1 className="m-0 text-3xl font-semibold tracking-tight">{title}</h1>
+        {subtitle ? (
+          <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
+        ) : null}
+      </div>
     </header>
   )
 }
@@ -60,14 +67,14 @@ export function AuthShell({
   return (
     <>
       <ScreenHeader title={title} subtitle={subtitle} />
-      <main className="mx-auto max-w-screen-sm px-4 pb-10 pt-4">
+      <main className="stagger mx-auto max-w-screen-sm px-4 pb-10 pt-4">
         {children}
       </main>
     </>
   )
 }
 
-/** `panel` із V1. */
+/** Скляна картка — основна поверхня екранів. */
 export function Panel({
   title,
   children,
@@ -76,26 +83,31 @@ export function Panel({
   children: ReactNode
 }) {
   return (
-    <section className="mb-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
+    <section className="glass mb-4 rounded-3xl px-5 py-4">
       {title ? (
-        <h2 className="mb-2 mt-0 text-base font-bold">{title}</h2>
+        <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
+          {title}
+        </h2>
       ) : null}
       {children}
     </section>
   )
 }
 
-/** `hint` із V1. */
+/** Пояснення під заголовком. */
 export function Hint({ children }: { children: ReactNode }) {
   return (
-    <p className="m-0 mb-3 text-sm leading-normal text-muted">{children}</p>
+    <p className="m-0 mb-3 text-sm leading-relaxed text-muted">{children}</p>
   )
 }
 
+const FIELD_LOOK =
+  'mt-1.5 block w-full rounded-2xl border border-line bg-app px-3.5 py-2.5 text-base text-content transition-colors duration-200 focus:border-accent'
+
 /**
- * Поле форми у стилі `profile-form` із V1. Нативний фокус свідомо не
- * прибираємо: Preflight вимкнено, тож обведення браузера — єдине, що показує
- * фокус із клавіатури.
+ * Поле форми. Нативний фокус свідомо не прибираємо: Preflight вимкнено, тож
+ * обведення браузера — єдине, що показує фокус із клавіатури. Рамка в колір
+ * профілю — лише підсилення поверх нього.
  */
 export function Field({
   label,
@@ -105,21 +117,21 @@ export function Field({
 }: { label: string; hint?: string } & InputHTMLAttributes<HTMLInputElement>) {
   const id = useId()
   return (
-    <div className="mb-2.5">
-      <label htmlFor={id} className="block text-sm text-muted">
+    <div className="mb-3">
+      <label htmlFor={id} className="block text-sm font-medium text-muted">
         {label}
       </label>
-      <input
-        id={id}
-        {...input}
-        className={`mt-1 block w-full rounded-lg border border-line bg-app px-2.5 py-2 text-base text-content scheme-dark ${className}`}
-      />
+      <input id={id} {...input} className={`${FIELD_LOOK} ${className}`} />
       {hint ? <p className="mb-0 mt-1 text-xs text-muted">{hint}</p> : null}
     </div>
   )
 }
 
-/** `btn` із V1 разом із модифікаторами `primary` і `block`. */
+/**
+ * Кнопка. Натискання відчутне: на hover вона трохи підіймається, на натиск —
+ * просідає пружиною. Основна — у колір профілю з темним текстом (усі кольори
+ * палітри профілів світлі, тож контраст тримається на кожному).
+ */
 export function Button({
   variant = 'default',
   block = false,
@@ -131,13 +143,13 @@ export function Button({
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   const look =
     variant === 'primary'
-      ? 'border-accent bg-accent font-semibold text-button-ink'
-      : 'border-line bg-transparent text-content'
+      ? 'border-transparent bg-accent-fill font-semibold text-button-ink shadow-accent'
+      : 'border-line bg-surface-strong font-medium text-content'
   return (
     <button
       type="button"
       {...button}
-      className={`cursor-pointer rounded-xl border px-3.5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${look} ${block ? 'w-full' : ''}`}
+      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm transition-transform duration-300 ease-spring hover:-translate-y-px active:translate-y-0 active:scale-97 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look} ${block ? 'w-full' : ''}`}
     >
       {children}
     </button>
@@ -153,7 +165,7 @@ export function LinkButton({
     <button
       type="button"
       {...button}
-      className="cursor-pointer border-0 bg-transparent p-0 text-sm text-accent"
+      className="cursor-pointer border-0 bg-transparent p-0 text-sm font-medium text-accent underline decoration-transparent underline-offset-4 transition-colors hover:decoration-current"
     >
       {children}
     </button>
@@ -161,28 +173,34 @@ export function LinkButton({
 }
 
 /**
- * `form-error` із V1. Оригінальний текст сервера показуємо поруч, коли для
- * нього немає перекладу: краще незрозуміле англійське речення, ніж мовчання —
- * саме воно допоможе тому, хто піднімає self-host.
+ * Помилка. Оригінальний текст сервера показуємо поруч, коли для нього немає
+ * перекладу: краще незрозуміле англійське речення, ніж мовчання — саме воно
+ * допоможе тому, хто піднімає self-host.
  */
 export function ErrorText({ failure }: { failure: Failure }) {
   return (
-    <p className="mb-0 mt-3 text-sm text-warning" role="alert">
-      {failure.text}
-      {failure.detail ? (
-        <span className="mt-1 block font-mono text-xs text-subtle">
-          {failure.detail}
-        </span>
-      ) : null}
-    </p>
+    <div
+      className="mt-3 flex gap-2.5 rounded-2xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning motion-safe:animate-rise"
+      role="alert"
+    >
+      <WarningCircle aria-hidden size={18} className="mt-px flex-none" />
+      <p className="m-0">
+        {failure.text}
+        {failure.detail ? (
+          <span className="mt-1 block font-mono text-xs text-subtle">
+            {failure.detail}
+          </span>
+        ) : null}
+      </p>
+    </div>
   )
 }
 
-/** Спокійне повідомлення — тон `hint`, рамка як у `tag`. */
+/** Спокійне повідомлення. */
 export function InfoText({ children }: { children: ReactNode }) {
   return (
     <p
-      className="mb-0 mt-3 rounded-lg border border-line px-3 py-2 text-sm leading-normal text-muted"
+      className="mb-0 mt-3 rounded-2xl border border-line bg-app px-3.5 py-2.5 text-sm leading-relaxed text-muted"
       role="status"
     >
       {children}
@@ -191,15 +209,14 @@ export function InfoText({ children }: { children: ReactNode }) {
 }
 
 /**
- * `pav` із V1 — кружечок-аватар з літерою.
+ * Кружечок-аватар з літерою.
  *
  * Колір профілю приходить рантаймом, тож підставляється через CSS-змінні, а не
  * arbitrary value в класі: токени `--color-profile` / `--color-profile-soft`
  * оголошені в `@theme inline` саме для цього (правило значень у AGENTS.md).
  *
  * Прозорий фон рахує `color-mix` із того самого `--profile-color` (MER-71).
- * Без кольору аватар лишається на акценті — а це інша частка (12%, не 18%),
- * тому фон береться іншим токеном, а не тим самим із запасним значенням.
+ * Без кольору аватар лишається на акценті.
  */
 export function Avatar({ letter, color }: { letter: string; color?: string }) {
   return (
@@ -207,7 +224,7 @@ export function Avatar({ letter, color }: { letter: string; color?: string }) {
       style={
         color ? ({ '--profile-color': color } as CSSProperties) : undefined
       }
-      className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold text-profile ${
+      className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold text-profile ${
         color ? 'bg-profile-soft' : 'bg-accent-soft'
       }`}
     >
@@ -216,7 +233,7 @@ export function Avatar({ letter, color }: { letter: string; color?: string }) {
   )
 }
 
-/** `tag` із V1 разом із модифікаторами `accent` і `warn`. */
+/** Позначка-пігулка. */
 export function Tag({
   tone = 'default',
   children,
@@ -226,20 +243,20 @@ export function Tag({
 }) {
   const look =
     tone === 'accent'
-      ? 'border-accent text-accent'
+      ? 'bg-accent-soft text-accent'
       : tone === 'warn'
-        ? 'border-warning text-warning'
-        : 'border-line text-muted'
+        ? 'bg-warning-soft text-warning'
+        : 'bg-app text-muted'
   return (
     <span
-      className={`inline-block rounded-full border px-2 py-px text-xs ${look}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 align-middle text-xs font-medium ${look}`}
     >
       {children}
     </span>
   )
 }
 
-/** `chip` із V1 — фільтр списку страв. */
+/** Чип — фільтр списку. */
 export function Chip({
   active = false,
   children,
@@ -250,8 +267,10 @@ export function Chip({
       type="button"
       aria-pressed={active}
       {...button}
-      className={`cursor-pointer rounded-full border bg-transparent px-3 py-1.5 text-xs ${
-        active ? 'border-accent text-accent' : 'border-line text-muted'
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition duration-300 ease-spring active:scale-95 ${
+        active
+          ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
+          : 'border-line bg-app text-muted hover:text-content'
       }`}
     >
       {children}
@@ -259,15 +278,22 @@ export function Chip({
   )
 }
 
-/** `empty` із V1 — порожній список. */
+/** Порожній список. */
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="py-5 text-center text-sm text-muted">{children}</div>
+  return (
+    <div className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm leading-relaxed text-muted">
+      {children}
+    </div>
+  )
 }
 
-/** `week-warn` із V1: чесне попередження, а не помилка. */
+/** Чесне попередження, а не помилка. */
 export function Warn({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-0 mt-2 text-sm leading-normal text-warning">{children}</p>
+    <p className="mb-0 mt-2 flex gap-2 rounded-2xl bg-warning-soft px-3.5 py-2.5 text-sm leading-normal text-warning">
+      <WarningCircle aria-hidden size={18} className="mt-px flex-none" />
+      <span>{children}</span>
+    </p>
   )
 }
 
@@ -289,19 +315,17 @@ export function Problems({ of }: { of: ReadonlyArray<ReadonlyArray<string>> }) {
   )
 }
 
-/** `week-meta` із V1 — довідковий рядок під кнопками. */
+/** Довідковий рядок під кнопками. */
 export function Meta({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-0 mt-2 text-xs leading-normal text-muted">{children}</p>
+    <p className="mb-0 mt-2 text-xs leading-relaxed text-muted">{children}</p>
   )
 }
 
-/** `recipe-sec` із V1 — заголовок секції всередині картки. */
+/** Заголовок секції всередині картки. */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-1 mt-3 text-xs uppercase tracking-wider text-muted">
-      {children}
-    </p>
+    <p className="mb-1.5 mt-4 text-sm font-semibold text-content">{children}</p>
   )
 }
 
@@ -316,15 +340,11 @@ export function TextField({
 } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const id = useId()
   return (
-    <div className="mb-2.5">
-      <label htmlFor={id} className="block text-sm text-muted">
+    <div className="mb-3">
+      <label htmlFor={id} className="block text-sm font-medium text-muted">
         {label}
       </label>
-      <textarea
-        id={id}
-        {...textarea}
-        className="mt-1 block w-full resize-y rounded-lg border border-line bg-app px-2.5 py-2 text-base text-content scheme-dark"
-      />
+      <textarea id={id} {...textarea} className={`${FIELD_LOOK} resize-y`} />
       {hint ? <p className="mb-0 mt-1 text-xs text-muted">{hint}</p> : null}
     </div>
   )
@@ -338,23 +358,38 @@ export function SelectField({
 }: { label: string } & SelectHTMLAttributes<HTMLSelectElement>) {
   const id = useId()
   return (
-    <div className="mb-2.5">
-      <label htmlFor={id} className="block text-sm text-muted">
+    <div className="mb-3">
+      <label htmlFor={id} className="block text-sm font-medium text-muted">
         {label}
       </label>
-      <select
-        id={id}
-        {...select}
-        className="mt-1 block w-full rounded-lg border border-line bg-app px-2.5 py-2 text-base text-content scheme-dark"
-      >
+      <select id={id} {...select} className={FIELD_LOOK}>
         {children}
       </select>
     </div>
   )
 }
 
+/** Кругла кнопка-іконка для дій у рядку (замінити, редагувати). */
+export function IconButton({
+  label,
+  children,
+  ...button
+}: { label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      {...button}
+      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition duration-300 ease-spring hover:text-content active:scale-90"
+    >
+      {children}
+    </button>
+  )
+}
+
 /**
- * Модальний аркуш — `overlay` + `sheet` із V1.
+ * Модальний аркуш.
  *
  * MER-41 залишив тут три вимоги, і кожна з них — про клавіатуру, а не про
  * красу: Escape закриває, Tab не виходить за межі діалогу, після закриття фокус
@@ -371,6 +406,9 @@ export function SelectField({
  * картку, тобто закриття. Колір оверлея лишається на самому елементі, а не на
  * `::backdrop`, щоб не залежати від того, чи успадковує псевдоелемент змінні
  * теми. `z-index` не потрібен: модальний діалог і так у top layer.
+ *
+ * Аркуш виїжджає знизу, оверлей проявляється — відкриття читається як рух,
+ * а не як підміна екрана.
  */
 export function Sheet({
   title,
@@ -408,12 +446,14 @@ export function Sheet({
       onClick={(event) => {
         if (event.target === event.currentTarget) close()
       }}
-      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end justify-center border-0 bg-overlay p-0 text-content open:flex dialog:items-center"
+      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end justify-center border-0 bg-overlay p-0 text-content backdrop-blur-sm open:flex motion-safe:animate-fade dialog:items-center"
     >
-      <div className="m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-2xl border border-line bg-surface px-4 py-3.5">
-        <div className="mb-1.5 flex items-baseline justify-between gap-2.5">
-          <h2 className="m-0 text-base font-bold">{title}</h2>
-          <LinkButton onClick={close}>Закрити</LinkButton>
+      <div className="glass m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-3xl px-5 py-4 motion-safe:animate-sheet">
+        <div className="mb-2 flex items-center justify-between gap-2.5">
+          <h2 className="m-0 text-lg font-semibold tracking-tight">{title}</h2>
+          <IconButton label="Закрити" onClick={close}>
+            <X size={16} weight="bold" />
+          </IconButton>
         </div>
         {children}
       </div>

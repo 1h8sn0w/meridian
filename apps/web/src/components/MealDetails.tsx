@@ -20,11 +20,11 @@ import { SectionLabel } from './ui'
 
 function Macro({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="flex-1 rounded-xl border border-line bg-app px-2 py-2 text-center">
+    <div className="flex-1 rounded-2xl bg-app px-2 py-2.5 text-center">
       <div className="text-xs text-muted">{label}</div>
       {/* «—» всередині показаної секції — це пропуск, а не нуль (V1). Питання
           «чи значення справді є» вирішує `hasValue` з ядра, а не `!== null`. */}
-      <div className="mt-0.5 text-sm font-semibold">
+      <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
         {hasValue(value) ? grams(value as number) : '—'}
       </div>
     </div>
@@ -51,7 +51,7 @@ export function MealDetails({
   return (
     <>
       {hasMacros(meal) ? (
-        <div className="mt-2.5 flex gap-2">
+        <div className="mt-4 flex gap-2">
           <Macro label="Білки" value={meal.protein} />
           <Macro label="Жири" value={meal.fat} />
           <Macro label="Вуглеводи" value={meal.carbs} />
@@ -63,7 +63,7 @@ export function MealDetails({
       {meal.ingredients.length ? (
         <>
           <SectionLabel>Інгредієнти</SectionLabel>
-          <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed">
+          <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed marker:text-accent">
             {meal.ingredients.map((item, index) => (
               <li key={index} className="my-px">
                 {ingredientLabel(item)}
@@ -82,7 +82,7 @@ export function MealDetails({
           <SectionLabel>
             Готова порція{portion ? ' · ' + portion : ''}
           </SectionLabel>
-          <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed">
+          <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed marker:text-accent">
             {meal.portions.map((entry, index) => {
               const own = portion ? portionForLetter(entry.text, portion) : null
               return (

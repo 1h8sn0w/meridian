@@ -46,7 +46,8 @@ import {
 import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
-import { Button, Hint, Meta, Panel, Problems, Tag } from './ui'
+import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
 
 /** Тиждень в Україні — з понеділка, як у `startOfWeek`. */
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
@@ -109,26 +110,26 @@ export function CalendarScreen() {
         <>
           {start ? (
             <Panel>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <Button
-                  aria-label="Попередній тиждень"
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <IconButton
+                  label="Попередній тиждень"
                   onClick={() =>
                     setView({ start: addDays(start, -7), selected })
                   }
                 >
-                  ‹
-                </Button>
-                <span className="text-sm font-semibold">
+                  <CaretLeft size={16} weight="bold" />
+                </IconButton>
+                <span className="text-base font-semibold tracking-tight">
                   {formatWeekRange(start, end)}
                 </span>
-                <Button
-                  aria-label="Наступний тиждень"
+                <IconButton
+                  label="Наступний тиждень"
                   onClick={() =>
                     setView({ start: addDays(start, 7), selected })
                   }
                 >
-                  ›
-                </Button>
+                  <CaretRight size={16} weight="bold" />
+                </IconButton>
               </div>
 
               <WeekGrid
@@ -143,7 +144,7 @@ export function CalendarScreen() {
               />
 
               {atToday ? null : (
-                <div className="mt-2">
+                <div className="mt-3">
                   <Button block onClick={() => setView(null)}>
                     Сьогодні
                   </Button>
@@ -159,7 +160,7 @@ export function CalendarScreen() {
                 Історія порожня — ще жоден тиждень не згенеровано. Згенеруйте
                 перший на екрані «Тиждень», і його дні з’являться тут.
               </Hint>
-              <Link to="/week" className="no-underline">
+              <Link to="/week" className="block no-underline">
                 <Button block>Відкрити екран «Тиждень»</Button>
               </Link>
             </Panel>
@@ -213,17 +214,19 @@ function WeekGrid({
     <>
       <Problems of={[daysRead.problems]} />
 
-      <div className="grid grid-cols-7 gap-1">
+      {/* Сітка перемонтовується на кожен тиждень (`key={start}`), тож
+          гортання тижнів читається як рух, а не як підміна цифр. */}
+      <div className="grid grid-cols-7 gap-1 motion-safe:animate-rise">
         {DOW_LABELS.map((dow, i) => {
           const key = addDays(start, i)
           const day = daysRead.data.get(key)
           const kcal = day ? formatDayCalories(day.calories) : ''
           const isSelected = key === selected
           const border = isSelected
-            ? 'border-accent bg-accent-soft'
+            ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
             : key === todayKey
-              ? 'border-accent bg-transparent'
-              : 'border-line bg-transparent'
+              ? 'border-accent bg-app text-content'
+              : 'border-transparent bg-app text-content hover:border-line'
           return (
             <button
               key={key}
@@ -240,15 +243,15 @@ function WeekGrid({
                     : ', без плану')
               }
               onClick={() => onSelect(key)}
-              className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-0 py-1.5 text-content ${border}`}
+              className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl border px-0 py-2 transition duration-300 ease-spring active:scale-95 ${border}`}
             >
-              <span className="text-xs text-muted">{dow}</span>
-              <span className="text-sm font-semibold">
+              <span className="text-xs opacity-70">{dow}</span>
+              <span className="font-mono text-base font-semibold tabular-nums">
                 {Number(key.slice(8, 10))}
               </span>
               {/* «—» — плану немає; порожньо — або план є без цифр, або
                   вибірка ще в дорозі й стверджувати нічого не можна. */}
-              <span className="max-w-full truncate px-0.5 text-xs text-muted">
+              <span className="max-w-full truncate px-0.5 font-mono text-xs tabular-nums opacity-70">
                 {daysRead.isLoading
                   ? ''
                   : day
@@ -285,7 +288,7 @@ function DaySection({
 
   return (
     <Panel>
-      <h2 className="mb-2 mt-0 text-base font-bold">
+      <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
         {formatDayTitle(date)}{' '}
         {date === todayKey ? <Tag tone="accent">сьогодні</Tag> : null}
       </h2>
@@ -307,19 +310,23 @@ function DaySection({
           {day.slots.map((slotView) => (
             <div
               key={slotView.id}
-              className="flex items-baseline gap-2.5 border-b border-line py-2 last:border-b-0"
+              className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0"
             >
-              <span className="w-20 flex-none text-xs text-muted">
-                {MEAL_TYPE_LABELS[slotView.slot]}
+              {/* Тип прийому над назвою, а не колонкою: на телефоні колонка
+                  забирала б у назви страви чверть ширини. */}
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-muted">
+                  {MEAL_TYPE_LABELS[slotView.slot]}
+                </span>
+                <span className="block text-sm font-medium leading-snug">
+                  {slotView.meal ? (
+                    slotView.meal.name
+                  ) : (
+                    <span className="text-warning">страву видалено з пулу</span>
+                  )}
+                </span>
               </span>
-              <span className="flex-1 text-sm">
-                {slotView.meal ? (
-                  slotView.meal.name
-                ) : (
-                  <span className="text-warning">страву видалено з пулу</span>
-                )}
-              </span>
-              <span className="whitespace-nowrap text-xs text-muted">
+              <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
                 {slotView.meal ? formatMealCalories(slotView.meal) : ''}
               </span>
             </div>
@@ -363,9 +370,13 @@ function DaySummary({
     Math.abs(calories.total - plan.target) <= plan.corridor
   // Без відомої цілі сума — довідка, а не вирок, тож і колір нейтральний.
   const tone =
-    plan === null ? 'text-muted' : within ? 'text-success' : 'text-warning'
+    plan === null
+      ? 'bg-app text-muted'
+      : within
+        ? 'bg-success-soft text-success'
+        : 'bg-warning-soft text-warning'
   return (
-    <p className={`mb-0 mt-2.5 text-sm ${tone}`}>
+    <p className={`mb-0 mt-3 rounded-2xl px-3.5 py-2.5 text-sm ${tone}`}>
       Разом: {total}
       {plan ? ` · ціль ${plan.target} ± ${plan.corridor} ккал` : ''}
       {calories.unknown > 0

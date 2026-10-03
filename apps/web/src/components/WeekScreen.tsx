@@ -46,7 +46,21 @@ import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import { SwapDialog } from './SwapDialog'
 import { TasteMark } from './TodayScreen'
-import { Button, Hint, Meta, Panel, Problems, Tag, Warn } from './ui'
+import {
+  ArrowsClockwise,
+  ArrowsLeftRight,
+  ShoppingCart,
+} from '@phosphor-icons/react'
+import {
+  Button,
+  Hint,
+  IconButton,
+  Meta,
+  Panel,
+  Problems,
+  Tag,
+  Warn,
+} from './ui'
 
 export function WeekScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -151,6 +165,12 @@ export function WeekScreen({ familyId }: { familyId: string }) {
             disabled={busy || !!sharedNote}
             onClick={() => void regenerate()}
           >
+            <ArrowsClockwise
+              aria-hidden
+              size={18}
+              weight="bold"
+              className={busy ? 'motion-safe:animate-spin' : ''}
+            />
             {busy
               ? 'Збираємо тиждень…'
               : view
@@ -163,7 +183,10 @@ export function WeekScreen({ familyId }: { familyId: string }) {
               отримує: п'ять уже є, а список без плану порожній за визначенням. */}
           {view ? (
             <Link to="/shopping" className="mt-2 block no-underline">
-              <Button block>Список покупок</Button>
+              <Button block>
+                <ShoppingCart aria-hidden size={18} />
+                Список покупок
+              </Button>
             </Link>
           ) : null}
 
@@ -196,8 +219,8 @@ export function WeekScreen({ familyId }: { familyId: string }) {
       {view ? (
         <Panel>
           <Hint>
-            Щоб замінити окрему страву, натисніть «⇄» у її рядку — діалог
-            запропонує страви того ж типу з прогнозом калорій дня.
+            Щоб замінити окрему страву, натисніть кнопку заміни праворуч у її
+            рядку. Діалог запропонує страви того ж типу з прогнозом калорій дня.
           </Hint>
         </Panel>
       ) : null}
@@ -311,18 +334,20 @@ function DayCard({
 
   return (
     <section
-      className={`mb-3.5 rounded-xl border bg-surface px-4 py-3.5 ${
-        day.isToday ? 'border-accent' : 'border-line'
-      }`}
+      className={`glass mb-4 rounded-3xl px-5 py-4 ${
+        day.isToday ? 'outline-2 -outline-offset-1 outline-accent' : ''
+      } ${day.isPast ? 'opacity-70' : ''}`}
     >
-      <div className="mb-1 flex items-baseline justify-between gap-2.5">
-        <div className="text-sm font-semibold">
+      <div className="mb-2 flex items-center justify-between gap-2.5">
+        <div className="text-base font-semibold tracking-tight">
           {formatDayTitle(day.date)}{' '}
           {day.isToday ? <Tag tone="accent">сьогодні</Tag> : null}
         </div>
         <div
-          className={`whitespace-nowrap text-sm ${
-            within ? 'text-success' : 'text-warning'
+          className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-xs font-medium tabular-nums ${
+            within
+              ? 'bg-success-soft text-success'
+              : 'bg-warning-soft text-warning'
           }`}
         >
           {total || 'калорійність невідома'}
@@ -337,35 +362,36 @@ function DayCard({
       {day.slots.map((slotView) => (
         <div
           key={slotView.id}
-          className="flex items-baseline gap-2.5 border-b border-line py-2 last:border-b-0 last:pb-0.5"
+          className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 last:pb-0"
         >
-          <span className="w-20 flex-none text-xs text-muted">
-            {MEAL_TYPE_LABELS[slotView.slot]}
+          {/* Тип прийому над назвою, а не колонкою: на телефоні колонка
+              забирала б у назви страви чверть ширини. */}
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted">
+              {MEAL_TYPE_LABELS[slotView.slot]}
+            </span>
+            <span className="block text-sm font-medium leading-snug">
+              {slotView.meal ? (
+                <>
+                  <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
+                  {slotView.meal.name}
+                </>
+              ) : (
+                <span className="text-warning">страву видалено з пулу</span>
+              )}
+            </span>
           </span>
-          <span className="flex-1 text-sm">
-            {slotView.meal ? (
-              <>
-                <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
-                {slotView.meal.name}
-              </>
-            ) : (
-              <span className="text-warning">страву видалено з пулу</span>
-            )}
-          </span>
-          <span className="whitespace-nowrap text-xs text-muted">
+          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
             {slotView.meal ? formatMealCalories(slotView.meal) : ''}
           </span>
           {/* MER-33: минулий день не редагується. */}
           {day.isPast ? null : (
-            <button
-              type="button"
-              title="Замінити страву"
-              aria-label={'Замінити страву: ' + MEAL_TYPE_LABELS[slotView.slot]}
+            <IconButton
+              label={'Замінити страву: ' + MEAL_TYPE_LABELS[slotView.slot]}
               onClick={() => onSwap(slotView.slot)}
-              className="flex-none cursor-pointer self-center rounded-lg border border-line bg-transparent px-2.5 py-1 text-sm leading-none text-muted"
             >
-              ⇄
-            </button>
+              <ArrowsLeftRight size={16} />
+            </IconButton>
           )}
         </div>
       ))}

@@ -7,9 +7,9 @@
          де липка шапка лягла б під системну смугу. -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Meridian</title>
-    <!-- PWA (MER-51). Колір той самий, що --color-app: у standalone ним
-         фарбується системна смуга, і будь-яка інша цифра дала б шов. -->
-    <meta name="theme-color" content="#0f1115" />
+    <!-- PWA (MER-51). Колір системної смуги — верх неба поточної фази; його
+         перезаписує components/Sky.tsx, а тут лише стартове значення. -->
+    <meta name="theme-color" content="#bfe3ff" />
     <!-- iOS маніфест не читає — режим і заголовок задаються метами. -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -36,7 +36,7 @@
       }
     </script>
   </head>
-  <body class="bg-app font-sans text-content">
+  <body class="font-sans text-content">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
