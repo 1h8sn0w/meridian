@@ -41,6 +41,7 @@ type Draft = {
   portions: string
   source: string
   gerd: boolean
+  sourceIssues: string
 }
 
 function draftOf(meal: Meal | null): Draft {
@@ -56,6 +57,7 @@ function draftOf(meal: Meal | null): Draft {
     portions: meal ? portionsToText(meal.portions) : '',
     source: meal?.source ?? '',
     gerd: meal?.gerd ?? false,
+    sourceIssues: meal ? meal.sourceIssues.join('\n') : '',
   }
 }
 
@@ -92,6 +94,10 @@ function validate(draft: Draft): { input: MealInput } | { error: string } {
       source: draft.source.trim(),
       portions: portionsFromText(draft.portions),
       gerd: draft.gerd,
+      sourceIssues: draft.sourceIssues
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
     },
   }
 }
@@ -257,7 +263,7 @@ export function MealForm({
 
       {/* MER-75: маркер із плану дієтолога, а не оцінка застосунку — тому
           лише ручний перемикач, без жодних підказок «схоже на ГЕРХ». */}
-      <label className="mt-3 flex items-center gap-2 text-sm text-content">
+      <label className="my-3 flex items-center gap-2 text-sm text-content">
         <input
           type="checkbox"
           className="m-0 w-auto accent-accent"
@@ -266,6 +272,17 @@ export function MealForm({
         />
         ГЕРХ — страва з плану з урахуванням ГЕРХ
       </label>
+
+      {/* MER-76: розбіжність записують дослівно, а коли власник з'ясував
+          правильне значення й виправив поле — просто стирають рядок. */}
+      <TextField
+        label="Помилки в джерелі"
+        hint="По одній на рядок, без правильного значення. З'ясували й виправили поле — зітріть рядок."
+        rows={3}
+        placeholder="У день 1 рис 70 г, у день 2 — 100 г"
+        value={draft.sourceIssues}
+        onChange={(e) => patch({ sourceIssues: e.target.value })}
+      />
 
       {error ? <Warn>{error}</Warn> : null}
 

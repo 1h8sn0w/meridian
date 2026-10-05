@@ -16,15 +16,57 @@ import {
   portionForLetter,
   portionLine,
 } from '../lib/meal-text'
+import { WarningCircle } from '@phosphor-icons/react'
 import { SectionLabel, Tag } from './ui'
 
 /**
- * Позначки страви з джерела, що стоять поруч із назвою: маркер ГЕРХ (MER-75).
- * Порожньо — нічого не рендериться, тож класти можна безумовно.
+ * Позначки страви з джерела, що стоять поруч із назвою: маркер ГЕРХ (MER-75) і
+ * значок «у джерелі є розбіжність» (MER-76) — сам опис живе на сторінці
+ * рецепта. Порожньо — нічого не рендериться, тож класти можна безумовно.
  */
 export function MealMarks({ meal }: { meal: Meal }) {
-  if (!meal.gerd) return null
-  return <Tag>ГЕРХ</Tag>
+  const issues = meal.sourceIssues.length
+  if (!meal.gerd && !issues) return null
+  return (
+    <>
+      {meal.gerd ? <Tag>ГЕРХ</Tag> : null}
+      {meal.gerd && issues ? ' ' : null}
+      {issues ? (
+        <Tag tone="warn">
+          <WarningCircle
+            weight="bold"
+            size={12}
+            role="img"
+            aria-label="У джерелі є розбіжність"
+          />
+        </Tag>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Розбіжності в джерелі (MER-76) — дослівно, як їх записали. Правильного
+ * значення тут немає й бути не може: його знає лише дієтолог.
+ */
+export function SourceIssues({ meal }: { meal: Meal }) {
+  if (!meal.sourceIssues.length) return null
+  /* Вигляд `Warn` з `ui.tsx`, але блоком: список усередині його `<p>` був би
+   * невалідною розміткою. */
+  return (
+    <div className="mt-4 flex gap-2 rounded-2xl bg-warning-soft px-3.5 py-2.5 text-sm leading-normal text-warning">
+      <WarningCircle aria-hidden size={18} className="mt-px flex-none" />
+      <div>
+        <span className="font-medium">Помилка в джерелі.</span> У плані
+        дієтолога тут розбіжність, значення занесено як є:
+        <ul className="mb-0 mt-1 list-disc pl-5">
+          {meal.sourceIssues.map((issue, index) => (
+            <li key={index}>{issue}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
 }
 
 function Macro({ label, value }: { label: string; value: number | null }) {

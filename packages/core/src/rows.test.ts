@@ -94,6 +94,19 @@ test('маркер ГЕРХ: 1/0 і true/false, а рядок без колон�
   assert.equal(mealFromRow({ ...mealRow, gerd: null }).gerd, false)
 })
 
+test('помилки в джерелі: масив рядків, порожнє й чуже відкидаються', () => {
+  assert.deepEqual(
+    mealFromRow({
+      ...mealRow,
+      source_issues: '["у день 1 рис 70 г, у день 2 — 100 г", "  ", 5]',
+    }).sourceIssues,
+    ['у день 1 рис 70 г, у день 2 — 100 г'],
+  )
+  // Стара страва без колонки (MER-76) — розбіжностей немає.
+  assert.deepEqual(mealFromRow(mealRow).sourceIssues, [])
+  assert.throws(() => mealFromRow({ ...mealRow, source_issues: '{"a":1}' }))
+})
+
 test('jsonb приймається і рядком, і вже розібраним масивом', () => {
   const parsed = mealFromRow({
     ...mealRow,

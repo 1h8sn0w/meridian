@@ -26,7 +26,7 @@ import { saveRecipe } from '../lib/data/mutations'
 import type { RecipeInput } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
-import { MealDetails, MealMarks } from './MealDetails'
+import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
 import { CaretLeft, PencilSimple, Plus } from '@phosphor-icons/react'
 import {
   Button,
@@ -88,7 +88,7 @@ export function RecipeScreen({
 
       <Panel>
         <Photo meal={meal} photo={recipe?.photo ?? null} />
-        {meal.gerd ? (
+        {meal.gerd || meal.sourceIssues.length ? (
           <p className="mb-3 mt-0">
             <MealMarks meal={meal} />
           </p>
@@ -98,6 +98,7 @@ export function RecipeScreen({
             ні» має бути одне на застосунок. `hideEmpty`: сторінка вся про склад
             страви, тож рядок «не вказано» тут зайвий (MER-63). */}
         <MealDetails meal={meal} portion={profile?.portion ?? null} hideEmpty />
+        <SourceIssues meal={meal} />
         <Steps
           steps={recipe?.steps ?? []}
           servings={recipe?.servings ?? null}
