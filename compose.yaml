@@ -255,11 +255,17 @@ services:
       - -c
       - |
         export PUBLIC_SUPABASE_ANON_KEY="$$(. /secrets/app.env; printf %s "$$ANON_KEY")"
+        # Хост із APP_URL — для default_sni у Caddyfile (MER-74).
+        export APP_HOST="$$(printf %s "$$APP_URL" | sed -E 's#^[a-z]+://##; s#[:/].*$$##')"
         exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    # Порт усередині = порт ззовні. Caddy слухає порт з адреси сайту (APP_URL),
+    # а без порту в ній — HTTP_PORT/HTTPS_PORT (глобальні опції в Caddyfile).
+    # Публікувати `${HTTP_PORT}:80` означало б, що з APP_URL=http://host:8080
+    # назовні відкривається порт, на якому ніхто не слухає (MER-74).
     ports:
-      - '${HTTP_PORT:-80}:80'
-      - '${HTTPS_PORT:-443}:443'
-      - '${HTTPS_PORT:-443}:443/udp'
+      - '${HTTP_PORT:-80}:${HTTP_PORT:-80}'
+      - '${HTTPS_PORT:-443}:${HTTPS_PORT:-443}'
+      - '${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/udp'
     volumes:
       - ./infra/caddy:/etc/caddy:ro
       - secrets:/secrets:ro
@@ -267,6 +273,8 @@ services:
       - caddy-config:/config
     environment:
       APP_URL: ${APP_URL:-http://localhost}
+      HTTP_PORT: ${HTTP_PORT:-80}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
       # Адреси для браузера. Одне походження на все — тому це та сама APP_URL,
       # яку відкриває користувач, а не окремі порти сервісів.
       PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
