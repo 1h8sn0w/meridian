@@ -88,11 +88,7 @@ export function RecipeScreen({
 
       <Panel>
         <Photo meal={meal} photo={recipe?.photo ?? null} />
-        {meal.gerd || meal.sourceIssues.length ? (
-          <p className="mb-3 mt-0">
-            <MealMarks meal={meal} />
-          </p>
-        ) : null}
+        <MealMarks meal={meal} block />
         <Chips meal={meal} recipe={recipe} />
         {/* Той самий склад, що на картці «Сьогодні» — правило «показувати чи
             ні» має бути одне на застосунок. `hideEmpty`: сторінка вся про склад

@@ -22,12 +22,20 @@ import { SectionLabel, Tag } from './ui'
 /**
  * Позначки страви з джерела, що стоять поруч із назвою: маркер ГЕРХ (MER-75) і
  * значок «у джерелі є розбіжність» (MER-76) — сам опис живе на сторінці
- * рецепта. Порожньо — нічого не рендериться, тож класти можна безумовно.
+ * рецепта. Порожньо — нічого не рендериться (і абзацу `block` теж), тож
+ * класти можна безумовно: правило «показувати чи ні» живе лише тут.
  */
-export function MealMarks({ meal }: { meal: Meal }) {
+export function MealMarks({
+  meal,
+  block = false,
+}: {
+  meal: Meal
+  /** Окремим абзацом (сторінка рецепта), а не в рядку з назвою. */
+  block?: boolean
+}) {
   const issues = meal.sourceIssues.length
   if (!meal.gerd && !issues) return null
-  return (
+  const marks = (
     <>
       {meal.gerd ? <Tag>ГЕРХ</Tag> : null}
       {meal.gerd && issues ? ' ' : null}
@@ -43,6 +51,7 @@ export function MealMarks({ meal }: { meal: Meal }) {
       ) : null}
     </>
   )
+  return block ? <p className="mb-3 mt-0">{marks}</p> : marks
 }
 
 /**
