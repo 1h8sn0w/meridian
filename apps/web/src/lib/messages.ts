@@ -49,6 +49,39 @@ export function rpcFailure(error: { message: string }): Failure {
     : { text: 'Не вдалося виконати дію.', detail: error.message }
 }
 
+/**
+ * Чому не відкрилась база пристрою (MER-73).
+ *
+ * `retryable` — чи має сенс кнопка «Спробувати ще раз». На незахищеній адресі
+ * її немає: перезавантаження сторінки контексту не змінить, змінить лише інша
+ * адреса.
+ */
+export type LocalDbFailure = Failure & { retryable: boolean }
+
+/**
+ * Незахищений контекст — найчастіша причина, і єдина, яку людина виправляє
+ * сама: self-host відкрили за `http://<IP>`. Браузер дає сховище й блокування
+ * вкладок (`navigator.locks`) лише на `https://` або `localhost`, а PowerSync без
+ * них не відкриває базу. Решту причин не вгадуємо — показуємо як є.
+ */
+export function localDbFailure(
+  error: unknown,
+  context: { secure: boolean; origin: string },
+): LocalDbFailure {
+  if (!context.secure) {
+    return {
+      text: 'Браузер не дає застосунку локальної бази: сторінку відкрито без HTTPS. Відкрийте її за адресою з https:// — або через localhost на самому сервері.',
+      detail: context.origin,
+      retryable: false,
+    }
+  }
+  return {
+    text: 'Не вдалося відкрити локальну базу на цьому пристрої.',
+    detail: error instanceof Error ? error.message : String(error),
+    retryable: true,
+  }
+}
+
 /** `A1B2C3D4E5F6` → `A1B2-C3D4-E5F6`: код читають уголос і набирають руками. */
 export function formatInviteCode(code: string): string {
   return (code.match(/.{1,4}/g) ?? [code]).join('-')

@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { usePowerSync, useQuery, useStatus } from '@powersync/react'
 import { useSyncState } from '../lib/powersync/provider'
 import { SYNCED_TABLES } from '../lib/powersync/schema'
+import { LocalDbPending } from './RequireLocalDb'
 import { Hint, Panel } from './ui'
 
 /** «18:42» — панель показує час у межах доби, дата тут нічого не додає. */
@@ -36,7 +37,17 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function SyncPanel() {
-  const { configured, db } = useSyncState()
+  const { configured, db, failure } = useSyncState()
+
+  // Раніше за «не налаштована»: без бази пристрою застосунок не працює взагалі,
+  // і саме тут, у розділі про дані на пристрої, людина шукатиме причину.
+  if (failure) {
+    return (
+      <Panel title="Синхронізація">
+        <LocalDbPending />
+      </Panel>
+    )
+  }
 
   if (!configured) {
     return (
@@ -54,7 +65,7 @@ export function SyncPanel() {
   if (!db) {
     return (
       <Panel title="Синхронізація">
-        <Hint>Готуємо локальну базу…</Hint>
+        <LocalDbPending />
       </Panel>
     )
   }
