@@ -46,7 +46,7 @@ The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, 
 
 Signup is open by default, because a fresh stack has to let someone create the first account — so on a stack reachable from the internet, closing it with `GOTRUE_DISABLE_SIGNUP=true` is the last step of the install rather than an afterthought. Two consequences come with it: adding a new family member needs signup reopened for the length of one registration, and password reset does not work at all until you configure SMTP — there is no mail in the stack. The ordered procedure for all of it, along with the prebuilt image and where the secrets live, is in [`infra/README.md`](infra/README.md).
 
-A starter set of meals is optional. It is a JSON file with meals from the dietitian's plans, kept on the server outside the repository. Point `STARTER_SET_FILE` in `.env` at it and run `docker compose up migrate`; every family then gets those meals on first open. The format is in [`packages/core/README.md`](packages/core/README.md#стартовий-набір-формат-файлу-mer-77) and the setup in [`infra/README.md`](infra/README.md#стартовий-набір-страв).
+A starter set of meals is optional. It is a JSON file with meals from the dietitian's plans, kept on the server outside the repository. Point `STARTER_SET_FILE` in `.env` at it and run `docker compose up migrate`; a new family, or one whose pool is still empty, gets those meals on first open; a family that already has meals adds the missing ones with a button on the Meals screen. The format is in [`packages/core/README.md`](packages/core/README.md#стартовий-набір-формат-файлу-mer-77) and the setup in [`infra/README.md`](infra/README.md#стартовий-набір-страв).
 
 ## Where it stands
 

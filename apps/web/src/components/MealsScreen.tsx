@@ -252,12 +252,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             </Empty>
           ) : null}
 
-          {/* MER-77: порожній пул — пропозиція стартового набору, якщо він є
-              на сервері. Після «Очистити всі» це єдиний шлях його повернути. */}
-          {meals.length === 0 && !mealsRead.isLoading ? (
-            <StarterOffer familyId={familyId} />
-          ) : null}
-
           {shown.map((meal) => {
             const taste = prefOf(prefs, meal.id)
             const calories = formatMealCalories(meal)
@@ -315,6 +309,13 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             )
           })}
         </div>
+
+        {/* MER-77: стартовий набір, якщо на сервері є страви, яких у пулі
+            немає. «Очистити всі» лишає страви з планів, тож кнопка потрібна й
+            у непорожньому пулі — це єдиний шлях повернути решту. */}
+        {mealsRead.isLoading ? null : (
+          <StarterOffer familyId={familyId} meals={meals} />
+        )}
 
         {meals.length ? (
           <div className="mt-4 flex justify-end">

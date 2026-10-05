@@ -18,7 +18,7 @@ import { familyIdFromToken, getSupabase } from './supabase'
 import { isPublicEnvReady } from './public-env'
 import type { PublicEnv } from './public-env'
 import { authFailure, rpcFailure } from './messages'
-import type { Failure } from './messages'
+import type { Outcome } from './messages'
 
 export type Status =
   /** Конфіг не заданий — сервер не знає адреси Supabase. */
@@ -39,14 +39,6 @@ type FamilyRow = { id: string; name: string }
 type MemberRow = { id: string; user_id: string; email: string | null }
 type InviteRow = { code: string; expires_at: string }
 
-/**
- * Наслідок дії входу. НЕ `Result` із `@meridian/core`: там форма інша
- * (`({ ok: true } & T) | Err`, а помилка — рядок). Два різні типи під одним
- * іменем в одному застосунку — пастка, а не зручність.
- */
-export type AuthResult<T> =
-  { ok: true; value: T } | { ok: false; failure: Failure }
-
 type AuthValue = {
   status: Status
   email: string | null
@@ -56,13 +48,13 @@ type AuthValue = {
   family: Family | null
   members: Array<FamilyMember>
   invite: Invite | null
-  signIn: (email: string, password: string) => Promise<AuthResult<null>>
+  signIn: (email: string, password: string) => Promise<Outcome<null>>
   /** `false` у значенні — сесії немає: GoTrue чекає підтвердження пошти. */
-  signUp: (email: string, password: string) => Promise<AuthResult<boolean>>
+  signUp: (email: string, password: string) => Promise<Outcome<boolean>>
   signOut: () => Promise<void>
-  createFamily: (name: string) => Promise<AuthResult<null>>
-  joinFamily: (code: string) => Promise<AuthResult<null>>
-  createInvite: () => Promise<AuthResult<Invite>>
+  createFamily: (name: string) => Promise<Outcome<null>>
+  joinFamily: (code: string) => Promise<Outcome<null>>
+  createInvite: () => Promise<Outcome<Invite>>
   /**
    * Клієнт PostgREST для таблиць поза синхронізацією (`pdf_import`, MER-52).
    * `null` — конфігу немає або сесію ще не прочитано.

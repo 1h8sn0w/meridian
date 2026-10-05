@@ -8,7 +8,7 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { parseStarterSet } from './starter-set.ts'
+import { hasRecipe, parseStarterSet } from './starter-set.ts'
 
 const path = process.argv[2]
 if (!path) {
@@ -29,7 +29,8 @@ if (!parsed.ok) {
   console.error(parsed.error)
   process.exit(1)
 }
-const recipes = parsed.set.meals.filter((meal) => meal.recipe).length
+// Те саме правило, що в засіві: порожній рецепт рядка не створює.
+const recipes = parsed.set.meals.filter((meal) => hasRecipe(meal.recipe)).length
 console.log(
   'Гаразд. Страв: ' +
     parsed.set.meals.length +
