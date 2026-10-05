@@ -16,7 +16,16 @@ import {
   portionForLetter,
   portionLine,
 } from '../lib/meal-text'
-import { SectionLabel } from './ui'
+import { SectionLabel, Tag } from './ui'
+
+/**
+ * Позначки страви з джерела, що стоять поруч із назвою: маркер ГЕРХ (MER-75).
+ * Порожньо — нічого не рендериться, тож класти можна безумовно.
+ */
+export function MealMarks({ meal }: { meal: Meal }) {
+  if (!meal.gerd) return null
+  return <Tag>ГЕРХ</Tag>
+}
 
 function Macro({ label, value }: { label: string; value: number | null }) {
   return (

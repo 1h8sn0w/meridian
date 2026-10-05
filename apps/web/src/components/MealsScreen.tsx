@@ -23,6 +23,7 @@ import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
+import { MealMarks } from './MealDetails'
 import { MealForm } from './MealForm'
 import { PdfImportPanel } from './PdfImportPanel'
 import {
@@ -51,6 +52,9 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const mealsRead = useMeals()
   const prefsRead = useTastePrefs()
   const [filter, setFilter] = useState<Filter>('all')
+  /* MER-75: «лише ГЕРХ» — окремий перемикач, а не ще одне значення `filter`:
+   * його поєднують із типом слота («ГЕРХ-сніданки»). */
+  const [gerdOnly, setGerdOnly] = useState(false)
   const [editing, setEditing] = useState<{ meal: Meal | null } | null>(null)
   const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -58,7 +62,10 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const meals = mealsRead.data
   const prefs = prefsRead.data
 
+  const gerdCount = meals.filter((meal) => meal.gerd).length
+
   const shown = meals.filter((meal) => {
+    if (gerdOnly && !meal.gerd) return false
     if (filter === 'all') return true
     if (filter === 'favorite') return prefs.favorites.has(meal.id)
     if (filter === 'disliked') return prefs.disliked.has(meal.id)
@@ -162,6 +169,14 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               ) : null}
             </Chip>
           ))}
+          {gerdCount || gerdOnly ? (
+            <Chip active={gerdOnly} onClick={() => setGerdOnly(!gerdOnly)}>
+              Лише ГЕРХ
+              <span className="font-mono tabular-nums opacity-70">
+                {gerdCount}
+              </span>
+            </Chip>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -187,13 +202,15 @@ export function MealsScreen({ familyId }: { familyId: string }) {
         <div className="mt-4">
           {shown.length === 0 ? (
             <Empty>
-              {filter === 'all'
-                ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
-                : filter === 'favorite'
-                  ? 'Немає страв із позначкою «улюблене».'
-                  : filter === 'disliked'
-                    ? 'Немає страв із позначкою «не подобається».'
-                    : 'Немає страв цього типу.'}
+              {gerdOnly && meals.length
+                ? 'Немає страв із маркером ГЕРХ серед обраних.'
+                : filter === 'all'
+                  ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
+                  : filter === 'favorite'
+                    ? 'Немає страв із позначкою «улюблене».'
+                    : filter === 'disliked'
+                      ? 'Немає страв із позначкою «не подобається».'
+                      : 'Немає страв цього типу.'}
             </Empty>
           ) : null}
 
@@ -213,7 +230,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                   className="group min-w-0 flex-auto text-content no-underline"
                 >
                   <div className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
-                    {meal.name}
+                    {meal.name} <MealMarks meal={meal} />
                   </div>
                   <div className="mt-0.5 text-xs text-muted">
                     {/* Калорійність — у рядку під назвою, а не окремою

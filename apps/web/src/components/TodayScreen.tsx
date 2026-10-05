@@ -34,7 +34,7 @@ import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
-import { MealDetails } from './MealDetails'
+import { MealDetails, MealMarks } from './MealDetails'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RemindersPanel } from './Reminders'
@@ -276,7 +276,8 @@ function CurrentMeal({
             >
               {meal.name}
             </Link>{' '}
-            <TasteMark value={prefOf(prefs, meal.id)} />
+            <TasteMark value={prefOf(prefs, meal.id)} />{' '}
+            <MealMarks meal={meal} />
           </div>
           {meal.source ? (
             <div className="mt-1 text-xs text-muted">{meal.source}</div>

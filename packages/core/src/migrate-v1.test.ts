@@ -123,6 +123,8 @@ test('страва переїжджає дослівно — план, «≈», 
   // MER-26: прапорець приблизності не можна загубити — інакше оцінка почне
   // видавати себе за цифру дієтолога.
   assert.equal(meal.caloriesApprox, true)
+  // MER-75: у V1 маркера ГЕРХ не було — не позначено, а не вгадано.
+  assert.equal(meal.gerd, false)
   assert.equal(meal.protein, 38)
   assert.equal(meal.fat, null)
   // `source` — план дієтолога, а не провенанс-енум.

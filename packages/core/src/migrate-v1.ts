@@ -269,6 +269,8 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     portions: list(raw.portions)
       .map(portion)
       .filter((x): x is Portion => x !== null),
+    // MER-75: у V1 маркера ГЕРХ не було — отже, не позначено.
+    gerd: false,
   }
 }
 

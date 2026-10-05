@@ -139,6 +139,9 @@ export function mealFromRow(row: Row): Meal {
     portions: jsonArray(row, 'portions', what)
       .map(portion)
       .filter((x): x is Portion => x !== null),
+    // Рядок без колонки (ще не синхронізована схема) — «не позначено», як і
+    // DEFAULT false у міграції.
+    gerd: bool(row, 'gerd'),
   }
 }
 

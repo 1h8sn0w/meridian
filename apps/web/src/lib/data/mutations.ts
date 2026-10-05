@@ -89,6 +89,7 @@ export type MealInput = {
   ingredients: Array<Ingredient>
   source: string
   portions: Array<Portion>
+  gerd: boolean
 }
 
 export async function insertMeal(
@@ -99,8 +100,8 @@ export async function insertMeal(
   const id = newId()
   await db.execute(
     'INSERT INTO meal (id, family_id, name, type, calories, calories_approx,' +
-      ' protein, fat, carbs, ingredients, source, portions)' +
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ' protein, fat, carbs, ingredients, source, portions, gerd)' +
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       id,
       familyId,
@@ -117,6 +118,7 @@ export async function insertMeal(
       JSON.stringify(input.ingredients),
       input.source,
       JSON.stringify(input.portions),
+      flag(input.gerd),
     ],
   )
   return id
@@ -138,7 +140,7 @@ export async function updateMeal(
 ): Promise<void> {
   await db.execute(
     'UPDATE meal SET name = ?, type = ?, calories = ?, protein = ?, fat = ?,' +
-      ' carbs = ?, ingredients = ?, source = ?, portions = ?' +
+      ' carbs = ?, ingredients = ?, source = ?, portions = ?, gerd = ?' +
       (caloriesChanged ? ', calories_approx = 0' : '') +
       ' WHERE id = ?',
     [
@@ -151,6 +153,7 @@ export async function updateMeal(
       JSON.stringify(input.ingredients),
       input.source,
       JSON.stringify(input.portions),
+      flag(input.gerd),
       id,
     ],
   )

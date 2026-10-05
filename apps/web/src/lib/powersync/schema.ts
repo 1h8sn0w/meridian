@@ -79,6 +79,8 @@ const meal = new Table({
   source: column.text,
   /** JSON-масив `{component, text}` — порції дослівно (MER-24). */
   portions: column.text,
+  /** MER-75: 1 — страва з плану з урахуванням ГЕРХ. */
+  gerd: column.integer,
 })
 
 /** recipe — рецептна частина страви, один-до-одного й необов'язкова. */
@@ -199,7 +201,7 @@ export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
 
 export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
   {
-    meal: ['calories_approx'],
+    meal: ['calories_approx', 'gerd'],
     shopping_check: ['checked'],
   }
 

@@ -290,6 +290,8 @@ export function PdfImportPanel({
           ingredients: ingredientsFromText(draft.ingredients),
           source: draft.source.trim(),
           portions: portionsFromText(draft.portions),
+          // Маркера ГЕРХ розбір не бачить; позначають на екрані страви (MER-75).
+          gerd: false,
         })
         /* Страва вже в базі — картка закрита незалежно від того, що станеться
          * з рецептом. Інакше невдалий другий запис виглядав би як «не додалося»,

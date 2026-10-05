@@ -117,6 +117,7 @@ function mealValues(familyId: string, meal: Meal): Record<string, unknown> {
     ingredients: json(meal.ingredients),
     source: meal.source,
     portions: json(meal.portions),
+    gerd: flag(meal.gerd),
   }
 }
 

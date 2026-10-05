@@ -53,6 +53,7 @@ export function meal(input: MealInput): Meal {
     ingredients: [],
     source: input.source ?? '',
     portions: [],
+    gerd: false,
   }
 }
 
