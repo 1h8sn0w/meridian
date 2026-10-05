@@ -81,6 +81,8 @@ const meal = new Table({
   portions: column.text,
   /** MER-75: 1 — страва з плану з урахуванням ГЕРХ. */
   gerd: column.integer,
+  /** MER-76: JSON-масив рядків — розбіжності в джерелі, дослівно. */
+  source_issues: column.text,
 })
 
 /** recipe — рецептна частина страви, один-до-одного й необов'язкова. */
@@ -194,7 +196,7 @@ export const AppSchema = new Schema({
  */
 export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
   profile: ['meal_ids'],
-  meal: ['ingredients', 'portions'],
+  meal: ['ingredients', 'portions', 'source_issues'],
   recipe: ['steps'],
   week_plan: ['sources', 'warnings'],
 }

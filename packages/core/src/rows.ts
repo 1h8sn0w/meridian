@@ -142,6 +142,10 @@ export function mealFromRow(row: Row): Meal {
     // Рядок без колонки (ще не синхронізована схема) — «не позначено», як і
     // DEFAULT false у міграції.
     gerd: bool(row, 'gerd'),
+    sourceIssues: jsonArray(row, 'source_issues', what)
+      .filter((x): x is string => typeof x === 'string')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0),
   }
 }
 
