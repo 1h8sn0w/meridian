@@ -74,7 +74,7 @@ function describe(error: unknown): string {
 
 export function ImportV1Panel() {
   const { familyId } = useAuth()
-  const { db } = useSyncState()
+  const { db, failure: dbFailure } = useSyncState()
   const [migration, setMigration] = useState<V1Migration | null>(null)
   const [fileName, setFileName] = useState('')
   const [stats, setStats] = useState<ImportStats | null>(null)
@@ -126,7 +126,11 @@ export function ImportV1Panel() {
   if (!familyId || !db) {
     return (
       <Panel title="Перенести дані з V1">
-        <Hint>Готуємо локальну базу…</Hint>
+        <Hint>
+          {dbFailure
+            ? 'Недоступно: дані переносяться в локальну базу, а вона на цьому пристрої не відкрилась. Причина — у розділі «Синхронізація».'
+            : 'Готуємо локальну базу…'}
+        </Hint>
       </Panel>
     )
   }
