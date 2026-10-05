@@ -11,6 +11,7 @@
 | `0002_replication.sql` | Тригери `updated_at`, привілеї ролей, роль і публікація для PowerSync |
 | `0003_prefs_shopping.sql` | MER-55: `meal_pref` і `shopping_check` — таблиці, тригери, права й доповнення публікації в одному файлі |
 | `0004_auth.sql` | MER-45: `family_member` і `family_invite`, хук доступу GoTrue (claim `family_id`) і три RPC — створити сім'ю, зробити код, прийняти код |
+| `0005_meal_gerd.sql` | MER-75: `meal.gerd` — маркер «ГЕРХ», `boolean NOT NULL DEFAULT false` |
 
 ## Таблиці
 

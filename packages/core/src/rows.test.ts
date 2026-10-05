@@ -85,6 +85,15 @@ test('boolean приїздить і як 1/0, і як true/false', () => {
   )
 })
 
+test('маркер ГЕРХ: 1/0 і true/false, а рядок без колонки — «не позначено»', () => {
+  assert.equal(mealFromRow({ ...mealRow, gerd: 1 }).gerd, true)
+  assert.equal(mealFromRow({ ...mealRow, gerd: true }).gerd, true)
+  assert.equal(mealFromRow({ ...mealRow, gerd: 0 }).gerd, false)
+  // Стара страва, у якої колонки ще немає (MER-75).
+  assert.equal(mealFromRow(mealRow).gerd, false)
+  assert.equal(mealFromRow({ ...mealRow, gerd: null }).gerd, false)
+})
+
 test('jsonb приймається і рядком, і вже розібраним масивом', () => {
   const parsed = mealFromRow({
     ...mealRow,

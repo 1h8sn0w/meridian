@@ -26,7 +26,7 @@ import { saveRecipe } from '../lib/data/mutations'
 import type { RecipeInput } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
-import { MealDetails } from './MealDetails'
+import { MealDetails, MealMarks } from './MealDetails'
 import { CaretLeft, PencilSimple, Plus } from '@phosphor-icons/react'
 import {
   Button,
@@ -88,6 +88,11 @@ export function RecipeScreen({
 
       <Panel>
         <Photo meal={meal} photo={recipe?.photo ?? null} />
+        {meal.gerd ? (
+          <p className="mb-3 mt-0">
+            <MealMarks meal={meal} />
+          </p>
+        ) : null}
         <Chips meal={meal} recipe={recipe} />
         {/* Той самий склад, що на картці «Сьогодні» — правило «показувати чи
             ні» має бути одне на застосунок. `hideEmpty`: сторінка вся про склад

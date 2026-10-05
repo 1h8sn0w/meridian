@@ -25,6 +25,7 @@ const meal = (id: string, type: Meal['type'], calories: number): Meal => ({
   ingredients: [],
   source: '',
   portions: [],
+  gerd: false,
 })
 
 const MEALS = new Map<string, Meal>([

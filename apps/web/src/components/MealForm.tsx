@@ -40,6 +40,7 @@ type Draft = {
   ingredients: string
   portions: string
   source: string
+  gerd: boolean
 }
 
 function draftOf(meal: Meal | null): Draft {
@@ -54,6 +55,7 @@ function draftOf(meal: Meal | null): Draft {
     ingredients: meal ? ingredientsToText(meal.ingredients) : '',
     portions: meal ? portionsToText(meal.portions) : '',
     source: meal?.source ?? '',
+    gerd: meal?.gerd ?? false,
   }
 }
 
@@ -89,6 +91,7 @@ function validate(draft: Draft): { input: MealInput } | { error: string } {
       ingredients: ingredientsFromText(draft.ingredients),
       source: draft.source.trim(),
       portions: portionsFromText(draft.portions),
+      gerd: draft.gerd,
     },
   }
 }
@@ -251,6 +254,18 @@ export function MealForm({
         placeholder="Тиждень 2"
         onChange={(e) => patch({ source: e.target.value })}
       />
+
+      {/* MER-75: маркер із плану дієтолога, а не оцінка застосунку — тому
+          лише ручний перемикач, без жодних підказок «схоже на ГЕРХ». */}
+      <label className="mt-3 flex items-center gap-2 text-sm text-content">
+        <input
+          type="checkbox"
+          className="m-0 w-auto accent-accent"
+          checked={draft.gerd}
+          onChange={(e) => patch({ gerd: e.target.checked })}
+        />
+        ГЕРХ — страва з плану з урахуванням ГЕРХ
+      </label>
 
       {error ? <Warn>{error}</Warn> : null}
 
