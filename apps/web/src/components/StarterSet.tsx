@@ -190,7 +190,8 @@ export function StarterOffer({
         </>
       ) : null}
       {failure ? <ErrorText failure={failure} /> : null}
-      {added !== null ? (
+      {/* Після «Очистити всі» кнопка повертається — старий підсумок їй не пара. */}
+      {added !== null && !missing.length ? (
         <InfoText>
           {added
             ? 'Додано ' +
