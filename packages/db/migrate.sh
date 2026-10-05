@@ -60,3 +60,36 @@ for file in *.sql; do
 done
 
 echo 'міграції на місці'
+
+# Стартовий набір страв (MER-77). Файл лежить на сервері поза репозиторієм і
+# монтується в цей сервіс; шлях усередині контейнера — STARTER_SET_PATH (у стеку
+# його задає compose.yaml, файл на хості — STARTER_SET_FILE у .env).
+#
+#  - змінна не задана (ручний `pnpm db:migrate`) — набору не торкаємось;
+#  - файл є й непорожній — кладемо вміст у starter.starter_set;
+#  - файлу немає (типово compose монтує /dev/null) — прибираємо набір, і
+#    застосунок працює як без нього.
+#
+# Зіпсований JSON НЕ зупиняє стек: попередження в журналі, попередній набір
+# лишається як був. Повна перевірка формату — `pnpm starter:check <файл>`.
+if [ -n "${STARTER_SET_PATH:-}" ]; then
+  if [ -s "$STARTER_SET_PATH" ]; then
+    # Вміст читає сам psql (`\set` із зворотними лапками): через аргумент
+    # командного рядка великий файл не пройшов би — у Linux один аргумент
+    # обмежено 128 КБ. `:'content'` psql сам бере в лапки як літерал.
+    if psql_ <<'SQL'
+\set content `cat "$STARTER_SET_PATH"`
+INSERT INTO starter.starter_set (id, data) VALUES (true, :'content'::jsonb)
+  ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, loaded_at = now();
+SQL
+    then
+      echo "стартовий набір завантажено: $STARTER_SET_PATH"
+    else
+      echo "УВАГА: стартовий набір не завантажено ($STARTER_SET_PATH) — див. помилку вище" >&2
+    fi
+  else
+    # Фізичне видалення тут свідоме: таблиця службова й поза синхронізацією,
+    # пише в неї лише цей скрипт (правило «DELETE не має ніхто» — про клієнтів).
+    psql_ -c 'DELETE FROM starter.starter_set'
+  fi
+fi

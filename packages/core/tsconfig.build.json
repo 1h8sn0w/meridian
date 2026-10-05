@@ -3,7 +3,13 @@
   // живуть поруч із кодом (`src/**/*.test.ts`), проте в `dist` їм не місце.
   // Перевірку типів і лінт тести проходять на загальних підставах.
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts", "src/test-support.ts"],
+  // `check-starter-set.ts` — консольна перевірка файлу (`pnpm starter:check`),
+  // їй потрібен Node, а пакету — ні.
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/test-support.ts",
+    "src/check-starter-set.ts"
+  ],
   "compilerOptions": {
     // Домен не має залежати від середовища виконання: у зібраному пакеті
     // глобалей Node немає — він так само їде в браузер і в Capacitor.

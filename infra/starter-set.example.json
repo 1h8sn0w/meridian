@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "meals": [
+    {
+      "key": "example-breakfast-1",
+      "name": "Вівсянка з яблуком",
+      "type": "breakfast",
+      "calories": 310,
+      "caloriesApprox": false,
+      "protein": 9,
+      "fat": 6,
+      "carbs": 52,
+      "ingredients": [
+        { "name": "вівсяні пластівці", "amount": 50, "unit": "г" },
+        { "name": "яблуко", "amount": 1, "unit": "шт" },
+        "кориця за смаком"
+      ],
+      "portions": [{ "component": null, "text": "Ж - 200 г; Ч - 280 г" }],
+      "source": "План A (приклад)",
+      "gerd": true,
+      "sourceIssues": [],
+      "recipe": {
+        "steps": [
+          "Залити пластівці гарячою водою на 5 хвилин.",
+          "Додати натерте яблуко й корицю."
+        ],
+        "prepTime": 10,
+        "servings": 1
+      }
+    },
+    {
+      "key": "example-lunch-1",
+      "name": "Суп із сочевиці",
+      "type": "lunch",
+      "calories": 420,
+      "caloriesApprox": true,
+      "protein": null,
+      "fat": null,
+      "carbs": null,
+      "ingredients": [
+        { "name": "сочевиця", "amount": 60, "unit": "г" },
+        "морква",
+        "цибуля"
+      ],
+      "portions": [],
+      "source": "План B (приклад)",
+      "gerd": false,
+      "sourceIssues": ["У складі сочевиця 60 г, у рецепті — 80 г"],
+      "recipe": null
+    },
+    {
+      "key": "example-snack-1",
+      "name": "Кефір",
+      "type": "snack",
+      "calories": null,
+      "caloriesApprox": false,
+      "protein": null,
+      "fat": null,
+      "carbs": null,
+      "ingredients": [{ "name": "кефір", "amount": 200, "unit": "мл" }],
+      "portions": [],
+      "source": "План C (приклад)",
+      "gerd": true,
+      "sourceIssues": [],
+      "recipe": null
+    }
+  ]
+}

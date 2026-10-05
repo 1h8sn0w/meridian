@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @meridian/db migrate",
+    "starter:check": "node packages/core/src/check-starter-set.ts",
     "test": "pnpm --recursive --if-present test"
   },
   "devDependencies": {

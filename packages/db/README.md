@@ -13,6 +13,7 @@
 | `0004_auth.sql` | MER-45: `family_member` і `family_invite`, хук доступу GoTrue (claim `family_id`) і три RPC — створити сім'ю, зробити код, прийняти код |
 | `0005_meal_gerd.sql` | MER-75: `meal.gerd` — маркер «ГЕРХ», `boolean NOT NULL DEFAULT false` |
 | `0006_meal_source_issues.sql` | MER-76: `meal.source_issues` — розбіжності в джерелі, `jsonb` масив рядків, `DEFAULT '[]'` |
+| `0007_starter_set.sql` | MER-77: стартовий набір — `starter.starter_set` поза API, `family.starter_seeded_at` і три RPC: `starter_set_status`, `starter_set`, `claim_starter_set` |
 
 ## Таблиці
 
