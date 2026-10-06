@@ -43,6 +43,7 @@ import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
 import { formatDayTitle, formatMoment } from '../lib/format'
 import { useNow } from '../lib/use-now'
+import { useRestoreScrollWhenReady } from '../lib/use-restore-scroll'
 import { AppShell } from './AppShell'
 import { SwapDialog } from './SwapDialog'
 import { TasteMark } from './TodayScreen'
@@ -132,6 +133,8 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   }
 
   const view = week.data
+  // Повернення з рецепта (MER-86) має привести на той самий день, а не на верх.
+  useRestoreScrollWhenReady(!!view && view.days.length > 0)
   const problems = [
     mealsRead.problems,
     profilesRead.problems,
@@ -374,7 +377,15 @@ function DayCard({
               {slotView.meal ? (
                 <>
                   <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
-                  {slotView.meal.name}
+                  {/* Рецепт — звідси теж (MER-86): тиждень переглядають, коли
+                      вирішують, що готувати, і склад потрібен саме тут. */}
+                  <Link
+                    to="/recipe/$mealId"
+                    params={{ mealId: slotView.mealId }}
+                    className="text-content underline decoration-line decoration-2 underline-offset-4 transition-colors hover:decoration-accent"
+                  >
+                    {slotView.meal.name}
+                  </Link>
                 </>
               ) : (
                 <span className="text-warning">страву видалено з пулу</span>

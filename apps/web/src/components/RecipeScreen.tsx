@@ -16,7 +16,7 @@
  */
 
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
 import type { Meal, Recipe } from '@meridian/core'
@@ -137,13 +137,34 @@ export function RecipeScreen({
   )
 }
 
+/**
+ * Повернення (MER-86). Рецепт відкривають із «Сьогодні», «Тижня» й «Страв», і
+ * жорстке «До страв» губило місце, з якого прийшли. Є куди повернутися в межах
+ * застосунку — повертаємось історією роутера: екран відновить і прокрутку.
+ * Рецепт відкрито напряму за адресою — історії немає, і веде на «Страви».
+ */
 function Back() {
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
+  const look =
+    'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
+  const caret = <CaretLeft aria-hidden size={14} weight="bold" />
+
+  if (canGoBack) {
+    return (
+      <button
+        type="button"
+        onClick={() => router.history.back()}
+        className={`${look} cursor-pointer border-0 bg-transparent p-0`}
+      >
+        {caret}
+        Назад
+      </button>
+    )
+  }
   return (
-    <Link
-      to="/meals"
-      className="inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5"
-    >
-      <CaretLeft aria-hidden size={14} weight="bold" />
+    <Link to="/meals" className={look}>
+      {caret}
       До страв
     </Link>
   )
