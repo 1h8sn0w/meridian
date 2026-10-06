@@ -19,6 +19,9 @@
  *    Реактивний запит повертає її назад тим самим шляхом, яким приходить
  *    позначка з іншого телефона — тож обидва випадки виглядають однаково й
  *    другого джерела правди на екрані немає.
+ *
+ * «Поділитися» (MER-85) віддає лишок некупленого текстом — системним меню, а де
+ * його немає, через буфер обміну. Текст збирає `lib/shopping-share.ts`.
  */
 
 import { useEffect, useState } from 'react'
@@ -45,6 +48,7 @@ import {
 import type { AppProfile } from '../lib/data/model'
 import { clearStaleChecks, setShoppingCheck } from '../lib/data/mutations'
 import { formatWeekRange, plural } from '../lib/format'
+import { amountText, shoppingListText } from '../lib/shopping-share'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import {
@@ -52,13 +56,14 @@ import {
   Chip,
   Empty,
   Hint,
+  InfoText,
   Meta,
   Panel,
   Problems,
   SectionLabel,
   Warn,
 } from './ui'
-import { Check } from '@phosphor-icons/react'
+import { Check, ShareNetwork } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -183,6 +188,41 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     }
   }
 
+  const shareText = shoppingListText({
+    range: weekRangeOf(weeks),
+    withQty,
+    noQty,
+    checks: checksRead.data,
+  })
+  const [copied, setCopied] = useState(false)
+
+  /* Системне меню там, де воно є (телефони), інакше — буфер обміну. Закрите
+   * меню — це рішення людини, а не збій. Меню, що відмовило з іншої причини
+   * (десктопні браузери буває оголошують `share`, але не дають), не кінець:
+   * пробуємо буфер. */
+  const share = async () => {
+    setError(null)
+    setCopied(false)
+    const data = { title: 'Список покупок', text: shareText }
+    // Типи DOM оголошують `canShare` завжди, а десктопний Firefox його не має.
+    if ('canShare' in navigator && navigator.canShare(data)) {
+      try {
+        await navigator.share(data)
+        return
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+    } catch {
+      setError(
+        'Браузер не дав ні меню «Поділитися», ні доступу до буфера обміну.',
+      )
+    }
+  }
+
   return (
     <AppShell
       title="Список покупок"
@@ -235,6 +275,19 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
               <Warn>
                 {`${missing} ${plural(missing, 'слот', 'слоти', 'слотів')} без страви — її видалено з пулу, тож її інгредієнтів у списку немає.`}
               </Warn>
+            ) : null}
+            {shareText ? (
+              <div className="mt-3.5">
+                <Button block onClick={() => void share()}>
+                  <ShareNetwork aria-hidden size={18} />
+                  Поділитися некупленим
+                </Button>
+                {copied ? (
+                  <InfoText>
+                    Список скопійовано — вставте його в месенджер.
+                  </InfoText>
+                ) : null}
+              </div>
             ) : null}
           </Panel>
 
@@ -361,14 +414,6 @@ function Progress({ bought, total }: { bought: number; total: number }) {
         style={{ transform: `scaleX(${percent / 100})` }}
       />
     </div>
-  )
-}
-
-/** Кількість для показу: «120 г» / «4 шт» — лише з реальних сум джерела. */
-function amountText(item: ShoppingItem): string {
-  if (item.amount === null) return ''
-  return (
-    item.amount.toLocaleString('uk-UA') + (item.unit ? ' ' + item.unit : '')
   )
 }
 
