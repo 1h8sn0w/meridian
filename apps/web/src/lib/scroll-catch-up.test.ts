@@ -8,19 +8,15 @@ import assert from 'node:assert/strict'
 
 import { catchUpScroll } from './scroll-catch-up.ts'
 
-/** Сторінка без браузера: висота документа, вікно 800 px і слухачі подій. */
-function fakePage(height: number) {
+/** Сторінка без браузера: висота документа й вікно 800 px. */
+function fakePage(height: number, scrollY = 0) {
   const viewport = 800
-  const listeners = new Map<string, () => void>()
-  let onResize = () => {}
+  let onResize: (() => void) | null = null
   const win = {
-    scrollY: 0,
+    scrollY,
     scrollTo({ top }: { top: number }) {
       win.scrollY = Math.max(0, Math.min(top, height - viewport))
     },
-    addEventListener: (type: string, listener: () => void) =>
-      listeners.set(type, listener),
-    removeEventListener: (type: string) => listeners.delete(type),
     setTimeout,
     clearTimeout,
     ResizeObserver: class {
@@ -33,7 +29,7 @@ function fakePage(height: number) {
         onResize()
       }
       disconnect() {
-        onResize = () => {}
+        onResize = null
       }
     },
     document: { documentElement: {} },
@@ -42,12 +38,9 @@ function fakePage(height: number) {
     win: win as unknown as Window & typeof globalThis,
     grow(to: number) {
       height = to
-      onResize()
+      onResize?.()
     },
-    user(type: string) {
-      listeners.get(type)?.()
-    },
-    listeners,
+    observing: () => onResize !== null,
   }
 }
 
@@ -61,7 +54,7 @@ test('доганяє, доки сторінка не виросте до ціл�
 
   page.grow(2400)
   assert.equal(page.win.scrollY, 1500)
-  assert.equal(page.listeners.size, 0)
+  assert.equal(page.observing(), false)
 
   // Ціль досягнуто — подальший ріст сторінки нічого не крутить.
   page.win.scrollY = 300
@@ -69,15 +62,16 @@ test('доганяє, доки сторінка не виросте до ціл�
   assert.equal(page.win.scrollY, 300)
 })
 
-test('ручна прокрутка скасовує наздоганяння', () => {
+test('людина гортає сама — наздоганяння відступає', () => {
   const page = fakePage(1000)
   catchUpScroll(1500, page.win)
   assert.equal(page.win.scrollY, 200)
 
-  page.user('wheel')
+  // Будь-чим: колесом, дотиком, смугою прокрутки — сторінка стала вище.
+  page.win.scrollY = 120
   page.grow(2400)
-  assert.equal(page.win.scrollY, 200)
-  assert.equal(page.listeners.size, 0)
+  assert.equal(page.win.scrollY, 120)
+  assert.equal(page.observing(), false)
 })
 
 test('таймаут: вміст так і не виріс — більше не чекаємо', async () => {
@@ -89,9 +83,14 @@ test('таймаут: вміст так і не виріс — більше не
   assert.equal(page.win.scrollY, 200)
 })
 
-test('вже на місці — нічого не підписує', () => {
-  const page = fakePage(3000)
-  page.win.scrollY = 1500
-  catchUpScroll(1500, page.win)
-  assert.equal(page.listeners.size, 0)
+test('роутер уже відновив або людина вже нижче — не крутимо', () => {
+  const restored = fakePage(3000, 1500)
+  catchUpScroll(1500, restored.win)
+  assert.equal(restored.win.scrollY, 1500)
+  assert.equal(restored.observing(), false)
+
+  const below = fakePage(3000, 2000)
+  catchUpScroll(1500, below.win)
+  assert.equal(below.win.scrollY, 2000)
+  assert.equal(below.observing(), false)
 })

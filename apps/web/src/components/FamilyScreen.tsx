@@ -32,6 +32,8 @@ export function FamilyScreen() {
   return (
     <AppShell
       title={family?.name ?? 'Сім’я'}
+      // Сім'я приходить із сесії, а не з локальної бази — чекати нема чого.
+      ready
       subtitle="Страви, тижневий план і список покупок — спільні"
     >
       <Panel title="У сім’ї">

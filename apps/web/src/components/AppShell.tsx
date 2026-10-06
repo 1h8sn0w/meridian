@@ -44,13 +44,14 @@ const TABS = [
 export function AppShell({
   title,
   subtitle,
-  ready = true,
+  ready,
   children,
 }: {
   title: string
   subtitle?: string
-  /** Перше читання даних екрана завершилось — можна доганяти прокрутку. */
-  ready?: boolean
+  /** Дані екрана прочитано — можна доганяти прокрутку. Обов'язковий, щоб
+   *  новий екран не забув про нього. */
+  ready: boolean
   children: ReactNode
 }) {
   useScrollCatchUp(ready)
@@ -107,16 +108,17 @@ export function AppShell({
  * Позицію пише й ключує сам роутер: запис для екрана він робить, коли з нього
  * йдуть, тож поки ми тут, запис — те, що було до повернення. На переході вперед
  * ключ новий і запису немає — нічого не робимо. Стартуємо один раз, щойно дані
- * готові: далі прокрутка належить людині.
+ * готові, і зупиняємось лише самі або разом з екраном: `ready`, що потім
+ * блимне, не має обривати вже розпочате.
  */
 function useScrollCatchUp(ready: boolean) {
   const target =
     useElementScrollRestoration({ getElement: () => window })?.scrollY ?? 0
-  const started = useRef(false)
+  const stop = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    if (!ready || started.current) return
-    started.current = true
-    return catchUpScroll(target)
+    if (ready && target > 0 && !stop.current)
+      stop.current = catchUpScroll(target)
   }, [ready, target])
+  useEffect(() => () => stop.current?.(), [])
 }

@@ -7,15 +7,15 @@
  * тож прокрутка впирається в її кінець. Тут ми докручуємо щоразу, як документ
  * виростає, доки не дійдемо до цілі.
  *
- * Зупиняємось і тоді, коли людина сама взялася гортати (колесо, дотик,
- * клавіші): її рух важливіший за збережене місце. І за таймаутом: якщо вміст
- * так і не виріс до цілі (наприклад, план за цей час став коротшим), чекати
- * нема чого.
+ * Людину, що вже гортає сама, не смикаємо. Подій для цього не слухаємо: колесо,
+ * дотик і клавіші — ще не все (смуга прокрутки, допоміжні технології, фокус).
+ * Натомість дивимось на саму позицію: доки ціль не досягнуто, ми стоїмо в
+ * самому низу сторінки, тож гортати людина може лише вгору. Сторінка вище, ніж
+ * ми її лишили, — людина взялася гортати, і ми відступаємо.
+ *
+ * І за таймаутом: якщо вміст так і не виріс до цілі (наприклад, план за цей час
+ * став коротшим), чекати нема чого.
  */
-
-/** Дії людини, після яких вона вже гортає сама. `scroll` сюди не годиться: його
- *  викликає й наш власний `scrollTo`. */
-const USER_SCROLL = ['wheel', 'pointerdown', 'keydown'] as const
 
 /** Повертає функцію зупинки — для прибирання в ефекті. */
 export function catchUpScroll(
@@ -27,23 +27,22 @@ export function catchUpScroll(
 ): () => void {
   // Дробовий `scrollY` на екранах із high-DPI ніколи не дорівнює цілі точно.
   const reached = () => win.scrollY >= target - 1
-  if (reached()) return () => {}
+  let left = -Infinity
 
+  // Перший виклик спостерігача — одразу після `observe`, тобто вже після того,
+  // як роутер поставив свою позицію.
   const observer = new win.ResizeObserver(() => {
+    if (reached() || win.scrollY < left - 1) return stop()
     win.scrollTo({ top: target })
+    left = win.scrollY
     if (reached()) stop()
   })
   const timer = win.setTimeout(() => stop(), timeoutMs)
   const stop = () => {
     observer.disconnect()
     win.clearTimeout(timer)
-    for (const type of USER_SCROLL) win.removeEventListener(type, stop, true)
   }
 
-  for (const type of USER_SCROLL)
-    win.addEventListener(type, stop, { capture: true, passive: true })
-  // Перший виклик спостерігача — одразу після `observe`, тож і першу спробу
-  // зробить він.
   observer.observe(win.document.documentElement)
   return stop
 }

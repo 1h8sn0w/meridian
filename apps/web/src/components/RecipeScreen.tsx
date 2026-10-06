@@ -59,10 +59,11 @@ export function RecipeScreen({
     profilesRead.problems,
     recipeRead.problems,
   ]
+  const ready = !mealsRead.isLoading && !recipeRead.isLoading
 
   if (!meal) {
     return (
-      <AppShell title="Рецепт" ready={!mealsRead.isLoading}>
+      <AppShell title="Рецепт" ready={ready}>
         <Back />
         <Problems of={problems} />
         <Panel>
@@ -79,7 +80,7 @@ export function RecipeScreen({
   return (
     <AppShell
       title={meal.name}
-      ready={!recipeRead.isLoading}
+      ready={ready}
       subtitle={
         MEAL_TYPE_LABELS[meal.type] + (meal.source ? ' · ' + meal.source : '')
       }

@@ -5,7 +5,7 @@
  * кнопкою без адреси.
  */
 
-import { Link, useLocation } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 declare module '@tanstack/react-router' {
@@ -24,12 +24,14 @@ export function RecipeLink({
   className?: string
   children: ReactNode
 }) {
-  const from = useLocation({ select: (location) => location.href })
+  // Адресу беремо в момент побудови переходу, а не підпискою на неї: на
+  // «Тижні» таких посилань десятки, і кожне перемальовувалось би з адресою.
+  const router = useRouter()
   return (
     <Link
       to="/recipe/$mealId"
       params={{ mealId }}
-      state={{ recipeFrom: from }}
+      state={() => ({ recipeFrom: router.latestLocation.href })}
       className={className}
     >
       {children}

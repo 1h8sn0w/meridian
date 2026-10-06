@@ -72,6 +72,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   const meals = mealsRead.data
   const prefs = prefsRead.data
+  const ready = !mealsRead.isLoading && !prefsRead.isLoading
 
   const gerdCount = meals.filter((meal) => meal.gerd).length
 
@@ -102,7 +103,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   if (editing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle}>
+      <AppShell title="Страви" subtitle={subtitle} ready={ready}>
         <MealForm
           meal={editing.meal}
           familyId={familyId}
@@ -114,7 +115,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   if (importing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle}>
+      <AppShell title="Страви" subtitle={subtitle} ready={ready}>
         <PdfImportPanel
           familyId={familyId}
           onDone={() => setImporting(false)}
@@ -135,7 +136,9 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       label: MEAL_TYPE_LABELS[type],
       count: meals.filter((meal) => meal.type === type).length,
     })),
-    ...(prefs.favorites.size
+    // Фільтр живе в адресі, тож може пережити свої страви: його чип лишається,
+    // щоб було видно, що саме вибрано, і як це зняти (так само «Лише ГЕРХ»).
+    ...(prefs.favorites.size || filter === 'favorite'
       ? [
           {
             id: 'favorite' as MealsFilter,
@@ -145,7 +148,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
           },
         ]
       : []),
-    ...(prefs.disliked.size
+    ...(prefs.disliked.size || filter === 'disliked'
       ? [
           {
             id: 'disliked' as MealsFilter,
@@ -158,11 +161,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell
-      title="Страви"
-      subtitle={subtitle}
-      ready={!mealsRead.isLoading && !prefsRead.isLoading}
-    >
+    <AppShell title="Страви" subtitle={subtitle} ready={ready}>
       <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>

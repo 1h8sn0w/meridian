@@ -273,7 +273,16 @@ export function useWeek(
   const pool = useMemo(() => mealsById(meals), [meals])
 
   return useMemo(() => {
-    const isLoading = planQuery.isLoading || slotQuery.isLoading
+    /* Тут «ще не знаємо» — це й перезапит під нові параметри (`isFetching`), а
+     * не лише перше завантаження: власник плану приходить із відповіді про
+     * профілі, а межа слотів — із рядка плану, тож параметри обох вибірок
+     * міняються вже після старту, і на тих кадрах `data` ще від старих
+     * параметрів (MER-86, та сама причина, що в `ShoppingScreen`). */
+    const isLoading =
+      planQuery.isLoading ||
+      planQuery.isFetching ||
+      slotQuery.isLoading ||
+      slotQuery.isFetching
     const problems = withQueryError(
       withQueryError([], planQuery.error),
       slotQuery.error,
@@ -287,10 +296,12 @@ export function useWeek(
   }, [
     planRow,
     planQuery.error,
+    planQuery.isFetching,
     planQuery.isLoading,
     pool,
     slotQuery.data,
     slotQuery.error,
+    slotQuery.isFetching,
     slotQuery.isLoading,
     todayKey,
   ])
