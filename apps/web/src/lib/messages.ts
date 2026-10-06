@@ -31,6 +31,15 @@ const RPC: Record<string, string> = {
 
 export type Failure = { text: string; detail?: string }
 
+/**
+ * Наслідок дії, що може не вдатися: вхід, RPC сервера. НЕ `Result` із
+ * `@meridian/core`: там форма інша (`({ ok: true } & T) | Err`, а помилка —
+ * рядок). Два різні типи під одним іменем в одному застосунку — пастка, а не
+ * зручність.
+ */
+export type Outcome<T> =
+  { ok: true; value: T } | { ok: false; failure: Failure }
+
 export function authFailure(error: {
   code?: string
   message: string

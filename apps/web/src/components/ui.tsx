@@ -187,7 +187,7 @@ export function ErrorText({ failure }: { failure: Failure }) {
       <p className="m-0">
         {failure.text}
         {failure.detail ? (
-          <span className="mt-1 block font-mono text-xs text-subtle">
+          <span className="mt-1 block whitespace-pre-line font-mono text-xs text-subtle">
             {failure.detail}
           </span>
         ) : null}

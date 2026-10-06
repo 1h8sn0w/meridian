@@ -127,9 +127,23 @@ services:
         set -a; . /secrets/app.env; set +a
         export DATABASE_URL="postgresql://postgres:$$POSTGRES_PASSWORD@db:5432/postgres"
         exec sh /db/migrate.sh
+    environment:
+      STARTER_SET_PATH: /starter/starter-set.json
     volumes:
       - secrets:/secrets:ro
       - ./packages/db:/db:ro
+      # Стартовий набір страв (MER-77) — файл на сервері ПОЗА репозиторієм:
+      # плани дієтолога персональні, а репозиторій публічний. Шлях на хості —
+      # STARTER_SET_FILE у .env (відносний — від цього файлу). Не задано —
+      # монтується /dev/null, набору немає, і застосунок працює як без нього.
+      # `create_host_path: false` — щоб хибний шлях зупинив запуск, а не тихо
+      # створив на його місці порожній каталог.
+      - type: bind
+        source: ${STARTER_SET_FILE:-/dev/null}
+        target: /starter/starter-set.json
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       init:
         condition: service_completed_successfully

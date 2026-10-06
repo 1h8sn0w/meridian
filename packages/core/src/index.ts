@@ -73,7 +73,11 @@ export {
   planSlotId,
   recipeId,
   shoppingCheckId,
+  starterMealId,
 } from './sync-ids.ts'
+
+export { hasRecipe, parseStarterSet } from './starter-set.ts'
+export type { StarterMeal, StarterRecipe, StarterSet } from './starter-set.ts'
 
 export { parsePlanText, planEntryKey } from './parse-plan.ts'
 export type { PlanEntry, PlanParse } from './parse-plan.ts'
