@@ -44,6 +44,7 @@ import { saveWeek } from '../lib/data/mutations'
 import { formatDayTitle, formatMoment } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
+import { RecipeLink } from './RecipeLink'
 import { SwapDialog } from './SwapDialog'
 import { TasteMark } from './TodayScreen'
 import {
@@ -374,7 +375,11 @@ function DayCard({
               {slotView.meal ? (
                 <>
                   <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
-                  {slotView.meal.name}
+                  {/* Рецепт — звідси теж (MER-86): тиждень переглядають, коли
+                      вирішують, що готувати, і склад потрібен саме тут. */}
+                  <RecipeLink mealId={slotView.mealId}>
+                    {slotView.meal.name}
+                  </RecipeLink>
                 </>
               ) : (
                 <span className="text-warning">страву видалено з пулу</span>

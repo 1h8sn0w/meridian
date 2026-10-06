@@ -15,8 +15,8 @@
  *    зміна з іншого пристрою приїжджає на неї сама (MER-46).
  */
 
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
+import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
 import type { Meal, Recipe } from '@meridian/core'
@@ -138,12 +138,50 @@ export function RecipeScreen({
   )
 }
 
+/**
+ * Повернення (MER-86). Рецепт відкривають із «Сьогодні», «Тижня» й «Страв», і
+ * жорстке «До страв» губило місце, з якого прийшли. Прийшли посиланням на
+ * рецепт (`RecipeLink`) — «Назад» веде на ту адресу, а звичайне натискання йде
+ * історією: так екран відновить і прокрутку. Рецепт відкрито напряму за
+ * адресою — веде на «Страви».
+ */
 function Back() {
+  const router = useRouter()
+  // Адресу беремо раз, із запису, з яким рецепт відкрили: щойно «Назад» почне
+  // перехід, адреса роутера вже вказує туди, куди йдемо. І лише якщо позаду є
+  // записи застосунку (`__TSR_index`, як у `useCanGoBack`): стан історії може
+  // пережити саму історію (відновлена сесія), і тоді йти назад нікуди.
+  const [from] = useState(() => {
+    const { state } = router.latestLocation
+    return state.__TSR_index !== 0 ? state.recipeFrom : undefined
+  })
+  // Під час переходу посилання ще на екрані: другий тап пішов би історією ще на
+  // крок назад, повз екран, з якого прийшли.
+  const leaving = useRef(false)
+  const look =
+    'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
+
+  if (from) {
+    return (
+      <a
+        href={from}
+        className={look}
+        onClick={(event) => {
+          // З модифікатором — нова вкладка чи вікно, як у будь-якого посилання.
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+            return
+          event.preventDefault()
+          if (!leaving.current) router.history.back()
+          leaving.current = true
+        }}
+      >
+        <CaretLeft aria-hidden size={14} weight="bold" />
+        Назад
+      </a>
+    )
+  }
   return (
-    <Link
-      to="/meals"
-      className="inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5"
-    >
+    <Link to="/meals" className={look}>
       <CaretLeft aria-hidden size={14} weight="bold" />
       До страв
     </Link>

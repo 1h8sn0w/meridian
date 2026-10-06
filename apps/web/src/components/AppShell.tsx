@@ -13,9 +13,18 @@
  * Док — скляна пігулка над краєм екрана. Підсвітка активної вкладки має
  * `view-transition-name`, тож при переході між екранами вона перелітає до
  * нової вкладки (styles.css), а сам док лишається нерухомим.
+ *
+ * Тут же — наздоганяння прокрутки після повернення на екран (MER-86): дані
+ * всіх екранів приїжджають із локальної бази пізніше, ніж роутер відновлює
+ * позицію, тож механізм один на всіх і екранам нічого не треба про нього знати.
  */
 
-import { Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import {
+  Link,
+  useElementScrollRestoration,
+  useLocation,
+} from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import {
   CalendarDots,
@@ -24,6 +33,7 @@ import {
   SunHorizon,
   UsersThree,
 } from '@phosphor-icons/react'
+import { catchUpScroll } from '../lib/scroll-catch-up'
 import { ScreenHeader } from './ui'
 
 const TABS = [
@@ -43,6 +53,9 @@ export function AppShell({
   subtitle?: string
   children: ReactNode
 }) {
+  useScrollCatchUp()
+  const path = useLocation({ select: (location) => location.pathname })
+
   return (
     <>
       <ScreenHeader title={title} subtitle={subtitle} />
@@ -56,6 +69,8 @@ export function AppShell({
           <Link
             key={tab.to}
             to={tab.to}
+            // Вкладка свого ж екрана не скидає його фільтри з адреси («Страви»).
+            search={tab.to === path ? true : undefined}
             className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline transition-transform duration-300 ease-spring active:scale-90"
             // Колір вкладки задають ЛИШЕ ці два набори, а не базовий клас із
             // `text-muted` поверх якого дописується `text-accent`: у Tailwind
@@ -89,4 +104,19 @@ export function AppShell({
       </nav>
     </>
   )
+}
+
+/**
+ * Позицію пише й ключує сам роутер: запис для екрана він робить, коли з нього
+ * йдуть, тож на поверненні запис уже є з першого рендеру. На переході вперед
+ * ключ новий і запису немає — нічого не робимо. Ціль беремо лише з першого
+ * рендеру: на `replace` без скидання прокрутки (фільтр «Страв») роутер копіює
+ * запис під новий ключ, і це не повернення.
+ */
+function useScrollCatchUp() {
+  const restored =
+    useElementScrollRestoration({ getElement: () => window })?.scrollY ?? 0
+  const [target] = useState(restored)
+
+  useEffect(() => (target > 0 ? catchUpScroll(target) : undefined), [target])
 }
