@@ -18,11 +18,13 @@
  */
 
 import {
+  hasRecipe,
   mealPrefId,
   planSlotId,
   planSlots,
   recipeId,
   shoppingCheckId,
+  starterMealId,
   weekSources,
 } from '@meridian/core'
 import type {
@@ -31,6 +33,7 @@ import type {
   MealType,
   Portion,
   PortionLetter,
+  StarterMeal,
   WeekPlan,
 } from '@meridian/core'
 import type { CommonPowerSyncDatabase } from '@powersync/web'
@@ -110,7 +113,7 @@ export async function insertMeal(
       input.type,
       input.calories,
       // Ручний ввід — це цифра з джерела користувача, а не оцінка. Виняток «≈»
-      // санкціоновано лише для демо-пулу (AGENTS.md), тож новій страві прапорець
+      // санкціоновано лише для стартового набору (AGENTS.md), тож новій страві прапорець
       // не піднімаємо й чекбокса на нього в формі немає.
       flag(false),
       input.protein,
@@ -130,7 +133,7 @@ export async function insertMeal(
  * Оновити страву.
  *
  * `calories_approx` знімається РІВНО тоді, коли користувач змінив саме цифру
- * калорійності: тепер це його значення, а не оцінка з демо-пулу. Правка назви
+ * калорійності: тепер це його значення, а не оцінка зі стартового набору. Правка назви
  * чи інгредієнтів позначку не чіпає — інакше страва тихо почала б видавати
  * приблизну цифру за точну, а це те, від чого MER-26 і захищає.
  */
@@ -171,6 +174,142 @@ export async function deleteMeal(db: Db, id: string): Promise<void> {
     await softDelete(tx, 'meal_pref', 'meal_id = ?', [id], at)
     await softDelete(tx, 'recipe', 'meal_id = ?', [id], at)
   })
+}
+
+/**
+ * Очистити пул (MER-77): м'яко видалити всі страви разом зі смаками й
+ * рецептами — тими самими трьома кроками, що й `deleteMeal`.
+ *
+ * Правило слотів теж те саме, що для однієї страви: **страва, що стоїть у слоті
+ * плану, не видаляється** (екран «Страви» блокує це й для `deleteMeal`). Sync
+ * віддає лише живі рядки, тож м'яко видалена страва зникла б із пристрою, а
+ * посилання в `plan_slot` лишилось би — і план (зокрема минулі дні календаря)
+ * показав би порожні слоти. Тому такі страви лишаються в пулі, а функція чесно
+ * каже, скільки їх.
+ *
+ * Пакет позначається одним моментом `at`: за ним смаки й рецепти знаходять саме
+ * щойно видалені страви, а не ті, що були видалені колись раніше.
+ */
+export async function clearMeals(
+  db: Db,
+): Promise<{ removed: number; kept: number }> {
+  const at = now()
+  return db.writeTransaction(async (tx) => {
+    const counts = await tx.get<{ total: number; used: number }>(
+      'SELECT count(*) AS total, count(*) FILTER (WHERE id IN' +
+        ' (SELECT meal_id FROM plan_slot WHERE deleted_at IS NULL)) AS used' +
+        ' FROM meal WHERE deleted_at IS NULL',
+    )
+    await softDelete(
+      tx,
+      'meal',
+      'id NOT IN (SELECT meal_id FROM plan_slot WHERE deleted_at IS NULL)',
+      [],
+      at,
+    )
+    const batch = 'meal_id IN (SELECT id FROM meal WHERE deleted_at = ?)'
+    await softDelete(tx, 'meal_pref', batch, [at], at)
+    await softDelete(tx, 'recipe', batch, [at], at)
+    return { removed: counts.total - counts.used, kept: counts.used }
+  })
+}
+
+/**
+ * Засіяти пул стартовим набором (MER-77). Повертає, скільки страв додано.
+ *
+ * Id страви виведений із сім'ї та ключа набору (`starterMealId`), тож засів
+ * ідемпотентний: повтор, другий пристрій і кнопка «Додати стартовий набір»
+ * потрапляють на ті самі рядки.
+ *
+ *  - **Жива страва з таким id лишається як є** — сім'я могла її відредагувати,
+ *    і засів не має права затерти правку.
+ *  - **Страви немає на пристрої** — вставка. Якщо сім'я колись очистила пул,
+ *    на сервері лежить м'яко видалений рядок із тим самим id: вивантаження —
+ *    upsert, а PUT у конекторі дописує `deleted_at: null`, тож рядок оживає зі
+ *    значеннями набору, а не дублюється.
+ *  - **Рядок є, але м'яко видалений локально** (видалення ще не вивантажено) —
+ *    оживляємо UPDATE, бо вставка зіткнулася б із ним по первинному ключу.
+ *
+ * Рецепт — за тим самим правилом, що `saveRecipe`: наявний рядок шукається за
+ * стравою (індекс `recipe_meal_id_key` не частковий), новий отримує
+ * `recipeId(mealId)`. Порожній рецепт рядка не створює.
+ *
+ * «≈» береться з набору як є: набір — це дані з джерела, і саме там виняток
+ * для калорій (MER-26) позначено явно.
+ */
+export async function seedStarterMeals(
+  db: Db,
+  familyId: string,
+  meals: ReadonlyArray<StarterMeal>,
+): Promise<number> {
+  let added = 0
+  await db.writeTransaction(async (tx) => {
+    for (const meal of meals) {
+      const id = starterMealId(familyId, meal.key)
+      const existing = await tx.getOptional<{ deleted_at: string | null }>(
+        'SELECT deleted_at FROM meal WHERE id = ?',
+        [id],
+      )
+      if (existing && existing.deleted_at === null) continue
+
+      const values = [
+        meal.name,
+        meal.type,
+        meal.calories,
+        flag(meal.caloriesApprox),
+        meal.protein,
+        meal.fat,
+        meal.carbs,
+        JSON.stringify(meal.ingredients),
+        meal.source,
+        JSON.stringify(meal.portions),
+        flag(meal.gerd),
+        JSON.stringify(meal.sourceIssues),
+      ]
+      if (existing) {
+        await tx.execute(
+          'UPDATE meal SET name = ?, type = ?, calories = ?,' +
+            ' calories_approx = ?, protein = ?, fat = ?, carbs = ?,' +
+            ' ingredients = ?, source = ?, portions = ?, gerd = ?,' +
+            ' source_issues = ?, deleted_at = NULL WHERE id = ?',
+          [...values, id],
+        )
+      } else {
+        await tx.execute(
+          'INSERT INTO meal (name, type, calories, calories_approx, protein,' +
+            ' fat, carbs, ingredients, source, portions, gerd, source_issues,' +
+            ' id, family_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [...values, id, familyId],
+        )
+      }
+      added++
+
+      if (!hasRecipe(meal.recipe)) continue
+      const recipe = [
+        JSON.stringify(meal.recipe.steps),
+        meal.recipe.prepTime,
+        meal.recipe.servings,
+      ]
+      const own = await tx.getOptional<{ id: string }>(
+        'SELECT id FROM recipe WHERE meal_id = ?',
+        [id],
+      )
+      if (own) {
+        await tx.execute(
+          'UPDATE recipe SET steps = ?, prep_time = ?, servings = ?,' +
+            ' deleted_at = NULL WHERE id = ?',
+          [...recipe, own.id],
+        )
+      } else {
+        await tx.execute(
+          'INSERT INTO recipe (steps, prep_time, servings, id, family_id,' +
+            ' meal_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [...recipe, recipeId(id), familyId, id],
+        )
+      }
+    }
+  })
+  return added
 }
 
 /* ==========================================================================

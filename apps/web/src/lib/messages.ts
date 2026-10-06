@@ -31,6 +31,15 @@ const RPC: Record<string, string> = {
 
 export type Failure = { text: string; detail?: string }
 
+/**
+ * Наслідок дії, що може не вдатися: вхід, RPC сервера. НЕ `Result` із
+ * `@meridian/core`: там форма інша (`({ ok: true } & T) | Err`, а помилка —
+ * рядок). Два різні типи під одним іменем в одному застосунку — пастка, а не
+ * зручність.
+ */
+export type Outcome<T> =
+  { ok: true; value: T } | { ok: false; failure: Failure }
+
 export function authFailure(error: {
   code?: string
   message: string
@@ -79,6 +88,88 @@ export function localDbFailure(
     text: 'Не вдалося відкрити локальну базу на цьому пристрої.',
     detail: error instanceof Error ? error.message : String(error),
     retryable: true,
+  }
+}
+
+/**
+ * Що саме не вдалося: отримати дані із сервера (разом із самим з'єднанням)
+ * чи віддати йому зміни з пристрою. Від цього залежить, що сказати про дані.
+ */
+export type SyncDirection = 'connect' | 'download' | 'upload'
+
+/**
+ * Мережі немає — це офлайн, а не аварія: local-first для цього й будувався.
+ * Тексти — Chromium, Firefox і Safari відповідно; PowerSync шле помилки з
+ * воркера, і клас `TypeError` по дорозі губиться, а текст лишається.
+ */
+const NETWORK =
+  /failed to fetch|networkerror|load failed|network request failed/i
+
+/**
+ * Вхід не прийнято. PowerSync кладе код у `status`, але з воркера доїжджає лише
+ * текст: «Not signed in» з власної перевірки, «HTTP Unauthorized» зі стріму,
+ * «Received 401» з решти запитів. PostgREST на вивантаженні каже «JWT expired».
+ */
+const UNAUTHORIZED = /not signed in|unauthorized|received 40[13]\b|jwt expired/i
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  // PostgrestError із вивантаження — звичайний об'єкт, не Error.
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message
+  }
+  return String(error)
+}
+
+/**
+ * Чому не синхронізується (MER-84).
+ *
+ * `null` — помилки, про яку варто казати, немає: мережа недоступна, а це стан
+ * «Офлайн», який панель і так показує (крім `connect`, див. нижче). Решту перекладаємо, якщо людина може щось
+ * зробити, і завжди лишаємо оригінальний текст: без нього той, хто піднімав
+ * self-host, не має з чого почати.
+ */
+export function syncFailure(
+  error: unknown,
+  context: { direction: SyncDirection; online: boolean },
+): Failure | null {
+  const detail = errorText(error)
+  if (!context.online || NETWORK.test(detail)) {
+    // Стрім PowerSync переживає офлайн сам і сам повторює. А `connect()`, що
+    // відмовив, не повторює ніхто, тож про нього мовчати не можна навіть офлайн.
+    return context.direction === 'connect'
+      ? {
+          text: 'Не вдалося під’єднатися до сервера синхронізації: немає мережі. Дані на пристрої в безпеці.',
+          detail,
+        }
+      : null
+  }
+
+  const status =
+    typeof error === 'object' && error !== null && 'status' in error
+      ? error.status
+      : undefined
+  if (status === 401 || status === 403 || UNAUTHORIZED.test(detail)) {
+    return {
+      text: 'Сервер синхронізації не прийняв вхід. Спробуйте вийти з акаунта й увійти знову.',
+      detail,
+    }
+  }
+
+  if (context.direction === 'upload') {
+    return {
+      text: 'Сервер не приймає зміни з цього пристрою. Вони лишаються в черзі й поїдуть, щойно сервер їх прийме.',
+      detail,
+    }
+  }
+  return {
+    text: 'Не вдалося отримати дані із сервера синхронізації. Зміни з цього пристрою збережено на ньому.',
+    detail,
   }
 }
 

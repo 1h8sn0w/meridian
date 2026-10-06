@@ -15,6 +15,7 @@ import { useAuth } from '../lib/auth'
 import { AuthScreen } from './AuthScreen'
 import { FamilySetupScreen } from './FamilySetupScreen'
 import { MealReminders } from './Reminders'
+import { StarterSeed } from './StarterSet'
 import { AuthShell, Panel } from './ui'
 
 export function AppGate() {
@@ -47,10 +48,12 @@ export function AppGate() {
     case 'ready':
       // Такт нагадувань — поруч із маршрутами, а не всередині них (MER-65): він
       // не має перезапускатися на кожному перемиканні вкладки, і працює
-      // незалежно від відкритого екрана.
+      // незалежно від відкритого екрана. Автозасів стартового набору (MER-77) —
+      // з тієї ж причини: пул має з'явитися, хоч який екран відкрили першим.
       return (
         <>
           <MealReminders />
+          <StarterSeed />
           <Outlet />
         </>
       )

@@ -20,7 +20,7 @@ import {
 } from '@meridian/core'
 import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
-import { setMealPref } from '../lib/data/mutations'
+import { clearMeals, setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
 import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
@@ -28,12 +28,14 @@ import { MealMarks } from './MealDetails'
 import { MealForm } from './MealForm'
 import { PdfImportPanel } from './PdfImportPanel'
 import { RecipeLink } from './RecipeLink'
+import { StarterOffer } from './StarterSet'
 import {
   FilePdf,
   Heart,
   PencilSimple,
   Plus,
   Prohibit,
+  Trash,
 } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import {
@@ -42,6 +44,7 @@ import {
   Empty,
   Hint,
   IconButton,
+  InfoText,
   Panel,
   Problems,
   Warn,
@@ -69,6 +72,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const [editing, setEditing] = useState<{ meal: Meal | null } | null>(null)
   const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const [cleared, setCleared] = useState<string | null>(null)
 
   const meals = mealsRead.data
   const prefs = prefsRead.data
@@ -88,6 +92,39 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     try {
       const current = prefOf(prefs, meal.id)
       await setMealPref(db, familyId, meal.id, current === value ? null : value)
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
+  /* MER-77: усі страви разом із рецептами й смаками. Страви зі слотів планів
+   * лишаються — те саме правило, що для видалення однієї (`MealForm`). */
+  const clearAll = async () => {
+    if (
+      !window.confirm(
+        'Видалити всі страви з пулу разом із рецептами? Страви, що стоять у ' +
+          'планах, лишаться. Стартовий набір потім можна додати знову.',
+      )
+    ) {
+      return
+    }
+    setFailure(null)
+    try {
+      const { removed, kept } = await clearMeals(db)
+      setCleared(
+        'Видалено ' +
+          removed +
+          ' ' +
+          plural(removed, 'страву', 'страви', 'страв') +
+          '.' +
+          (kept
+            ? ' ' +
+              kept +
+              ' ' +
+              plural(kept, 'лишилась', 'лишились', 'лишилось') +
+              ', бо стоять у планах: спершу замініть їх або перегенеруйте тиждень.'
+            : ''),
+      )
     } catch (cause) {
       setFailure(cause instanceof Error ? cause.message : String(cause))
     }
@@ -216,6 +253,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
         </div>
 
         {failure ? <Warn>{failure}</Warn> : null}
+        {cleared ? <InfoText>{cleared}</InfoText> : null}
 
         <div className="mt-4">
           {shown.length === 0 ? (
@@ -288,6 +326,26 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             )
           })}
         </div>
+
+        {/* MER-77: стартовий набір, якщо на сервері є страви, яких у пулі
+            немає. «Очистити всі» лишає страви з планів, тож кнопка потрібна й
+            у непорожньому пулі — це єдиний шлях повернути решту. */}
+        {mealsRead.isLoading ? null : (
+          <StarterOffer familyId={familyId} meals={meals} />
+        )}
+
+        {meals.length ? (
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void clearAll()}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97"
+            >
+              <Trash aria-hidden size={16} />
+              Очистити всі страви
+            </button>
+          </div>
+        ) : null}
       </Panel>
 
       <Panel>
