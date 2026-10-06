@@ -13,9 +13,15 @@
  * Док — скляна пігулка над краєм екрана. Підсвітка активної вкладки має
  * `view-transition-name`, тож при переході між екранами вона перелітає до
  * нової вкладки (styles.css), а сам док лишається нерухомим.
+ *
+ * Тут же — наздоганяння прокрутки після повернення на екран (MER-86): дані
+ * всіх екранів приїжджають із локальної бази пізніше, ніж роутер відновлює
+ * позицію, тож механізм один на всіх, а екран лише каже, коли його дані готові
+ * (`ready`).
  */
 
-import { Link } from '@tanstack/react-router'
+import { useEffect, useRef } from 'react'
+import { Link, useElementScrollRestoration } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import {
   CalendarDots,
@@ -24,6 +30,7 @@ import {
   SunHorizon,
   UsersThree,
 } from '@phosphor-icons/react'
+import { catchUpScroll } from '../lib/scroll-catch-up'
 import { ScreenHeader } from './ui'
 
 const TABS = [
@@ -37,12 +44,17 @@ const TABS = [
 export function AppShell({
   title,
   subtitle,
+  ready = true,
   children,
 }: {
   title: string
   subtitle?: string
+  /** Перше читання даних екрана завершилось — можна доганяти прокрутку. */
+  ready?: boolean
   children: ReactNode
 }) {
+  useScrollCatchUp(ready)
+
   return (
     <>
       <ScreenHeader title={title} subtitle={subtitle} />
@@ -89,4 +101,22 @@ export function AppShell({
       </nav>
     </>
   )
+}
+
+/**
+ * Позицію пише й ключує сам роутер: запис для екрана він робить, коли з нього
+ * йдуть, тож поки ми тут, запис — те, що було до повернення. На переході вперед
+ * ключ новий і запису немає — нічого не робимо. Стартуємо один раз, щойно дані
+ * готові: далі прокрутка належить людині.
+ */
+function useScrollCatchUp(ready: boolean) {
+  const target =
+    useElementScrollRestoration({ getElement: () => window })?.scrollY ?? 0
+  const started = useRef(false)
+
+  useEffect(() => {
+    if (!ready || started.current) return
+    started.current = true
+    return catchUpScroll(target)
+  }, [ready, target])
 }

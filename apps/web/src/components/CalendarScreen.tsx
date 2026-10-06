@@ -92,6 +92,9 @@ export function CalendarScreen() {
   return (
     <AppShell
       title="Календар"
+      ready={
+        ![mealsRead, profilesRead, plannedRead].some((read) => read.isLoading)
+      }
       subtitle={
         plannedRead.data > 0
           ? `Заплановано ${plannedRead.data} ${plural(plannedRead.data, 'день', 'дні', 'днів')}`

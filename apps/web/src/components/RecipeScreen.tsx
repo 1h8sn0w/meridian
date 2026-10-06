@@ -16,7 +16,7 @@
  */
 
 import { useState } from 'react'
-import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
+import { Link, useLocation, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
 import type { Meal, Recipe } from '@meridian/core'
@@ -62,7 +62,7 @@ export function RecipeScreen({
 
   if (!meal) {
     return (
-      <AppShell title="Рецепт">
+      <AppShell title="Рецепт" ready={!mealsRead.isLoading}>
         <Back />
         <Problems of={problems} />
         <Panel>
@@ -79,6 +79,7 @@ export function RecipeScreen({
   return (
     <AppShell
       title={meal.name}
+      ready={!recipeRead.isLoading}
       subtitle={
         MEAL_TYPE_LABELS[meal.type] + (meal.source ? ' · ' + meal.source : '')
       }
@@ -139,32 +140,38 @@ export function RecipeScreen({
 
 /**
  * Повернення (MER-86). Рецепт відкривають із «Сьогодні», «Тижня» й «Страв», і
- * жорстке «До страв» губило місце, з якого прийшли. Є куди повернутися в межах
- * застосунку — повертаємось історією роутера: екран відновить і прокрутку.
- * Рецепт відкрито напряму за адресою — історії немає, і веде на «Страви».
+ * жорстке «До страв» губило місце, з якого прийшли. Прийшли посиланням на
+ * рецепт (`RecipeLink`) — «Назад» веде на ту адресу, а звичайне натискання йде
+ * історією: так екран відновить і прокрутку. Рецепт відкрито напряму за
+ * адресою — веде на «Страви».
  */
 function Back() {
   const router = useRouter()
-  const canGoBack = useCanGoBack()
+  const from = useLocation({ select: (location) => location.state.recipeFrom })
   const look =
     'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
-  const caret = <CaretLeft aria-hidden size={14} weight="bold" />
 
-  if (canGoBack) {
+  if (from) {
     return (
-      <button
-        type="button"
-        onClick={() => router.history.back()}
-        className={`${look} cursor-pointer border-0 bg-transparent p-0`}
+      <a
+        href={from}
+        className={look}
+        onClick={(event) => {
+          // З модифікатором — нова вкладка чи вікно, як у будь-якого посилання.
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+            return
+          event.preventDefault()
+          router.history.back()
+        }}
       >
-        {caret}
+        <CaretLeft aria-hidden size={14} weight="bold" />
         Назад
-      </button>
+      </a>
     )
   }
   return (
     <Link to="/meals" className={look}>
-      {caret}
+      <CaretLeft aria-hidden size={14} weight="bold" />
       До страв
     </Link>
   )

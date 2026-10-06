@@ -29,7 +29,7 @@ export function RequireLocalDb({
 
   if (!familyId || !db) {
     return (
-      <AppShell title={title}>
+      <AppShell title={title} ready={false}>
         <Panel>
           <LocalDbPending />
         </Panel>

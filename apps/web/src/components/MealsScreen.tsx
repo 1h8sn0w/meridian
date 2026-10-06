@@ -11,21 +11,23 @@
  */
 
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
   MEAL_TYPES,
   MEAL_TYPE_LABELS,
   formatMealCalories,
 } from '@meridian/core'
-import type { Meal, MealType } from '@meridian/core'
+import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
+import type { MealsFilter } from '../routes/meals'
 import { AppShell } from './AppShell'
 import { MealMarks } from './MealDetails'
 import { MealForm } from './MealForm'
 import { PdfImportPanel } from './PdfImportPanel'
+import { RecipeLink } from './RecipeLink'
 import {
   FilePdf,
   Heart,
@@ -45,16 +47,25 @@ import {
   Warn,
 } from './ui'
 
-type Filter = 'all' | MealType | 'favorite' | 'disliked'
-
 export function MealsScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
   const mealsRead = useMeals()
   const prefsRead = useTastePrefs()
-  const [filter, setFilter] = useState<Filter>('all')
+  const search = useSearch({ from: '/meals' })
+  const filter = search.filter ?? 'all'
   /* MER-75: «лише ГЕРХ» — окремий перемикач, а не ще одне значення `filter`:
    * його поєднують із типом слота («ГЕРХ-сніданки»). */
-  const [gerdOnly, setGerdOnly] = useState(false)
+  const gerdOnly = search.gerd ?? false
+  const navigate = useNavigate({ from: '/meals' })
+  /* Фільтр — це той самий екран, а не перехід: без нового запису в історії,
+   * без стрибка вгору й без анімації зміни екрана. */
+  const setSearch = (next: { filter?: MealsFilter; gerd?: true }) =>
+    void navigate({
+      search: (prev) => ({ ...prev, ...next }),
+      replace: true,
+      resetScroll: false,
+      viewTransition: false,
+    })
   const [editing, setEditing] = useState<{ meal: Meal | null } | null>(null)
   const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -113,7 +124,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   }
 
   const chips: Array<{
-    id: Filter
+    id: MealsFilter
     label: string
     count: number
     icon?: Icon
@@ -127,7 +138,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     ...(prefs.favorites.size
       ? [
           {
-            id: 'favorite' as Filter,
+            id: 'favorite' as MealsFilter,
             label: 'Улюблені',
             icon: Heart,
             count: prefs.favorites.size,
@@ -137,7 +148,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     ...(prefs.disliked.size
       ? [
           {
-            id: 'disliked' as Filter,
+            id: 'disliked' as MealsFilter,
             label: 'Небажані',
             icon: Prohibit,
             count: prefs.disliked.size,
@@ -147,7 +158,11 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell title="Страви" subtitle={subtitle}>
+    <AppShell
+      title="Страви"
+      subtitle={subtitle}
+      ready={!mealsRead.isLoading && !prefsRead.isLoading}
+    >
       <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>
@@ -156,7 +171,9 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             <Chip
               key={chip.id}
               active={filter === chip.id}
-              onClick={() => setFilter(chip.id)}
+              onClick={() =>
+                setSearch({ filter: chip.id === 'all' ? undefined : chip.id })
+              }
             >
               {chip.icon ? (
                 <chip.icon aria-hidden size={14} weight="fill" />
@@ -170,7 +187,10 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             </Chip>
           ))}
           {gerdCount || gerdOnly ? (
-            <Chip active={gerdOnly} onClick={() => setGerdOnly(!gerdOnly)}>
+            <Chip
+              active={gerdOnly}
+              onClick={() => setSearch({ gerd: gerdOnly ? undefined : true })}
+            >
               Лише ГЕРХ
               <span className="font-mono tabular-nums opacity-70">
                 {gerdCount}
@@ -224,9 +244,8 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               >
                 {/* Рядок веде на сторінку рецепта (MER-63): кроки, фото й
                     повний склад. Редагування самої страви лишається на «✎». */}
-                <Link
-                  to="/recipe/$mealId"
-                  params={{ mealId: meal.id }}
+                <RecipeLink
+                  mealId={meal.id}
                   className="group min-w-0 flex-auto text-content no-underline"
                 >
                   <div className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
@@ -244,7 +263,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                     {MEAL_TYPE_LABELS[meal.type]}
                     {meal.source ? ' · ' + meal.source : ''}
                   </div>
-                </Link>
+                </RecipeLink>
 
                 <TasteButton
                   icon={Heart}

@@ -37,6 +37,7 @@ import { DayClock } from './DayClock'
 import { MealDetails, MealMarks } from './MealDetails'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
+import { RecipeLink } from './RecipeLink'
 import { RemindersPanel } from './Reminders'
 import { SwapDialog } from './SwapDialog'
 import { ArrowsLeftRight, Heart, Prohibit } from '@phosphor-icons/react'
@@ -94,7 +95,15 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell title="Сьогодні" subtitle={formatToday(now)}>
+    <AppShell
+      title="Сьогодні"
+      subtitle={formatToday(now)}
+      ready={
+        ![mealsRead, profilesRead, prefsRead, week].some(
+          (read) => read.isLoading,
+        )
+      }
+    >
       <Problems of={problems} />
 
       {profilesRead.data.length ? (
@@ -269,13 +278,7 @@ function CurrentMeal({
           <div className="text-xl font-semibold leading-snug tracking-tight">
             {/* Назва веде на сторінку рецепта (MER-63) — саме звідси її
                 відкривають найчастіше: страва вже на столі. */}
-            <Link
-              to="/recipe/$mealId"
-              params={{ mealId: meal.id }}
-              className="text-content underline decoration-line decoration-2 underline-offset-4 transition-colors hover:decoration-accent"
-            >
-              {meal.name}
-            </Link>{' '}
+            <RecipeLink mealId={meal.id}>{meal.name}</RecipeLink>{' '}
             <TasteMark value={prefOf(prefs, meal.id)} />{' '}
             <MealMarks meal={meal} />
           </div>
