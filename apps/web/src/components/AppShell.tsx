@@ -20,7 +20,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Link, useElementScrollRestoration } from '@tanstack/react-router'
+import {
+  Link,
+  useElementScrollRestoration,
+  useLocation,
+} from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import {
   CalendarDots,
@@ -50,6 +54,7 @@ export function AppShell({
   children: ReactNode
 }) {
   useScrollCatchUp()
+  const path = useLocation({ select: (location) => location.pathname })
 
   return (
     <>
@@ -64,6 +69,8 @@ export function AppShell({
           <Link
             key={tab.to}
             to={tab.to}
+            // Вкладка свого ж екрана не скидає його фільтри з адреси («Страви»).
+            search={tab.to === path ? true : undefined}
             className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline transition-transform duration-300 ease-spring active:scale-90"
             // Колір вкладки задають ЛИШЕ ці два набори, а не базовий клас із
             // `text-muted` поверх якого дописується `text-accent`: у Tailwind

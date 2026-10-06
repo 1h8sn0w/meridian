@@ -5,6 +5,7 @@
  * кнопкою без адреси.
  */
 
+import { useCallback } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
@@ -24,14 +25,19 @@ export function RecipeLink({
   className?: string
   children: ReactNode
 }) {
-  // Адресу беремо в момент побудови переходу, а не підпискою на неї: на
-  // «Тижні» таких посилань десятки, і кожне перемальовувалось би з адресою.
+  // Адресу беремо в момент переходу, і функція стабільна: `Link` пам'ятає свої
+  // параметри, а на «Тижні» таких посилань десятки. `publicHref` — адреса, як її
+  // бачить браузер (з базовим шляхом), бо «Назад» стає з неї звичайним `<a>`.
   const router = useRouter()
+  const state = useCallback(
+    () => ({ recipeFrom: router.latestLocation.publicHref }),
+    [router],
+  )
   return (
     <Link
       to="/recipe/$mealId"
       params={{ mealId }}
-      state={() => ({ recipeFrom: router.latestLocation.href })}
+      state={state}
       className={className}
     >
       {children}

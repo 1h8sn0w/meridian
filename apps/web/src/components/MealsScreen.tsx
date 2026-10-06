@@ -22,7 +22,7 @@ import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
-import type { MealsFilter } from '../routes/meals'
+import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
 import { MealMarks } from './MealDetails'
 import { MealForm } from './MealForm'
@@ -59,7 +59,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const navigate = useNavigate({ from: '/meals' })
   /* Фільтр — це той самий екран, а не перехід: без нового запису в історії,
    * без стрибка вгору й без анімації зміни екрана. */
-  const setSearch = (next: { filter?: MealsFilter; gerd?: true }) =>
+  const setSearch = (next: MealsSearch) =>
     void navigate({
       search: (prev) => ({ ...prev, ...next }),
       replace: true,

@@ -12,12 +12,16 @@ import { catchUpScroll } from './scroll-catch-up.ts'
 function fakePage(height: number, scrollY = 0) {
   const viewport = 800
   let onResize: (() => void) | null = null
+  const listeners = new Map<string, () => void>()
   const win = {
     scrollY,
     innerHeight: viewport,
     scrollTo({ top }: { top: number }) {
       win.scrollY = Math.max(0, Math.min(top, height - viewport))
     },
+    addEventListener: (type: string, listener: () => void) =>
+      listeners.set(type, listener),
+    removeEventListener: (type: string) => listeners.delete(type),
     setTimeout,
     clearTimeout,
     ResizeObserver: class {
@@ -49,7 +53,11 @@ function fakePage(height: number, scrollY = 0) {
       win.scrollY = Math.min(win.scrollY, Math.max(0, height - viewport))
       onResize?.()
     },
-    observing: () => onResize !== null,
+    /** Людина торкнулась сторінки, натиснула клавішу чи крутнула колесо. */
+    user(type: string) {
+      listeners.get(type)?.()
+    },
+    observing: () => onResize !== null || listeners.size > 0,
   }
 }
 
@@ -76,10 +84,22 @@ test('людина гортає сама — наздоганяння відст
   catchUpScroll(1500, page.win)
   assert.equal(page.win.scrollY, 200)
 
-  // Будь-чим: колесом, дотиком, смугою прокрутки — сторінка стала вище.
+  // Смугою прокрутки чи допоміжною технологією — без жодної події вводу.
   page.win.scrollY = 120
   page.grow(2400)
   assert.equal(page.win.scrollY, 120)
+  assert.equal(page.observing(), false)
+})
+
+test('людина торкнулась сторінки — її зміни вже не наші дані', () => {
+  const page = fakePage(1000)
+  catchUpScroll(1500, page.win)
+  assert.equal(page.win.scrollY, 200)
+
+  // Тап по фільтру: людина лишилась унизу, але сторінка далі росте від неї.
+  page.user('pointerdown')
+  page.grow(2400)
+  assert.equal(page.win.scrollY, 200)
   assert.equal(page.observing(), false)
 })
 
