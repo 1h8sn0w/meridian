@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { localDbFailure } from './messages.ts'
+import { localDbFailure, syncFailure } from './messages.ts'
 
 test('незахищена адреса: що робити, яка адреса, і без повтору', () => {
   const failure = localDbFailure(
@@ -37,4 +37,87 @@ test('кинуто не Error — текст однаково доходить �
     origin: 'https://meridian.example.com',
   })
   assert.equal(failure.detail, 'wasm unavailable')
+})
+
+/**
+ * Причина, чому не синхронізується (MER-84). Офлайн — не помилка: панель тоді
+ * лишається на «Офлайн», а тривожний блок з'являється лише тоді, коли людина чи
+ * адміністратор справді може щось зробити.
+ */
+
+test('немає мережі — це офлайн, а не помилка', () => {
+  const online = { direction: 'download', online: true } as const
+  assert.equal(syncFailure(new TypeError('Failed to fetch'), online), null)
+  assert.equal(
+    syncFailure(
+      new Error('NetworkError when attempting to fetch resource.'),
+      online,
+    ),
+    null,
+  )
+  assert.equal(syncFailure(new Error('Load failed'), online), null)
+  assert.equal(
+    syncFailure(new Error('HTTP Internal Server Error: boom'), {
+      direction: 'download',
+      online: false,
+    }),
+    null,
+  )
+})
+
+test('вхід не прийнято — за кодом і за текстом із воркера', () => {
+  const withStatus = Object.assign(new Error('HTTP Unauthorized: '), {
+    status: 401,
+  })
+  const download = { direction: 'download', online: true } as const
+  assert.match(syncFailure(withStatus, download)?.text ?? '', /вхід/)
+  assert.match(
+    syncFailure(new Error('Not signed in'), download)?.text ?? '',
+    /вхід/,
+  )
+  assert.match(
+    syncFailure(
+      new Error(
+        'Received 401 - Unauthorized when getting from /write-checkpoint2.json',
+      ),
+      download,
+    )?.text ?? '',
+    /вхід/,
+  )
+  assert.match(
+    syncFailure(
+      { message: 'JWT expired', code: 'PGRST301' },
+      { direction: 'upload', online: true },
+    )?.text ?? '',
+    /вхід/,
+  )
+})
+
+test('інша причина: напрям визначає текст, оригінал завжди поруч', () => {
+  const download = syncFailure(
+    new Error('HTTP Internal Server Error: replication slot missing'),
+    { direction: 'download', online: true },
+  )
+  assert.match(download?.text ?? '', /отримати дані/)
+  assert.equal(
+    download?.detail,
+    'HTTP Internal Server Error: replication slot missing',
+  )
+
+  // PostgrestError — звичайний об'єкт, не Error: текст однаково доходить.
+  const upload = syncFailure(
+    { message: 'new row violates check constraint', code: '23514' },
+    { direction: 'upload', online: true },
+  )
+  assert.match(upload?.text ?? '', /в черзі/)
+  assert.equal(upload?.detail, 'new row violates check constraint')
+})
+
+test('connect() без мережі не мовчить: його ніхто не повторить сам', () => {
+  const failure = syncFailure(new TypeError('Failed to fetch'), {
+    direction: 'connect',
+    online: true,
+  })
+  assert.match(failure?.text ?? '', /немає мережі/)
+  assert.equal(failure?.detail, 'Failed to fetch')
 })

@@ -14,14 +14,21 @@
  *
  * **База, що не відкрилась, — це стан, а не вічне очікування** (MER-73). Без цього
  * помилка йшла в нікуди, а екрани лишались на «Готуємо локальну базу…» назавжди.
- * Перехоплюється лише відкриття: з базою, що відкрилась, застосунок працює й без
- * сервісу, тож провал з'єднання екранів блокувати не має.
+ * Провал з'єднання екранів не блокує: з базою, що відкрилась, застосунок працює
+ * й без сервісу. Але й у нікуди він не йде (MER-84) — його показує панель
+ * «Синхронізація», разом із повтором.
  *
  * `@powersync/web` вантажиться **динамічно**: у ньому WASM і web-workers, і
  * тягнути їх у стартовий чанк заради екрана входу нема сенсу.
  */
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 import { PowerSyncContext } from '@powersync/react'
 import type { PowerSyncDatabase } from '@powersync/web'
@@ -29,8 +36,8 @@ import { useAuth } from '../auth'
 import { getSupabase } from '../supabase'
 import { isSyncConfigured } from '../public-env'
 import type { PublicEnv } from '../public-env'
-import { localDbFailure } from '../messages'
-import type { LocalDbFailure } from '../messages'
+import { localDbFailure, syncFailure } from '../messages'
+import type { Failure, LocalDbFailure } from '../messages'
 
 export type SyncState = {
   /** Чи задана адреса сервісу. Без неї застосунок працює, але лише тут. */
@@ -39,12 +46,22 @@ export type SyncState = {
   db: PowerSyncDatabase | null
   /** Чому база не відкрилась; `null`, доки відкривається або відкрилась. */
   failure: LocalDbFailure | null
+  /**
+   * Чому `connect()` відмовив; `null`, доки все гаразд. Помилки вже запущеного
+   * стріму сюди не потрапляють — їх веде статус PowerSync, і повторює він їх
+   * сам.
+   */
+  connectFailure: Failure | null
+  /** Ще раз відкрити базу й під'єднатися — після `connectFailure`. */
+  retryConnect: () => void
 }
 
 const SyncStateContext = createContext<SyncState>({
   configured: false,
   db: null,
   failure: null,
+  connectFailure: null,
+  retryConnect: () => undefined,
 })
 
 export function useSyncState(): SyncState {
@@ -62,9 +79,14 @@ export function SyncProvider({
   const configured = isSyncConfigured(env)
   const [db, setDb] = useState<PowerSyncDatabase | null>(null)
   const [failure, setFailure] = useState<LocalDbFailure | null>(null)
+  const [connectFailure, setConnectFailure] = useState<Failure | null>(null)
+  // Кожен повтор — новий запуск ефекту: та сама черга операцій (`db.ts`), той
+  // самий порядок «від'єднатись → відкрити → з'єднатись», без окремого шляху.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     setFailure(null)
+    setConnectFailure(null)
     if (!familyId) {
       // Вийшли з акаунта — базу з контексту прибираємо, з диска ні.
       setDb(null)
@@ -119,7 +141,21 @@ export function SyncProvider({
         getSupabase(env),
         env.powersyncUrl,
       )
-      await connectPowerSync(connector)
+      try {
+        await connectPowerSync(connector)
+      } catch (error) {
+        // Раніше це була необроблена відмова обіцянки: панель казала «Офлайн»,
+        // а причина лишалась у консолі.
+        if (!aborted()) {
+          setConnectFailure(
+            syncFailure(error, {
+              direction: 'connect',
+              online: navigator.onLine,
+            }),
+          )
+        }
+        return
+      }
       // Поки з'єднувалися, сім'я могла змінитись — тоді від'єднуємось відразу,
       // інакше з'єднання пережило б власний ефект.
       if (aborted()) await disconnectPowerSync()
@@ -137,10 +173,14 @@ export function SyncProvider({
         disconnectPowerSync(),
       )
     }
-  }, [configured, env, familyId])
+  }, [attempt, configured, env, familyId])
+
+  const retryConnect = useCallback(() => setAttempt((n) => n + 1), [])
 
   return (
-    <SyncStateContext.Provider value={{ configured, db, failure }}>
+    <SyncStateContext.Provider
+      value={{ configured, db, failure, connectFailure, retryConnect }}
+    >
       {db ? (
         <PowerSyncContext.Provider value={db}>
           {children}

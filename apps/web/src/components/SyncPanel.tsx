@@ -10,14 +10,21 @@
  * Local-first означає, що стан з'єднання не має впливати на роботу, тож у
  * шапці «Сьогодні» він був би шумом; сюди ж заходять свідомо — коли між
  * пристроями щось не сходиться.
+ *
+ * **Помилка — окремий стан, а не «Офлайн»** (MER-84). Сервер, що не приймає
+ * вхід чи зміни, раніше виглядав тут як відсутність мережі, а причина лежала в
+ * консолі. Тепер панель каже, що саме не так, і дає оригінальний текст — його
+ * потребує той, хто піднімав self-host.
  */
 
 import { useEffect, useState } from 'react'
 import { usePowerSync, useQuery, useStatus } from '@powersync/react'
+import { syncFailure } from '../lib/messages'
+import type { Failure } from '../lib/messages'
 import { useSyncState } from '../lib/powersync/provider'
 import { SYNCED_TABLES } from '../lib/powersync/schema'
 import { LocalDbPending } from './RequireLocalDb'
-import { Hint, Panel } from './ui'
+import { Button, ErrorText, Hint, Panel } from './ui'
 
 /** «18:42» — панель показує час у межах доби, дата тут нічого не додає. */
 function formatTime(date: Date): string {
@@ -27,13 +34,46 @@ function formatTime(date: Date): string {
   }).format(date)
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  alert = false,
+}: {
+  label: string
+  value: string
+  alert?: boolean
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-line py-1.5 last:border-b-0 last:pb-0">
       <span className="text-sm text-muted">{label}</span>
-      <span className="text-sm">{value}</span>
+      <span className={alert ? 'text-sm text-warning' : 'text-sm'}>
+        {value}
+      </span>
     </div>
   )
+}
+
+/**
+ * Помилки статусу PowerSync українською. Мережі немає — `null`: це «Офлайн», а
+ * не тривога. Сам статус живе у воркері й приходить новим об'єктом на кожну
+ * зміну, тож кешувати тут нічого.
+ */
+function statusFailures(status: {
+  downloadError?: Error
+  uploadError?: Error
+}): { download: Failure | null; upload: Failure | null } {
+  const online = navigator.onLine
+  const download = status.downloadError
+    ? syncFailure(status.downloadError, { direction: 'download', online })
+    : null
+  const upload = status.uploadError
+    ? syncFailure(status.uploadError, { direction: 'upload', online })
+    : null
+  // Протухлий вхід валить обидва напрями тим самим текстом — двічі не кажемо.
+  return {
+    download,
+    upload: upload && upload.text === download?.text ? null : upload,
+  }
 }
 
 export function SyncPanel() {
@@ -80,6 +120,7 @@ export function SyncPanel() {
 function SyncDetails() {
   const db = usePowerSync()
   const status = useStatus()
+  const { connectFailure, retryConnect } = useSyncState()
   const [pending, setPending] = useState<number | null>(null)
 
   // Кількість невідправленого лежить у службовій черзі, а не в наших таблицях,
@@ -103,16 +144,20 @@ function SyncDetails() {
   )
   const stored = counts.reduce((sum, row) => sum + row.rows, 0)
 
-  const state = status.connected
-    ? 'Онлайн'
-    : status.connecting
-      ? 'З’єднуємось…'
-      : 'Офлайн — зміни збережено на пристрої'
+  const failures = statusFailures(status)
+  const failing = connectFailure ?? failures.download
+  const state = failing
+    ? 'Помилка'
+    : status.connected
+      ? 'Онлайн'
+      : status.connecting
+        ? 'З’єднуємось…'
+        : 'Офлайн — зміни збережено на пристрої'
 
   return (
     <Panel title="Синхронізація">
       <div className="mb-2">
-        <Row label="Стан" value={state} />
+        <Row label="Стан" value={state} alert={failing !== null} />
         <Row
           label="Останнє оновлення"
           value={
@@ -124,6 +169,24 @@ function SyncDetails() {
           <Row label="Чекають на відправку" value={String(pending)} />
         ) : null}
       </div>
+      {connectFailure ? (
+        <div className="mb-3.5">
+          <ErrorText failure={connectFailure} />
+          <div className="mt-3">
+            <Button onClick={retryConnect}>Спробувати ще раз</Button>
+          </div>
+        </div>
+      ) : null}
+      {!connectFailure && (failures.download || failures.upload) ? (
+        <div className="mb-3.5">
+          {failures.download ? <ErrorText failure={failures.download} /> : null}
+          {failures.upload ? <ErrorText failure={failures.upload} /> : null}
+          <p className="m-0 mt-2 text-xs text-subtle">
+            Застосунок повторює спроби сам, щойно сервер відповість — помилка
+            зникне.
+          </p>
+        </div>
+      ) : null}
       <Hint>
         Застосунок читає й пише локальну базу, тому працює без мережі. Зміни
         їдуть на сервер, щойно вона з’явиться.
