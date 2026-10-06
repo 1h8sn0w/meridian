@@ -16,11 +16,10 @@
  *
  * Тут же — наздоганяння прокрутки після повернення на екран (MER-86): дані
  * всіх екранів приїжджають із локальної бази пізніше, ніж роутер відновлює
- * позицію, тож механізм один на всіх, а екран лише каже, коли його дані готові
- * (`ready`).
+ * позицію, тож механізм один на всіх і екранам нічого не треба про нього знати.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useElementScrollRestoration } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import {
@@ -44,17 +43,13 @@ const TABS = [
 export function AppShell({
   title,
   subtitle,
-  ready,
   children,
 }: {
   title: string
   subtitle?: string
-  /** Дані екрана прочитано — можна доганяти прокрутку. Обов'язковий, щоб
-   *  новий екран не забув про нього. */
-  ready: boolean
   children: ReactNode
 }) {
-  useScrollCatchUp(ready)
+  useScrollCatchUp()
 
   return (
     <>
@@ -106,19 +101,15 @@ export function AppShell({
 
 /**
  * Позицію пише й ключує сам роутер: запис для екрана він робить, коли з нього
- * йдуть, тож поки ми тут, запис — те, що було до повернення. На переході вперед
- * ключ новий і запису немає — нічого не робимо. Стартуємо один раз, щойно дані
- * готові, і зупиняємось лише самі або разом з екраном: `ready`, що потім
- * блимне, не має обривати вже розпочате.
+ * йдуть, тож на поверненні запис уже є з першого рендеру. На переході вперед
+ * ключ новий і запису немає — нічого не робимо. Ціль беремо лише з першого
+ * рендеру: на `replace` без скидання прокрутки (фільтр «Страв») роутер копіює
+ * запис під новий ключ, і це не повернення.
  */
-function useScrollCatchUp(ready: boolean) {
-  const target =
+function useScrollCatchUp() {
+  const restored =
     useElementScrollRestoration({ getElement: () => window })?.scrollY ?? 0
-  const stop = useRef<(() => void) | null>(null)
+  const [target] = useState(restored)
 
-  useEffect(() => {
-    if (ready && target > 0 && !stop.current)
-      stop.current = catchUpScroll(target)
-  }, [ready, target])
-  useEffect(() => () => stop.current?.(), [])
+  useEffect(() => (target > 0 ? catchUpScroll(target) : undefined), [target])
 }

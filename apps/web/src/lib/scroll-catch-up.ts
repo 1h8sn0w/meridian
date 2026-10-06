@@ -10,8 +10,10 @@
  * Людину, що вже гортає сама, не смикаємо. Подій для цього не слухаємо: колесо,
  * дотик і клавіші — ще не все (смуга прокрутки, допоміжні технології, фокус).
  * Натомість дивимось на саму позицію: доки ціль не досягнуто, ми стоїмо в
- * самому низу сторінки, тож гортати людина може лише вгору. Сторінка вище, ніж
- * ми її лишили, — людина взялася гортати, і ми відступаємо.
+ * самому низу сторінки, тож гортати людина може лише вгору. Позиція вище, ніж
+ * ми її лишили, і вже не в самому низу — людина взялася гортати, і ми
+ * відступаємо. Якщо ж ми досі внизу, позицію підтиснув сам браузер: вміст
+ * став коротшим або змістився (`overflow-anchor`), і доганяти треба далі.
  *
  * І за таймаутом: якщо вміст так і не виріс до цілі (наприклад, план за цей час
  * став коротшим), чекати нема чого.
@@ -21,18 +23,20 @@
 export function catchUpScroll(
   target: number,
   win: Window & typeof globalThis = window,
-  // ponytail: фіксована межа; локальна база відповідає за десятки мілісекунд,
-  // і 3 с — із запасом навіть для слабкого телефона.
-  timeoutMs = 3000,
+  // ponytail: фіксована межа від монтування екрана; локальна база відповідає
+  // за десятки мілісекунд, і 5 с — із запасом навіть для слабкого телефона.
+  timeoutMs = 5000,
 ): () => void {
   // Дробовий `scrollY` на екранах із high-DPI ніколи не дорівнює цілі точно.
   const reached = () => win.scrollY >= target - 1
+  const page = win.document.documentElement
+  const atBottom = () => win.scrollY >= page.scrollHeight - win.innerHeight - 1
   let left = -Infinity
 
   // Перший виклик спостерігача — одразу після `observe`, тобто вже після того,
   // як роутер поставив свою позицію.
   const observer = new win.ResizeObserver(() => {
-    if (reached() || win.scrollY < left - 1) return stop()
+    if (reached() || (win.scrollY < left - 1 && !atBottom())) return stop()
     win.scrollTo({ top: target })
     left = win.scrollY
     if (reached()) stop()
@@ -43,6 +47,6 @@ export function catchUpScroll(
     win.clearTimeout(timer)
   }
 
-  observer.observe(win.document.documentElement)
+  observer.observe(page)
   return stop
 }

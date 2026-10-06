@@ -14,6 +14,7 @@ function fakePage(height: number, scrollY = 0) {
   let onResize: (() => void) | null = null
   const win = {
     scrollY,
+    innerHeight: viewport,
     scrollTo({ top }: { top: number }) {
       win.scrollY = Math.max(0, Math.min(top, height - viewport))
     },
@@ -32,12 +33,20 @@ function fakePage(height: number, scrollY = 0) {
         onResize = null
       }
     },
-    document: { documentElement: {} },
+    document: {
+      documentElement: {
+        get scrollHeight() {
+          return height
+        },
+      },
+    },
   }
   return {
     win: win as unknown as Window & typeof globalThis,
+    /** Нова висота; браузер, як і справжній, не дає позиції вийти за край. */
     grow(to: number) {
       height = to
+      win.scrollY = Math.min(win.scrollY, Math.max(0, height - viewport))
       onResize?.()
     },
     observing: () => onResize !== null,
@@ -72,6 +81,20 @@ test('людина гортає сама — наздоганяння відст
   page.grow(2400)
   assert.equal(page.win.scrollY, 120)
   assert.equal(page.observing(), false)
+})
+
+test('сторінка покоротшала й підтиснула позицію — це не людина, доганяємо далі', () => {
+  const page = fakePage(1800)
+  catchUpScroll(1500, page.win)
+  assert.equal(page.win.scrollY, 1000)
+
+  // Заглушка змінилась коротшим вмістом: браузер сам опустив позицію до краю.
+  page.grow(1600)
+  assert.equal(page.win.scrollY, 800)
+  assert.equal(page.observing(), true)
+
+  page.grow(2400)
+  assert.equal(page.win.scrollY, 1500)
 })
 
 test('таймаут: вміст так і не виріс — більше не чекаємо', async () => {

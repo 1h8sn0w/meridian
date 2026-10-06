@@ -186,7 +186,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   return (
     <AppShell
       title="Список покупок"
-      ready={!isLoading}
       subtitle={
         items.length
           ? `${bought} з ${items.length} куплено`

@@ -95,15 +95,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell
-      title="Сьогодні"
-      subtitle={formatToday(now)}
-      ready={
-        ![mealsRead, profilesRead, prefsRead, week].some(
-          (read) => read.isLoading,
-        )
-      }
-    >
+    <AppShell title="Сьогодні" subtitle={formatToday(now)}>
       <Problems of={problems} />
 
       {profilesRead.data.length ? (

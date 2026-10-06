@@ -15,7 +15,7 @@
  *    зміна з іншого пристрою приїжджає на неї сама (MER-46).
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useLocation, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
@@ -59,11 +59,10 @@ export function RecipeScreen({
     profilesRead.problems,
     recipeRead.problems,
   ]
-  const ready = !mealsRead.isLoading && !recipeRead.isLoading
 
   if (!meal) {
     return (
-      <AppShell title="Рецепт" ready={ready}>
+      <AppShell title="Рецепт">
         <Back />
         <Problems of={problems} />
         <Panel>
@@ -80,7 +79,6 @@ export function RecipeScreen({
   return (
     <AppShell
       title={meal.name}
-      ready={ready}
       subtitle={
         MEAL_TYPE_LABELS[meal.type] + (meal.source ? ' · ' + meal.source : '')
       }
@@ -148,6 +146,9 @@ export function RecipeScreen({
  */
 function Back() {
   const router = useRouter()
+  // Під час переходу посилання ще на екрані: другий тап пішов би історією ще на
+  // крок назад, повз екран, з якого прийшли.
+  const leaving = useRef(false)
   const from = useLocation({ select: (location) => location.state.recipeFrom })
   const look =
     'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
@@ -162,7 +163,8 @@ function Back() {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
             return
           event.preventDefault()
-          router.history.back()
+          if (!leaving.current) router.history.back()
+          leaving.current = true
         }}
       >
         <CaretLeft aria-hidden size={14} weight="bold" />

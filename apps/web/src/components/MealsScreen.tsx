@@ -72,7 +72,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   const meals = mealsRead.data
   const prefs = prefsRead.data
-  const ready = !mealsRead.isLoading && !prefsRead.isLoading
 
   const gerdCount = meals.filter((meal) => meal.gerd).length
 
@@ -103,7 +102,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   if (editing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle} ready={ready}>
+      <AppShell title="Страви" subtitle={subtitle}>
         <MealForm
           meal={editing.meal}
           familyId={familyId}
@@ -115,7 +114,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   if (importing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle} ready={ready}>
+      <AppShell title="Страви" subtitle={subtitle}>
         <PdfImportPanel
           familyId={familyId}
           onDone={() => setImporting(false)}
@@ -161,7 +160,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell title="Страви" subtitle={subtitle} ready={ready}>
+    <AppShell title="Страви" subtitle={subtitle}>
       <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>

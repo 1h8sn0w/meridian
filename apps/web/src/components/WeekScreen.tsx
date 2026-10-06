@@ -143,11 +143,6 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   return (
     <AppShell
       title="Тиждень"
-      ready={
-        ![mealsRead, profilesRead, prefsRead, week].some(
-          (read) => read.isLoading,
-        )
-      }
       subtitle={
         view
           ? `Ціль ${view.params.targetCalories} ± ${view.usedCorridor} ккал/день`
