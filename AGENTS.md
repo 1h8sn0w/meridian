@@ -345,16 +345,19 @@ Prettier — спільні. ESLint теж спільний: правила ле
 потрібні кореневі маніфести й лок-файл), а адреси маршрутів Caddy віддає тим
 самим `index.html` (`try_files`).
 
-**CI/CD — два workflow у `.github/workflows/` (MER-58).** `ci.yml` на кожен PR
+**CI/CD — три workflow у `.github/workflows/` (MER-58, MER-108).** `ci.yml` на кожен PR
 проганяє `pnpm lint`, `typecheck`, `test` і `format:check` — рівно ті самі
 кореневі скрипти, нічого свого він не дублює. `docker-publish.yml` на пуш у
 гілку збирає `infra/web.Dockerfile` і публікує образ `meridian` на Docker Hub,
 щоб self-host піднімався через `docker pull`; namespace образу береться з
-секрету `DOCKERHUB_USERNAME`, у репозиторії конкретного власника нема. Обидва
+секрету `DOCKERHUB_USERNAME`, у репозиторії конкретного власника нема. Ці два
 перелічують у тригерах і `main`, і `staging`, хоч на `main` досі V1: workflow
 запускається лише з тієї гілки, у якій він сам лежить, тож до злиття
 `staging` → `main` вони працюють на `staging`, а після злиття `main` підхопить
-їх сам. Теги образу й секрети репозиторію — `infra/README.md`.
+їх сам. `image-scan.yml` раз на тиждень сканує вже опубліковані `staging` і
+`latest` на Critical/High; розклад GitHub бере лише з `main`, тож він
+запрацює після того самого злиття. Теги образу, секрети й що робити з
+червоним сканом — `infra/README.md`.
 
 ### Інфраструктура self-host (MER-43)
 
