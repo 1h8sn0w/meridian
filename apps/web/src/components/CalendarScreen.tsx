@@ -47,8 +47,8 @@ import {
 } from '../lib/data/queries'
 import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
-import { AppShell } from './AppShell'
 import type { CalendarSearch } from '../lib/calendar-search'
+import { AppShell } from './AppShell'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
 import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
@@ -152,7 +152,8 @@ export function CalendarScreen() {
                 selected={selected}
                 todayKey={todayKey}
                 meals={mealsRead.data}
-                onSelect={(date) => setView({ week: start, day: date })}
+                // День із сітки лежить у видимому тижні, тож тиждень з нього виводиться.
+                onSelect={(date) => setView({ day: date })}
               />
 
               {atToday ? null : (

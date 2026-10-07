@@ -26,6 +26,6 @@ export function parseCalendarSearch(
   const week = dateFrom(search.week)
   return {
     day: dateFrom(search.day),
-    week: week === undefined ? undefined : startOfWeek(week),
+    week: week && startOfWeek(week),
   }
 }
