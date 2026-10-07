@@ -51,11 +51,11 @@ import type {
  * ======================================================================== */
 
 /** Пул страв: масив об'єктів `createMeal`. */
-export const MEALS_KEY = 'meridian.meals.v1'
+const MEALS_KEY = 'meridian.meals.v1'
 /** Смаки (MER-18): мапа `{ "<mealId>": "favorite" | "disliked" }`. */
-export const PREFS_KEY = 'meridian.mealPrefs.v1'
+const PREFS_KEY = 'meridian.mealPrefs.v1'
 /** Профілі (MER-21): `{ profiles: [...], activeId }`. */
-export const PROFILES_KEY = 'meridian.profiles.v1'
+const PROFILES_KEY = 'meridian.profiles.v1'
 
 /**
  * Ключі, які до V2 не їдуть, — але сказати про них треба вголос.

@@ -112,7 +112,7 @@ function isFatal(error: unknown): boolean {
  * Винесено окремо, щоб те саме перетворення можна було перевірити без браузера
  * й без PowerSync — на живому стеку достатньо клієнта Supabase.
  */
-export async function applyCrudEntry(
+async function applyCrudEntry(
   supabase: SupabaseClient,
   entry: CrudEntry,
 ): Promise<{ error: PostgrestError | null }> {
