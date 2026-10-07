@@ -41,7 +41,7 @@ import {
 } from '../lib/data/queries'
 import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
-import { formatDayTitle, formatMoment } from '../lib/format'
+import { formatDayTitle, formatMoment, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import { RecipeLink } from './RecipeLink'
@@ -292,8 +292,9 @@ function PlanSummary({
 
       {view.missing > 0 ? (
         <Warn>
-          {view.missing} слот(и) посилаються на страви, яких уже немає в пулі —
-          перегенеруйте тиждень.
+          {view.missing} {plural(view.missing, 'слот', 'слоти', 'слотів')}{' '}
+          {plural(view.missing, 'посилається', 'посилаються', 'посилаються')} на
+          страви, яких уже немає в пулі — перегенеруйте тиждень.
         </Warn>
       ) : null}
 

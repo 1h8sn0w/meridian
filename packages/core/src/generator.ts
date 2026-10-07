@@ -356,9 +356,9 @@ export function generateWeek(
   const poolWarnings: Array<string> = []
   if (withoutCalories > 0) {
     poolWarnings.push(
-      'Без калорійності: ' +
+      'Страв без калорійності: ' +
         withoutCalories +
-        ' страв(и) не брали участі в доборі — коридор дня рахується лише за відомими цифрами.',
+        '. Вони не брали участі в доборі — коридор дня рахується лише за відомими цифрами.',
     )
   }
 

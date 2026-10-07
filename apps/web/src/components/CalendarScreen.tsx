@@ -380,7 +380,10 @@ function DaySummary({
       Разом: {total}
       {plan ? ` · ціль ${plan.target} ± ${plan.corridor} ккал` : ''}
       {calories.unknown > 0
-        ? ' · сума неповна: без цифр ' + calories.unknown + ' слот(и)'
+        ? ' · сума неповна: без цифр ' +
+          calories.unknown +
+          ' ' +
+          plural(calories.unknown, 'слот', 'слоти', 'слотів')
         : within || !plan
           ? ''
           : ' · поза коридором'}
