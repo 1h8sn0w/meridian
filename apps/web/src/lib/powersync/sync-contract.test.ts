@@ -14,24 +14,14 @@ const migrationsDir = new URL('packages/db/migrations/', root)
 
 const PUBLISHED_NOT_SYNCED = ['family', 'pdf_import']
 const NOT_PUBLISHED = ['family_invite', 'family_member']
-const SQLITE_TYPES = new Map([
-  ...[
-    'boolean',
-    'smallint',
-    'integer',
-    'bigint',
-    'int',
-    'int2',
-    'int4',
-    'int8',
-    'smallserial',
-    'serial',
-    'bigserial',
-  ].map((type) => [type, 'INTEGER'] as const),
-  ...['real', 'double', 'float', 'float4', 'float8'].map(
-    (type) => [type, 'REAL'] as const,
-  ),
-])
+const sqliteType = (type: string) =>
+  /^(?:boolean|smallint|integer|bigint|int[248]?|(?:small|big)?serial)$/.test(
+    type,
+  )
+    ? 'INTEGER'
+    : /^(?:real|double|float[48]?)$/.test(type)
+      ? 'REAL'
+      : 'TEXT'
 const KEYWORDS =
   'constraint|primary|unique|check|foreign|exclude|like|default|not|identity|expression'
 
@@ -194,9 +184,7 @@ test('колонки й типи клієнтської схеми збігаю�
       sorted(
         [...(tables.get(table.name) ?? [])]
           .filter(([column]) => column !== 'id')
-          .map(
-            ([column, type]) => `${column}:${SQLITE_TYPES.get(type) ?? 'TEXT'}`,
-          ),
+          .map(([column, type]) => `${column}:${sqliteType(type)}`),
       ),
       table.name,
     )
