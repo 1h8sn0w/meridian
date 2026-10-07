@@ -9,13 +9,13 @@
   "scripts": {
     "dev": "pnpm --filter @meridian/core build && pnpm --filter @meridian/web dev",
     "build": "pnpm --recursive build",
-    "lint": "pnpm --recursive lint",
+    "lint": "node tools/check-comments.mjs && pnpm --recursive lint",
     "typecheck": "pnpm --filter @meridian/core build && pnpm --recursive typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @meridian/db migrate",
     "starter:check": "node packages/core/src/check-starter-set.ts",
-    "test": "pnpm --recursive --if-present test"
+    "test": "node --test \"tools/*.test.mjs\" && pnpm --recursive --if-present test"
   },
   "devDependencies": {
     "@tanstack/eslint-config": "^0.4.0",

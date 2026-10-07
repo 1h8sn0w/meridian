@@ -1,6 +1,36 @@
 //  @ts-check
 
 import { tanstackConfig } from '@tanstack/eslint-config'
+import {
+  isCommentFree,
+  isDirective,
+  relativeToRoot,
+} from './tools/check-comments.mjs'
+
+export const noComments = {
+  meta: {
+    type: 'suggestion',
+    messages: {
+      comment:
+        'Коментар у теці без коментарів: нюанс — у README.md теки, інваріант — у тест (tools/README.md).',
+    },
+  },
+  create(context) {
+    if (!isCommentFree(relativeToRoot(context.filename))) return {}
+    return {
+      Program() {
+        for (const comment of context.sourceCode.getAllComments()) {
+          if (
+            comment.type !== 'Shebang' &&
+            !isDirective(comment.type, comment.value)
+          ) {
+            context.report({ loc: comment.loc, messageId: 'comment' })
+          }
+        }
+      },
+    }
+  },
+}
 
 /**
  * Спільна база ESLint для всіх пакетів воркспейсу (MER-71).
@@ -17,7 +47,10 @@ import { tanstackConfig } from '@tanstack/eslint-config'
 export default [
   ...tanstackConfig,
   {
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    plugins: { meridian: { rules: { 'no-comments': noComments } } },
     rules: {
+      'meridian/no-comments': 'error',
       'import/no-cycle': 'off',
       'import/order': 'off',
       'sort-imports': 'off',
