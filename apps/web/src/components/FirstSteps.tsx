@@ -96,9 +96,9 @@ export function FirstSteps({
             <div className="min-w-0 flex-1">
               <h3 className="m-0 text-base font-semibold tracking-tight">
                 {step.title}
-                <span className="sr-only">
-                  {step.done ? ' — зроблено' : ''}
-                </span>
+                {step.done ? (
+                  <span className="sr-only"> — зроблено</span>
+                ) : null}
               </h3>
               <p className="mb-0 mt-0.5 text-sm leading-relaxed text-muted">
                 {step.text}
