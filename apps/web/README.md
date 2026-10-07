@@ -214,6 +214,7 @@ ESLint — інша річ: там спільна частина без побі
 ## Відомі стелі (ponytail)
 
 - `sync-contract.test.ts` читає SQL регулярками: розуміє `CREATE TABLE`,
-  `ADD COLUMN` і `FOR`/`ADD`/`DROP TABLE` публікації. Перша міграція з
-  `DROP COLUMN` чи `RENAME` — сигнал навчити його цьому (або читати схему з
-  живої бази в CI).
+  `ADD`/`DROP COLUMN` і `FOR`/`ADD`/`SET`/`DROP TABLE` публікації; незнайома
+  форма `CREATE TABLE` чи `PUBLICATION powersync` валить тест, а `RENAME` і
+  `ALTER COLUMN … TYPE` він мовчки не бачить. Перша така міграція — сигнал
+  навчити його цьому (або звіряти схему з живою базою в CI).
