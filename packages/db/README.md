@@ -260,7 +260,12 @@ MER-45: підставити claims із `sub`, викликати `public.creat
 2. політику по `family_id` — без неї таблиця просто мовчить;
 3. тригер `touch_updated_at` і GRANT `SELECT, INSERT, UPDATE` (без DELETE);
 4. **додати таблицю в публікацію `powersync`** (вона перелічує таблиці явно, див.
-   `infra/README.md`) — або в винятки `apps/web/src/lib/powersync/sync-contract.test.ts`.
+   `infra/README.md`) і `GRANT SELECT` для `powersync_role`, а поза цією
+   міграцією — стрім у `sync-config.yaml`, таблицю в `AppSchema` і її
+   `jsonb`/`boolean`-колонки в `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Таблиця, якій на
+   пристрої нема чого робити, натомість іде у винятки
+   `apps/web/src/lib/powersync/sync-contract.test.ts`. Забуте місце — червоний
+   тест, а не тиха поломка.
 
 Готовий приклад усіх чотирьох кроків — `0003_prefs_shopping.sql` (MER-55):
 таблиці з індексами зверху, права й публікація — знизу, в одному файлі.

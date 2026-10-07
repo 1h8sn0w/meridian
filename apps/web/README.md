@@ -86,10 +86,11 @@ pnpm dev                      # http://localhost:3000
   відкритою, але не з'єднаною — назавжди.
 
 Таблиці й колонки мусять збігатися в чотирьох місцях: міграціях (публікація
-`powersync`, типи `jsonb`/`boolean`), стрімах `sync-config.yaml`, `AppSchema` і
-`JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Тримає це `lib/powersync/sync-contract.test.ts`;
-таблиця, яка свідомо не їде на пристрої, дописується в його винятки
-(`NOT_SYNCED`, а якщо вона ще й у публікації — `PUBLISHED_NOT_SYNCED`).
+`powersync`, `GRANT SELECT` для `powersync_role`, типи колонок), стрімах
+`sync-config.yaml`, `AppSchema` і `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Тримає це
+`lib/powersync/sync-contract.test.ts`; таблиця, яка свідомо не їде на пристрої,
+дописується в його винятки (`NOT_PUBLISHED`, а якщо вона лишається в публікації —
+`PUBLISHED_NOT_SYNCED`).
 
 У розробці база лежить ще й на `window.Meridian.sync`, як `window.Meridian` у
 V1: запит із консолі лишається найкоротшим способом перевірити, що зміна доїхала
@@ -213,8 +214,10 @@ ESLint — інша річ: там спільна частина без побі
 
 ## Відомі стелі (ponytail)
 
-- `sync-contract.test.ts` читає SQL регулярками: розуміє `CREATE TABLE`,
-  `ADD`/`DROP COLUMN` і `FOR`/`ADD`/`SET`/`DROP TABLE` публікації; незнайома
-  форма `CREATE TABLE` чи `PUBLICATION powersync` валить тест, а `RENAME` і
-  `ALTER COLUMN … TYPE` він мовчки не бачить. Перша така міграція — сигнал
-  навчити його цьому (або звіряти схему з живою базою в CI).
+- `sync-contract.test.ts` читає SQL регулярками, інструкцію за інструкцією:
+  `CREATE`/`DROP TABLE`, `ADD`/`DROP COLUMN`, `FOR`/`ADD`/`SET`/`DROP TABLE`
+  публікації й `GRANT`/`REVOKE … ON TABLE` для `powersync_role`. Ключові слова
+  DDL малими літерами, незнайома форма `CREATE TABLE`, публікації чи гранту
+  валять тест. Мовчки він не бачить `RENAME`, `ALTER COLUMN … TYPE` і DDL
+  усередині `DO`-блоків (крім публікації). Перша така міграція — сигнал навчити
+  його цьому або звіряти схему з живою базою в CI.
