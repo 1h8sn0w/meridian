@@ -21,10 +21,12 @@
  * звичайний прихід даних із sync, і тоді сітка блимала б порожнечею на кожній
  * порції синхронізації. Кнопки гортання лишаються ЗОВНІ ключа: інакше
  * перемонтування забирало б у них фокус на кожному натисканні.
+ *
+ * **Вибраний день і тиждень — в адресі** (`?day=&week=`, MER-88), як фільтри
+ * «Страв»: перезавантаження й «Назад» із рецепта повертають той самий день.
  */
 
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   MEAL_TYPE_LABELS,
   addDays,
@@ -45,8 +47,10 @@ import {
 } from '../lib/data/queries'
 import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
+import type { CalendarSearch } from '../lib/calendar-search'
 import { AppShell } from './AppShell'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { RecipeLink } from './RecipeLink'
 import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
 
 /** Тиждень в Україні — з понеділка, як у `startOfWeek`. */
@@ -62,15 +66,23 @@ export function CalendarScreen() {
   const ownerId = profile ? planOwnerId(profile) : null
   const owner = profilesRead.data.find((p) => p.id === ownerId) ?? profile
 
-  // Вид: понеділок видимого тижня + вибраний день. null — «тиждень сьогодні»:
-  // до першої дії користувача вид їде за годинником пристрою, і кнопка
-  // «Сьогодні» просто повертає це початкове положення.
-  const [view, setView] = useState<{ start: string; selected: string } | null>(
-    null,
-  )
-  const start = view ? view.start : todayKey ? startOfWeek(todayKey) : ''
-  const selected = view ? view.selected : todayKey
+  // Вид: понеділок видимого тижня + вибраний день, обидва з адреси. Без них —
+  // «тиждень сьогодні»: вид їде за годинником пристрою, і кнопка «Сьогодні»
+  // просто прибирає параметри.
+  const search = useSearch({ from: '/calendar' })
+  const selected = search.day ?? todayKey
+  const start = search.week ?? (selected ? startOfWeek(selected) : '')
   const end = start ? addDays(start, 6) : ''
+  const navigate = useNavigate({ from: '/calendar' })
+  /* Вибір дня й гортання — той самий екран, а не перехід: без нового запису в
+   * історії, без стрибка вгору й без анімації зміни екрана. */
+  const setView = (next: CalendarSearch) =>
+    void navigate({
+      search: next,
+      replace: true,
+      resetScroll: false,
+      viewTransition: false,
+    })
 
   const plannedRead = usePlannedDayCount(ownerId)
   const problems = [
@@ -114,7 +126,7 @@ export function CalendarScreen() {
                 <IconButton
                   label="Попередній тиждень"
                   onClick={() =>
-                    setView({ start: addDays(start, -7), selected })
+                    setView({ week: addDays(start, -7), day: selected })
                   }
                 >
                   <CaretLeft size={16} weight="bold" />
@@ -125,7 +137,7 @@ export function CalendarScreen() {
                 <IconButton
                   label="Наступний тиждень"
                   onClick={() =>
-                    setView({ start: addDays(start, 7), selected })
+                    setView({ week: addDays(start, 7), day: selected })
                   }
                 >
                   <CaretRight size={16} weight="bold" />
@@ -140,12 +152,13 @@ export function CalendarScreen() {
                 selected={selected}
                 todayKey={todayKey}
                 meals={mealsRead.data}
-                onSelect={(date) => setView({ start, selected: date })}
+                // День із сітки лежить у видимому тижні, тож тиждень з нього виводиться.
+                onSelect={(date) => setView({ day: date })}
               />
 
               {atToday ? null : (
                 <div className="mt-3">
-                  <Button block onClick={() => setView(null)}>
+                  <Button block onClick={() => setView({})}>
                     Сьогодні
                   </Button>
                 </div>
@@ -320,7 +333,10 @@ function DaySection({
                 </span>
                 <span className="block text-sm font-medium leading-snug">
                   {slotView.meal ? (
-                    slotView.meal.name
+                    // MER-88: рецепт і з календаря; «Назад» поверне на цей день.
+                    <RecipeLink mealId={slotView.mealId}>
+                      {slotView.meal.name}
+                    </RecipeLink>
                   ) : (
                     <span className="text-warning">страву видалено з пулу</span>
                   )}
