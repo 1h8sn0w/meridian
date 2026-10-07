@@ -39,7 +39,7 @@ import type { PublicEnv } from '../public-env'
 import { localDbFailure, syncFailure } from '../messages'
 import type { Failure, LocalDbFailure } from '../messages'
 
-export type SyncState = {
+type SyncState = {
   /** Чи задана адреса сервісу. Без неї застосунок працює, але лише тут. */
   configured: boolean
   /** База пристрою; `null`, доки не відкрилася (або поза браузером). */

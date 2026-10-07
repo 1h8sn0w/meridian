@@ -27,7 +27,7 @@ import type { MealType } from '@meridian/core'
  * `@meridian/core`, і другий його примірник рано чи пізно розійшовся б із
  * першим (MER-71).
  */
-export type MealWindow = {
+type MealWindow = {
   type: MealType
   /** Родовий відмінок для підпису «час обіду» — GENITIVE із V1. */
   genitive: string
@@ -108,7 +108,7 @@ export function angleOf(minutes: number): number {
   return (minutes / DAY_MINUTES) * 360
 }
 
-export type ActiveSlot =
+type ActiveSlot =
   | { type: MealType; window: MealWindow; next: null }
   | { type: null; window: null; next: MealWindow | null }
 
@@ -128,7 +128,7 @@ export function slotAt(minutes: number): ActiveSlot {
   return { type: null, window: null, next: best ? best.window : null }
 }
 
-export type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
+type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
 
 const PHASE_OF: Record<MealType, SkyPhase> = {
   breakfast: 'dawn',

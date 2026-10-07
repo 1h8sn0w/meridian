@@ -10,13 +10,13 @@
  */
 
 /** Прогрес читання — сторінка з N; показується як статус діалогу. */
-export type PdfProgress = (page: number, total: number) => void
+type PdfProgress = (page: number, total: number) => void
 
 /**
  * `true` — операцію витіснили або скасували, і працювати далі нема сенсу
  * (MER-39: скасований імпорт не має відтворювати діалог своїм результатом).
  */
-export type Aborted = () => boolean
+type Aborted = () => boolean
 
 /**
  * Текст усіх сторінок PDF — рядки за `hasEOL`, як їх віддає текстовий шар.

@@ -36,7 +36,7 @@ import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
 import type { AppProfile, CalendarDayView, WeekView } from './model'
 
 /** Результат читання: дані плюс чесний перелік того, що не розібралося. */
-export type Read<T> = {
+type Read<T> = {
   data: T
   isLoading: boolean
   problems: Array<string>

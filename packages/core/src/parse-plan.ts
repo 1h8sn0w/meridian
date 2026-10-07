@@ -40,10 +40,10 @@ const SLOT_TYPES: Readonly<Record<string, MealType>> = {
  *  - `dup`    — назва вже трапилась вище в цьому ж тексті: позначити можна, але
  *    типово не імпортується.
  */
-export type PlanEntryKind = 'meal' | 'repeat' | 'dup'
+type PlanEntryKind = 'meal' | 'repeat' | 'dup'
 
 /** Сумнівне місце розбору — показується користувачеві як є. */
-export type PlanFlag = { code: string; message: string }
+type PlanFlag = { code: string; message: string }
 
 export type PlanEntry = {
   kind: PlanEntryKind
@@ -67,7 +67,7 @@ export type PlanEntry = {
   flags: Array<PlanFlag>
 }
 
-export type PlanStats = {
+type PlanStats = {
   weeks: number
   days: number
   meals: number

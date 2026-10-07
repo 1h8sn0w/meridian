@@ -112,7 +112,7 @@ export function weekMealIds(plan: WeekPlan): Array<Array<string>> {
   return plan.days.map((day) => MEAL_TYPES.map((type) => day.meals[type].id))
 }
 
-export type WeekViolation = string
+type WeekViolation = string
 
 /**
  * Перевірити зібраний тиждень на правила 1–3 дієтолога: тип слота, коридор дня
