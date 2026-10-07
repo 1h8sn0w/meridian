@@ -202,5 +202,5 @@ export type WeekPlan = {
  * `{ ok: false, error }` зі зрозумілим українським поясненням. Виняток тут не
  * кидаємо — «не склалося» це не збій програми, а нормальна відповідь.
  */
-export type Err = { ok: false; error: string }
+type Err = { ok: false; error: string }
 export type Result<T> = ({ ok: true } & T) | Err
