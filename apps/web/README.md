@@ -214,10 +214,11 @@ ESLint — інша річ: там спільна частина без побі
 
 ## Відомі стелі (ponytail)
 
-- `sync-contract.test.ts` читає SQL регулярками, інструкцію за інструкцією:
-  `CREATE`/`DROP TABLE`, `ADD`/`DROP COLUMN`, `FOR`/`ADD`/`SET`/`DROP TABLE`
-  публікації й `GRANT`/`REVOKE … ON TABLE` для `powersync_role`. Ключові слова
-  DDL малими літерами, незнайома форма `CREATE TABLE`, публікації чи гранту
-  валять тест. Мовчки він не бачить `RENAME`, `ALTER COLUMN … TYPE` і DDL
-  усередині `DO`-блоків (крім публікації). Перша така міграція — сигнал навчити
-  його цьому або звіряти схему з живою базою в CI.
+- `sync-contract.test.ts` читає SQL регулярками, інструкцію за інструкцією й
+  без огляду на регістр: `CREATE`/`DROP TABLE`, `ADD`/`DROP COLUMN`,
+  `FOR`/`ADD`/`SET`/`DROP TABLE` публікації й `GRANT`/`REVOKE … ON TABLE` для
+  `powersync_role`. Незнайома форма `CREATE`/`DROP TABLE`, публікації чи гранту
+  валить тест. Мовчки він не бачить `RENAME`, `ALTER COLUMN … TYPE` і DDL
+  усередині `DO`-блоків (крім публікації). Масив Postgres на пристрої — JSON,
+  тож тест вимагає його в `JSON_COLUMNS`. Перша міграція поза цим — сигнал
+  навчити тест або звіряти схему з живою базою в CI.

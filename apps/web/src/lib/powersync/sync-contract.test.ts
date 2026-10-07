@@ -14,11 +14,26 @@ const migrationsDir = new URL('packages/db/migrations/', root)
 
 const PUBLISHED_NOT_SYNCED = ['family', 'pdf_import']
 const NOT_PUBLISHED = ['family_invite', 'family_member']
-const SQLITE_TYPES: Readonly<Record<string, string>> = {
-  integer: 'INTEGER',
-  boolean: 'INTEGER',
-  double: 'REAL',
-}
+const SQLITE_TYPES = new Map([
+  ...[
+    'boolean',
+    'smallint',
+    'integer',
+    'bigint',
+    'int',
+    'int2',
+    'int4',
+    'int8',
+    'smallserial',
+    'serial',
+    'bigserial',
+  ].map((type) => [type, 'INTEGER'] as const),
+  ...['real', 'double', 'float', 'float4', 'float8'].map(
+    (type) => [type, 'REAL'] as const,
+  ),
+])
+const KEYWORDS =
+  'constraint|primary|unique|check|foreign|exclude|like|default|not|identity|expression'
 
 const sql = readdirSync(migrationsDir)
   .filter((file) => file.endsWith('.sql'))
@@ -28,8 +43,9 @@ const sql = readdirSync(migrationsDir)
   .replace(/'(?:[^']|'')*'|--.*$/gm, (match) =>
     match.startsWith('--') ? '' : "''",
   )
+  .toLowerCase()
   .replaceAll('"', '')
-  .replace(/\b(?:public\.|ONLY |IF NOT EXISTS |IF EXISTS )/g, '')
+  .replace(/\b(?:public\.|only |if not exists |if exists )/g, '')
 const statements = sql.split(';')
 
 const names = (list: string) => list.trim().split(/\s*,\s*/)
@@ -37,58 +53,71 @@ const names = (list: string) => list.trim().split(/\s*,\s*/)
 const tables = new Map<string, Map<string, string>>()
 const published = new Set<string>()
 const readable = new Set<string>()
-const parsed = { create: 0, publication: 0, grant: 0 }
+const parsed = { create: 0, drop: 0, publication: 0, grant: 0 }
 for (const statement of statements) {
-  const create = statement.match(/^\s*CREATE TABLE ([a-z_]\w*) \(([\s\S]*)\)/)
+  const create = statement.match(/^\s*create table ([a-z_]\w*) \(([\s\S]*)\)/)
   if (create) {
     parsed.create++
     tables.set(
       create[1],
       new Map(
-        [...create[2].matchAll(/^\s*([a-z_]\w*) ([a-z]+(?:\[\])?)/gm)].map(
-          ([, column, type]) => [column, type],
-        ),
+        [
+          ...create[2].matchAll(
+            new RegExp(
+              `^\\s*(?!(?:${KEYWORDS})\\b)([a-z_]\\w*)\\s+([a-z_]\\w*(?:\\[\\])?)`,
+              'gm',
+            ),
+          ),
+        ].map(([, column, type]) => [column, type]),
       ),
     )
   }
 
-  const drop = statement.match(/^\s*DROP TABLE ([\w\s,]+?)(?: CASCADE)?\s*$/)
-  for (const table of drop ? names(drop[1]) : []) {
-    tables.delete(table)
-    published.delete(table)
-    readable.delete(table)
+  const drop = statement.match(
+    /^\s*drop table ([\w\s,]+?)(?:\s+(?:cascade|restrict))?\s*$/,
+  )
+  if (drop) {
+    parsed.drop++
+    for (const table of names(drop[1])) {
+      tables.delete(table)
+      published.delete(table)
+      readable.delete(table)
+    }
   }
 
   const [, altered = '', clauses = ''] =
-    statement.match(/^\s*ALTER TABLE ([a-z_]\w*) ([\s\S]*)/) ?? []
+    statement.match(/^\s*alter table ([a-z_]\w*) ([\s\S]*)/) ?? []
   for (const [, action, column, type] of clauses.matchAll(
-    /(ADD|DROP)(?: COLUMN)? ([a-z_]\w*)(?: ([a-z]+(?:\[\])?))?/g,
+    new RegExp(
+      `\\b(add|drop)(?:\\s+column)?\\s+(?!(?:${KEYWORDS})\\b)([a-z_]\\w*)(?:\\s+([a-z_]\\w*(?:\\[\\])?))?`,
+      'g',
+    ),
   )) {
-    if (action === 'DROP') tables.get(altered)?.delete(column)
+    if (action === 'drop') tables.get(altered)?.delete(column)
     else tables.get(altered)?.set(column, type)
   }
 
   const publication = statement.match(
-    /PUBLICATION powersync (FOR|ADD|SET|DROP) TABLE\s+([\w\s,]+)$/,
+    /publication powersync (for|add|set|drop) table\s+([\w\s,]+)$/,
   )
   if (publication) {
     parsed.publication++
     const [, action, list] = publication
-    if (action === 'FOR' || action === 'SET') published.clear()
+    if (action === 'for' || action === 'set') published.clear()
     for (const table of names(list)) {
-      if (action === 'DROP') published.delete(table)
+      if (action === 'drop') published.delete(table)
       else published.add(table)
     }
   }
 
   const grant = statement.match(
-    /^\s*(GRANT|REVOKE) ([A-Z, ]+) ON TABLE\s+([\w\s,]+?)\s+(?:TO|FROM)\s+([\w\s,]+)$/,
+    /^\s*(grant|revoke)\s+(grant option for\s+)?([a-z, ]+?)\s+on table\s+([\w\s,]+?)\s+(?:to|from)\s+([\w\s,]+)$/,
   )
-  if (grant && names(grant[4]).includes('powersync_role')) {
+  if (grant && names(grant[5]).includes('powersync_role')) {
     parsed.grant++
-    if (/\b(?:SELECT|ALL)\b/.test(grant[2])) {
-      for (const table of names(grant[3])) {
-        if (grant[1] === 'GRANT') readable.add(table)
+    if (!grant[2] && /\b(?:select|all)\b/.test(grant[3])) {
+      for (const table of names(grant[4])) {
+        if (grant[1] === 'grant') readable.add(table)
         else readable.delete(table)
       }
     }
@@ -112,11 +141,11 @@ const pairs = (record: Readonly<Record<string, ReadonlyArray<string>>>) =>
       columns.map((column) => `${table}.${column}`),
     ),
   )
-const columnsOfType = (...types: Array<string>) =>
+const columnsWhere = (predicate: (type: string) => boolean) =>
   sorted(
     synced.flatMap((table) =>
       [...(tables.get(table) ?? [])]
-        .filter(([, type]) => types.includes(type))
+        .filter(([, type]) => predicate(type))
         .map(([column]) => `${table}.${column}`),
     ),
   )
@@ -124,16 +153,12 @@ const count = (pattern: RegExp) =>
   statements.filter((statement) => pattern.test(statement)).length
 
 test('міграції розібрано повністю', () => {
-  assert.doesNotMatch(
-    sql,
-    /\b(?:create|alter|drop)\s+(?:\w+\s+)?table\b|\bpublication\b|\b(?:grant|revoke)\b/,
-    'ключові слова DDL — великими літерами',
-  )
-  assert.equal(parsed.create, count(/CREATE (?:\w+ )?TABLE (?!\w+\.)/))
-  assert.equal(parsed.publication, count(/PUBLICATION powersync/))
+  assert.equal(parsed.create, count(/\bcreate (?:\w+ )?table (?!\w+\.)/))
+  assert.equal(parsed.drop, count(/(?<!powersync )\bdrop table\b/))
+  assert.equal(parsed.publication, count(/\bpublication powersync\b/))
   assert.equal(
     parsed.grant,
-    count(/\bON (?:ALL )?TABLES?\b[\s\S]*\bpowersync_role\b/),
+    count(/\bon (?:all )?tables?\b[\s\S]*\bpowersync_role\b/),
   )
 })
 
@@ -169,14 +194,24 @@ test('колонки й типи клієнтської схеми збігаю�
       sorted(
         [...(tables.get(table.name) ?? [])]
           .filter(([column]) => column !== 'id')
-          .map(([column, type]) => `${column}:${SQLITE_TYPES[type] ?? 'TEXT'}`),
+          .map(
+            ([column, type]) => `${column}:${SQLITE_TYPES.get(type) ?? 'TEXT'}`,
+          ),
       ),
       table.name,
     )
   }
 })
 
-test('JSON_COLUMNS і BOOLEAN_COLUMNS — рівно json- і boolean-колонки', () => {
-  assert.deepEqual(pairs(JSON_COLUMNS), columnsOfType('json', 'jsonb'))
-  assert.deepEqual(pairs(BOOLEAN_COLUMNS), columnsOfType('boolean'))
+test('JSON_COLUMNS і BOOLEAN_COLUMNS — рівно json-, масивні й boolean-колонки', () => {
+  assert.deepEqual(
+    pairs(JSON_COLUMNS),
+    columnsWhere(
+      (type) => type === 'json' || type === 'jsonb' || type.endsWith('[]'),
+    ),
+  )
+  assert.deepEqual(
+    pairs(BOOLEAN_COLUMNS),
+    columnsWhere((type) => type === 'boolean'),
+  )
 })
