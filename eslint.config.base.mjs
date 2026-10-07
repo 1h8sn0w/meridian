@@ -2,12 +2,12 @@
 
 import { tanstackConfig } from '@tanstack/eslint-config'
 import {
-  JS_DIRECTIVES,
   isCommentFree,
+  isDirective,
   relativeToRoot,
 } from './tools/check-comments.mjs'
 
-const noComments = {
+export const noComments = {
   meta: {
     type: 'suggestion',
     messages: {
@@ -20,8 +20,10 @@ const noComments = {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          const directive = JS_DIRECTIVES[comment.type]
-          if (directive && !directive.test(comment.value)) {
+          if (
+            comment.type !== 'Shebang' &&
+            !isDirective(comment.type, comment.value)
+          ) {
             context.report({ loc: comment.loc, messageId: 'comment' })
           }
         }

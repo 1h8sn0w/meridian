@@ -10,25 +10,33 @@ const EXCEPTIONS = [
   /^apps\/web\/(android|ios)\//,
   /(^|\/)routeTree\.gen\.ts$/,
   /^\.github\/ISSUE_TEMPLATE\//,
-  /^\.github\/PULL_REQUEST_TEMPLATE\.md$/,
-  /(^|\/)\.env\.example$/,
 ]
 
-export const JS_DIRECTIVES = {
-  Line: /^\s*(eslint-disable-(next-)?line|@ts-(check|nocheck|expect-error|ignore)|\/ <reference|prettier-ignore)(\s|$)/,
-  Block:
-    /^\s*(eslint-(disable|enable)(-(next-)?line)?|eslint|globals?|@ts-(nocheck|expect-error|ignore)|[#@]__PURE__|@vite-ignore|prettier-ignore)(\s|$)/,
+const RULES = String.raw`[\w@/-]+(\s*,\s*[\w@/-]+)*`
+const REASON = String.raw`\s*(--\s[^]*)?$`
+const DIRECTIVES = {
+  Line: new RegExp(
+    String.raw`^\s*(eslint-disable(-next)?-line\s+${RULES}|@ts-(check|nocheck|expect-error|ignore)|\/ <reference \w+="[^"]*" \/>|prettier-ignore)${REASON}`,
+  ),
+  Block: new RegExp(
+    String.raw`^\s*(eslint-disable(-next-line|-line)?\s+${RULES}|eslint-enable(\s+${RULES})?|eslint\s+[\w@/-]+\s*:[^]+|globals?\s+[\w$]+(:\s*\w+)?(\s*,\s*[\w$]+(:\s*\w+)?)*|@ts-(nocheck|expect-error|ignore)|[#@]__PURE__|@vite-ignore|prettier-ignore)${REASON}`,
+  ),
+}
+
+export function isDirective(kind, body) {
+  return DIRECTIVES[kind].test(body) && !body.includes('meridian/no-comments')
 }
 
 const HASH = /(?<=^|[\s;&|()])#/g
+const SLASH = /(?<![:\\/*])(\/\/|\/\*)/g
 const SYNTAXES = [
   { files: /\.sql$/, marker: /--|\/\*/g },
-  { files: /\.ya?ml$/, marker: HASH, header: /^# yaml-language-server:/ },
-  { files: /\.sh$/, marker: HASH, header: /^#!/ },
+  { files: /\.ya?ml$/, marker: HASH, header: /^# yaml-language-server:.*/ },
+  { files: /\.sh$/, marker: HASH, header: /^#!.*/ },
   {
     files: /(^|\/|\.)(Dockerfile|Containerfile)(\.[\w-]+)?$/,
     marker: HASH,
-    header: /^# (syntax|escape|check)=/,
+    header: /^(# (syntax|escape|check)=.*(\n|$))*/,
   },
   {
     files:
@@ -37,15 +45,16 @@ const SYNTAXES = [
   },
   { files: /\.css$/, marker: /\/\*/g },
   { files: /\.(html|svg)$/, marker: /<!--/g },
+  { files: /(^|\/)tsconfig[\w.]*\.json$/, marker: SLASH },
   {
-    files: /\.[cm]?js$/,
-    marker: /(?<=^|[\s;,(){}[\]])(\/\/|\/\*)/g,
+    files: /\.[cm]?[jt]sx?$/,
+    marker: SLASH,
     inline: (marker, body) =>
-      JS_DIRECTIVES[marker === '//' ? 'Line' : 'Block'].test(body),
+      isDirective(marker === '//' ? 'Line' : 'Block', body),
   },
   {
     files: /\.go$/,
-    marker: /(?<=^|\s)(\/\/|\/\*)/g,
+    marker: SLASH,
     inline: (marker, body) => marker === '//' && /^go:\S/.test(body),
   },
 ]
@@ -60,23 +69,13 @@ export function isCommentFree(file, dirs = COMMENT_FREE_DIRS) {
   )
 }
 
-function headerLength(lines, header) {
-  const end = header ? lines.findIndex((line) => !header.test(line)) : 0
-  return end < 0 ? lines.length : end
-}
+const blank = (s) => s.replace(/[^\n]/g, ' ')
 
 export function commentLines(file, text) {
-  const lines = text.split('\n')
-  const found = new Set()
-  if (/\.[cm]?[jt]sx?$/.test(file)) {
-    lines.forEach((line, i) => {
-      if (/eslint-disable.*meridian\/no-comments/.test(line)) found.add(i + 1)
-    })
-  }
   const syntax = SYNTAXES.find(({ files }) => files.test(file))
-  if (!syntax) return [...found]
-  const header = headerLength(lines, syntax.header)
-  const code = text.replace(STRING, (s) => ' '.repeat(s.length))
+  if (!syntax) return []
+  const code = text.replace(syntax.header ?? /^/, blank).replace(STRING, blank)
+  const found = new Set()
   let line = 1
   let from = 0
   for (const match of code.matchAll(syntax.marker)) {
@@ -86,9 +85,9 @@ export function commentLines(file, text) {
     const rest = text.slice(match.index + marker.length)
     const body =
       marker === '/*' ? rest.split('*/', 1)[0] : rest.split('\n', 1)[0]
-    if (line > header && !syntax.inline?.(marker, body)) found.add(line)
+    if (!syntax.inline?.(marker, body)) found.add(line)
   }
-  return [...found].sort((a, b) => a - b)
+  return [...found]
 }
 
 export function relativeToRoot(file) {
