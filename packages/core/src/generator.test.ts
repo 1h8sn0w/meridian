@@ -330,7 +330,7 @@ test('страва без калорійності не потрапляє в т
   )
   assert.ok(!weekMealIds(result).flat().includes('no-kcal'))
   assert.ok(
-    result.warnings.some((w) => w.startsWith('Без калорійності: 1 страв(и)')),
+    result.warnings.some((w) => w.startsWith('Страв без калорійності: 1.')),
     JSON.stringify(result.warnings),
   )
   for (const day of result.days) assert.equal(day.calories.unknown, 0)

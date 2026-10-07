@@ -28,7 +28,7 @@ import {
   useWeek,
 } from '../lib/data/queries'
 import type { DayView, WeekView } from '../lib/data/model'
-import { formatToday } from '../lib/format'
+import { formatToday, plural } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
 import { AppShell } from './AppShell'
@@ -318,7 +318,10 @@ function DayTotal({
     >
       Разом за день: {total} · ціль {target} ± {corridor} ккал
       {day.calories.unknown > 0
-        ? ' · сума неповна: без цифр ' + day.calories.unknown + ' слот(и)'
+        ? ' · сума неповна: без цифр ' +
+          day.calories.unknown +
+          ' ' +
+          plural(day.calories.unknown, 'слот', 'слоти', 'слотів')
         : within
           ? ''
           : ' · поза коридором'}
