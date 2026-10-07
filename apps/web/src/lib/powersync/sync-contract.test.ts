@@ -152,10 +152,7 @@ test('міграції розібрано повністю', () => {
 })
 
 test('кожна таблиця міграцій або синхронізується, або названа винятком', () => {
-  assert.deepEqual(
-    sorted(tables.keys()),
-    sorted([...synced, ...NOT_PUBLISHED]),
-  )
+  assert.deepEqual(sorted(tables.keys()), sorted([...synced, ...NOT_PUBLISHED]))
 })
 
 test('публікація powersync = рівно синхронізовані таблиці', () => {
