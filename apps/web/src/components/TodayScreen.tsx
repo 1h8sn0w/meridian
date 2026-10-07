@@ -11,7 +11,6 @@
  */
 
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import {
   MEAL_TYPE_LABELS,
   dateKey,
@@ -34,6 +33,7 @@ import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
+import { FirstSteps } from './FirstSteps'
 import { MealDetails, MealMarks } from './MealDetails'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
@@ -112,7 +112,11 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         <DayClock minutes={minutes} full />
       </div>
 
-      {profile ? (
+      {/* Доки читання в дорозі, «профілю чи плану немає» було б неправдою —
+          мовчимо, інакше картка «Перші кроки» блимала б на кожному старті. */}
+      {profilesRead.isLoading ||
+      mealsRead.isLoading ||
+      week.isLoading ? null : profile && week.data ? (
         <CurrentMeal
           minutes={minutes}
           week={week.data}
@@ -123,15 +127,11 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           onSwap={(dayIndex, slot) => setSwapping({ dayIndex, slot })}
         />
       ) : (
-        <Panel title="Спершу — профіль">
-          <Hint>
-            Профіль — це раціон: ціль калорійності, коридор і порція з плану
-            дієтолога. Без нього генератору немає під що збирати тиждень.
-          </Hint>
-          <Button block variant="primary" onClick={() => setManaging(true)}>
-            Створити профіль
-          </Button>
-        </Panel>
+        <FirstSteps
+          hasProfile={Boolean(profile)}
+          mealCount={mealsRead.data.length}
+          onCreateProfile={() => setManaging(true)}
+        />
       )}
 
       {/* Налаштування нагадувань стоять під годинником, бо зсувають саме його
@@ -176,7 +176,7 @@ function CurrentMeal({
   onSwap,
 }: {
   minutes: number
-  week: WeekView | null
+  week: WeekView
   profileName: string
   portion: PortionLetter | null
   showProfileName: boolean
@@ -191,21 +191,6 @@ function CurrentMeal({
       ) : null}
     </h2>
   )
-
-  if (!week) {
-    return (
-      <Panel>
-        {heading}
-        <Hint>
-          Плану ще немає — згенеруйте тиждень, і тут з’явиться страва поточного
-          прийому.
-        </Hint>
-        <Link to="/week" className="block no-underline">
-          <Button block>Відкрити екран «Тиждень»</Button>
-        </Link>
-      </Panel>
-    )
-  }
 
   // Активний прийом; поза вікнами — найближчий наступний. Якщо його початок уже
   // позаду, це вже завтрашній прийом, і страву беремо з наступного дня плану.
