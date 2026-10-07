@@ -76,11 +76,8 @@ export function commentLines(file, text) {
   if (!syntax) return []
   const code = text.replace(syntax.header ?? /^/, blank).replace(STRING, blank)
   const found = new Set()
-  let line = 1
-  let from = 0
   for (const match of code.matchAll(syntax.marker)) {
-    line += code.slice(from, match.index).split('\n').length - 1
-    from = match.index
+    const line = code.slice(0, match.index).split('\n').length
     const marker = match[0]
     const rest = text.slice(match.index + marker.length)
     const body =
