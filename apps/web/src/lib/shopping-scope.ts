@@ -25,7 +25,7 @@ export type ShoppingScope = string
 
 export const ALL_PROFILES = 'all'
 
-export type ActiveScope = {
+type ActiveScope = {
   scope: ShoppingScope
   setScope: (next: ShoppingScope) => void
 }

@@ -27,7 +27,7 @@ import type {
   WeekPlan,
 } from './types.ts'
 
-export type ReplacementCandidate = {
+type ReplacementCandidate = {
   meal: PlannedMeal
   /** Якою стане калорійність дня після заміни. */
   dayCalories: number
@@ -43,7 +43,7 @@ export type ReplacementCandidate = {
   reasons: Array<string>
 }
 
-export type Replacements = {
+type Replacements = {
   current: Meal
   target: number
   corridor: number

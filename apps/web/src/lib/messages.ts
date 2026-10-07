@@ -95,7 +95,7 @@ export function localDbFailure(
  * Що саме не вдалося: отримати дані із сервера (разом із самим з'єднанням)
  * чи віддати йому зміни з пристрою. Від цього залежить, що сказати про дані.
  */
-export type SyncDirection = 'connect' | 'download' | 'upload'
+type SyncDirection = 'connect' | 'download' | 'upload'
 
 /**
  * Мережі немає — це офлайн, а не аварія: local-first для цього й будувався.

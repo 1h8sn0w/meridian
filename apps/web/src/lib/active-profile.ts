@@ -40,7 +40,7 @@ function applyAccent(color: string): void {
   document.documentElement.style.setProperty('--accent', color)
 }
 
-export type ActiveProfile = {
+type ActiveProfile = {
   /** Активний профіль або null, доки в сім'ї немає жодного. */
   profile: AppProfile | null
   setActive: (id: string) => void

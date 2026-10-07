@@ -52,7 +52,7 @@ const FIRED_KEY = 'meridian.reminders.fired.v2'
  * Розклад доби — чиста логіка (те, що перевіряє юніт-тест)
  * ======================================================================== */
 
-export type DueReminder = {
+type DueReminder = {
   type: MealType
   /** Початок вікна прийому, хвилини від півночі. */
   startMinute: number
@@ -92,7 +92,7 @@ export function dueReminders(
   )
 }
 
-export type ReminderMessage = { title: string; body: string; tag: string }
+type ReminderMessage = { title: string; body: string; tag: string }
 
 /**
  * Текст сповіщення. `meal` — страва цього слота з плану на сьогодні; її **не

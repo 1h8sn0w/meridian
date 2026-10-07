@@ -68,7 +68,7 @@ export function derive(parts: ReadonlyArray<string>): string {
  * ======================================================================== */
 
 /** Різновиди рядків, id яких виводяться з id запису V1. */
-export type IdKind = 'meal' | 'recipe' | 'profile'
+type IdKind = 'meal' | 'recipe' | 'profile'
 
 /**
  * Вивести id рядка V2 з id запису V1.

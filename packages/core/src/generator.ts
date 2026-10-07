@@ -77,7 +77,7 @@ const FAVORITE_WEIGHT = 4
 /** Джерело випадковості: `Math.random`-сумісна функція [0, 1). */
 export type Random = () => number
 
-export type GenerateOptions = {
+type GenerateOptions = {
   targetCalories?: number
   corridor?: number
   antiRepeatDays?: number

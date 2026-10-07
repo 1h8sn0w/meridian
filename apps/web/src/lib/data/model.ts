@@ -39,7 +39,7 @@ const SLOT_ORDER: ReadonlyArray<MealType> = [
   'dinner',
 ]
 
-export type SlotView = {
+type SlotView = {
   /** id рядка `plan_slot`: саме він оновлюється при заміні (LWW на слоті). */
   id: string
   slot: MealType

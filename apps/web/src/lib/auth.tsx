@@ -20,7 +20,7 @@ import type { PublicEnv } from './public-env'
 import { authFailure, rpcFailure } from './messages'
 import type { Outcome } from './messages'
 
-export type Status =
+type Status =
   /** Конфіг не заданий — сервер не знає адреси Supabase. */
   | 'not-configured'
   /** Ще не знаємо: читаємо збережену сесію. */
@@ -30,9 +30,9 @@ export type Status =
   | 'no-family'
   | 'ready'
 
-export type FamilyMember = { id: string; userId: string; email: string | null }
-export type Family = { id: string; name: string }
-export type Invite = { code: string; expiresAt: string }
+type FamilyMember = { id: string; userId: string; email: string | null }
+type Family = { id: string; name: string }
+type Invite = { code: string; expiresAt: string }
 
 /** Рядки як їх віддає PostgREST — snake_case, без згенерованих типів схеми. */
 type FamilyRow = { id: string; name: string }

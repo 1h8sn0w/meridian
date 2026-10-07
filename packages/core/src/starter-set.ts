@@ -29,7 +29,7 @@ import type {
 } from './types.ts'
 
 /** Версія формату. Змінюється лише несумісною зміною формату. */
-export const STARTER_SET_VERSION = 1
+const STARTER_SET_VERSION = 1
 
 /** Рецептна частина страви з набору — поля таблиці `recipe` без фото. */
 export type StarterRecipe = Pick<Recipe, 'steps' | 'prepTime' | 'servings'>

@@ -27,7 +27,7 @@ import type { Meal } from './types.ts'
  * ======================================================================== */
 
 /** Категорія полиці. Порядок у масиві = порядок секцій у списку. */
-export type ShoppingCategory = { id: string; label: string }
+type ShoppingCategory = { id: string; label: string }
 
 export const SHOPPING_CATEGORIES: ReadonlyArray<ShoppingCategory> = [
   { id: 'veg', label: 'Овочі та зелень' },
@@ -200,7 +200,7 @@ export type ShoppingItem = {
 }
 
 /** Дві частини списку: з кількістю з джерела і без неї. */
-export type ShoppingItems = {
+type ShoppingItems = {
   withQty: Array<ShoppingItem>
   noQty: Array<ShoppingItem>
 }
@@ -283,7 +283,7 @@ export function aggregate(meals: ReadonlyArray<Meal>): ShoppingItems {
  * `slotId` — id рядка `plan_slot`, він же виведений із «профіль + дата + слот»
  * (`planSlotId`, MER-66), тож на двох пристроях він той самий.
  */
-export type PlannedSlot = { slotId: string; mealId: string }
+type PlannedSlot = { slotId: string; mealId: string }
 
 /**
  * Відбиток списку — «той самий похід у магазин», під яким зроблено позначки.
