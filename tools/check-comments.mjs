@@ -52,7 +52,7 @@ const SYNTAXES = [
     marker: HASH,
   },
   { files: /\.css$/, marker: /\/\*/g },
-  { files: /\.(html|svg)$/, marker: /<!--|(?<![:\\/*])(\/\/|\/\*)/g },
+  { files: /\.(html|svg)$/, marker: new RegExp(`<!--|${SLASH.source}`, 'g') },
   { files: /(^|\/)tsconfig[\w.]*\.json$/, marker: SLASH },
   {
     files: /\.[cm]?[jt]sx?$/,
@@ -67,8 +67,7 @@ const SYNTAXES = [
   },
 ]
 
-const STRING =
-  /(?<=^|[\s:=(,[{'])('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")/gm
+const STRING = /(?<=^|[\s:=(,[{'])('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")/gm
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
 export function isCommentFree(file, dirs = COMMENT_FREE_DIRS) {

@@ -67,7 +67,9 @@ test('ESLint-правило пропускає ті самі директиви,
   const { Linter } = createRequire(
     new URL('../packages/core/package.json', import.meta.url),
   )('eslint')
-  const linter = new Linter({ cwd: fileURLToPath(new URL('..', import.meta.url)) })
+  const linter = new Linter({
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+  })
   const config = [
     {
       plugins: { meridian: { rules: { 'no-comments': noComments } } },
