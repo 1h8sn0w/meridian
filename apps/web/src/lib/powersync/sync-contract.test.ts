@@ -12,8 +12,7 @@ import {
 const root = new URL('../../../../../', import.meta.url)
 const migrationsDir = new URL('packages/db/migrations/', root)
 
-const PUBLISHED_NOT_SYNCED = ['family', 'pdf_import']
-const NOT_PUBLISHED = ['family_invite', 'family_member']
+const NOT_PUBLISHED = ['family', 'family_invite', 'family_member', 'pdf_import']
 const sqliteType = (type: string) =>
   /^(?:boolean|smallint|integer|bigint|int[248]?|(?:small|big)?serial)$/.test(
     type,
@@ -155,15 +154,12 @@ test('міграції розібрано повністю', () => {
 test('кожна таблиця міграцій або синхронізується, або названа винятком', () => {
   assert.deepEqual(
     sorted(tables.keys()),
-    sorted([...synced, ...PUBLISHED_NOT_SYNCED, ...NOT_PUBLISHED]),
+    sorted([...synced, ...NOT_PUBLISHED]),
   )
 })
 
-test('публікація powersync = синхронізовані таблиці + явні винятки', () => {
-  assert.deepEqual(
-    sorted(published),
-    sorted([...synced, ...PUBLISHED_NOT_SYNCED]),
-  )
+test('публікація powersync = рівно синхронізовані таблиці', () => {
+  assert.deepEqual(sorted(published), synced)
 })
 
 test('powersync_role читає рівно опубліковані таблиці', () => {
