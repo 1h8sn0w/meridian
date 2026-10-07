@@ -14,6 +14,7 @@
 | `0005_meal_gerd.sql` | MER-75: `meal.gerd` — маркер «ГЕРХ», `boolean NOT NULL DEFAULT false` |
 | `0006_meal_source_issues.sql` | MER-76: `meal.source_issues` — розбіжності в джерелі, `jsonb` масив рядків, `DEFAULT '[]'` |
 | `0007_starter_set.sql` | MER-77: стартовий набір — `starter.starter_set` поза API, `family.starter_seeded_at` і три RPC: `starter_set_status`, `starter_set`, `claim_starter_set` |
+| `0008_powersync_drop_family_access.sql` | MER-93: `family_member` і `family_invite` виходять із публікації `powersync`, `powersync_role` втрачає `SELECT` на них — жоден стрім їх не вибирає, членство й коди запрошень лишаються лише на сервері |
 
 ## Таблиці
 
@@ -258,10 +259,13 @@ MER-45: підставити claims із `sub`, викликати `public.creat
 1. службовий набір sync і `ENABLE ROW LEVEL SECURITY`;
 2. політику по `family_id` — без неї таблиця просто мовчить;
 3. тригер `touch_updated_at` і GRANT `SELECT, INSERT, UPDATE` (без DELETE);
-4. **додати таблицю в публікацію `powersync`** — вона перелічує таблиці явно, бо
-   `FOR ALL TABLES` затягнув би туди власні таблиці PowerSync (див.
-   `infra/README.md`). Не додасте — рядки просто не поїдуть на пристрої, і це
-   мовчазна поломка: сервер приймає записи, клієнт їх ніколи не бачить.
+4. **додати таблицю в публікацію `powersync`** (вона перелічує таблиці явно, див.
+   `infra/README.md`) і `GRANT SELECT` для `powersync_role`, а поза цією
+   міграцією — стрім у `sync-config.yaml`, таблицю в `AppSchema` і її
+   `jsonb`/`boolean`-колонки в `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Таблиця, якій на
+   пристрої нема чого робити, натомість іде у винятки
+   `apps/web/src/lib/powersync/sync-contract.test.ts`. Забуте місце — червоний
+   тест, а не тиха поломка.
 
 Готовий приклад усіх чотирьох кроків — `0003_prefs_shopping.sql` (MER-55):
 таблиці з індексами зверху, права й публікація — знизу, в одному файлі.

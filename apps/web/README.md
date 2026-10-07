@@ -85,6 +85,13 @@ pnpm dev                      # http://localhost:3000
   Паралельні `connect` / `disconnect` беруть внутрішні блокування й лишають базу
   відкритою, але не з'єднаною — назавжди.
 
+Таблиці й колонки мусять збігатися в чотирьох місцях: міграціях (публікація
+`powersync`, `GRANT SELECT` для `powersync_role`, типи колонок), стрімах
+`sync-config.yaml`, `AppSchema` і `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Тримає це
+`lib/powersync/sync-contract.test.ts`; таблиця, яка свідомо не їде на пристрої,
+дописується в його винятки (`NOT_PUBLISHED`, а якщо вона лишається в публікації —
+`PUBLISHED_NOT_SYNCED`).
+
 У розробці база лежить ще й на `window.Meridian.sync`, як `window.Meridian` у
 V1: запит із консолі лишається найкоротшим способом перевірити, що зміна доїхала
 до сервера й на інший пристрій. У прод-збірці гілка вирізається цілком
@@ -204,3 +211,14 @@ pnpm test
 
 ESLint — інша річ: там спільна частина без побічних ефектів, і вона винесена в
 кореневий `eslint.config.base.mjs`.
+
+## Відомі стелі (ponytail)
+
+- `sync-contract.test.ts` читає SQL регулярками, інструкцію за інструкцією й
+  без огляду на регістр: `CREATE`/`DROP TABLE`, `ADD`/`DROP COLUMN`,
+  `FOR`/`ADD`/`SET`/`DROP TABLE` публікації й `GRANT`/`REVOKE … ON TABLE` для
+  `powersync_role`. Незнайома форма `CREATE`/`DROP TABLE`, публікації чи гранту
+  валить тест. Мовчки він не бачить `RENAME`, `ALTER COLUMN … TYPE` і DDL
+  усередині `DO`-блоків (крім публікації). Масив Postgres на пристрої — JSON,
+  тож тест вимагає його в `JSON_COLUMNS`. Перша міграція поза цим — сигнал
+  навчити тест або звіряти схему з живою базою в CI.
