@@ -60,6 +60,7 @@ jobs:
           # залежності воркспейсу з нуля.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache-filters: runtime
 
       # Запобіжник для публічного образу: «Critical» на Docker Hub бачить
       # кожен, хто заходить туди перед `docker compose up`, а нова CVE приходить
