@@ -15,6 +15,7 @@
 | `0006_meal_source_issues.sql` | MER-76: `meal.source_issues` — розбіжності в джерелі, `jsonb` масив рядків, `DEFAULT '[]'` |
 | `0007_starter_set.sql` | MER-77: стартовий набір — `starter.starter_set` поза API, `family.starter_seeded_at` і три RPC: `starter_set_status`, `starter_set`, `claim_starter_set` |
 | `0008_powersync_drop_family_access.sql` | MER-93: `family_member` і `family_invite` виходять із публікації `powersync`, `powersync_role` втрачає `SELECT` на них — жоден стрім їх не вибирає, членство й коди запрошень лишаються лише на сервері |
+| `0009_powersync_drop_family_pdf_import.sql` | MER-107: так само `family` і `pdf_import` — екрани сім'ї й імпорт працюють через PostgREST; публікація тепер дорівнює рівно синхронізованим таблицям |
 
 ## Таблиці
 

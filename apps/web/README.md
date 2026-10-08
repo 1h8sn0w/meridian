@@ -89,8 +89,8 @@ pnpm dev                      # http://localhost:3000
 `powersync`, `GRANT SELECT` для `powersync_role`, типи колонок), стрімах
 `sync-config.yaml`, `AppSchema` і `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Тримає це
 `lib/powersync/sync-contract.test.ts`; таблиця, яка свідомо не їде на пристрої,
-дописується в його винятки (`NOT_PUBLISHED`, а якщо вона лишається в публікації —
-`PUBLISHED_NOT_SYNCED`).
+дописується в його винятки (`NOT_PUBLISHED`) і в публікацію не потрапляє:
+публікація дорівнює рівно синхронізованим таблицям (MER-107).
 
 У розробці база лежить ще й на `window.Meridian.sync`, як `window.Meridian` у
 V1: запит із консолі лишається найкоротшим способом перевірити, що зміна доїхала
