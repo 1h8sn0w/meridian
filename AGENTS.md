@@ -318,10 +318,10 @@ Prettier — спільні. ESLint теж спільний: правила ле
 **Команди з кореня:** `docker compose up` (підняти все з нуля — розділ нижче),
 `pnpm dev` (тільки `apps/web`), `pnpm build`, `pnpm lint`,
 `pnpm typecheck`, `pnpm format`, `pnpm db:migrate` — рекурсивні по воркспейсу,
-крім `dev` і `db:migrate` (адресні). `dev` і `typecheck` спершу збирають
-`packages/core`: `apps/web` залежить від нього через `workspace:*`, а пакет
-віддає `dist`, тож без збірки не буде ні типів, ні модуля (MER-49). `build`
-робить те саме сам — `--recursive` іде топологічним порядком. `pnpm test` — це
+крім `dev` і `db:migrate` (адресні). Кроку збірки ядра немає (MER-104):
+`packages/core` віддає вихідний `src/index.ts`, і Vite, `tsc` та `node --test`
+читають його напряму, тож будь-яку команду в `apps/web` можна запускати й з
+теки пакета. `pnpm test` — це
 `--recursive --if-present`, тобто тести тих пакетів, у яких вони є (зараз
 `packages/core` і `apps/web`, обидва на `node --test`, без окремого фреймворку). Скриптів збірки CSS у корені більше немає (MER-53). Один менеджер пакетів на репозиторій —
 `package-lock.json` прибрано, лок-файл тепер `pnpm-lock.yaml`.

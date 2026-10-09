@@ -30,10 +30,9 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
-# Синтаксис `<пакет>...` збирає пакет РАЗОМ із його залежностями по воркспейсу.
 # PUBLIC_* тут свідомо не задаються: у веб-образі конфіг приходить рантаймом,
 # а запечене значення перебило б хіба що порожнечу (src/lib/public-env.ts).
-RUN pnpm --filter "@meridian/web..." build
+RUN pnpm --filter @meridian/web build
 
 # --- Caddy, зібраний нами ----------------------------------------------------
 # Офіційний `caddy:2-alpine` зібрано 24.06.2026, і Docker Scout знаходить у
