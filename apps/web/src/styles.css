@@ -298,16 +298,6 @@
     min-height: 100%;
   }
 
-  /* Смуга прокрутки є, але місце під неї зарезервоване завжди
-   * (`scrollbar-gutter`): інакше колонка вмісту (`mx-auto`) стрибала б убік
-   * щоразу, коли екран стає довшим за вікно. Доріжка прозора.
-   *
-   * Жолоб фарбує лише фон <html> — нерухомі шари в нього не малюються. Тож
-   * небо намальоване двічі однією й тією ж `--sky-paint` і в однаковій
-   * геометрії (картинка завширшки `100vw` від лівого краю): на <html> — для
-   * жолоба й десктопу, на `body::before` — для iOS, який не вміє
-   * `background-attachment: fixed`. Звідси й сяйво без дрейфу: рухоме сяйво
-   * в жолобі не повторити без перемальовування фону на кожен кадр. */
   :root {
     --sky-paint:
       radial-gradient(
@@ -316,27 +306,41 @@
         transparent
       ),
       linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 72%);
+    --scrollbar-thumb: color-mix(in oklab, var(--ui-muted) 45%, transparent);
   }
 
   html {
     scrollbar-gutter: stable;
-    scrollbar-color: color-mix(in oklab, var(--ui-muted) 45%, transparent)
-      transparent;
     background-color: var(--sky-bottom);
-    background-image: var(--sky-paint);
-    background-size: 100vw 100vh;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+  }
+
+  html::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: var(--sky-paint) right top / 100vw 100% no-repeat;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background: var(--scrollbar-thumb) padding-box;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
   }
 
   body {
     margin: 0;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Небо — нерухомий шар під усім вмістом (див. вище, навіщо він поруч із
-   * фоном <html>). */
   body::before {
     content: '';
     position: fixed;
