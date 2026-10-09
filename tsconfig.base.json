@@ -5,9 +5,6 @@
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "nodenext",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
 
