@@ -317,10 +317,6 @@
   html {
     scrollbar-gutter: stable;
     background-color: var(--sky-bottom);
-    background-image: var(--sky-paint);
-    background-size: 100vw 100vh;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
   }
 
   @supports selector(::-webkit-scrollbar) {
@@ -339,6 +335,11 @@
       background-size: 100vw 100%;
       background-position: right top;
       background-repeat: no-repeat;
+    }
+
+    html.classic-scrollbar:has(dialog:modal)::-webkit-scrollbar-track:vertical {
+      background-image:
+        linear-gradient(var(--ui-overlay), var(--ui-overlay)), var(--sky-paint);
     }
 
     html.classic-scrollbar::-webkit-scrollbar-thumb {
