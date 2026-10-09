@@ -15,7 +15,6 @@ import {
   DEFAULTS,
   MEAL_TYPE_LABELS,
   dateKey,
-  formatCalories,
   formatMealCalories,
   planOwnerId,
   poolForProfile,
@@ -30,12 +29,13 @@ import {
   useTastePrefs,
   useWeek,
 } from '../lib/data/queries'
-import type { DayView, WeekView } from '../lib/data/model'
-import { formatToday, plural } from '../lib/format'
+import type { WeekView } from '../lib/data/model'
+import { formatToday } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
+import { DayTotal } from './DayTotal'
 import { FirstSteps } from './FirstSteps'
 import { MealDetails, MealMarks } from './MealDetails'
 import { ProfileSwitcher } from './ProfileSwitcher'
@@ -276,60 +276,22 @@ function CurrentMeal({
       <MealDetails meal={meal} portion={portion} />
 
       <DayTotal
-        day={day}
-        target={week.params.targetCalories}
-        corridor={week.usedCorridor}
+        calories={day.calories}
+        plan={{
+          target: week.params.targetCalories,
+          corridor: week.usedCorridor,
+        }}
       />
 
       {/* MER-33: у прожитому дні заміни немає — історія незмінна. */}
       {day.isPast ? null : (
-        <Button block onClick={() => onSwap(dayIndex, slot)}>
-          <ArrowsLeftRight aria-hidden size={18} />
-          Замінити страву
-        </Button>
+        <div className="mt-4">
+          <Button block onClick={() => onSwap(dayIndex, slot)}>
+            <ArrowsLeftRight aria-hidden size={18} />
+            Замінити страву
+          </Button>
+        </div>
       )}
     </Panel>
-  )
-}
-
-/**
- * Підсумок дня. Коли калорійність відома не для всіх слотів, сума неповна — і
- * ми кажемо це окремим реченням, а не ховаємо за «≈»: приблизність і неповнота
- * — різні речі (MER-26).
- */
-function DayTotal({
-  day,
-  target,
-  corridor,
-}: {
-  day: DayView
-  target: number
-  corridor: number
-}) {
-  const total = formatCalories(day.calories.total, day.calories.approx)
-  if (!total) {
-    return (
-      <p className="mb-3 mt-3 text-sm text-muted">
-        Калорійність дня невідома — у страв цього дня немає цифр.
-      </p>
-    )
-  }
-  const within =
-    day.calories.unknown === 0 &&
-    Math.abs(day.calories.total - target) <= corridor
-  return (
-    <p
-      className={`mb-4 mt-3 rounded-2xl px-3.5 py-2.5 text-sm ${within ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}
-    >
-      Разом за день: {total} · ціль {target} ± {corridor} ккал
-      {day.calories.unknown > 0
-        ? ' · сума неповна: без цифр ' +
-          day.calories.unknown +
-          ' ' +
-          plural(day.calories.unknown, 'слот', 'слоти', 'слотів')
-        : within
-          ? ''
-          : ' · поза коридором'}
-    </p>
   )
 }

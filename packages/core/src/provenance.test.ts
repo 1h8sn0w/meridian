@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 
 import {
   dayCalories,
+  dayInCorridor,
   formatCalories,
   formatDayCalories,
   formatMacro,
@@ -148,4 +149,16 @@ test('неповна сума не маркується через «≈» — �
   assert.equal(formatDayCalories(partial), '1300 ккал')
   // Не відома жодна складова — показувати нічого.
   assert.equal(formatDayCalories({ total: 0, unknown: 4, approx: false }), '')
+})
+
+test('день у коридорі — лише з повною сумою й не далі за коридор від цілі', () => {
+  const full = (total: number) => ({ total, unknown: 0, approx: false })
+  assert.equal(dayInCorridor(full(1900), 1800, 100), true)
+  assert.equal(dayInCorridor(full(1700), 1800, 100), true)
+  assert.equal(dayInCorridor(full(1901), 1800, 100), false)
+  assert.equal(dayInCorridor(full(1800), 1800, 0), true)
+  assert.equal(
+    dayInCorridor({ total: 1800, unknown: 1, approx: false }, 1800, 100),
+    false,
+  )
 })

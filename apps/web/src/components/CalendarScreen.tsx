@@ -36,7 +36,7 @@ import {
   planOwnerId,
   startOfWeek,
 } from '@meridian/core'
-import type { DayCalories, Meal } from '@meridian/core'
+import type { Meal } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
   useCalendarDays,
@@ -49,6 +49,7 @@ import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import type { CalendarSearch } from '../lib/calendar-search'
 import { AppShell } from './AppShell'
+import { DayTotal } from './DayTotal'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
 import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
@@ -348,7 +349,7 @@ function DaySection({
             </div>
           ))}
 
-          <DaySummary calories={day.calories} plan={planRead.data} />
+          <DayTotal calories={day.calories} plan={planRead.data} />
 
           {/* MER-33: минулий день — незмінна історія. */}
           {todayKey && date < todayKey ? (
@@ -357,52 +358,5 @@ function DaySection({
         </>
       )}
     </Panel>
-  )
-}
-
-/**
- * Підсумок дня. Ціль і коридор — від плану, що покривав дату (`useDayPlan`);
- * без нього показуємо лише суму: вигадувати ціль заднім числом не можна.
- * Неповна сума називається неповною окремим текстом, а не «≈» (MER-26).
- */
-function DaySummary({
-  calories,
-  plan,
-}: {
-  calories: DayCalories
-  plan: { target: number; corridor: number } | null
-}) {
-  const total = formatDayCalories(calories)
-  if (!total) {
-    return (
-      <p className="mb-0 mt-2.5 text-sm text-muted">
-        Калорійність дня невідома — у страв цього дня немає цифр.
-      </p>
-    )
-  }
-  const within =
-    plan !== null &&
-    calories.unknown === 0 &&
-    Math.abs(calories.total - plan.target) <= plan.corridor
-  // Без відомої цілі сума — довідка, а не вирок, тож і колір нейтральний.
-  const tone =
-    plan === null
-      ? 'bg-app text-muted'
-      : within
-        ? 'bg-success-soft text-success'
-        : 'bg-warning-soft text-warning'
-  return (
-    <p className={`mb-0 mt-3 rounded-2xl px-3.5 py-2.5 text-sm ${tone}`}>
-      Разом: {total}
-      {plan ? ` · ціль ${plan.target} ± ${plan.corridor} ккал` : ''}
-      {calories.unknown > 0
-        ? ' · сума неповна: без цифр ' +
-          calories.unknown +
-          ' ' +
-          plural(calories.unknown, 'слот', 'слоти', 'слотів')
-        : within || !plan
-          ? ''
-          : ' · поза коридором'}
-    </p>
   )
 }

@@ -31,6 +31,7 @@ export type {
 
 export {
   dayCalories,
+  dayInCorridor,
   formatCalories,
   formatDayCalories,
   formatMacro,
