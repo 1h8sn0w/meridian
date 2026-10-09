@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { DEFAULTS, generateWeek } from './generator.ts'
+import { DEFAULTS, generateWeek, poolShortage } from './generator.ts'
 import { MEAL_TYPES } from './types.ts'
 import type { GenerateResult } from './generator.ts'
 import type { Meal, WeekPlan } from './types.ts'
@@ -500,6 +500,33 @@ test('пул, якого не вистачає на вікно антиповт�
   const error = result.error
   assert.match(error, /Недостатньо страв у пулі/)
   assert.match(error, /Вечеря — 1 \(потрібно ≥ 3\)/)
+})
+
+test('достатність пулу: на кожен тип щонайменше стільки страв, скільки днів у вікні антиповтору', () => {
+  const pool = MEAL_TYPES.flatMap((type) =>
+    [0, 1, 2].map((n) => meal({ id: type + n, type })),
+  )
+  assert.deepEqual(poolShortage(pool, 3), [])
+  assert.deepEqual(
+    poolShortage(
+      pool.filter((m) => m.id !== 'snack0'),
+      3,
+    ),
+    [{ type: 'snack', have: 2, need: 3 }],
+  )
+})
+
+test('страва без калорійності достатності пулу не додає: генератор її не ставить', () => {
+  const pool = MEAL_TYPES.flatMap((type) =>
+    [0, 1, 2].map((n) =>
+      meal({
+        id: type + n,
+        type,
+        calories: type === 'lunch' && n ? null : 500,
+      }),
+    ),
+  )
+  assert.deepEqual(poolShortage(pool, 3), [{ type: 'lunch', have: 1, need: 3 }])
 })
 
 test('недосяжна ціль — відмова з названою межею коридору', () => {

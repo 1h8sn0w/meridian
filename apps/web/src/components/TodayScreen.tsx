@@ -12,11 +12,14 @@
 
 import { useState } from 'react'
 import {
+  DEFAULTS,
   MEAL_TYPE_LABELS,
   dateKey,
   formatCalories,
   formatMealCalories,
   planOwnerId,
+  poolForProfile,
+  poolShortage,
 } from '@meridian/core'
 import type { MealType, PortionLetter, TastePrefs } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
@@ -130,6 +133,15 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         <FirstSteps
           hasProfile={Boolean(profile)}
           mealCount={mealsRead.data.length}
+          shortage={poolShortage(
+            poolForProfile(
+              mealsRead.data,
+              profilesRead.data.find(
+                (p) => profile && p.id === planOwnerId(profile),
+              ) ?? profile,
+            ),
+            DEFAULTS.antiRepeatDays,
+          )}
           onCreateProfile={() => setManaging(true)}
         />
       )}

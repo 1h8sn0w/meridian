@@ -257,6 +257,24 @@ function toPlanDay(meals: Record<MealType, PlannedMeal>): PlanDay {
   return { meals, calories: dayCalories(meals) }
 }
 
+export type PoolShortage = { type: MealType; have: number; need: number }
+
+export function poolShortage(
+  meals: ReadonlyArray<Meal>,
+  need: number,
+): Array<PoolShortage> {
+  return MEAL_TYPES.map((type) => ({
+    type,
+    have: meals.filter(
+      (meal) =>
+        meal.type === type &&
+        typeof meal.calories === 'number' &&
+        Number.isFinite(meal.calories),
+    ).length,
+    need,
+  })).filter((entry) => entry.have < entry.need)
+}
+
 /**
  * Згенерувати тиждень із пулу страв.
  *
@@ -331,16 +349,10 @@ export function generateWeek(
     return out
   }
 
-  /* Достатність пулу: вікно антиповтору вимагає щонайменше N страв кожного типу. */
-  const shortageOf = (byType: ByType): Array<string> =>
-    MEAL_TYPES.filter((type) => byType[type].length < antiRepeatDays).map(
-      (type) =>
-        MEAL_TYPE_LABELS[type] +
-        ' — ' +
-        byType[type].length +
-        ' (потрібно ≥ ' +
-        antiRepeatDays +
-        ')',
+  const shortageOf = (list: ReadonlyArray<PlannedMeal>): Array<string> =>
+    poolShortage(list, antiRepeatDays).map(
+      ({ type, have, need }) =>
+        MEAL_TYPE_LABELS[type] + ' — ' + have + ' (потрібно ≥ ' + need + ')',
     )
 
   // MER-18: улюблені отримують вагу в доборі; небажані виключаються окремою
@@ -376,7 +388,7 @@ export function generateWeek(
   /** Повний пошук на заданому пулі: достатність, послаблення коридору, мікс. */
   function buildFrom(list: ReadonlyArray<PlannedMeal>): GenerateResult {
     const byType = byTypeOf(list)
-    const shortage = shortageOf(byType)
+    const shortage = shortageOf(list)
     if (shortage.length) {
       return {
         ok: false,
@@ -486,7 +498,7 @@ export function generateWeek(
   const kept = prefs.disliked.size
     ? planned.filter((meal) => !prefs.disliked.has(meal.id))
     : planned
-  if (kept.length !== planned.length && !shortageOf(byTypeOf(kept)).length) {
+  if (kept.length !== planned.length && !shortageOf(kept).length) {
     attempts.push(kept)
   }
   attempts.push(planned)
