@@ -111,7 +111,7 @@ test('ручні заміни рахуються лише в сьогодніш�
   assert.equal(week.days[0]?.byType.breakfast?.swapped, true)
 })
 
-test('слот без позначки заміни — не ручна заміна', () => {
+test('слот, що приїхав без колонки swapped (до міграції), — не ручна заміна', () => {
   const week = buildWeekView(PLAN, ROWS, MEALS, '2026-09-01')
   assert.equal(manualSwapsAhead(week), 0)
 })

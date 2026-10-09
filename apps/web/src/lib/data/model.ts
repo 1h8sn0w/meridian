@@ -230,10 +230,8 @@ export function buildWeekView(
 export function manualSwapsAhead(view: WeekView): number {
   return view.days
     .filter((day) => !day.isPast)
-    .reduce(
-      (count, day) => count + day.slots.filter((slot) => slot.swapped).length,
-      0,
-    )
+    .flatMap((day) => day.slots)
+    .filter((slot) => slot.swapped).length
 }
 
 /**
