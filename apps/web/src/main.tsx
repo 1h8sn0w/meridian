@@ -13,7 +13,7 @@ import { routeTree } from './routeTree.gen'
 import { readPublicEnv } from './lib/public-env'
 import { AuthProvider } from './lib/auth'
 import { SyncProvider } from './lib/powersync/provider'
-import { Sky, applySky } from './components/Sky'
+import { Sky, applySky, markClassicScrollbar } from './components/Sky'
 import { minutesOf } from './lib/use-now'
 // Шрифти — свої, зі збірки: офлайн-застосунок не має тягнути їх із CDN.
 import '@fontsource-variable/geist'
@@ -38,6 +38,7 @@ const env = readPublicEnv()
 
 // Фаза неба — до першого кадру, інакше застосунок блимав би полуднем.
 applySky(minutesOf(new Date()))
+markClassicScrollbar()
 
 /* Service worker (MER-51) — лише в продакшн-збірці: він кешує оболонку, а
  * `pnpm dev` тим і цінний, що щоразу віддає свіжий модуль. Помилку реєстрації

@@ -22,7 +22,6 @@ export function applySky(minutes: number): void {
   const root = document.documentElement
   const phase = phaseAt(minutes)
   if (root.dataset.phase !== phase) root.dataset.phase = phase
-  root.classList.toggle('classic-scrollbar', scrollbarTakesSpace())
 
   // Системна смуга в standalone-режимі — колір верху неба, інакше над ним шов.
   // `--phase-top` без переходу, тож читається одразу цільове значення.
@@ -31,13 +30,15 @@ export function applySky(minutes: number): void {
   if (top && meta) meta.setAttribute('content', top)
 }
 
-function scrollbarTakesSpace(): boolean {
+export function markClassicScrollbar(): void {
   const probe = document.createElement('div')
-  probe.style.overflow = 'scroll'
+  probe.style.cssText = 'position:absolute;overflow:scroll'
   document.body.append(probe)
-  const takesSpace = probe.offsetWidth > probe.clientWidth
+  document.documentElement.classList.toggle(
+    'classic-scrollbar',
+    probe.offsetWidth > probe.clientWidth,
+  )
   probe.remove()
-  return takesSpace
 }
 
 /**

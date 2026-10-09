@@ -309,9 +309,13 @@
     --scrollbar-thumb: color-mix(in oklab, var(--ui-muted) 45%, transparent);
   }
 
+  html,
+  body {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
   html {
     scrollbar-gutter: stable;
-    scrollbar-color: var(--scrollbar-thumb) transparent;
     background-color: var(--sky-bottom);
     background-image: var(--sky-paint);
     background-size: 100vw 100vh;
@@ -321,6 +325,7 @@
 
   @supports selector(::-webkit-scrollbar) {
     html.classic-scrollbar {
+      overflow-y: scroll;
       scrollbar-color: auto;
     }
 
@@ -345,11 +350,14 @@
     html.classic-scrollbar::-webkit-scrollbar-thumb:hover {
       background-color: var(--ui-muted);
     }
+
+    html.classic-scrollbar::-webkit-scrollbar-corner {
+      background: transparent;
+    }
   }
 
   body {
     margin: 0;
-    scrollbar-color: var(--scrollbar-thumb) transparent;
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
   }

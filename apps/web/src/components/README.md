@@ -18,6 +18,6 @@
 
 ### Sky
 
-`applySky` ставить на `<html>` фазу неба й клас `classic-scrollbar`, коли
+`markClassicScrollbar` ставить на `<html>` клас `classic-scrollbar`, коли
 смуга прокрутки займає місце. За класом `styles.css` малює небо в доріжці
 смуги (MER-115) — чому так, див. [README застосунку](../../README.md#небо-і-смуга-прокрутки-mer-115).
