@@ -39,6 +39,7 @@ import {
   useTastePrefs,
   useWeek,
 } from '../lib/data/queries'
+import { manualSwapsAhead } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
 import { formatDayTitle, formatMoment, plural } from '../lib/format'
@@ -59,6 +60,7 @@ import {
   Meta,
   Panel,
   Problems,
+  Sheet,
   Tag,
   Warn,
 } from './ui'
@@ -90,6 +92,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
     dayIndex: number
     slot: MealType
   } | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   // MER-17: спільний план перегенерує лише власник — інакше пов'язані профілі
   // перезаписували б одне сімейне меню різними цілями.
@@ -133,6 +136,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   }
 
   const view = week.data
+  const swapsAhead = view ? manualSwapsAhead(view) : 0
   const problems = [
     mealsRead.problems,
     profilesRead.problems,
@@ -164,7 +168,9 @@ export function WeekScreen({ familyId }: { familyId: string }) {
             block
             variant="primary"
             disabled={busy || !!sharedNote}
-            onClick={() => void regenerate()}
+            onClick={() =>
+              swapsAhead > 0 ? setConfirming(true) : void regenerate()
+            }
           >
             <ArrowsClockwise
               aria-hidden
@@ -224,6 +230,45 @@ export function WeekScreen({ familyId }: { familyId: string }) {
             рядку. Діалог запропонує страви того ж типу з прогнозом калорій дня.
           </Hint>
         </Panel>
+      ) : null}
+
+      {confirming ? (
+        <Sheet
+          title="Перегенерувати тиждень?"
+          onClose={() => setConfirming(false)}
+        >
+          {(close) => (
+            <>
+              <p className="mb-4 mt-0 text-sm leading-relaxed text-muted">
+                У плані {swapsAhead}{' '}
+                {plural(
+                  swapsAhead,
+                  'ручна заміна',
+                  'ручні заміни',
+                  'ручних замін',
+                )}{' '}
+                на сьогодні й наступні дні. Новий тиждень генератор збере
+                наново, і {plural(swapsAhead, 'її', 'їх', 'їх')} не стане.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  block
+                  variant="primary"
+                  onClick={() => {
+                    close()
+                    void regenerate()
+                  }}
+                >
+                  <ArrowsClockwise aria-hidden size={18} weight="bold" />
+                  Перегенерувати
+                </Button>
+                <Button block onClick={close}>
+                  Скасувати
+                </Button>
+              </div>
+            </>
+          )}
+        </Sheet>
       ) : null}
 
       {swapping && view ? (

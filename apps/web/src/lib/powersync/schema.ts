@@ -141,6 +141,7 @@ const planSlot = new Table(
     /** Той самий енум, що й `meal.type`. */
     slot: column.text,
     meal_id: column.text,
+    swapped: column.integer,
   },
   {
     indexes: {
@@ -202,6 +203,7 @@ export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
 export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
   {
     meal: ['calories_approx', 'gerd'],
+    plan_slot: ['swapped'],
     shopping_check: ['checked'],
   }
 

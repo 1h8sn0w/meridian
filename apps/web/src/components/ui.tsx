@@ -417,7 +417,7 @@ export function Sheet({
 }: {
   title: string
   onClose: () => void
-  children: ReactNode
+  children: ReactNode | ((close: () => void) => ReactNode)
 }) {
   const sheet = useRef<HTMLDialogElement>(null)
 
@@ -455,7 +455,7 @@ export function Sheet({
             <X size={16} weight="bold" />
           </IconButton>
         </div>
-        {children}
+        {typeof children === 'function' ? children(close) : children}
       </div>
     </dialog>
   )

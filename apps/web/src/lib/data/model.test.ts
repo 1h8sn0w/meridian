@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildCalendarDays, buildWeekView } from './model.ts'
+import { buildCalendarDays, buildWeekView, manualSwapsAhead } from './model.ts'
 import type { Meal, Row } from '@meridian/core'
 
 const meal = (id: string, type: Meal['type'], calories: number): Meal => ({
@@ -97,4 +97,21 @@ test('дірка в плані рахується, а чужий тип слот
   assert.equal(week.days[0]?.dayIndex, 0)
   assert.equal(week.days[0]?.isPast, true)
   assert.equal(week.days[1]?.isToday, true)
+})
+
+test('ручні заміни рахуються лише в сьогоднішньому й наступних днях', () => {
+  const rows: Array<Row> = [
+    { ...slot('1', '2026-09-01', 0, 'breakfast', 'b'), swapped: 1 },
+    { ...slot('2', '2026-09-02', 1, 'breakfast', 'b'), swapped: 1 },
+    { ...slot('3', '2026-09-02', 1, 'lunch', 'l'), swapped: 0 },
+    { ...slot('4', '2026-09-03', 2, 'dinner', 'd'), swapped: 1 },
+  ]
+  const week = buildWeekView(PLAN, rows, MEALS, '2026-09-02')
+  assert.equal(manualSwapsAhead(week), 2)
+  assert.equal(week.days[0]?.byType.breakfast?.swapped, true)
+})
+
+test('слот без позначки заміни — не ручна заміна', () => {
+  const week = buildWeekView(PLAN, ROWS, MEALS, '2026-09-01')
+  assert.equal(manualSwapsAhead(week), 0)
 })
