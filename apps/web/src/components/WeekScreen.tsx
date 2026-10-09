@@ -21,6 +21,7 @@ import {
   MEAL_TYPE_LABELS,
   addDays,
   dateKey,
+  dayInCorridor,
   formatCalories,
   formatMealCalories,
   generateWeek,
@@ -335,9 +336,7 @@ function DayCard({
   onSwap: (slot: MealType) => void
 }) {
   const total = formatCalories(day.calories.total, day.calories.approx)
-  const within =
-    day.calories.unknown === 0 &&
-    Math.abs(day.calories.total - target) <= corridor
+  const within = dayInCorridor(day.calories, target, corridor)
 
   return (
     <section
