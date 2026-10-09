@@ -108,7 +108,10 @@ test('калорійність страви округлюється, БЖВ —
 })
 
 test('не число й від’ємне в полі страви — помилка з назвою поля', () => {
-  assert.match(error(validateMeal({ ...MEAL, fat: 'багато' })), /«Жири»/)
+  assert.match(
+    error(validateMeal({ ...MEAL, fat: 'багато' })),
+    /Поле «Жири» має бути числом/,
+  )
   assert.match(error(validateMeal({ ...MEAL, calories: '-1' })), /невід'ємним/)
   assert.match(error(validateMeal({ ...MEAL, name: '  ' })), /Назва/)
 })
@@ -139,7 +142,7 @@ test('порожня ціль БЖВ профілю — «не задано», �
   assert.equal(ok.goalFat, 0)
   assert.match(
     error(validateProfile({ ...PROFILE, goalCarbs: 'x' }, [])),
-    /Ціль «Вуглеводи»/,
+    /Поле «Ціль: вуглеводи» має бути числом/,
   )
 })
 

@@ -17,6 +17,17 @@ export function linesFromText(text: string): Array<string> {
     .filter((line) => line.length > 0)
 }
 
+function fieldError(raw: string, label: string): string | null {
+  const value = numberFromField(raw)
+  if (raw.trim() && value === null) {
+    return 'Поле «' + label + '» має бути числом або лишитись порожнім.'
+  }
+  if (value !== null && value < 0) {
+    return 'Поле «' + label + "» має бути невід'ємним."
+  }
+  return null
+}
+
 export type MealDraft = {
   name: string
   type: MealType
@@ -37,19 +48,14 @@ export function validateMeal(draft: MealDraft): Checked<MealInput> {
   if (!MEAL_TYPES.includes(draft.type)) {
     return { error: 'Оберіть тип слота.' }
   }
-  for (const [label, raw] of [
-    ['Калорійність', draft.calories],
-    ['Білки', draft.protein],
-    ['Жири', draft.fat],
-    ['Вуглеводи', draft.carbs],
+  for (const [raw, label] of [
+    [draft.calories, 'Калорійність'],
+    [draft.protein, 'Білки'],
+    [draft.fat, 'Жири'],
+    [draft.carbs, 'Вуглеводи'],
   ] as const) {
-    const value = numberFromField(raw)
-    if (raw.trim() && value === null) {
-      return { error: '«' + label + '» має бути числом або лишитись порожнім.' }
-    }
-    if (value !== null && value < 0) {
-      return { error: '«' + label + "» має бути невід'ємним." }
-    }
+    const error = fieldError(raw, label)
+    if (error) return { error }
   }
   const calories = numberFromField(draft.calories)
   return {
@@ -132,18 +138,13 @@ export function validateProfile(
     }
   }
 
-  for (const [label, value] of [
-    ['Білки', draft.goalProtein],
-    ['Жири', draft.goalFat],
-    ['Вуглеводи', draft.goalCarbs],
+  for (const [raw, label] of [
+    [draft.goalProtein, 'Ціль: білки'],
+    [draft.goalFat, 'Ціль: жири'],
+    [draft.goalCarbs, 'Ціль: вуглеводи'],
   ] as const) {
-    const parsed = numberFromField(value)
-    if (value.trim() && parsed === null) {
-      return { error: 'Ціль «' + label + '» має бути числом.' }
-    }
-    if (parsed !== null && parsed < 0) {
-      return { error: 'Ціль «' + label + "» має бути невід'ємною." }
-    }
+    const error = fieldError(raw, label)
+    if (error) return { error }
   }
 
   return {
@@ -175,15 +176,9 @@ function roundedField(text: string): number | null {
 }
 
 export function validateRecipe(draft: RecipeDraft): Checked<RecipeInput> {
+  const prepTimeError = fieldError(draft.prepTime, 'Час приготування')
+  if (prepTimeError) return { error: prepTimeError }
   const prepTime = roundedField(draft.prepTime)
-  if (draft.prepTime.trim() && prepTime === null) {
-    return {
-      error: '«Час приготування» має бути числом або лишитись порожнім.',
-    }
-  }
-  if (prepTime !== null && prepTime < 0) {
-    return { error: "«Час приготування» має бути невід'ємним." }
-  }
   const servings = roundedField(draft.servings)
   if (draft.servings.trim() && servings === null) {
     return { error: '«Порції» мають бути числом або лишитись порожніми.' }
