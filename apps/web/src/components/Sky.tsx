@@ -30,6 +30,17 @@ export function applySky(minutes: number): void {
   if (top && meta) meta.setAttribute('content', top)
 }
 
+export function markClassicScrollbar(): void {
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:absolute;overflow:scroll'
+  document.body.append(probe)
+  document.documentElement.classList.toggle(
+    'classic-scrollbar',
+    probe.offsetWidth > probe.clientWidth,
+  )
+  probe.remove()
+}
+
 /**
  * Такт неба. Окремий компонент без розмітки — щоб не перемальовувати екрани.
  * Колір смуги залежить і від теми, тож її перемикання в системі теж
