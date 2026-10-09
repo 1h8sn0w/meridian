@@ -46,6 +46,7 @@ type SlotView = {
   mealId: string
   /** null — страви більше немає в пулі; рядок слота при цьому живий. */
   meal: Meal | null
+  swapped: boolean
 }
 
 export type DayView = {
@@ -149,7 +150,13 @@ function foldSlotRows(
     const mealId = text(row, 'meal_id')
     const meal = meals.get(mealId) ?? null
     if (!meal) missing += 1
-    const view: SlotView = { id: text(row, 'id'), slot, mealId, meal }
+    const view: SlotView = {
+      id: text(row, 'id'),
+      slot,
+      mealId,
+      meal,
+      swapped: int(row, 'swapped') === 1,
+    }
     const date = text(row, 'date')
     const found = byDate.get(date)
     if (found) found.byType[slot] = view
@@ -218,6 +225,13 @@ export function buildWeekView(
     days,
     missing: folded.missing,
   }
+}
+
+export function manualSwapsAhead(view: WeekView): number {
+  return view.days
+    .filter((day) => !day.isPast)
+    .flatMap((day) => day.slots)
+    .filter((slot) => slot.swapped).length
 }
 
 /**

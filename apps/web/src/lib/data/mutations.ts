@@ -769,8 +769,8 @@ export async function saveWeek(
       const live = rows.find((row) => row.deleted_at === null)
       if (live) {
         await tx.execute(
-          'UPDATE plan_slot SET week_plan_id = ?, day_index = ?, meal_id = ?' +
-            ' WHERE id = ?',
+          'UPDATE plan_slot SET week_plan_id = ?, day_index = ?, meal_id = ?,' +
+            ' swapped = 0 WHERE id = ?',
           [planId, slot.dayIndex, slot.mealId, live.id],
         )
         continue
@@ -783,14 +783,15 @@ export async function saveWeek(
       if (rows.some((row) => row.id === id)) {
         await tx.execute(
           'UPDATE plan_slot SET week_plan_id = ?, day_index = ?, meal_id = ?,' +
-            ' deleted_at = NULL WHERE id = ?',
+            ' swapped = 0, deleted_at = NULL WHERE id = ?',
           [planId, slot.dayIndex, slot.mealId, id],
         )
         continue
       }
       await tx.execute(
         'INSERT INTO plan_slot (id, family_id, week_plan_id, profile_id,' +
-          ' date, day_index, slot, meal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          ' date, day_index, slot, meal_id, swapped)' +
+          ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)',
         [
           id,
           familyId,
@@ -834,10 +835,10 @@ export async function replaceSlotMeal(
   },
 ): Promise<void> {
   await db.writeTransaction(async (tx) => {
-    await tx.execute('UPDATE plan_slot SET meal_id = ? WHERE id = ?', [
-      options.mealId,
-      options.slotId,
-    ])
+    await tx.execute(
+      'UPDATE plan_slot SET meal_id = ?, swapped = 1 WHERE id = ?',
+      [options.mealId, options.slotId],
+    )
     await tx.execute('UPDATE week_plan SET sources = ? WHERE id = ?', [
       JSON.stringify(weekSources(options.plan.days)),
       options.weekPlanId,
