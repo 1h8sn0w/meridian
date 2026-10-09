@@ -34,6 +34,7 @@
  * зникають мовчки.
  */
 
+import { optionalNumber, requiredNumber } from './provenance.ts'
 import { derivedId, mealPrefId } from './sync-ids.ts'
 import { MEAL_TYPES } from './types.ts'
 import type {
@@ -157,48 +158,6 @@ function required(value: unknown, what: string): string {
 }
 
 /**
- * Число з дампа або null, якщо числа там немає.
- *
- * `Number()` наосліп сюди не годиться, і це не причіпка: `Number('   ')`,
- * `Number([])` і `Number(false)` дають НУЛЬ, а `Number(true)` — одиницю. Тобто
- * пробіли й сміття в полі калорійності стали б справжнім нулем — рівно тим
- * вигаданим значенням, від якого застерігає правило провенансу (нуль ≠
- * «невідомо»). Тому числами вважаються лише число й числовий рядок.
- */
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value !== 'string') return null
-  const text = value.trim()
-  if (!text) return null
-  const n = Number(text)
-  return Number.isFinite(n) ? n : null
-}
-
-/**
- * Необов'язкове число з дампа.
- *
- * «Нечислове → NULL, а не нуль» — головне правило переносу калорійності: у V1
- * вона обов'язкове невід'ємне число, у V2 її може не бути. Справжній нуль
- * лишається нулем.
- *
- * Від'ємне — не null, а помилка: схема V2 відсікає такі значення CHECK-ами, і
- * тихо обнулити їх означало б вигадати дані.
- */
-function optional(value: unknown, what: string): number | null {
-  const n = toNumber(value)
-  if (n === null) return null
-  if (n < 0) throw new Error(what + " має бути невід'ємним, а тут " + n + '.')
-  return n
-}
-
-/** Обов'язкове число: V1 завжди його пише, тож відсутнє — це зіпсований запис. */
-function requiredNumber(value: unknown, what: string): number {
-  const n = toNumber(value)
-  if (n === null) throw new Error(what + ' — не число.')
-  return n
-}
-
-/**
  * Інгредієнт: у V1 і V2 форма та сама (`string | {name, amount?, unit?}`), тож
  * перетворювати нічого — лише відкинути порожнє. Кількість і одиниця лишаються
  * необов'язковими: у джерелі вони є не завжди.
@@ -208,7 +167,10 @@ function ingredient(entry: unknown, what: string): Ingredient | null {
   if (isRecord(entry)) {
     const name = trimmed(entry.name)
     if (!name) return null
-    const amount = optional(entry.amount, what + ': кількість «' + name + '»')
+    const amount = optionalNumber(
+      entry.amount,
+      what + ': кількість «' + name + '»',
+    )
     const unit = trimmed(entry.unit)
     const out: Ingredient = { name }
     if (amount !== null) out.amount = amount
@@ -253,13 +215,13 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     id: derivedId(familyId, 'meal', v1Id),
     name,
     type: type as MealType,
-    calories: optional(raw.calories, 'калорійність'),
+    calories: optionalNumber(raw.calories, 'калорійність'),
     // MER-26: прапорець «≈» переїжджає як є — інакше приблизна оцінка тихо
     // видала б себе за цифру дієтолога.
     caloriesApprox: raw.caloriesApprox === true,
-    protein: optional(raw.protein, 'білки'),
-    fat: optional(raw.fat, 'жири'),
-    carbs: optional(raw.carbs, 'вуглеводи'),
+    protein: optionalNumber(raw.protein, 'білки'),
+    fat: optionalNumber(raw.fat, 'жири'),
+    carbs: optionalNumber(raw.carbs, 'вуглеводи'),
     ingredients: list(raw.ingredients)
       .map((entry) => ingredient(entry, 'страва «' + name + '»'))
       .filter((x): x is Ingredient => x !== null),
@@ -290,8 +252,8 @@ function migrateRecipe(
   const steps = list(raw.steps)
     .map((step) => trimmed(step))
     .filter((step) => step.length > 0)
-  const prepTime = optional(raw.prepTime, 'час приготування')
-  const servings = optional(raw.servings, 'кількість порцій')
+  const prepTime = optionalNumber(raw.prepTime, 'час приготування')
+  const servings = optionalNumber(raw.servings, 'кількість порцій')
   if (servings !== null && servings <= 0) {
     throw new Error('кількість порцій має бути додатною.')
   }
@@ -374,9 +336,9 @@ function migrateProfile(
     // «Сирий» id V1 — зводиться другим проходом, коли всі профілі вже відомі.
     sharedPlanWith: trimmed(raw.sharedPlanWith) || null,
     mealIds,
-    goalProtein: optional(goals.protein, 'ціль по білках'),
-    goalFat: optional(goals.fat, 'ціль по жирах'),
-    goalCarbs: optional(goals.carbs, 'ціль по вуглеводах'),
+    goalProtein: optionalNumber(goals.protein, 'ціль по білках'),
+    goalFat: optionalNumber(goals.fat, 'ціль по жирах'),
+    goalCarbs: optionalNumber(goals.carbs, 'ціль по вуглеводах'),
   }
 }
 

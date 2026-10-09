@@ -34,16 +34,13 @@ import type {
 } from '@meridian/core'
 import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
 import type { AppProfile, CalendarDayView, WeekView } from './model'
+import { errorText } from '../messages'
 
 /** Результат читання: дані плюс чесний перелік того, що не розібралося. */
 type Read<T> = {
   data: T
   isLoading: boolean
   problems: Array<string>
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 function mapRows<T>(
@@ -56,7 +53,7 @@ function mapRows<T>(
     try {
       items.push(map(row))
     } catch (error) {
-      problems.push(describe(error))
+      problems.push(errorText(error))
     }
   }
   return { items, problems }

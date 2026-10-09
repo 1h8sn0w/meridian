@@ -40,23 +40,38 @@ export function hasValue(value: unknown): boolean {
   return true
 }
 
-/**
- * Число з джерела або null — `toOptionalNumber` із V1. Порожній рядок, `null`,
- * `undefined` і NaN дають null; від'ємне значення — помилка, а не тихе null,
- * бо це зіпсовані дані, і мовчки їх ковтати не можна.
- *
- * Схема БД відсікає від'ємні CHECK-обмеженнями, тож на шляху з локального
- * SQLite ця гілка недосяжна — вона для ручного вводу й імпорту.
- */
-export function optionalNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const n = Number(value)
-  if (!Number.isFinite(n)) return null
+export function numberFromField(text: string): number | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed.replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+export function toNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  return typeof value === 'string' ? numberFromField(value) : null
+}
+
+export function optionalNumber(
+  value: unknown,
+  what = 'Значення',
+): number | null {
+  const n = toNumber(value)
+  if (n === null) return null
   if (n < 0) {
     throw new Error(
-      "Очікувалось невід'ємне число, отримано: " + JSON.stringify(value),
+      what +
+        " має бути невід'ємним числом, а тут " +
+        JSON.stringify(value) +
+        '.',
     )
   }
+  return n
+}
+
+export function requiredNumber(value: unknown, what: string): number {
+  const n = toNumber(value)
+  if (n === null) throw new Error(what + ' — не число.')
   return n
 }
 

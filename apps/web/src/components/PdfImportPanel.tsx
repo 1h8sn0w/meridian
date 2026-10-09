@@ -34,13 +34,10 @@ import { useMeals } from '../lib/data/queries'
 import { insertMeal, saveRecipe } from '../lib/data/mutations'
 import { archivePlanSource } from '../lib/data/pdf-import'
 import { extractPdfText } from '../lib/pdf-text'
-import {
-  ingredientsFromText,
-  ingredientsToText,
-  numberFromField,
-  portionsFromText,
-  portionsToText,
-} from '../lib/meal-text'
+import { fieldText, validatePlanEntry } from '../lib/forms'
+import type { PlanEntryDraft } from '../lib/forms'
+import { ingredientsToText, portionsToText } from '../lib/meal-text'
+import { errorText } from '../lib/messages'
 import { plural } from '../lib/format'
 import {
   Button,
@@ -55,21 +52,9 @@ import {
   Warn,
 } from './ui'
 
-/** Поля картки перевірки — рядками, як їх бачить і править людина. */
-type Draft = {
-  name: string
-  type: MealType
-  calories: string
-  servings: string
-  source: string
-  ingredients: string
-  portions: string
-  steps: string
-}
-
 type Card = {
   entry: PlanEntry
-  draft: Draft
+  draft: PlanEntryDraft
   checked: boolean
   /** Уже додано в пул — картка більше не бере участі в наступному натисканні. */
   added: boolean
@@ -81,12 +66,12 @@ type Card = {
 /** Розібраний текст разом із тим, звідки він узявся — для архіву. */
 type Source = { fileName: string | null; text: string }
 
-function draftOf(entry: PlanEntry): Draft {
+function draftOf(entry: PlanEntry): PlanEntryDraft {
   return {
     name: entry.name,
     type: entry.type,
-    calories: entry.calories === null ? '' : String(entry.calories),
-    servings: entry.servings === null ? '' : String(entry.servings),
+    calories: fieldText(entry.calories),
+    servings: fieldText(entry.servings),
     source: entry.source,
     ingredients: ingredientsToText(entry.ingredients),
     portions: portionsToText(entry.portions),
@@ -126,10 +111,6 @@ function cardsOf(
       ],
     }
   })
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 export function PdfImportPanel({
@@ -208,11 +189,11 @@ export function PdfImportPanel({
     } catch (error) {
       if (stale()) return
       setStatus(null)
-      setProblem('Не вдалося прочитати PDF: ' + describe(error))
+      setProblem('Не вдалося прочитати PDF: ' + errorText(error))
     }
   }
 
-  const patch = (index: number, part: Partial<Draft>) =>
+  const patch = (index: number, part: Partial<PlanEntryDraft>) =>
     setCards(
       (current) =>
         current?.map((card, i) =>
@@ -251,80 +232,37 @@ export function PdfImportPanel({
 
     for (const [index, card] of cards.entries()) {
       if (card.added || !card.checked) continue
-      const draft = card.draft
-      const name = draft.name.trim()
-      const calories = numberFromField(draft.calories)
-      const servings = numberFromField(draft.servings)
-
-      /* Провенанс: калорійності в PDF здебільшого немає — її вписує людина, і
-       * без неї страва в пул не йде. Нуль замість неї був би вигаданим числом
-       * у медичних даних (AGENTS.md). */
-      const invalid = !name
-        ? "Назва страви обов'язкова."
-        : draft.calories.trim() === ''
-          ? 'Впишіть калорійність — у PDF її немає, а без неї страва не потрапить у пул.'
-          : calories === null
-            ? 'Калорійність має бути числом — приберіть із поля все, крім цифр.'
-            : calories < 0
-              ? "Калорійність має бути невід'ємним числом."
-              : draft.servings.trim() !== '' &&
-                  (servings === null || servings < 1)
-                ? 'Порції — ціле число від 1 або порожньо.'
-                : null
-      if (invalid !== null || calories === null) {
-        outcomes.set(index, { error: invalid })
+      const checked = validatePlanEntry(card.draft)
+      if ('error' in checked) {
+        outcomes.set(index, { error: checked.error })
         failed++
         continue
       }
 
       try {
-        const mealId = await insertMeal(db, familyId, {
-          name,
-          type: draft.type,
-          calories: Math.round(calories),
-          // БЖВ у плані немає (літери Ж/Ч — це порції), і вигадувати їх нема з
-          // чого: лишаються порожніми, доки їх не впишуть на екрані страви.
-          protein: null,
-          fat: null,
-          carbs: null,
-          ingredients: ingredientsFromText(draft.ingredients),
-          source: draft.source.trim(),
-          portions: portionsFromText(draft.portions),
-          // Маркера ГЕРХ розбір не бачить; позначають на екрані страви (MER-75).
-          gerd: false,
-          sourceIssues: [],
-        })
+        const mealId = await insertMeal(db, familyId, checked.input.meal)
         /* Страва вже в базі — картка закрита незалежно від того, що станеться
          * з рецептом. Інакше невдалий другий запис виглядав би як «не додалося»,
          * і повторне натискання вставило б ту саму страву вдруге. */
         outcomes.set(index, { added: true, checked: false, error: null })
         added++
 
-        const steps = draft.steps
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-        if (steps.length || servings !== null) {
+        const recipe = checked.input.recipe
+        if (recipe) {
           try {
-            await saveRecipe(db, familyId, mealId, {
-              steps,
-              // Часу приготування план не дає — колонка лишається порожньою.
-              prepTime: null,
-              servings: servings === null ? null : Math.round(servings),
-              photo: null,
-            })
+            await saveRecipe(db, familyId, mealId, recipe)
           } catch (error) {
             outcomes.set(index, {
               added: true,
               checked: false,
               error:
                 'Страву додано, але кроки й порційність не збереглися: ' +
-                describe(error),
+                errorText(error),
             })
           }
         }
       } catch (error) {
-        outcomes.set(index, { error: describe(error) })
+        outcomes.set(index, { error: errorText(error) })
         failed++
       }
     }
@@ -378,7 +316,7 @@ export function PdfImportPanel({
       setProblem(
         'Страви додано, але текст плану не збережено в архів імпортів — для ' +
           'цього потрібна мережа. ' +
-          describe(error),
+          errorText(error),
       )
     } finally {
       archiving.current = false
@@ -529,7 +467,7 @@ function ReviewCard({
   /** Триває запис — правити картку зараз означало б правити те, що вже пишеться. */
   busy: boolean
   onCheck: (checked: boolean) => void
-  onPatch: (part: Partial<Draft>) => void
+  onPatch: (part: Partial<PlanEntryDraft>) => void
 }) {
   const { draft, entry } = card
 

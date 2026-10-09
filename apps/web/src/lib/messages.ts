@@ -112,7 +112,7 @@ const NETWORK =
  */
 const UNAUTHORIZED = /not signed in|unauthorized|received 40[13]\b|jwt expired/i
 
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   // PostgrestError із вивантаження — звичайний об'єкт, не Error.
   if (

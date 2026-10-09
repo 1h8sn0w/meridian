@@ -37,6 +37,7 @@ export {
   formatMealCalories,
   hasMacros,
   hasValue,
+  numberFromField,
 } from './provenance.ts'
 
 export { weekSources } from './plans.ts'

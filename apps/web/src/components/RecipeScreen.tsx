@@ -23,7 +23,8 @@ import type { Meal, Recipe } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import { useMeals, useProfiles, useRecipe } from '../lib/data/queries'
 import { saveRecipe } from '../lib/data/mutations'
-import type { RecipeInput } from '../lib/data/mutations'
+import { fieldText, validateRecipe } from '../lib/forms'
+import type { RecipeDraft } from '../lib/forms'
 import { plural } from '../lib/format'
 import { AppShell } from './AppShell'
 import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
@@ -309,66 +310,6 @@ function Steps({
  * Редагування — єдине місце у V2, де ці поля взагалі можна ввести (MER-22)
  * ======================================================================== */
 
-type Draft = {
-  steps: string
-  prepTime: string
-  servings: string
-  photo: string | null
-}
-
-/**
- * Порожнє поле — «в джерелі немає», а не нуль (як у `MealForm`).
- *
- * Округлюємо, бо обидві колонки — `integer`: «7,5 хв» дійшло б до Postgres як
- * `22P02` уже під час вивантаження, тобто мовчки й пізно. Кома як роздільник —
- * теж звідти: клавіатура телефона українською дає саме її.
- */
-function optional(value: string): number | null {
-  const text = value.trim()
-  if (!text) return null
-  const n = Number(text.replace(',', '.'))
-  return Number.isFinite(n) ? Math.round(n) : null
-}
-
-/**
- * Перевіряємо ті самі межі, що стоять CHECK-ами в схемі
- * (`recipe_prep_time_non_negative`, `recipe_servings_positive`).
- *
- * Не «про всяк випадок»: рядок, який не пройшов CHECK, PostgREST відкидає вже
- * під час вивантаження — тобто мовчки й через невизначений час після
- * натискання «Зберегти» (MER-49). Помилку треба показати тут, поки користувач
- * її бачить.
- */
-function validate(draft: Draft): { input: RecipeInput } | { error: string } {
-  const prepTime = optional(draft.prepTime)
-  if (draft.prepTime.trim() && prepTime === null) {
-    return {
-      error: '«Час приготування» має бути числом або лишитись порожнім.',
-    }
-  }
-  if (prepTime !== null && prepTime < 0) {
-    return { error: "«Час приготування» має бути невід'ємним." }
-  }
-  const servings = optional(draft.servings)
-  if (draft.servings.trim() && servings === null) {
-    return { error: '«Порції» мають бути числом або лишитись порожніми.' }
-  }
-  if (servings !== null && servings <= 0) {
-    return { error: '«Порції» мають бути додатним числом.' }
-  }
-  return {
-    input: {
-      steps: draft.steps
-        .split('\n')
-        .map((step) => step.trim())
-        .filter((step) => step.length > 0),
-      prepTime,
-      servings,
-      photo: draft.photo,
-    },
-  }
-}
-
 function RecipeForm({
   mealId,
   familyId,
@@ -382,16 +323,16 @@ function RecipeForm({
   onDone: () => void
 }) {
   const db = usePowerSync()
-  const [draft, setDraft] = useState<Draft>(() => ({
+  const [draft, setDraft] = useState<RecipeDraft>(() => ({
     steps: recipe ? recipe.steps.join('\n') : '',
-    prepTime: recipe?.prepTime == null ? '' : String(recipe.prepTime),
-    servings: recipe?.servings == null ? '' : String(recipe.servings),
+    prepTime: fieldText(recipe?.prepTime),
+    servings: fieldText(recipe?.servings),
     photo: recipe?.photo ?? null,
   }))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const patch = (part: Partial<Draft>) =>
+  const patch = (part: Partial<RecipeDraft>) =>
     setDraft((current) => ({ ...current, ...part }))
 
   const pick = async (file: File | undefined) => {
@@ -405,7 +346,7 @@ function RecipeForm({
   }
 
   const save = async () => {
-    const checked = validate(draft)
+    const checked = validateRecipe(draft)
     if ('error' in checked) {
       setError(checked.error)
       return
