@@ -145,3 +145,11 @@ export function dayCalories(
   }
   return { total, unknown, approx }
 }
+
+export function dayInCorridor(
+  day: DayCalories,
+  target: number,
+  corridor: number,
+): boolean {
+  return day.unknown === 0 && Math.abs(day.total - target) <= corridor
+}
