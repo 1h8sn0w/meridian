@@ -21,6 +21,7 @@ import { useAuth } from '../lib/auth'
 import { useSyncState } from '../lib/powersync/provider'
 import { importV1 } from '../lib/data/import-v1'
 import type { ImportStats } from '../lib/data/import-v1'
+import { errorText } from '../lib/messages'
 import type { Failure } from '../lib/messages'
 import { Button, ErrorText, Hint, InfoText, LinkButton, Panel } from './ui'
 
@@ -68,10 +69,6 @@ function summary(counts: {
   return parts.length ? parts.join(', ') : 'нічого'
 }
 
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 export function ImportV1Panel() {
   const { familyId } = useAuth()
   const { db, failure: dbFailure } = useSyncState()
@@ -101,7 +98,7 @@ export function ImportV1Panel() {
     } catch (error) {
       setFailure({
         text: 'Не вдалося прочитати файл експорту.',
-        detail: describe(error),
+        detail: errorText(error),
       })
     }
     setBusy(false)
@@ -117,7 +114,7 @@ export function ImportV1Panel() {
     } catch (error) {
       setFailure({
         text: 'Не вдалося записати дані на пристрій.',
-        detail: describe(error),
+        detail: errorText(error),
       })
     }
     setBusy(false)

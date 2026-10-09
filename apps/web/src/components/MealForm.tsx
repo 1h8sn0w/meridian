@@ -20,85 +20,24 @@ import { MEAL_TYPES, MEAL_TYPE_LABELS } from '@meridian/core'
 import type { Meal, MealType } from '@meridian/core'
 import { useMealUsage } from '../lib/data/queries'
 import { deleteMeal, insertMeal, updateMeal } from '../lib/data/mutations'
-import type { MealInput } from '../lib/data/mutations'
-import {
-  ingredientsFromText,
-  ingredientsToText,
-  numberFromField,
-  portionsFromText,
-  portionsToText,
-} from '../lib/meal-text'
+import { fieldText, validateMeal } from '../lib/forms'
+import type { MealDraft } from '../lib/forms'
+import { ingredientsToText, portionsToText } from '../lib/meal-text'
 import { Button, Field, SelectField, TextField, Warn } from './ui'
 
-type Draft = {
-  name: string
-  type: MealType
-  calories: string
-  protein: string
-  fat: string
-  carbs: string
-  ingredients: string
-  portions: string
-  source: string
-  gerd: boolean
-  sourceIssues: string
-}
-
-function draftOf(meal: Meal | null): Draft {
-  const num = (value: number | null) => (value === null ? '' : String(value))
+function draftOf(meal: Meal | null): MealDraft {
   return {
     name: meal?.name ?? '',
     type: meal?.type ?? MEAL_TYPES[0],
-    calories: num(meal?.calories ?? null),
-    protein: num(meal?.protein ?? null),
-    fat: num(meal?.fat ?? null),
-    carbs: num(meal?.carbs ?? null),
+    calories: fieldText(meal?.calories),
+    protein: fieldText(meal?.protein),
+    fat: fieldText(meal?.fat),
+    carbs: fieldText(meal?.carbs),
     ingredients: meal ? ingredientsToText(meal.ingredients) : '',
     portions: meal ? portionsToText(meal.portions) : '',
     source: meal?.source ?? '',
     gerd: meal?.gerd ?? false,
     sourceIssues: meal ? meal.sourceIssues.join('\n') : '',
-  }
-}
-
-function validate(draft: Draft): { input: MealInput } | { error: string } {
-  const name = draft.name.trim()
-  if (!name) return { error: "Назва страви обов'язкова." }
-  if (!MEAL_TYPES.includes(draft.type)) {
-    return { error: 'Оберіть тип слота.' }
-  }
-  for (const [label, raw] of [
-    ['Калорійність', draft.calories],
-    ['Білки', draft.protein],
-    ['Жири', draft.fat],
-    ['Вуглеводи', draft.carbs],
-  ] as const) {
-    const value = numberFromField(raw)
-    if (raw.trim() && value === null) {
-      return { error: '«' + label + '» має бути числом або лишитись порожнім.' }
-    }
-    if (value !== null && value < 0) {
-      return { error: '«' + label + "» має бути невід'ємним." }
-    }
-  }
-  const calories = numberFromField(draft.calories)
-  return {
-    input: {
-      name,
-      type: draft.type,
-      calories: calories === null ? null : Math.round(calories),
-      protein: numberFromField(draft.protein),
-      fat: numberFromField(draft.fat),
-      carbs: numberFromField(draft.carbs),
-      ingredients: ingredientsFromText(draft.ingredients),
-      source: draft.source.trim(),
-      portions: portionsFromText(draft.portions),
-      gerd: draft.gerd,
-      sourceIssues: draft.sourceIssues
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0),
-    },
   }
 }
 
@@ -113,16 +52,16 @@ export function MealForm({
   onDone: () => void
 }) {
   const db = usePowerSync()
-  const [draft, setDraft] = useState<Draft>(() => draftOf(meal))
+  const [draft, setDraft] = useState<MealDraft>(() => draftOf(meal))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const usedInPlans = useMealUsage(meal?.id ?? null)
 
-  const patch = (part: Partial<Draft>) =>
+  const patch = (part: Partial<MealDraft>) =>
     setDraft((current) => ({ ...current, ...part }))
 
   const save = async () => {
-    const checked = validate(draft)
+    const checked = validateMeal(draft)
     if ('error' in checked) {
       setError(checked.error)
       return

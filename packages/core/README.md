@@ -13,7 +13,7 @@
 | Модуль | Що робить | Звідки у V1 |
 |--------|-----------|-------------|
 | `types.ts` | Доменна модель: страва, профіль, день і тиждень плану | `createMeal`, `createProfile` |
-| `provenance.ts` | Три поведінки провенансу + денна сума калорій | `toOptionalNumber`, `fmtMealKcal`, `dayMealsApprox` |
+| `provenance.ts` | Три поведінки провенансу, розбір чисел (поле форми, рядок бази, дамп V1: порожнє → null, нуль → нуль) + денна сума калорій | `toOptionalNumber`, `fmtMealKcal`, `dayMealsApprox` |
 | `plans.ts` | Належність страви до планів дієтолога, структурно (MER-30) | `mealPlans`, `plansCovering`, `isMixedWeek` |
 | `generator.ts` | Генерація тижня: чотири правила, послаблення коридору | `WeekGenerator.generateWeek` |
 | `replace.ts` | Ручна заміна слота: кандидати з валідністю + застосування | `suggestReplacements`, `WeekStore.replaceMeal` |
@@ -60,7 +60,7 @@
 **Помилка — це значення, а не виняток.** Форма з V1: `{ ok: true, … }` або
 `{ ok: false, error }` з українським поясненням. «Тиждень не склався» — це
 нормальна відповідь, а не збій програми. Винятки лишились там, де дані
-зіпсовані: `rows.ts` і `optionalNumber`.
+зіпсовані: `rows.ts`, `optionalNumber` і `requiredNumber`.
 
 **Міграція V1 → V2: id виводяться, а не генеруються (MER-48).** У V1 `id` —
 довільний рядок, у V2 колонка має тип `uuid`. `derivedId` виводить UUIDv5 з

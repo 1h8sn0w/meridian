@@ -25,7 +25,8 @@ import {
   insertProfile,
   updateProfile,
 } from '../lib/data/mutations'
-import type { ProfileInput } from '../lib/data/mutations'
+import { fieldText, validateProfile } from '../lib/forms'
+import type { ProfileDraft } from '../lib/forms'
 import type { AppProfile } from '../lib/data/model'
 import { Plus } from '@phosphor-icons/react'
 import {
@@ -40,22 +41,7 @@ import {
   Warn,
 } from './ui'
 
-type Draft = {
-  id: string | null
-  name: string
-  targetCalories: string
-  corridor: string
-  color: string
-  portion: '' | PortionLetter
-  sharedPlanWith: string
-  goalProtein: string
-  goalFat: string
-  goalCarbs: string
-  /** null — увесь спільний пул. */
-  mealIds: Array<string> | null
-}
-
-function draftOf(profile: AppProfile | null): Draft {
+function draftOf(profile: AppProfile | null): ProfileDraft {
   if (!profile) {
     return {
       id: null,
@@ -71,7 +57,6 @@ function draftOf(profile: AppProfile | null): Draft {
       mealIds: null,
     }
   }
-  const num = (value: number | null) => (value === null ? '' : String(value))
   return {
     id: profile.id,
     name: profile.name,
@@ -80,103 +65,10 @@ function draftOf(profile: AppProfile | null): Draft {
     color: profile.color,
     portion: profile.portion ?? '',
     sharedPlanWith: profile.sharedPlanWith ?? '',
-    goalProtein: num(profile.goalProtein),
-    goalFat: num(profile.goalFat),
-    goalCarbs: num(profile.goalCarbs),
+    goalProtein: fieldText(profile.goalProtein),
+    goalFat: fieldText(profile.goalFat),
+    goalCarbs: fieldText(profile.goalCarbs),
     mealIds: profile.mealIds,
-  }
-}
-
-/** Порожнє поле — це «не задано», а не нуль. */
-function optional(value: string): number | null {
-  const text = value.trim()
-  if (!text) return null
-  const n = Number(text.replace(',', '.'))
-  return Number.isFinite(n) ? n : null
-}
-
-function validate(
-  draft: Draft,
-  profiles: ReadonlyArray<AppProfile>,
-): { input: ProfileInput } | { error: string } {
-  const name = draft.name.trim()
-  if (!name) return { error: "Ім'я профілю обов'язкове." }
-
-  const targetCalories = Number(draft.targetCalories)
-  if (!Number.isFinite(targetCalories) || targetCalories <= 0) {
-    return { error: 'Цільова калорійність дня має бути додатним числом.' }
-  }
-
-  const corridor = Number(draft.corridor)
-  if (!Number.isFinite(corridor) || corridor < 0) {
-    return { error: "Коридор калорійності має бути невід'ємним числом." }
-  }
-
-  const shared = draft.sharedPlanWith.trim()
-  if (shared) {
-    if (shared === draft.id) {
-      return { error: 'Профіль не може ділити план сам із собою.' }
-    }
-    const owner = profiles.find((p) => p.id === shared)
-    if (!owner) return { error: 'Профіль для спільного плану не знайдено.' }
-    if (owner.sharedPlanWith) {
-      return {
-        error:
-          'Профіль «' +
-          owner.name +
-          '» сам користується спільним планом — оберіть профіль-власник.',
-      }
-    }
-    // MER-31: reparent власника зробив би ланцюг B→A→C, у якому `planOwnerId`
-    // резолвить лише один крок — і хтось читав би не свій план.
-    //
-    // Лише для наявного профілю: у нового `draft.id` — null, а `sharedPlanWith`
-    // незалежного профілю теж null, тож без цієї перевірки кожен самостійний
-    // профіль зараховувався б новому в «залежні».
-    const dependants = draft.id
-      ? profiles.filter(
-          (p) => p.id !== draft.id && p.sharedPlanWith === draft.id,
-        )
-      : []
-    if (dependants.length) {
-      return {
-        error:
-          'Профіль «' +
-          name +
-          '» уже є власником спільного плану для: ' +
-          dependants.map((p) => '«' + p.name + '»').join(', ') +
-          ". Спершу від'єднайте їх.",
-      }
-    }
-  }
-
-  for (const [label, value] of [
-    ['Білки', draft.goalProtein],
-    ['Жири', draft.goalFat],
-    ['Вуглеводи', draft.goalCarbs],
-  ] as const) {
-    const parsed = optional(value)
-    if (value.trim() && parsed === null) {
-      return { error: 'Ціль «' + label + '» має бути числом.' }
-    }
-    if (parsed !== null && parsed < 0) {
-      return { error: 'Ціль «' + label + "» має бути невід'ємною." }
-    }
-  }
-
-  return {
-    input: {
-      name,
-      targetCalories: Math.round(targetCalories),
-      corridor: Math.round(corridor),
-      color: draft.color,
-      portion: draft.portion === '' ? null : draft.portion,
-      sharedPlanWith: shared || null,
-      goalProtein: optional(draft.goalProtein),
-      goalFat: optional(draft.goalFat),
-      goalCarbs: optional(draft.goalCarbs),
-      mealIds: draft.mealIds,
-    },
   }
 }
 
@@ -192,7 +84,7 @@ export function ProfilesSheet({
   onClose: () => void
 }) {
   const db = usePowerSync()
-  const [draft, setDraft] = useState<Draft | null>(
+  const [draft, setDraft] = useState<ProfileDraft | null>(
     // Сім'я без жодного профілю одразу відкриває форму: список порожній, і
     // показувати його немає сенсу.
     profiles.length ? null : draftOf(null),
@@ -200,12 +92,12 @@ export function ProfilesSheet({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const patch = (part: Partial<Draft>) =>
+  const patch = (part: Partial<ProfileDraft>) =>
     setDraft((current) => (current ? { ...current, ...part } : current))
 
   const save = async () => {
     if (!draft) return
-    const checked = validate(draft, profiles)
+    const checked = validateProfile(draft, profiles)
     if ('error' in checked) {
       setError(checked.error)
       return

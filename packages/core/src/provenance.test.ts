@@ -16,7 +16,10 @@ import {
   formatMealCalories,
   hasMacros,
   hasValue,
+  numberFromField,
   optionalNumber,
+  requiredNumber,
+  toNumber,
 } from './provenance.ts'
 import { meal } from './test-support.ts'
 
@@ -41,6 +44,29 @@ test('нуль і false — справжні значення, а не поро�
   assert.equal(hasValue([0]), true)
 })
 
+test('поле форми: порожнє → null, нуль → нуль, кома — десятковий роздільник', () => {
+  assert.equal(numberFromField(''), null)
+  assert.equal(numberFromField('   '), null)
+  assert.equal(numberFromField('0'), 0)
+  assert.equal(numberFromField(' 180 '), 180)
+  assert.equal(numberFromField('1,5'), 1.5)
+  assert.equal(numberFromField('12 г'), null)
+  assert.equal(numberFromField('-5'), -5)
+})
+
+test('числом вважаються лише число й числовий рядок, а не пробіли, false чи масив', () => {
+  for (const value of ['  ', false, true, [], [5], {}, null, undefined, NaN]) {
+    assert.equal(toNumber(value), null, JSON.stringify(value) + ' — не число')
+  }
+  assert.equal(toNumber(0), 0)
+  assert.equal(toNumber('7'), 7)
+})
+
+test('обов’язкове число без числа — помилка з назвою поля', () => {
+  assert.equal(requiredNumber('1800', 'ціль'), 1800)
+  assert.throws(() => requiredNumber('', 'ціль'), /ціль — не число/)
+})
+
 test('optionalNumber: порожнє → null, число → число, від’ємне → помилка', () => {
   assert.equal(optionalNumber(''), null)
   assert.equal(optionalNumber(null), null)
@@ -49,7 +75,7 @@ test('optionalNumber: порожнє → null, число → число, від
   assert.equal(optionalNumber(0), 0)
   assert.equal(optionalNumber('185'), 185)
   assert.equal(optionalNumber(12.5), 12.5)
-  assert.throws(() => optionalNumber(-1), /невід'ємне число/)
+  assert.throws(() => optionalNumber(-1), /невід'ємним числом/)
 })
 
 /* ==========================================================================
