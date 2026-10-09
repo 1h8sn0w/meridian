@@ -10,6 +10,8 @@
  */
 
 import { Link } from '@tanstack/react-router'
+import { MEAL_TYPE_LABELS } from '@meridian/core'
+import type { PoolShortage } from '@meridian/core'
 import { CheckCircle } from '@phosphor-icons/react'
 import { plural } from '../lib/format'
 import { Button, Panel } from './ui'
@@ -17,12 +19,15 @@ import { Button, Panel } from './ui'
 export function FirstSteps({
   hasProfile,
   mealCount,
+  shortage,
   onCreateProfile,
 }: {
   hasProfile: boolean
   mealCount: number
+  shortage: ReadonlyArray<PoolShortage>
   onCreateProfile: () => void
 }) {
+  const need = shortage[0]?.need ?? 0
   const steps = [
     {
       title: 'Профіль',
@@ -38,10 +43,14 @@ export function FirstSteps({
     },
     {
       title: 'Страви',
-      text: mealCount
-        ? `У пулі ${mealCount} ${plural(mealCount, 'страва', 'страви', 'страв')}.`
-        : 'Стартовий набір, імпорт із PDF дієтолога або вручну.',
-      done: mealCount > 0,
+      text: !mealCount
+        ? 'Стартовий набір, імпорт із PDF дієтолога або вручну.'
+        : shortage.length
+          ? `У пулі ${mealCount} ${plural(mealCount, 'страва', 'страви', 'страв')}, але на тиждень замало: потрібно щонайменше ${need} ${plural(need, 'страва', 'страви', 'страв')} з калорійністю кожного типу. Зараз — ${shortage
+              .map(({ type, have }) => MEAL_TYPE_LABELS[type] + ': ' + have)
+              .join(', ')}.`
+          : `У пулі ${mealCount} ${plural(mealCount, 'страва', 'страви', 'страв')}.`,
+      done: mealCount > 0 && shortage.length === 0,
       action: (
         <Link to="/meals" className="block no-underline">
           <Button block variant="primary">

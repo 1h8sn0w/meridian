@@ -43,7 +43,8 @@ export { weekSources } from './plans.ts'
 
 export { planOwnerId, poolForProfile } from './profile.ts'
 
-export { DEFAULTS, generateWeek } from './generator.ts'
+export { DEFAULTS, generateWeek, poolShortage } from './generator.ts'
+export type { PoolShortage } from './generator.ts'
 
 export { replaceSlot, suggestReplacements } from './replace.ts'
 
