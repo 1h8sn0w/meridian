@@ -8,8 +8,8 @@
     "build:native": "vite build --mode native",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "pnpm --filter @meridian/core build && eslint",
-    "test": "pnpm --filter @meridian/core build && node --test \"src/**/*.test.ts\""
+    "lint": "eslint",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.1",

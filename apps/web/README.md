@@ -21,8 +21,8 @@ cp apps/web/.env.example apps/web/.env
 pnpm dev                      # http://localhost:3000
 ```
 
-`pnpm dev` запускати з **кореня**: він спершу збирає `packages/core`, від якого
-`apps/web` залежить через `workspace:*` і бачить лише `dist`.
+`pnpm dev` працює і з кореня, і з `apps/web`: `@meridian/core` приходить через
+`workspace:*` вихідними `.ts`, збирати його заздалегідь не треба (MER-104).
 
 `.env` потрібен тому, що `pnpm dev` — це Vite поза стеком: змінні він
 підставляє на етапі збірки, а anon-ключ генерується всередині стека, тож
@@ -201,11 +201,11 @@ pnpm test
 
 Сім опцій (`target`, `strict`, `noUnusedLocals`, `noUnusedParameters`,
 `noFallthroughCasesInSwitch`, `skipLibCheck`, `verbatimModuleSyntax`) справді
-повторюють `tsconfig.base.json`. Але база — **бібліотечна**: крім них вона
-вмикає `declaration`, `declarationMap`, `sourceMap`, `isolatedModules` і
-`noUncheckedIndexedAccess`. Застосунок нічого з цього не емітить, а
+повторюють `tsconfig.base.json`. Але база — **для ядра**: крім них вона
+задає `module`/`moduleResolution` `NodeNext` (застосунку потрібен `bundler`),
+`lib` без DOM, `isolatedModules` і `noUncheckedIndexedAccess`, а
 `noUncheckedIndexedAccess` тут не діє свідомо (`lib/data/model.ts` покладається
-на це). Тобто `extends` довелося б супроводжувати п'ятьма перевизначеннями —
+на це). Тобто `extends` довелося б супроводжувати перевизначеннями —
 файл став би довшим за той, що є, і крихкішим: правка бази мовчки міняла б
 строгість перевірки застосунку. Тому дублювання семи рядків лишається навмисно.
 

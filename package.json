@@ -7,10 +7,10 @@
     "pnpm": ">=11"
   },
   "scripts": {
-    "dev": "pnpm --filter @meridian/core build && pnpm --filter @meridian/web dev",
+    "dev": "pnpm --filter @meridian/web dev",
     "build": "pnpm --recursive build",
     "lint": "node tools/check-comments.mjs && pnpm --recursive lint",
-    "typecheck": "pnpm --filter @meridian/core build && pnpm --recursive typecheck",
+    "typecheck": "pnpm --recursive typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @meridian/db migrate",

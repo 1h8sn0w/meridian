@@ -23,7 +23,7 @@
 | `sync-ids.ts` | Id, виведені з природного ключа (MER-57) | нове у V2 |
 | `migrate-v1.ts` | Дамп `localStorage` V1 → рядки схеми V2 (MER-48) | `MealStore`, `ProfileStore`, `MealPrefs` |
 | `starter-set.ts` | Формат і перевірка стартового набору страв (MER-77) | нове у V2 |
-| `check-starter-set.ts` | `pnpm starter:check <файл>` — та сама перевірка з консолі; у `dist` не йде | нове у V2 |
+| `check-starter-set.ts` | `pnpm starter:check <файл>` — та сама перевірка з консолі; єдиний модуль ядра, якому потрібен Node | нове у V2 |
 
 ## Три поведінки провенансу
 
@@ -184,11 +184,17 @@ pnpm --filter @meridian/core test
 
 Node-івський `node --test` без окремого фреймворку — типи стираються самим
 Node, тож `.ts` запускається без збірки. Тому в `tsconfig.json` увімкнено
-`erasableSyntaxOnly` (жодних `enum` і `namespace`) і `rewriteRelativeImportExtensions`
-(імпорти пишуться з `.ts`, у `dist` стають `.js`).
+`erasableSyntaxOnly` (жодних `enum` і `namespace`), а імпорти пишуться з `.ts`.
 
-Тести лежать поруч із кодом (`src/**/*.test.ts`) і в збірку не потрапляють —
-`tsconfig.build.json` їх виключає, як і типи Node: сам домен про Node не знає.
+**Збірки `dist` немає (MER-104).** `package.json` експортує `src/index.ts`:
+Vite, `tsc` і `node --test` в `apps/web` читають ядро напряму. Звідси вимога до
+всього коду пакета — лише TS, що стирається без трансформації, і відносні
+імпорти з `.ts`.
+
+**Домен про Node не знає.** `typecheck` проганяє `tsc` двічі: удруге з
+`tsconfig.domain.json`, де немає типів Node, тестів, `test-support.ts` і
+консольного `check-starter-set.ts`. Глобаль Node у коді домену там падає, бо
+ядро так само їде в браузер і в Capacitor.
 
 Головні тести генератора повторюються на кількох зернах PRNG, щоб не проходити
 випадково, і перевіряють ті межові випадки, на які вже наступали у V1:

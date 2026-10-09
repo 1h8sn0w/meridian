@@ -37,8 +37,6 @@ jobs:
 
       - run: pnpm lint
 
-      # Всередині спершу збирає packages/core: apps/web залежить від нього
-      # через workspace:* і бачить лише dist.
       - run: pnpm typecheck
 
       - run: pnpm test
