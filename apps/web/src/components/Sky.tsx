@@ -22,6 +22,10 @@ export function applySky(minutes: number): void {
   const root = document.documentElement
   const phase = phaseAt(minutes)
   if (root.dataset.phase !== phase) root.dataset.phase = phase
+  root.classList.toggle(
+    'classic-scrollbar',
+    window.innerWidth > root.clientWidth,
+  )
 
   // Системна смуга в standalone-режимі — колір верху неба, інакше над ним шов.
   // `--phase-top` без переходу, тож читається одразу цільове значення.
