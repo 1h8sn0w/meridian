@@ -1,8 +1,3 @@
-/**
- * День і тиждень «Календаря» з адреси (MER-88) — через той самий розбір, що й
- * у роутері: дата без лапок у JSON не розбирається, тож доходить рядком.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { defaultParseSearch } from '@tanstack/react-router'

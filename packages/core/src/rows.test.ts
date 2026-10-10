@@ -1,9 +1,3 @@
-/**
- * Міст «рядок локального SQLite → доменний об'єкт». Головне тут — що SQLite не
- * має ні boolean, ні jsonb, і що NULL мусить лишитись порожнечею, а не стати
- * нулем.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -89,8 +83,11 @@ test('маркер ГЕРХ: 1/0 і true/false, а рядок без колон�
   assert.equal(mealFromRow({ ...mealRow, gerd: 1 }).gerd, true)
   assert.equal(mealFromRow({ ...mealRow, gerd: true }).gerd, true)
   assert.equal(mealFromRow({ ...mealRow, gerd: 0 }).gerd, false)
-  // Стара страва, у якої колонки ще немає (MER-75).
-  assert.equal(mealFromRow(mealRow).gerd, false)
+  assert.equal(
+    mealFromRow(mealRow).gerd,
+    false,
+    'Стара страва, у якої колонки ще немає (MER-75).',
+  )
   assert.equal(mealFromRow({ ...mealRow, gerd: null }).gerd, false)
 })
 
@@ -102,8 +99,11 @@ test('помилки в джерелі: масив рядків, порожнє 
     }).sourceIssues,
     ['у день 1 рис 70 г, у день 2 — 100 г'],
   )
-  // Стара страва без колонки (MER-76) — розбіжностей немає.
-  assert.deepEqual(mealFromRow(mealRow).sourceIssues, [])
+  assert.deepEqual(
+    mealFromRow(mealRow).sourceIssues,
+    [],
+    'Стара страва без колонки (MER-76) — розбіжностей немає.',
+  )
   assert.throws(() => mealFromRow({ ...mealRow, source_issues: '{"a":1}' }))
 })
 
@@ -135,10 +135,6 @@ test('зіпсований рядок — помилка з поясненням
   assert.throws(() => mealFromRow({ ...mealRow, type: 'brunch' }), /тип слота/)
   assert.throws(() => mealFromRow({ ...mealRow, name: '  ' }), /порожнє поле/)
 })
-
-/* ==========================================================================
- * Профіль
- * ======================================================================== */
 
 const profileRow = {
   id: 'p1',
@@ -188,10 +184,6 @@ test('невідома порційна літера й недодатна ці�
   )
 })
 
-/* ==========================================================================
- * Смаки
- * ======================================================================== */
-
 test('смаки збираються в два набори, невідомі значення відкидаються', () => {
   const prefs = prefsFromRows([
     { meal_id: 'm1', value: 'favorite' },
@@ -202,10 +194,6 @@ test('смаки збираються в два набори, невідомі �
   assert.deepEqual([...prefs.favorites], ['m1'])
   assert.deepEqual([...prefs.disliked], ['m2'])
 })
-
-/* ==========================================================================
- * Рецепт (MER-63)
- * ======================================================================== */
 
 test('рядок рецепта: кроки з jsonb-тексту, порожнє лишається порожнім', () => {
   const recipe = recipeFromRow({
@@ -220,8 +208,11 @@ test('рядок рецепта: кроки з jsonb-тексту, порожн�
   assert.equal(recipe.mealId, 'm1')
   assert.deepEqual(recipe.steps, ['Відварити гречку 15 хв.', 'Обсмажити філе.'])
   assert.equal(recipe.prepTime, 25)
-  // Ні порцій, ні фото в джерелі — і жодного нуля чи порожнього рядка замість.
-  assert.equal(recipe.servings, null)
+  assert.equal(
+    recipe.servings,
+    null,
+    'Ні порцій, ні фото в джерелі — і жодного нуля чи порожнього рядка замість.',
+  )
   assert.equal(recipe.photo, null)
 })
 
@@ -238,8 +229,11 @@ test('рецепт без кроків і без страви: порожній 
   assert.equal(bare.servings, 2)
   assert.equal(bare.photo, 'data:image/jpeg;base64,AAA')
 
-  // Рецепт без страви — це не рецепт: `meal_id` і є його природний ключ.
-  assert.throws(() => recipeFromRow({ id: 'r3', meal_id: '' }), /meal_id/)
+  assert.throws(
+    () => recipeFromRow({ id: 'r3', meal_id: '' }),
+    /meal_id/,
+    'Рецепт без страви — це не рецепт: `meal_id` і є його природний ключ.',
+  )
   assert.throws(
     () => recipeFromRow({ id: 'r4', meal_id: 'm4', steps: '{"a":1}' }),
     /не масив/,

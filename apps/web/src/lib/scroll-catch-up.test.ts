@@ -1,14 +1,8 @@
-/**
- * Наздоганяння прокрутки (MER-86): сторінка росте шматками, поки приїжджають
- * дані, і позиція має дійти до цілі — але не смикати людину, що вже гортає.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { catchUpScroll } from './scroll-catch-up.ts'
 
-/** Сторінка без браузера: висота документа й вікно 800 px. */
 function fakePage(height: number, scrollY = 0) {
   const viewport = 800
   let onResize: (() => void) | null = null
@@ -47,13 +41,11 @@ function fakePage(height: number, scrollY = 0) {
   }
   return {
     win: win as unknown as Window & typeof globalThis,
-    /** Нова висота; браузер, як і справжній, не дає позиції вийти за край. */
     grow(to: number) {
       height = to
       win.scrollY = Math.min(win.scrollY, Math.max(0, height - viewport))
       onResize?.()
     },
-    /** Людина торкнулась сторінки, натиснула клавішу чи крутнула колесо. */
     user(type: string) {
       listeners.get(type)?.()
     },
@@ -73,7 +65,6 @@ test('доганяє, доки сторінка не виросте до ціл�
   assert.equal(page.win.scrollY, 1500)
   assert.equal(page.observing(), false)
 
-  // Ціль досягнуто — подальший ріст сторінки нічого не крутить.
   page.win.scrollY = 300
   page.grow(3000)
   assert.equal(page.win.scrollY, 300)
@@ -84,7 +75,6 @@ test('людина гортає сама — наздоганяння відст
   catchUpScroll(1500, page.win)
   assert.equal(page.win.scrollY, 200)
 
-  // Смугою прокрутки чи допоміжною технологією — без жодної події вводу.
   page.win.scrollY = 120
   page.grow(2400)
   assert.equal(page.win.scrollY, 120)
@@ -96,7 +86,6 @@ test('людина торкнулась сторінки — її зміни в�
   catchUpScroll(1500, page.win)
   assert.equal(page.win.scrollY, 200)
 
-  // Тап по фільтру: людина лишилась унизу, але сторінка далі росте від неї.
   page.user('pointerdown')
   page.grow(2400)
   assert.equal(page.win.scrollY, 200)
@@ -108,7 +97,6 @@ test('сторінка покоротшала й підтиснула позиц
   catchUpScroll(1500, page.win)
   assert.equal(page.win.scrollY, 1000)
 
-  // Заглушка змінилась коротшим вмістом: браузер сам опустив позицію до краю.
   page.grow(1600)
   assert.equal(page.win.scrollY, 800)
   assert.equal(page.observing(), true)

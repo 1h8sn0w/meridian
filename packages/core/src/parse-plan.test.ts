@@ -1,13 +1,3 @@
-/**
- * Розбір PDF-плану (MER-52).
- *
- * Фікстура й перевірки перенесені з самотесту V1 (секція 19 в `index.html`):
- * це дослівні рядки з `Menu_2_tyzhni.pdf` у тому вигляді, як їх віддає
- * текстовий шар pdf.js — із жорсткими переносами посеред речень. Тести
- * захищають не «формат виводу», а обіцянки провенансу: калорійність лише де
- * написано, БЖВ ніде, кількості дослівно, порції дослівно.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -72,24 +62,18 @@ const PLAN = [
 const parsed = parsePlanText(PLAN)
 const meals = parsed.entries.filter((e) => e.kind === 'meal')
 
-/** Страва за початком назви — так само, як шукав самотест V1. */
 function byName(prefix: string): PlanEntry {
   const found = meals.find((m) => m.name.startsWith(prefix))
   assert.ok(found, 'немає страви «' + prefix + '»')
   return found
 }
 
-/**
- * Елемент за індексом. `noUncheckedIndexedAccess` вважає будь-який індекс
- * можливо-порожнім, а «елемента немає» тут — це і є провал перевірки.
- */
 function at<T>(list: ReadonlyArray<T>, index: number): T {
   const item = list[index]
   assert.ok(item !== undefined, 'немає елемента ' + index)
   return item
 }
 
-/** Плоский підпис інгредієнта — щоб порівнювати обидві його форми. */
 function label(entry: Ingredient): string {
   if (typeof entry === 'string') return entry
   const qty = [entry.amount, entry.unit].filter((x) => x !== undefined)

@@ -1,8 +1,3 @@
-/**
- * MER-30 — належність до планів структурно. Тут і живе той хибнопозитив, через
- * який тиждень зі страв одного плану виглядав «зміксованим».
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -21,7 +16,6 @@ import { meal } from './test-support.ts'
 const plansOf = (source: string) =>
   mealPlans(meal({ id: 'x', type: 'lunch', source }))
 
-/** День плану з довільних чотирьох страв — щоб перевіряти тиждень цілком. */
 function day(meals: Record<MealType, Meal>): PlanDay {
   return { meals, calories: dayCalories(meals) }
 }
@@ -64,8 +58,11 @@ test('MER-30: спільний десерт не додає третього п�
     meal({ id: 'b', type: 'snack', source: 'Тиждень 1–2' }),
   ]
   assert.deepEqual(poolPlans(pool), new Set(['Тиждень 1', 'Тиждень 2']))
-  // «Тиждень 1» покриває обидві страви — отже, мікс неможливий.
-  assert.deepEqual(plansCovering(pool, poolPlans(pool)), new Set(['Тиждень 1']))
+  assert.deepEqual(
+    plansCovering(pool, poolPlans(pool)),
+    new Set(['Тиждень 1']),
+    '«Тиждень 1» покриває обидві страви — отже, мікс неможливий.',
+  )
   assert.equal(mixPossibleIn(pool), false)
 })
 
