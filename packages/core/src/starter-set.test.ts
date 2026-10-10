@@ -1,10 +1,3 @@
-/**
- * Стартовий набір (MER-77): формат сам себе документує прикладом у
- * `infra/starter-set.example.json`, тож перший тест — що приклад валідний.
- * Решта — що перевірка ловить саме ті помилки, які людина робить, збираючи
- * файл руками.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -19,7 +12,6 @@ const example: unknown = JSON.parse(
   ),
 )
 
-/** Перша страва прикладу з правкою — щоб тест зламав рівно одне поле. */
 function withMeal(patch: Record<string, unknown>, drop?: string): unknown {
   const set = structuredClone(example) as {
     meals: Array<Record<string, unknown>>
@@ -48,8 +40,11 @@ test('приклад з репозиторію — валідний набір',
   assert.deepEqual(lunch.sourceIssues, [
     'У складі сочевиця 60 г, у рецепті — 80 г',
   ])
-  // Порожнє лишається порожнім: null — не нуль.
-  assert.equal(snack.calories, null)
+  assert.equal(
+    snack.calories,
+    null,
+    'Порожнє лишається порожнім: null — не нуль.',
+  )
   assert.equal(snack.protein, null)
   assert.equal(hasRecipe(snack.recipe), false)
 })
@@ -67,10 +62,10 @@ test('межі — ті самі, що в схемі БД', () => {
     errorOf(withMeal({ recipe: { steps: [], prepTime: null, servings: 0 } })),
     /servings/,
   )
-  // «≈» без числа — позначка ні про що (MER-26).
   assert.match(
     errorOf(withMeal({ calories: null, caloriesApprox: true })),
     /caloriesApprox/,
+    '«≈» без числа — позначка ні про що (MER-26).',
   )
 })
 

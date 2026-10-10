@@ -1,10 +1,3 @@
-/**
- * Засів стартового набору (MER-77). Ламається він мовчки й у найгірший бік:
- * сім'я без страв і без шансу на повтор, дублікати або затерті правки. Тому
- * перевіряємо порядок кроків (`autoSeed`) і сам запис (`seedStarterMeals`) на
- * справжньому SQLite — тими самими запитами, що йдуть у базу пристрою.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -29,14 +22,11 @@ if (!parsed.ok) throw new Error(parsed.error)
 const SET: ReadonlyArray<StarterMeal> = parsed.set.meals
 const FAMILY = '00000000-0000-4000-8000-000000000001'
 
-/* --- Порядок кроків ------------------------------------------------------ */
-
 type World = {
   status?: StarterStatus
   poolHasMeals?: boolean
   meals?: ReadonlyArray<StarterMeal> | 'broken' | 'offline'
   seededHere?: boolean
-  /** Скасувати після кроку з цією назвою. */
   cancelAfter?: string
   writeFails?: boolean
 }
@@ -148,9 +138,11 @@ test('вийшли чи змінили сім’ю — після будь-як�
     const calls = await run({ cancelAfter: at })
     assert.equal(calls.at(-1), at, 'зупинились одразу після ' + at)
   }
-  // Між записом і позначкою: позначки немає, пул уже не порожній —
-  // наступне відкриття лише поставить її.
-  assert.equal((await run({ cancelAfter: 'write' })).at(-1), 'write')
+  assert.equal(
+    (await run({ cancelAfter: 'write' })).at(-1),
+    'write',
+    'Між записом і позначкою: позначки немає, пул уже не порожній — наступне відкриття лише поставить її.',
+  )
 })
 
 test('кнопка бачить лише ті страви набору, яких немає серед живих', () => {
@@ -159,8 +151,6 @@ test('кнопка бачить лише ті страви набору, яки�
   assert.deepEqual(missingStarterMeals(FAMILY, SET, live), rest)
   assert.deepEqual(missingStarterMeals(FAMILY, SET, new Set()), SET)
 })
-
-/* --- Запис у базу пристрою ----------------------------------------------- */
 
 function localDb() {
   const sqlite = new DatabaseSync(':memory:')
@@ -214,8 +204,11 @@ test('засів: відредагована жива страва лишаєт�
       deleted_at: null,
     },
   )
-  // Повтор нічого не додає й не дублює — ні страв, ні рецептів.
-  assert.equal(await seedStarterMeals(db, FAMILY, SET), 0)
+  assert.equal(
+    await seedStarterMeals(db, FAMILY, SET),
+    0,
+    'Повтор нічого не додає й не дублює — ні страв, ні рецептів.',
+  )
   const count = (table: string) =>
     sqlite.prepare('SELECT count(*) AS n FROM ' + table).get()?.n
   assert.equal(count('meal'), SET.length)

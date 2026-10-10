@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 export const COMMENT_FREE_DIRS = []
 
+export const COMMENT_FREE_FILES = [/\.test\.ts$/]
+
 const EXCEPTIONS = [
   /^packages\/db\/migrations\/000[0-7]_/,
   /^apps\/web\/(android|ios)\//,
@@ -70,9 +72,14 @@ const SYNTAXES = [
 const STRING = /(?<=^|[\s:=(,[{'])('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")/gm
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
-export function isCommentFree(file, dirs = COMMENT_FREE_DIRS) {
+export function isCommentFree(
+  file,
+  dirs = COMMENT_FREE_DIRS,
+  files = COMMENT_FREE_FILES,
+) {
   return (
-    dirs.some((dir) => file === dir || file.startsWith(dir + '/')) &&
+    (dirs.some((dir) => file === dir || file.startsWith(dir + '/')) ||
+      files.some((pattern) => pattern.test(file))) &&
     !EXCEPTIONS.some((re) => re.test(file))
   )
 }

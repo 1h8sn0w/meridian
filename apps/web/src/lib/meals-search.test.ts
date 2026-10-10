@@ -1,8 +1,3 @@
-/**
- * Фільтри «Страв» з адреси (MER-86) — через той самий розбір, що й у роутері:
- * якщо він колись почне віддавати `gerd` рядком, а не `true`, тест це покаже.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { defaultParseSearch } from '@tanstack/react-router'

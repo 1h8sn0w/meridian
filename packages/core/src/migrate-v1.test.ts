@@ -1,9 +1,3 @@
-/**
- * Розбір дампа V1 (MER-48). Перевіряємо саме те, через що міграція зазвичай і
- * бреше: підставлений нуль замість «невідомо», тихо загублене посилання й
- * повторний запуск, що подвоює пул.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -15,7 +9,6 @@ import type { Meal } from './types.ts'
 const FAMILY = '11111111-1111-4111-8111-111111111111'
 const OTHER_FAMILY = '22222222-2222-4222-8222-222222222222'
 
-/** Страва пулу V1 — форма рівно та, що її пише `createMeal`. */
 const GRECHKA = {
   id: 'meal_abc',
   name: 'Гречка з куркою',
@@ -80,7 +73,6 @@ function dump(data: Record<string, unknown>): unknown {
   return { format: 'meridian-v1-export', version: 1, data }
 }
 
-/** Повний дамп: пул, смаки, два профілі й ключі, які до V2 не їдуть. */
 function fullDump(): unknown {
   return dump({
     'meridian.meals.v1': [GRECHKA, OMLET],
@@ -112,23 +104,27 @@ function reasons(skipped: ReadonlyArray<Skipped>, what: string): Array<string> {
   return skipped.filter((item) => item.what === what).map((item) => item.reason)
 }
 
-/* ==========================================================================
- * Страви: те, заради чого міграція й робиться
- * ======================================================================== */
-
 test('страва переїжджає дослівно — план, «≈», порції, інгредієнти', () => {
   const meal = mealNamed(migrateV1(fullDump(), FAMILY), 'Гречка з куркою')
   assert.equal(meal.type, 'lunch')
   assert.equal(meal.calories, 520)
-  // MER-26: прапорець приблизності не можна загубити — інакше оцінка почне
-  // видавати себе за цифру дієтолога.
-  assert.equal(meal.caloriesApprox, true)
-  // MER-75: у V1 маркера ГЕРХ не було — не позначено, а не вгадано.
-  assert.equal(meal.gerd, false)
+  assert.equal(
+    meal.caloriesApprox,
+    true,
+    'MER-26: прапорець приблизності не можна загубити — інакше оцінка почне видавати себе за цифру дієтолога.',
+  )
+  assert.equal(
+    meal.gerd,
+    false,
+    'MER-75: у V1 маркера ГЕРХ не було — не позначено, а не вгадано.',
+  )
   assert.equal(meal.protein, 38)
   assert.equal(meal.fat, null)
-  // `source` — план дієтолога, а не провенанс-енум.
-  assert.equal(meal.source, 'Тиждень 2')
+  assert.equal(
+    meal.source,
+    'Тиждень 2',
+    '`source` — план дієтолога, а не провенанс-енум.',
+  )
   assert.deepEqual(meal.ingredients, [
     { name: 'сирок', amount: 40, unit: 'г' },
     'овочі на вибір',
@@ -155,8 +151,6 @@ test('нечислова калорійність стає NULL, а не нул�
 })
 
 test('пробіли, масив і boolean у полі числа — це NULL, а не нуль', () => {
-  // `Number('   ')`, `Number([])` і `Number(false)` дають нуль, `Number(true)` —
-  // одиницю. Тобто наївний `Number()` вигадав би тут справжню цифру.
   const result = migrateV1(
     dump({
       'meridian.meals.v1': [
@@ -171,8 +165,11 @@ test('пробіли, масив і boolean у полі числа — це NULL
   assert.equal(mealNamed(result, 'Пробіли').calories, null)
   assert.equal(mealNamed(result, 'Масив').calories, null)
   assert.equal(mealNamed(result, 'Булеве').calories, null)
-  // Числовий рядок — це все-таки число: V1 міг зберегти його саме так.
-  assert.equal(mealNamed(result, 'Числовий рядок').calories, 420)
+  assert.equal(
+    mealNamed(result, 'Числовий рядок').calories,
+    420,
+    'Числовий рядок — це все-таки число: V1 міг зберегти його саме так.',
+  )
 })
 
 test('булева ціль профілю не стає одиницею, а відкидає профіль', () => {
@@ -231,14 +228,13 @@ test('дубль id у пулі не подвоює страву', () => {
   assert.match(reasons(result.skipped, 'Страва «Копія»')[0] ?? '', /уже була/)
 })
 
-/* ==========================================================================
- * Рецепт — окрема таблиця, і порожнього рядка в ній не буває
- * ======================================================================== */
-
 test('рецепт відділяється від страви й створюється лише за наявності полів', () => {
   const result = migrateV1(fullDump(), FAMILY)
-  // У «Гречки» жодного рецептного поля немає — отже, рядка `recipe` теж.
-  assert.equal(result.recipes.length, 1)
+  assert.equal(
+    result.recipes.length,
+    1,
+    'У «Гречки» жодного рецептного поля немає — отже, рядка `recipe` теж.',
+  )
   const recipe = result.recipes[0]
   assert.ok(recipe)
   assert.equal(recipe.mealId, mealNamed(result, 'Омлет').id)
@@ -272,10 +268,6 @@ test('зіпсований рецепт не забирає з собою стр
   )
 })
 
-/* ==========================================================================
- * Id: виведення, а не генерація
- * ======================================================================== */
-
 test('повторний запуск дає ті самі id — імпорт ідемпотентний', () => {
   const first = migrateV1(fullDump(), FAMILY)
   const second = migrateV1(fullDump(), FAMILY)
@@ -294,9 +286,6 @@ test('повторний запуск дає ті самі id — імпорт �
 })
 
 test('id профілю «default» у різних сім’ях НЕ збігаються', () => {
-  // У V1 профіль за замовчуванням має буквальний id `default` — однаковий у
-  // кожного користувача. Без сім'ї в імені дві родини на одному self-host
-  // зіткнулися б на первинному ключі.
   const mine = migrateV1(fullDump(), FAMILY)
   const theirs = migrateV1(fullDump(), OTHER_FAMILY)
   assert.notEqual(
@@ -306,17 +295,11 @@ test('id профілю «default» у різних сім’ях НЕ збіг�
 })
 
 test('id смаку виводиться зі страви, а не з ключа V1 (MER-57)', () => {
-  // Той самий id має порахувати й застосунок, коли смак ставлять уже у V2, —
-  // інакше друга вставка того самого смаку впаде на унікальному індексі.
   const result = migrateV1(fullDump(), FAMILY)
   const favorite = result.prefs.find((pref) => pref.value === 'favorite')
   assert.ok(favorite)
   assert.equal(favorite.id, mealPrefId(favorite.mealId))
 })
-
-/* ==========================================================================
- * Смаки (MER-18)
- * ======================================================================== */
 
 test('смаки переїжджають із перерахованими посиланнями на страви', () => {
   const result = migrateV1(fullDump(), FAMILY)
@@ -347,10 +330,6 @@ test('смак страви, якої немає в перенесеному п�
     /невідоме значення/,
   )
 })
-
-/* ==========================================================================
- * Профілі (MER-21, MER-17)
- * ======================================================================== */
 
 test('профіль переїжджає з ціллю, коридором, порційною літерою й цілями БЖВ', () => {
   const profile = profileNamed(migrateV1(fullDump(), FAMILY), 'Профіль 1')
@@ -492,10 +471,6 @@ test('битий колір не втрачає профіль — це акце
   assert.equal(profileNamed(result, 'Профіль 1').color, '#4f9dff')
 })
 
-/* ==========================================================================
- * Те, що свідомо не переноситься
- * ======================================================================== */
-
 test('тижні, календар, покупки й стан UI потрапляють у skipped із причиною', () => {
   const { skipped } = migrateV1(fullDump(), FAMILY)
   for (const key of [
@@ -526,10 +501,6 @@ test('нечитабельний ключ сховища не зникає мо�
     /коректним JSON/,
   )
 })
-
-/* ==========================================================================
- * Межі
- * ======================================================================== */
 
 test('не дамп V1 — це помилка файлу, а не порожній результат', () => {
   assert.throws(() => migrateV1({ hello: 'world' }, FAMILY), /дамп Meridian V1/)

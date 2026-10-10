@@ -1,9 +1,3 @@
-/**
- * Причина, чому не відкрилась база пристрою (MER-73). Без неї застосунок
- * лишався на «Готуємо локальну базу…» назавжди — і саме тут легко знову
- * сховати оригінальний текст помилки або пообіцяти повтор, який не допоможе.
- */
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -38,12 +32,6 @@ test('кинуто не Error — текст однаково доходить �
   })
   assert.equal(failure.detail, 'wasm unavailable')
 })
-
-/**
- * Причина, чому не синхронізується (MER-84). Офлайн — не помилка: панель тоді
- * лишається на «Офлайн», а тривожний блок з'являється лише тоді, коли людина чи
- * адміністратор справді може щось зробити.
- */
 
 test('немає мережі — це офлайн, а не помилка', () => {
   const online = { direction: 'download', online: true } as const
@@ -104,7 +92,6 @@ test('інша причина: напрям визначає текст, ори�
     'HTTP Internal Server Error: replication slot missing',
   )
 
-  // PostgrestError — звичайний об'єкт, не Error: текст однаково доходить.
   const upload = syncFailure(
     { message: 'new row violates check constraint', code: '23514' },
     { direction: 'upload', online: true },
