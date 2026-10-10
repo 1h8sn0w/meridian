@@ -36,19 +36,23 @@ RUN pnpm --filter @meridian/web build
 
 # --- Caddy, зібраний нами ----------------------------------------------------
 FROM golang:1.26-alpine AS caddy-build
+# Статичний бінарник: у golang:alpine немає C-компілятора, та й musl у
+# рантаймному образі свій.
 ENV CGO_ENABLED=0
 WORKDIR /build
 COPY infra/caddy-build/main.go .
 RUN apk add --no-cache libcap \
     && go mod init meridian/caddy \
-    && go get github.com/caddyserver/caddy/v2@v2.11.7 \
+    && go get github.com/caddyserver/caddy/v2@v2.11.7 golang.org/x/net@v0.61.0 \
     && go mod tidy \
-    && go get golang.org/x/net@latest \
-    && go build -trimpath -ldflags '-s -w' -o /out/caddy . \
+    && go build -trimpath -tags nobadger,nomysql,nopgx -ldflags '-s -w' -o /out/caddy . \
     && setcap cap_net_bind_service=+ep /out/caddy
 
 # --- Рантайм -----------------------------------------------------------------
 FROM alpine:3.23 AS runtime
+# Пакети базового образу — до найсвіжіших у тій самій гілці Alpine, на яку
+# вказує тег (MER-67): тег довго стоїть на одному знімку, а виправлення CVE
+# виходять раніше, ніж базу перезбирають.
 RUN apk upgrade --no-cache \
     && apk add --no-cache ca-certificates mailcap \
     && mkdir -p /config/caddy /data/caddy \
