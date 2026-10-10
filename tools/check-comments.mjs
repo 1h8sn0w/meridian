@@ -72,14 +72,10 @@ const SYNTAXES = [
 const STRING = /(?<=^|[\s:=(,[{'])('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")/gm
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
-export function isCommentFree(
-  file,
-  dirs = COMMENT_FREE_DIRS,
-  files = COMMENT_FREE_FILES,
-) {
+export function isCommentFree(file, dirs = COMMENT_FREE_DIRS) {
   return (
     (dirs.some((dir) => file === dir || file.startsWith(dir + '/')) ||
-      files.some((pattern) => pattern.test(file))) &&
+      COMMENT_FREE_FILES.some((pattern) => pattern.test(file))) &&
     !EXCEPTIONS.some((re) => re.test(file))
   )
 }

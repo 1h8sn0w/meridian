@@ -65,6 +65,26 @@ test('антиповтор понад довжину тижня зводитьс
 })
 
 test('MER-27: знаходить розклад, що існує лише при точному коридорі', () => {
+  const knownSolution = [
+    [100, 200, 200, 300],
+    [200, 100, 300, 200],
+    [300, 300, 100, 100],
+  ]
+  for (const day of knownSolution) {
+    assert.equal(
+      day.reduce((sum, calories) => sum + calories, 0),
+      800,
+      'відомий розклад дає рівно 800 ккал на день',
+    )
+  }
+  for (const slot of MEAL_TYPES.keys()) {
+    assert.deepEqual(
+      knownSolution.map((day) => day[slot]).sort(),
+      [100, 200, 300],
+      'кожен тип у відомому розкладі — перестановка трьох страв по днях',
+    )
+  }
+
   const pool: Array<Meal> = []
   for (const type of MEAL_TYPES) {
     ;[100, 200, 300].forEach((calories, i) => {
@@ -87,7 +107,7 @@ test('MER-27: знаходить розклад, що існує лише при
     assert.equal(
       result.usedCorridor,
       1,
-      'зерно ' + seed + ': коридор послаблено',
+      'зерно ' + seed + ': коридор послаблено, хоч розклад рівно на 800 існує',
     )
     assert.deepEqual(weekViolations(result), [], 'зерно ' + seed)
     for (const day of result.days) assert.equal(day.calories.total, 800)
@@ -198,7 +218,11 @@ test('MER-30: single-source — це релаксація з окремим по
     }),
   )
   assert.equal(result.mixPossible, true)
-  assert.equal(result.mixed, false)
+  assert.equal(
+    result.mixed,
+    false,
+    'єдина страва «Тиждень 2» ніколи не влазить у коридор — тиждень чесний, але не зміксований',
+  )
   assert.equal(result.usedCorridor, 0)
   assert.ok(
     result.warnings.includes(
@@ -231,7 +255,11 @@ test('коридор послаблюється лише за потреби —
       random: seeded(11),
     }),
   )
-  assert.equal(result.usedCorridor, 50)
+  assert.equal(
+    result.usedCorridor,
+    50,
+    'калорійності пулу кратні 10, тож рівно 2055 недосяжне, а найближче — на кроці 50',
+  )
   assert.ok(
     result.warnings.includes(
       'Не вдалося втриматись у ±0 ккал — коридор розширено до ±50 ккал.',
@@ -265,7 +293,11 @@ test('MER-38: обіцяні ±500 ккал справді пробуються 
   const result = expectOk(
     generateWeek(pool, { targetCalories: 2000, random: seeded(13) }),
   )
-  assert.equal(result.usedCorridor, 500)
+  assert.equal(
+    result.usedCorridor,
+    500,
+    'кроком 50 від 100 край ±500 перестрибується (450→525), тож він пробується окремою фінальною спробою',
+  )
   for (const day of result.days) assert.equal(day.calories.total, 1500)
   assert.deepEqual(weekViolations(result), [])
 })
