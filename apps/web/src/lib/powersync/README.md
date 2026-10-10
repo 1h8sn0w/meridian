@@ -43,12 +43,10 @@
 
 ## Збіг схеми в чотирьох місцях
 
-Таблиці й колонки мусять збігатися в міграціях (публікація `powersync`,
-`GRANT SELECT` для `powersync_role`, типи колонок), у стрімах
-`sync-config.yaml`, в `AppSchema` і в `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Тримає
-це `sync-contract.test.ts`. Таблиця, яка свідомо не їде на пристрої,
-дописується в його винятки (`NOT_PUBLISHED`). Покроково, що змінювати при новій
-таблиці, — у [`packages/db/README.md`](../../../../../packages/db/README.md#якщо-додаєте-таблицю).
+Міграції, `sync-config.yaml`, `AppSchema` і `JSON_COLUMNS`/`BOOLEAN_COLUMNS`
+звіряє `sync-contract.test.ts`; таблиця, що свідомо не їде на пристрої, — у
+його винятках (`NOT_PUBLISHED`). Що змінювати при новій таблиці —
+[`packages/db/README.md`](../../../../../packages/db/README.md#якщо-додаєте-таблицю).
 
 У розробці база лежить ще й на `window.Meridian.sync`: запит із консолі —
 найкоротший спосіб перевірити, що зміна доїхала до сервера й на інший пристрій.
