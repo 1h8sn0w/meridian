@@ -60,7 +60,7 @@ COPY infra/caddy-build/main.go .
 RUN go mod init meridian/caddy \
     && go get github.com/caddyserver/caddy/v2@v2.11.4 \
     && go mod tidy \
-    && go get golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.59.0 google.golang.org/grpc@v1.83.2 \
+    && go get golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.60.0 google.golang.org/grpc@v1.83.2 \
     && go build -trimpath -ldflags '-s -w' -o /out/caddy .
 
 # --- Рантайм -----------------------------------------------------------------
