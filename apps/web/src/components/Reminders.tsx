@@ -17,12 +17,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import {
-  MEAL_TYPE_LABELS,
-  dateKey,
-  formatMealCalories,
-  planOwnerId,
-} from '@meridian/core'
+import { MEAL_TYPE_LABELS, dateKey, formatMealCalories } from '@meridian/core'
 import type { MealType } from '@meridian/core'
 import { useSyncState } from '../lib/powersync/provider'
 import { useActiveProfile } from '../lib/active-profile'
@@ -74,12 +69,8 @@ function ReminderTicker() {
   const now = useNow()
   const meals = useMeals()
   const profiles = useProfiles()
-  const { profile } = useActiveProfile(profiles.data)
-  const week = useWeek(
-    profile ? planOwnerId(profile) : null,
-    meals.data,
-    dateKey(now),
-  )
+  const { planOwnerId } = useActiveProfile(profiles.data)
+  const week = useWeek(planOwnerId, meals.data, dateKey(now))
   const plan = week.data
 
   useEffect(() => {

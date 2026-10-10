@@ -25,7 +25,6 @@ import {
   formatCalories,
   formatMealCalories,
   generateWeek,
-  planOwnerId,
   poolForProfile,
   precedingMealIds,
   precedingWindow,
@@ -73,9 +72,11 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
   const prefsRead = useTastePrefs()
-  const { profile } = useActiveProfile(profilesRead.data)
-  const ownerId = profile ? planOwnerId(profile) : null
-  const owner = profilesRead.data.find((p) => p.id === ownerId) ?? profile
+  const {
+    profile,
+    planOwnerId: ownerId,
+    planOwner: owner,
+  } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
 
   const antiRepeatDays =

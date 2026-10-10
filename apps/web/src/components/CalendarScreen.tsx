@@ -33,7 +33,6 @@ import {
   dateKey,
   formatDayCalories,
   formatMealCalories,
-  planOwnerId,
   startOfWeek,
 } from '@meridian/core'
 import type { Meal } from '@meridian/core'
@@ -62,10 +61,11 @@ export function CalendarScreen() {
 
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
-  const { profile } = useActiveProfile(profilesRead.data)
-  // MER-17/21: пов'язаний профіль дивиться календар власника спільного плану.
-  const ownerId = profile ? planOwnerId(profile) : null
-  const owner = profilesRead.data.find((p) => p.id === ownerId) ?? profile
+  const {
+    profile,
+    planOwnerId: ownerId,
+    planOwner: owner,
+  } = useActiveProfile(profilesRead.data)
 
   // Вид: понеділок видимого тижня + вибраний день, обидва з адреси. Без них —
   // «тиждень сьогодні»: вид їде за годинником пристрою, і кнопка «Сьогодні»
