@@ -12,6 +12,7 @@
  */
 
 import { useEffect } from 'react'
+import { planOwnerId } from '@meridian/core'
 import { useStoredChoice } from './device-choice'
 import type { AppProfile } from './data/model'
 
@@ -43,6 +44,8 @@ function applyAccent(color: string): void {
 type ActiveProfile = {
   /** Активний профіль або null, доки в сім'ї немає жодного. */
   profile: AppProfile | null
+  planOwnerId: string | null
+  planOwner: AppProfile | null
   setActive: (id: string) => void
 }
 
@@ -75,5 +78,8 @@ export function useActiveProfile(
     applyAccent(color)
   }, [color])
 
-  return { profile, setActive: setId }
+  const ownerId = profile ? planOwnerId(profile) : null
+  const planOwner = profiles.find((p) => p.id === ownerId) ?? profile
+
+  return { profile, planOwnerId: ownerId, planOwner, setActive: setId }
 }

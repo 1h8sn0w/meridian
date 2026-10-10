@@ -16,7 +16,6 @@ import {
   MEAL_TYPE_LABELS,
   dateKey,
   formatMealCalories,
-  planOwnerId,
   poolForProfile,
   poolShortage,
 } from '@meridian/core'
@@ -77,9 +76,12 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
   const prefsRead = useTastePrefs()
-  const { profile, setActive } = useActiveProfile(profilesRead.data)
-  const ownerId = profile ? planOwnerId(profile) : null
-  const owner = profilesRead.data.find((p) => p.id === ownerId) ?? profile
+  const {
+    profile,
+    planOwnerId: ownerId,
+    planOwner: owner,
+    setActive,
+  } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
 
   const [managing, setManaging] = useState(false)
