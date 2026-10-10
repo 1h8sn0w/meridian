@@ -121,7 +121,7 @@ PowerSync. Другу гілку у функції лишено як була �
 Хук читає `family_member` і додає `family_id` у claims кожного токена — і при
 вході, і при оновленні. Немає членства — немає й claim, і клієнт не бачить
 нічого: це нормальний стан щойно зареєстрованого акаунта, а не поломка.
-Увімкнути хук треба на боці Supabase (`infra/README.md`) — без цього все
+Увімкнути хук треба на боці Supabase (`infra/DECISIONS.md`) — без цього все
 зібрано правильно й мовчить.
 
 **Хук — `SECURITY DEFINER`, і це свідома розбіжність із прикладом у
@@ -262,7 +262,7 @@ MER-45: підставити claims із `sub`, викликати `public.creat
 2. політику по `family_id` — без неї таблиця просто мовчить;
 3. тригер `touch_updated_at` і GRANT `SELECT, INSERT, UPDATE` (без DELETE);
 4. **додати таблицю в публікацію `powersync`** (вона перелічує таблиці явно, див.
-   `infra/README.md`) і `GRANT SELECT` для `powersync_role`, а поза цією
+   `infra/DECISIONS.md`) і `GRANT SELECT` для `powersync_role`, а поза цією
    міграцією — стрім у `sync-config.yaml`, таблицю в `AppSchema` і її
    `jsonb`/`boolean`-колонки в `JSON_COLUMNS`/`BOOLEAN_COLUMNS`. Таблиця, якій на
    пристрої нема чого робити, натомість іде у винятки

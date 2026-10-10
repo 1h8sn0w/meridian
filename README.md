@@ -2,31 +2,31 @@
 
 # Meridian
 
-**A meal planner that assembles your week from your dietitian's approved plans.**
+**Планувальник харчування, що сам збирає тижневий раціон із перевірених планів дієтолога.**
 
 [![CI](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml)
-![V2](https://img.shields.io/badge/V2-local--first%20·%20in%20progress-4f9dff)
-![license](https://img.shields.io/badge/license-MIT-46c98b)
+![V2](https://img.shields.io/badge/V2-local--first%20·%20у%20роботі-4f9dff)
+![ліцензія](https://img.shields.io/badge/ліцензія-MIT-46c98b)
 
-<img src="docs/preview.svg" width="360" alt="Meridian home screen — day clock and active meal">
+<img src="docs/preview.svg" width="360" alt="Головний екран Meridian — годинник дня та активна страва">
 
-[Українською](README-UA.md)
+[In English](README.en.md)
 
 </div>
 
 ---
 
-Meridian turns a dietitian's PDF meal plans into a working app. It splits them into individual meals and assembles a new week on its own — keeping the dietitian's calorie targets and meal structure, but mixing dishes across several plans so the rotation doesn't get stale. The home screen answers one question: what to eat right now.
+Meridian перетворює PDF-плани дієтолога на робочий застосунок. Розкладає їх на окремі страви й сам збирає новий тиждень — тримає калорійність і структуру дієтолога, але міксує страви з кількох планів, щоб раціон не набридав. Головний екран відповідає на одне питання: що їсти зараз.
 
-Unlike general-purpose meal planners, it never invents food. Every meal comes from a plan your dietitian approved.
+На відміну від універсальних планувальників, він нічого не вигадує. Кожна страва — з плану, який затвердив ваш дієтолог.
 
-## How the generator works
+## Як працює генератор
 
-For each slot it picks a meal so that the type matches, the day's calories stay inside a corridor around the target (±100 kcal by default), no dish repeats too often, and the week draws on several source plans rather than copying one. It's a constraint satisfaction problem, solved greedily with randomness and bounded backtracking. No ML involved.
+Для кожного слота добирає страву так, щоб збігався тип, денна калорійність трималась у коридорі навколо цілі (±100 ккал за замовчуванням), страви не повторювались надто часто, а тиждень спирався на кілька базових планів, а не копіював один. Це задача з обмеженнями, що розв'язується жадібно з випадковістю й обмеженим бектрекуванням. Без ML.
 
-It lives in [`packages/core`](packages/core) as framework-free TypeScript with no storage of its own, and its tests re-run the hard cases across several PRNG seeds — otherwise "greedy with randomness" could pass by luck.
+Живе він у [`packages/core`](packages/core) — чистий TypeScript без залежностей від фреймворків і без власного сховища, а його тести проганяють межові випадки на кількох зернах PRNG: інакше «жадібно з випадковістю» могло б пройти випадково.
 
-## Run it
+## Запуск
 
 ```sh
 git clone https://github.com/1h8sn0w/meridian.git
@@ -34,73 +34,73 @@ cd meridian
 docker compose up
 ```
 
-That is the entire installation. Nothing to fill in, no keys to copy, no ports or addresses to reconcile: the stack generates its own secrets, applies its own migrations, and the services find each other by name inside the Compose network. The first run takes a few minutes because the app image is built; after that, seconds. Then open <http://localhost>, sign up, and create a family.
+Це вся установка. Ні файлів для заповнення, ні ключів для копіювання, ні портів і адрес для звіряння: стек генерує собі секрети сам, схему накочує сам, а сервіси знаходять одне одного за іменами всередині мережі Compose. Перший запуск — кілька хвилин, бо збирається образ застосунку; далі — секунди. Потім відкрити <http://localhost>, зареєструватись і створити сім'ю.
 
-Caddy is the only thing published outside — one origin serves the app, auth, the REST endpoint and sync on separate paths, so the browser never sees a port or a second hostname. To reach the stack from the internet, one variable in `.env` next to `compose.yaml`:
+Назовні опублікований лише Caddy: одне походження віддає застосунок, вхід, REST і синхронізацію різними шляхами, тож у браузері немає ні портів, ні других імен хостів. Щоб стек був доступний з інтернету, вистачить однієї змінної в `.env` поруч із `compose.yaml`:
 
 ```
 APP_URL=https://meridian.example.com
 ```
 
-The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, once the domain resolves to this host and 80/443 reach it. Those ports have to be free on the host, or set `HTTP_PORT` / `HTTPS_PORT`.
+Схема значуща: `https://` вмикає автоматичний сертифікат Let's Encrypt, щойно домен резолвиться на цей хост і 80/443 доходять ззовні. Ці порти мають бути вільні на хості — інакше задати `HTTP_PORT` / `HTTPS_PORT`.
 
-Signup is open by default, because a fresh stack has to let someone create the first account — so on a stack reachable from the internet, closing it with `GOTRUE_DISABLE_SIGNUP=true` is the last step of the install rather than an afterthought. Two consequences come with it: adding a new family member needs signup reopened for the length of one registration, and password reset does not work at all until you configure SMTP — there is no mail in the stack. The ordered procedure for all of it, along with the prebuilt image and where the secrets live, is in [`infra/README.md`](infra/README.md).
+Реєстрація типово відкрита, бо свіжий стек має дати завести перший акаунт, — тож для стека, доступного з інтернету, закрити її через `GOTRUE_DISABLE_SIGNUP=true` це останній крок установки, а не порада наостанок. З ним ідуть два наслідки: щоб додати нового члена сім'ї, реєстрацію доведеться відкрити на час однієї реєстрації, а відновлення пароля не працює взагалі, доки не налаштовано SMTP — пошти в стеку немає. Порядок дій, а разом із ним готовий образ і де лежать секрети — в [`infra/README.md`](infra/README.md).
 
-A starter set of meals is optional. It is a JSON file with meals from the dietitian's plans, kept on the server outside the repository. Point `STARTER_SET_FILE` in `.env` at it and run `docker compose up migrate`; a new family, or one whose pool is still empty, gets those meals on first open; a family that already has meals adds the missing ones with a button on the Meals screen. The format is in [`packages/core/README.md`](packages/core/README.md#стартовий-набір-формат-файлу-mer-77) and the setup in [`infra/README.md`](infra/README.md#стартовий-набір-страв).
+Стартовий набір страв — необов'язковий. Це JSON-файл зі стравами з планів дієтолога, який лежить на сервері поза репозиторієм. Шлях до нього задає `STARTER_SET_FILE` у `.env`, потім треба виконати `docker compose up migrate`. Нова сім'я (або сім'я з порожнім пулом) отримає ці страви при першому відкритті, а сім'я, у якої страви вже є, додасть відсутні кнопкою на екрані «Страви». Формат описано в [`packages/core/README.md`](packages/core/README.md#стартовий-набір-формат-файлу-mer-77), підключення — в [`infra/README.md`](infra/README.md#стартовий-набір-страв).
 
-## Where it stands
+## Де це зараз
 
-V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and seven tables syncing across a family's devices. Still ahead: a store release of the mobile build — the wrapper and both native projects are in the repository, but nothing has been compiled on a device yet.
+V2 уже покриває те, що вмів прототип: вхід і модель сім'ї (GoTrue, `family_id` як claim у токені, запрошення кодом замість листа), екрани — «Сьогодні», «Тиждень», «Календар», «Страви», «Рецепт», «Покупки», «Сім'я» — які читають і пишуть базу на пристрої, генерація тижня й ручна заміна, портовані в `packages/core` разом із тестами, імпорт планів із PDF, нагадування про прийоми їжі, встановлення як PWA й офлайн, і синхронізація семи таблиць між пристроями сім'ї. Попереду — реліз мобільної збірки: оболонку й обидва нативні проєкти зібрано, але на пристрої ще не компільовано.
 
-V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity. It stays in git history, and on GitHub Pages until `staging` lands on `main`; the localStorage data it left behind is imported by V2 from the Family screen.
+V1 — один HTML-файл, vanilla JS, `localStorage`, без бекенду й бандлера — довів ідею й був видалений із репозиторію в MER-68, щойно V2 досяг паритету. Він лишається в історії git, а на GitHub Pages — доки `staging` не зіллється в `main`; дані, які він зберіг у localStorage, V2 імпортує з екрана «Сім'я».
 
-## Stack
+## Стек
 
-The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is a static Vite + TanStack Router SPA — there is no application server at all: Caddy serves the files and fills the browser’s three configuration values into `index.html` as it serves them. Capacitor wraps that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
+Джерело істини для інтерфейсу — SQLite на пристрої, тож жодне читання чи запис не чекає на мережу; PowerSync фоном тримає базу в збіжності з Postgres, а записи йдуть через PostgREST — саме тому конфлікти розв'язуються звичайним last-write-wins на рівні слота, без CRDT. Фронтенд — статичний SPA на Vite + TanStack Router; сервера застосунку немає взагалі: файли роздає Caddy, він же вписує в `index.html` три значення конфігу для браузера. Цю ж збірку загортає Capacitor для мобільного. Серверна частина — свідома підмножина self-host Supabase: Postgres, GoTrue і PostgREST, рівно ті три сервіси, до яких застосунок звертається, а не звичні одинадцять, — за Caddy.
 
 <details>
-<summary>Working on the styles</summary>
+<summary>Робота зі стилями</summary>
 
-There is exactly one Tailwind build in the repository, and it lives in `apps/web`: the official `@tailwindcss/vite` plugin, entry point `apps/web/src/styles.css`. `pnpm dev` picks up changes to the theme immediately — no separate CSS step.
+Tailwind у репозиторії рівно один, і живе він в `apps/web`: офіційний плагін `@tailwindcss/vite`, точка входу — `apps/web/src/styles.css`. `pnpm dev` підхоплює зміни теми одразу, окремого кроку збірки CSS немає.
 
-The old V1 setup — `@tailwindcss/cli` producing a committed `tailwind.css` — was removed in MER-53 along with the `build:css` / `watch:css` scripts. The design tokens moved into `apps/web/src/styles.css` unchanged. Preflight is still deliberately left out so native form controls keep their appearance; the few reset properties that are actually needed are declared in the `base` layer.
+Старий підхід V1 — `@tailwindcss/cli`, що збирав закомічений `tailwind.css`, — прибрано в MER-53 разом зі скриптами `build:css` / `watch:css`. Дизайн-токени переїхали в `apps/web/src/styles.css` без змін. Preflight так само свідомо не підключено, щоб не змінювати нативний вигляд form controls; ті кілька reset-властивостей, які справді потрібні, оголошені в шарі `base`.
 
-Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
+Мінімальні версії браузерів для Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
 
 </details>
 
-## Repository layout
+## Структура репозиторію
 
-The repository is a pnpm workspace:
+Репозиторій — pnpm-воркспейс:
 
-| Path | What |
-|------|------|
-| `compose.yaml` | The self-host stack, whole: seven services, zero manual steps |
-| `apps/web` | Static Vite + TanStack Router app; Capacitor wraps this same build |
-| `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
-| `packages/db` | SQL migrations for Postgres and the script that applies them |
-| `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |
-| `.github/workflows` | Checks on every PR; the app image published on every push |
+| Шлях | Що це |
+|------|-------|
+| `compose.yaml` | Увесь self-host: сім сервісів, нуль ручних кроків |
+| `apps/web` | Статичний застосунок Vite + TanStack Router; цю саму збірку загортає Capacitor |
+| `packages/core` | Доменна логіка чистим TypeScript: генератор тижня, калорії, правила провенансу |
+| `packages/db` | SQL-міграції для Postgres і скрипт, який їх накочує |
+| `infra` | Dockerfile'и, Caddyfile, конфіг PowerSync, генерація секретів, накладка для `compose` |
+| `.github/workflows` | Перевірки на кожен PR; образ застосунку — на кожен пуш |
 
-Working on the app itself:
+Робота над самим застосунком:
 
 ```sh
 pnpm install
-pnpm dev             # apps/web on http://localhost:3000
-pnpm build           # every package
+pnpm dev             # apps/web на http://localhost:3000
+pnpm build           # усі пакети
 pnpm lint
 pnpm typecheck
-pnpm test            # unit tests of packages/core and apps/web
-pnpm format          # format:check is what CI runs
+pnpm test            # юніт-тести packages/core і apps/web
+pnpm format          # у CI виконується format:check
 pnpm db:migrate
 ```
 
-`pnpm dev` expects the stack running next to it: it uses the same database, the same GoTrue and the same sync service, just with hot module replacement. It needs `apps/web/.env` first, because the anon key only exists inside the stack — [`infra/README.md`](infra/README.md) has the one command that reads it out. Without that file the app renders an explicit "not configured" screen rather than failing silently.
+`pnpm dev` розрахований на вже піднятий поруч стек: він бере ту саму базу, той самий GoTrue і той самий sync, лише з гарячою заміною модулів. Спершу йому потрібен `apps/web/.env`, бо anon-ключ існує тільки всередині стека — команда, яка його звідти читає, є в [`infra/README.md`](infra/README.md). Без цього файлу застосунок покаже явний екран «не налаштовано», а не мовчки зламається.
 
-## Docs
+## Документація
 
-Every directory that made a real decision explains it next to the code: [`infra/README.md`](infra/README.md) — self-host, secrets, the published image; [`packages/core/README.md`](packages/core/README.md) — the domain port and its rules; [`packages/db/README.md`](packages/db/README.md) — tables, RLS, replication. Project context for AI agents lives in [`AGENTS.md`](AGENTS.md). Architecture decisions, research and the task board live in Linear, not in this repository.
+Кожна тека, у якій прийняте справжнє рішення, пояснює його у своєму `README.md` поруч із кодом: [`infra/README.md`](infra/README.md) — установка self-host, секрети, опублікований образ (рішення самого стека — [`infra/DECISIONS.md`](infra/DECISIONS.md)); [`packages/core/README.md`](packages/core/README.md) — генератор і правила домену; [`packages/db/README.md`](packages/db/README.md) — таблиці, RLS, реплікація; [`apps/web/README.md`](apps/web/README.md) — застосунок, PWA і нативна оболонка. Доменні терміни — у [`GLOSSARY.md`](GLOSSARY.md), контекст для AI-агентів — у [`AGENTS.md`](AGENTS.md). Архітектурні рішення, дослідження й дошка задач живуть у Linear, а не в цьому репозиторії.
 
-## License
+## Ліцензія
 
 [MIT](LICENSE) © 2026 Volodymyr Chornous
