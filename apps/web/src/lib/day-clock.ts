@@ -43,7 +43,12 @@ export const MEAL_HOUR_TYPES: ReadonlyArray<MealHourType> = [
   'dinner',
 ]
 
-export const MEAL_HOUR_STEP = 15
+const MEAL_HOUR_STEP = 15
+
+export const MEAL_HOUR_MARKS = Array.from(
+  { length: DAY_MINUTES / MEAL_HOUR_STEP + 1 },
+  (_, index) => index * MEAL_HOUR_STEP,
+)
 
 export const DEFAULT_MEAL_HOURS: MealHours = {
   breakfast: { start: minute(6, 0), end: minute(11, 0) },
@@ -74,6 +79,12 @@ export function mealWindows(hours: MealHours): Array<MealWindow> {
 }
 
 export const DEFAULT_MEAL_WINDOWS = mealWindows(DEFAULT_MEAL_HOURS)
+
+export function sameMealHours(a: MealHours, b: MealHours): boolean {
+  return MEAL_HOUR_TYPES.every(
+    (type) => a[type].start === b[type].start && a[type].end === b[type].end,
+  )
+}
 
 export function mealHoursProblems(
   hours: MealHours,

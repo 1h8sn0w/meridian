@@ -85,7 +85,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
     setActive,
   } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
-  const mealWindows = useMealWindows()
+  const { problems: windowProblems } = useMealWindows()
 
   const [managing, setManaging] = useState(false)
   const [swapping, setSwapping] = useState<{
@@ -98,7 +98,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
     profilesRead.problems,
     prefsRead.problems,
     week.problems,
-    mealWindows.problems,
+    windowProblems,
   ]
 
   return (

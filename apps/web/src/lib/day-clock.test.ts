@@ -8,6 +8,7 @@ import {
   mealHoursProblems,
   mealWindows,
   phaseAt,
+  sameMealHours,
   slotAt,
 } from './day-clock.ts'
 import type { MealHours } from './day-clock.ts'
@@ -38,6 +39,10 @@ test('стандартні вікна — ті самі, що були заши�
     ],
   )
   assert.deepEqual(mealHoursProblems(DEFAULT_MEAL_HOURS), {})
+  assert.ok(
+    sameMealHours(structuredClone(DEFAULT_MEAL_HOURS), DEFAULT_MEAL_HOURS),
+  )
+  assert.ok(!sameMealHours(EARLY, DEFAULT_MEAL_HOURS))
 })
 
 test('перекус — проміжок між кінцем обіду й початком вечері', () => {

@@ -38,7 +38,8 @@ import type {
   WeekPlan,
 } from '@meridian/core'
 import type { CommonPowerSyncDatabase } from '@powersync/web'
-import type { MealHours } from '../day-clock'
+import { DEFAULT_MEAL_HOURS, sameMealHours } from '../day-clock.ts'
+import type { MealHours } from '../day-clock.ts'
 
 export type Db = CommonPowerSyncDatabase
 
@@ -476,9 +477,10 @@ export async function setMealPref(
 export async function saveMealHours(
   db: Db,
   familyId: string,
-  hours: MealHours | null,
+  hours: MealHours,
 ): Promise<void> {
-  const values = hours
+  const custom = !sameMealHours(hours, DEFAULT_MEAL_HOURS)
+  const values = custom
     ? [
         hours.breakfast.start,
         hours.breakfast.end,
@@ -502,7 +504,7 @@ export async function saveMealHours(
       )
       return
     }
-    if (!hours) return
+    if (!custom) return
     await tx.execute(
       'INSERT INTO family_settings (breakfast_start, breakfast_end,' +
         ' lunch_start, lunch_end, dinner_start, dinner_end, id, family_id)' +

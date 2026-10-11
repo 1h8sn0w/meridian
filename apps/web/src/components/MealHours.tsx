@@ -3,28 +3,17 @@ import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS } from '@meridian/core'
 import {
   DEFAULT_MEAL_HOURS,
-  MEAL_HOUR_STEP,
+  MEAL_HOUR_MARKS,
   MEAL_HOUR_TYPES,
   formatMinute,
   mealHoursProblems,
+  sameMealHours,
 } from '../lib/day-clock'
 import type { MealHourType, MealHours } from '../lib/day-clock'
 import { saveMealHours } from '../lib/data/mutations'
 import { useMealWindows } from '../lib/meal-windows'
 import { errorText } from '../lib/messages'
 import { Button, Hint, LinkButton, Meta, Panel, SelectField, Warn } from './ui'
-
-const QUARTERS = Array.from(
-  { length: 1440 / MEAL_HOUR_STEP + 1 },
-  (_, index) => index * MEAL_HOUR_STEP,
-)
-
-const isDefault = (hours: MealHours) =>
-  MEAL_HOUR_TYPES.every(
-    (type) =>
-      hours[type].start === DEFAULT_MEAL_HOURS[type].start &&
-      hours[type].end === DEFAULT_MEAL_HOURS[type].end,
-  )
 
 export function MealHoursPanel({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -37,7 +26,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
     setBusy(true)
     setFailure(null)
     try {
-      await saveMealHours(db, familyId, isDefault(next) ? null : next)
+      await saveMealHours(db, familyId, next)
       setDraft(null)
     } catch (cause) {
       setFailure(errorText(cause))
@@ -88,7 +77,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
               aria-invalid={Boolean(problems[type])}
               onChange={(event) => patch(type, 'start', event.target.value)}
             >
-              {QUARTERS.slice(0, -1).map((minute) => (
+              {MEAL_HOUR_MARKS.slice(0, -1).map((minute) => (
                 <option key={minute} value={minute}>
                   {formatMinute(minute)}
                 </option>
@@ -100,7 +89,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
               aria-invalid={Boolean(problems[type])}
               onChange={(event) => patch(type, 'end', event.target.value)}
             >
-              {QUARTERS.slice(1).map((minute) => (
+              {MEAL_HOUR_MARKS.slice(1).map((minute) => (
                 <option key={minute} value={minute}>
                   {formatMinute(minute)}
                 </option>
@@ -134,7 +123,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
           Скасувати
         </Button>
       </div>
-      {isDefault(draft) ? null : (
+      {sameMealHours(draft, DEFAULT_MEAL_HOURS) ? null : (
         <div className="mt-3 text-center">
           <LinkButton
             disabled={busy}
