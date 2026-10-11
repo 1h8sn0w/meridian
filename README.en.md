@@ -50,7 +50,7 @@ A starter set of meals is optional. It is a JSON file with meals from the dietit
 
 ## Where it stands
 
-V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and seven tables syncing across a family's devices. Still ahead: a store release of the mobile build — the wrapper and both native projects are in the repository, but nothing has been compiled on a device yet.
+V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and eight tables syncing across a family's devices. Still ahead: a store release of the mobile build — the wrapper and both native projects are in the repository, but nothing has been compiled on a device yet.
 
 V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity. It stays in git history, and on GitHub Pages until `staging` lands on `main`; the localStorage data it left behind is imported by V2 from the Family screen.
 

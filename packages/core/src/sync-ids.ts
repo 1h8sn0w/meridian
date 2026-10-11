@@ -171,6 +171,10 @@ export function recipeId(mealId: string): string {
   return derive(['recipe', mealId])
 }
 
+export function familySettingsId(familyId: string): string {
+  return derive(['family_settings', familyId])
+}
+
 /* ==========================================================================
  * Стартовий набір (MER-77)
  * ======================================================================== */

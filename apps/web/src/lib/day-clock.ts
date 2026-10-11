@@ -8,16 +8,10 @@
  * Тут лише **геометрія й час пристрою** — жодних страв, калорій чи планів.
  * Страву поточного прийому картка бере окремо, з локальної бази: годинник
  * відповідає лише на питання «який прийом зараз».
- *
- * **Вікна лишаються тут, а не в** `packages/core`. MER-47 переносив у ядро
- * доменну логіку — генератор, калорії, провенанс; `MealClock` у той обсяг не
- * входив, і не випадково: межі прийомів — це налаштування пристрою, а не
- * правило дієтолога. Тому `DEFAULT_WINDOWS` із V1 живуть поруч із компонентом,
- * який їх малює. Редагування вікон (V1 мав його на екрані «Сьогодні») у V2 ще
- * немає — для нього потрібне сховище стану пристрою, якого схема не описує.
  */
 
-import type { MealType } from '@meridian/core'
+import { MEAL_TYPE_LABELS } from '@meridian/core'
+import type { MealType, Row } from '@meridian/core'
 
 /**
  * Вікно прийому: тип із домену плюс те, чого в домені немає — межі доби й
@@ -27,7 +21,7 @@ import type { MealType } from '@meridian/core'
  * `@meridian/core`, і другий його примірник рано чи пізно розійшовся б із
  * першим (MER-71).
  */
-type MealWindow = {
+export type MealWindow = {
   type: MealType
   /** Родовий відмінок для підпису «час обіду» — GENITIVE із V1. */
   genitive: string
@@ -35,35 +29,103 @@ type MealWindow = {
   endMinute: number
 }
 
+const DAY_MINUTES = 1440
+
 const minute = (hh: number, mm: number) => hh * 60 + mm
 
-/** DEFAULT_WINDOWS із V1, у хвилинах доби. Порядок — MEAL_TYPES. */
-export const MEAL_WINDOWS: Array<MealWindow> = [
-  {
-    type: 'breakfast',
-    genitive: 'сніданку',
-    startMinute: minute(6, 0),
-    endMinute: minute(11, 0),
-  },
-  {
-    type: 'lunch',
-    genitive: 'обіду',
-    startMinute: minute(11, 0),
-    endMinute: minute(15, 0),
-  },
-  {
-    type: 'dinner',
-    genitive: 'вечері',
-    startMinute: minute(18, 0),
-    endMinute: minute(22, 0),
-  },
-  {
-    type: 'snack',
-    genitive: 'перекусу',
-    startMinute: minute(15, 0),
-    endMinute: minute(18, 0),
-  },
+export type MealHourType = 'breakfast' | 'lunch' | 'dinner'
+
+export type MealHours = Record<MealHourType, { start: number; end: number }>
+
+export const MEAL_HOUR_TYPES: ReadonlyArray<MealHourType> = [
+  'breakfast',
+  'lunch',
+  'dinner',
 ]
+
+export const MEAL_HOUR_STEP = 15
+
+export const DEFAULT_MEAL_HOURS: MealHours = {
+  breakfast: { start: minute(6, 0), end: minute(11, 0) },
+  lunch: { start: minute(11, 0), end: minute(15, 0) },
+  dinner: { start: minute(18, 0), end: minute(22, 0) },
+}
+
+const GENITIVE: Record<MealType, string> = {
+  breakfast: 'сніданку',
+  lunch: 'обіду',
+  dinner: 'вечері',
+  snack: 'перекусу',
+}
+
+export function mealWindows(hours: MealHours): Array<MealWindow> {
+  const bounds: Record<MealType, { start: number; end: number }> = {
+    ...hours,
+    snack: { start: hours.lunch.end, end: hours.dinner.start },
+  }
+  return [...MEAL_HOUR_TYPES, 'snack' as const]
+    .map((type) => ({
+      type,
+      genitive: GENITIVE[type],
+      startMinute: bounds[type].start,
+      endMinute: bounds[type].end,
+    }))
+    .filter((window) => window.startMinute < window.endMinute)
+}
+
+export const DEFAULT_MEAL_WINDOWS = mealWindows(DEFAULT_MEAL_HOURS)
+
+export function mealHoursProblems(
+  hours: MealHours,
+): Partial<Record<MealHourType, string>> {
+  const problems: Partial<Record<MealHourType, string>> = {}
+  MEAL_HOUR_TYPES.forEach((type, index) => {
+    const { start, end } = hours[type]
+    const previous = index ? MEAL_HOUR_TYPES[index - 1] : null
+    if (
+      ![start, end].every(
+        (value) =>
+          Number.isInteger(value) &&
+          value >= 0 &&
+          value <= DAY_MINUTES &&
+          value % MEAL_HOUR_STEP === 0,
+      )
+    ) {
+      problems[type] = 'Час — від 00:00 до 24:00 із кроком 15 хвилин.'
+    } else if (start >= end) {
+      problems[type] = 'Початок має бути раніше за кінець.'
+    } else if (previous && start < hours[previous].end) {
+      problems[type] =
+        MEAL_TYPE_LABELS[type] +
+        ' має починатися не раніше за кінець ' +
+        GENITIVE[previous] +
+        ' (' +
+        formatMinute(hours[previous].end) +
+        ').'
+    }
+  })
+  return problems
+}
+
+export function mealHoursFromRow(row: Row): MealHours | null {
+  const values = MEAL_HOUR_TYPES.flatMap((type) => [
+    row[type + '_start'],
+    row[type + '_end'],
+  ])
+  if (values.every((value) => value === null || value === undefined))
+    return null
+  if (!values.every((value): value is number => typeof value === 'number'))
+    throw new Error('Часові вікна прийомів збережено не повністю.')
+  const hours = Object.fromEntries(
+    MEAL_HOUR_TYPES.map((type, index) => [
+      type,
+      { start: values[index * 2], end: values[index * 2 + 1] },
+    ]),
+  ) as MealHours
+  const problem = Object.values(mealHoursProblems(hours))[0]
+  if (problem) throw new Error('Часові вікна прийомів: ' + problem)
+  return hours
+}
 
 /* Геометрія кільця: поле й радіус ті самі, що у V1 (SIZE 300, RING_R 95);
  * кільце тонше (у V1 — 26), щоб сонце на дузі читалося над ним. */
@@ -73,7 +135,6 @@ export const RING_RADIUS = 95
 export const RING_WIDTH = 14
 /** Радіус підписів навколо кільця — LABEL_R із V1. */
 const LABEL_RADIUS = 127
-const DAY_MINUTES = 1440
 
 /** Позначки годин на циферблаті: 00, 06, 12, 18 (як у V1). */
 export const HOUR_MARKS = [0, 360, 720, 1080] as const
@@ -113,14 +174,17 @@ type ActiveSlot =
   | { type: null; window: null; next: MealWindow | null }
 
 /** Який прийом іде зараз; поза вікнами — найближчий наступний (можливо, завтра). */
-export function slotAt(minutes: number): ActiveSlot {
-  for (const w of MEAL_WINDOWS) {
+export function slotAt(
+  minutes: number,
+  windows: ReadonlyArray<MealWindow>,
+): ActiveSlot {
+  for (const w of windows) {
     if (minutes >= w.startMinute && minutes < w.endMinute) {
       return { type: w.type, window: w, next: null }
     }
   }
   let best: { window: MealWindow; delta: number } | null = null
-  for (const w of MEAL_WINDOWS) {
+  for (const w of windows) {
     const delta =
       (w.startMinute - minutes + DAY_MINUTES) % DAY_MINUTES || DAY_MINUTES
     if (!best || delta < best.delta) best = { window: w, delta }
@@ -142,8 +206,11 @@ const PHASE_OF: Record<MealType, SkyPhase> = {
  * світанок на сніданок, полудень на обід, золото на перекус, захід на вечерю
  * й ніч поза вікнами. Нових меж доби немає — це той самий `slotAt`.
  */
-export function phaseAt(minutes: number): SkyPhase {
-  const type = slotAt(minutes).type
+export function phaseAt(
+  minutes: number,
+  windows: ReadonlyArray<MealWindow>,
+): SkyPhase {
+  const type = slotAt(minutes, windows).type
   return type ? PHASE_OF[type] : 'night'
 }
 

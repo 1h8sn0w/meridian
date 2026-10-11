@@ -165,6 +165,16 @@ const shoppingCheck = new Table(
   { indexes: { fingerprint: ['fingerprint'] } },
 )
 
+const familySettings = new Table({
+  ...syncColumns,
+  breakfast_start: column.integer,
+  breakfast_end: column.integer,
+  lunch_start: column.integer,
+  lunch_end: column.integer,
+  dinner_start: column.integer,
+  dinner_end: column.integer,
+})
+
 /**
  * Імена ключів — це імена таблиць у sync-правилах і в Postgres. Розбіжність
  * тут означала б, що дані приїжджають «нікуди»: PowerSync складе їх у таблицю,
@@ -178,6 +188,7 @@ export const AppSchema = new Schema({
   week_plan: weekPlan,
   plan_slot: planSlot,
   shopping_check: shoppingCheck,
+  family_settings: familySettings,
 })
 
 /**

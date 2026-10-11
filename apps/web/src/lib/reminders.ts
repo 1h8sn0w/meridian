@@ -26,7 +26,8 @@
 import { MEAL_TYPE_LABELS } from '@meridian/core'
 import type { MealType } from '@meridian/core'
 
-import { MEAL_WINDOWS, formatMinute } from './day-clock.ts'
+import { formatMinute } from './day-clock.ts'
+import type { MealWindow } from './day-clock.ts'
 
 export type ReminderSettings = {
   enabled: boolean
@@ -67,12 +68,17 @@ type DueReminder = {
  * переносити на попередній день не можна — то вже інший день плану (правило
  * V1).
  */
-export function reminderSchedule(leadMinutes: number): Array<DueReminder> {
-  return MEAL_WINDOWS.map((window) => ({
-    type: window.type,
-    startMinute: window.startMinute,
-    fireMinute: Math.max(0, window.startMinute - leadMinutes),
-  })).sort((a, b) => a.fireMinute - b.fireMinute)
+export function reminderSchedule(
+  leadMinutes: number,
+  windows: ReadonlyArray<MealWindow>,
+): Array<DueReminder> {
+  return windows
+    .map((window) => ({
+      type: window.type,
+      startMinute: window.startMinute,
+      fireMinute: Math.max(0, window.startMinute - leadMinutes),
+    }))
+    .sort((a, b) => a.fireMinute - b.fireMinute)
 }
 
 /**
@@ -83,8 +89,9 @@ export function dueReminders(
   minutes: number,
   leadMinutes: number,
   fired: ReadonlyArray<MealType>,
+  windows: ReadonlyArray<MealWindow>,
 ): Array<DueReminder> {
-  return reminderSchedule(leadMinutes).filter(
+  return reminderSchedule(leadMinutes, windows).filter(
     (item) =>
       !fired.includes(item.type) &&
       minutes >= item.fireMinute &&

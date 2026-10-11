@@ -32,11 +32,13 @@ import type { WeekView } from '../lib/data/model'
 import { formatToday } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
+import { useMealWindows } from '../lib/meal-windows'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
 import { DayTotal } from './DayTotal'
 import { FirstSteps } from './FirstSteps'
 import { MealDetails, MealMarks } from './MealDetails'
+import { MealHoursPanel } from './MealHours'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RecipeLink } from './RecipeLink'
@@ -83,6 +85,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
     setActive,
   } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
+  const mealWindows = useMealWindows()
 
   const [managing, setManaging] = useState(false)
   const [swapping, setSwapping] = useState<{
@@ -95,6 +98,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
     profilesRead.problems,
     prefsRead.problems,
     week.problems,
+    mealWindows.problems,
   ]
 
   return (
@@ -141,9 +145,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         />
       )}
 
-      {/* Налаштування нагадувань стоять під годинником, бо зсувають саме його
-          вікна (MER-65). Профіль для них не обов'язковий: вікна прийомів — це
-          налаштування пристрою, а не раціону. */}
+      <MealHoursPanel familyId={familyId} />
       <RemindersPanel week={week.data} />
 
       {managing ? (
@@ -201,7 +203,8 @@ function CurrentMeal({
 
   // Активний прийом; поза вікнами — найближчий наступний. Якщо його початок уже
   // позаду, це вже завтрашній прийом, і страву беремо з наступного дня плану.
-  const active = slotAt(minutes)
+  const { windows } = useMealWindows()
+  const active = slotAt(minutes, windows)
   const slot: MealType | null = active.type ?? active.next?.type ?? null
   const dayOffset =
     !active.type && active.next && active.next.startMinute <= minutes ? 1 : 0

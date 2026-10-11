@@ -20,7 +20,6 @@ import {
   CENTER,
   CLOCK_SIZE,
   HOUR_MARKS,
-  MEAL_WINDOWS,
   RING_RADIUS,
   RING_WIDTH,
   angleOf,
@@ -32,6 +31,7 @@ import {
   slotAt,
   windowMiddle,
 } from '../lib/day-clock'
+import { useMealWindows } from '../lib/meal-windows'
 
 /** Зазор 6 хв з кожного боку — щоб межі вікон читались, як у V1. */
 const GAP = 6
@@ -48,8 +48,9 @@ export function DayClock({
   full?: boolean
 }) {
   const ids = useId()
-  const active = slotAt(minutes)
-  const night = phaseAt(minutes) === 'night'
+  const { windows } = useMealWindows()
+  const active = slotAt(minutes, windows)
+  const night = phaseAt(minutes, windows) === 'night'
 
   const sentence = active.type
     ? `Зараз ${formatMinute(minutes)} — час ${active.window.genitive}.`
@@ -139,7 +140,7 @@ export function DayClock({
             })
           : null}
 
-        {MEAL_WINDOWS.map((w, index) => {
+        {windows.map((w, index) => {
           const on = active.type === w.type
           const from = w.startMinute + GAP
           const to = w.endMinute - GAP
@@ -182,7 +183,7 @@ export function DayClock({
         })}
 
         {full
-          ? MEAL_WINDOWS.map((w) => {
+          ? windows.map((w) => {
               const point = labelPoint(windowMiddle(w))
               const on = active.type === w.type
               return (

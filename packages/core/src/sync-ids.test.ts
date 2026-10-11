@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   MERIDIAN_NAMESPACE,
   derivedId,
+  familySettingsId,
   mealPrefId,
   planSlotId,
   recipeId,
@@ -45,6 +46,14 @@ test('id слота плану лишається тим самим назавж
   assert.equal(
     planSlotId(PROFILE, '2026-08-24', 'breakfast'),
     '9603b52b-de1c-5e1d-9d63-8bb30aa7053d',
+  )
+})
+
+test("id налаштувань сім'ї лишається тим самим назавжди і свій у кожної сім'ї", () => {
+  assert.equal(familySettingsId(FAMILY), '8bc35e32-24bf-5c93-919f-375070cf3188')
+  assert.equal(
+    familySettingsId(OTHER_FAMILY),
+    'a7610437-c02e-55cb-b059-a387601f1d36',
   )
 })
 
