@@ -105,7 +105,10 @@ test('відмову браузера отримує onError, а після зу
   assert.equal(errors.length, 1)
 
   const late = fakeScreen(true)
-  const stop = keepScreenAwake(late.host, fakePage().page, noError)
+  const stop = keepScreenAwake(late.host, fakePage().page, (cause) =>
+    errors.push(cause),
+  )
   stop()
   await late.settle()
+  assert.equal(errors.length, 1)
 })

@@ -352,7 +352,9 @@ function Steps({
               aria-pressed={done.has(index)}
               onClick={() => toggle(index)}
               className={`block w-full cursor-pointer border-0 bg-transparent px-0 py-1 text-left transition-opacity duration-300 ${
-                done.has(index) ? 'text-muted line-through opacity-60' : 'text-content'
+                done.has(index)
+                  ? 'text-muted line-through opacity-60'
+                  : 'text-content'
               }`}
             >
               {step}

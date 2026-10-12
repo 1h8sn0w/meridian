@@ -7,7 +7,7 @@ type ScreenHost = {
 type Page = EventTarget & { visibilityState: DocumentVisibilityState }
 
 export function canKeepScreenAwake(): boolean {
-  return typeof navigator !== 'undefined' && 'wakeLock' in navigator
+  return 'wakeLock' in navigator
 }
 
 export function keepScreenAwake(
