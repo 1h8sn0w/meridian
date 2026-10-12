@@ -14,24 +14,19 @@ export type MealsFilter = (typeof FILTERS)[number]
 export type MealsSearch = { filter?: MealsFilter; gerd?: true; q?: string }
 
 export function parseMealsSearch(search: Record<string, unknown>): MealsSearch {
-  const query = typeof search.q === 'number' ? String(search.q) : search.q
   return {
     filter: FILTERS.find((filter) => filter === search.filter),
     gerd: search.gerd === true ? true : undefined,
-    q: typeof query === 'string' && query.trim() ? query : undefined,
+    q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
   }
 }
 
 const fold = (text: string) =>
   text.toLocaleLowerCase('uk-UA').replace(/[’ʼ`]/g, "'")
 
-export function queryWords(query: string): Array<string> {
-  return fold(query).split(/\s+/).filter(Boolean)
-}
-
 export function mealMatches(
   meal: Pick<Meal, 'name' | 'ingredients'>,
-  words: ReadonlyArray<string>,
+  query: string,
 ): boolean {
   const text = fold(
     [
@@ -41,5 +36,7 @@ export function mealMatches(
       ),
     ].join('\n'),
   )
-  return words.every((word) => text.includes(word))
+  return fold(query)
+    .split(/\s+/)
+    .every((word) => text.includes(word))
 }

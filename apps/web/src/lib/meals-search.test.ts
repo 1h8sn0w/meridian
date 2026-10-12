@@ -5,7 +5,7 @@ import {
   defaultStringifySearch,
 } from '@tanstack/react-router'
 
-import { mealMatches, parseMealsSearch, queryWords } from './meals-search.ts'
+import { mealMatches, parseMealsSearch } from './meals-search.ts'
 
 const parse = (search: string) => parseMealsSearch(defaultParseSearch(search))
 
@@ -50,16 +50,12 @@ test('порожній запит чи запит із самих пробілі
   assert.equal(parse('?q=%20%20').q, undefined)
 })
 
-test('число в адресі, набране руками, — це запит, а не відсутність запиту', () => {
-  assert.equal(parse('?q=120').q, '120')
-})
-
 const omelette = {
   name: 'Омлет зі шпинатом',
   ingredients: [{ name: 'Яйце', amount: 2, unit: 'шт' }, 'шпинат — жменя'],
 }
 
-const matches = (query: string) => mealMatches(omelette, queryWords(query))
+const matches = (query: string) => mealMatches(omelette, query)
 
 test('збіг за частиною назви без урахування регістру', () => {
   assert.ok(matches('омл'))
@@ -85,11 +81,11 @@ test('кожне слово запиту має знайтися — у назв
 test('вид апострофа не важить', () => {
   const meat = { name: "М'ясо по-домашньому", ingredients: [] }
   for (const query of ['м’ясо', 'мʼясо', "м'ясо", 'м`ясо']) {
-    assert.ok(mealMatches(meat, queryWords(query)), query)
+    assert.ok(mealMatches(meat, query), query)
   }
 })
 
 test('порожній запит пропускає всі страви', () => {
-  assert.deepEqual(queryWords('   '), [])
   assert.ok(matches(''))
+  assert.ok(matches('   '))
 })

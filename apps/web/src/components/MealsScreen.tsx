@@ -22,7 +22,7 @@ import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { clearMeals, setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
-import { mealMatches, queryWords } from '../lib/meals-search'
+import { mealMatches } from '../lib/meals-search'
 import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
 import { MealMarks } from './MealDetails'
@@ -83,11 +83,11 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   const gerdCount = meals.filter((meal) => meal.gerd).length
 
-  const words = queryWords(query)
+  const searching = query.trim() !== ''
 
   const shown = meals.filter((meal) => {
     if (gerdOnly && !meal.gerd) return false
-    if (!mealMatches(meal, words)) return false
+    if (searching && !mealMatches(meal, query)) return false
     if (filter === 'all') return true
     if (filter === 'favorite') return prefs.favorites.has(meal.id)
     if (filter === 'disliked') return prefs.disliked.has(meal.id)
@@ -272,35 +272,35 @@ export function MealsScreen({ familyId }: { familyId: string }) {
         {cleared ? <InfoText>{cleared}</InfoText> : null}
 
         <div className="mt-4">
-          <p role="status" className="m-0 text-xs text-muted not-empty:mb-2">
-            {words.length && meals.length
-              ? shown.length
-                ? 'Знайдено ' +
-                  shown.length +
-                  ' ' +
-                  plural(shown.length, 'страву', 'страви', 'страв')
-                : 'Нічого не знайдено'
-              : null}
-          </p>
-
-          {shown.length === 0 ? (
-            <Empty>
-              {words.length && meals.length
-                ? 'Немає страв, де в назві чи інгредієнтах є «' +
-                  query.trim() +
-                  '»' +
-                  (filter !== 'all' || gerdOnly ? ' серед обраних.' : '.')
-                : gerdOnly && meals.length
-                  ? 'Немає страв із маркером ГЕРХ серед обраних.'
-                  : filter === 'all'
-                    ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
-                    : filter === 'favorite'
-                      ? 'Немає страв із позначкою «улюблене».'
-                      : filter === 'disliked'
-                        ? 'Немає страв із позначкою «не подобається».'
-                        : 'Немає страв цього типу.'}
-            </Empty>
-          ) : null}
+          <div role="status">
+            {shown.length ? (
+              searching ? (
+                <p className="m-0 mb-2 text-xs text-muted">
+                  {'Знайдено ' +
+                    shown.length +
+                    ' ' +
+                    plural(shown.length, 'страву', 'страви', 'страв')}
+                </p>
+              ) : null
+            ) : (
+              <Empty>
+                {searching && meals.length
+                  ? 'Немає страв, де в назві чи інгредієнтах є «' +
+                    query.trim() +
+                    '»' +
+                    (filter !== 'all' || gerdOnly ? ' серед обраних.' : '.')
+                  : gerdOnly && meals.length
+                    ? 'Немає страв із маркером ГЕРХ серед обраних.'
+                    : filter === 'all'
+                      ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
+                      : filter === 'favorite'
+                        ? 'Немає страв із позначкою «улюблене».'
+                        : filter === 'disliked'
+                          ? 'Немає страв із позначкою «не подобається».'
+                          : 'Немає страв цього типу.'}
+              </Empty>
+            )}
+          </div>
 
           {shown.map((meal) => {
             const taste = prefOf(prefs, meal.id)
