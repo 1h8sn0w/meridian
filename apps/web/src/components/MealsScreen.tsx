@@ -22,6 +22,7 @@ import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { clearMeals, setMealPref } from '../lib/data/mutations'
 import { plural } from '../lib/format'
+import { mealMatches, queryWords } from '../lib/meals-search'
 import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
 import { MealMarks } from './MealDetails'
@@ -32,10 +33,12 @@ import { StarterOffer } from './StarterSet'
 import {
   FilePdf,
   Heart,
+  MagnifyingGlass,
   PencilSimple,
   Plus,
   Prohibit,
   Trash,
+  X,
 } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import {
@@ -69,6 +72,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       resetScroll: false,
       viewTransition: false,
     })
+  const [query, setQuery] = useState(search.q ?? '')
   const [editing, setEditing] = useState<{ meal: Meal | null } | null>(null)
   const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -79,13 +83,21 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   const gerdCount = meals.filter((meal) => meal.gerd).length
 
+  const words = queryWords(query)
+
   const shown = meals.filter((meal) => {
     if (gerdOnly && !meal.gerd) return false
+    if (!mealMatches(meal, words)) return false
     if (filter === 'all') return true
     if (filter === 'favorite') return prefs.favorites.has(meal.id)
     if (filter === 'disliked') return prefs.disliked.has(meal.id)
     return meal.type === filter
   })
+
+  const changeQuery = (next: string) => {
+    setQuery(next)
+    setSearch({ q: next.trim() ? next : undefined })
+  }
 
   const toggle = async (meal: Meal, value: 'favorite' | 'disliked') => {
     setFailure(null)
@@ -201,6 +213,10 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>
+        {meals.length ? (
+          <MealSearch value={query} onChange={changeQuery} />
+        ) : null}
+
         <div className="mb-3 flex flex-wrap gap-1.5">
           {chips.map((chip) => (
             <Chip
@@ -256,17 +272,33 @@ export function MealsScreen({ familyId }: { familyId: string }) {
         {cleared ? <InfoText>{cleared}</InfoText> : null}
 
         <div className="mt-4">
+          <p role="status" className="m-0 text-xs text-muted not-empty:mb-2">
+            {words.length && meals.length
+              ? shown.length
+                ? 'Знайдено ' +
+                  shown.length +
+                  ' ' +
+                  plural(shown.length, 'страву', 'страви', 'страв')
+                : 'Нічого не знайдено'
+              : null}
+          </p>
+
           {shown.length === 0 ? (
             <Empty>
-              {gerdOnly && meals.length
-                ? 'Немає страв із маркером ГЕРХ серед обраних.'
-                : filter === 'all'
-                  ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
-                  : filter === 'favorite'
-                    ? 'Немає страв із позначкою «улюблене».'
-                    : filter === 'disliked'
-                      ? 'Немає страв із позначкою «не подобається».'
-                      : 'Немає страв цього типу.'}
+              {words.length && meals.length
+                ? 'Немає страв, де в назві чи інгредієнтах є «' +
+                  query.trim() +
+                  '»' +
+                  (filter !== 'all' || gerdOnly ? ' серед обраних.' : '.')
+                : gerdOnly && meals.length
+                  ? 'Немає страв із маркером ГЕРХ серед обраних.'
+                  : filter === 'all'
+                    ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
+                    : filter === 'favorite'
+                      ? 'Немає страв із позначкою «улюблене».'
+                      : filter === 'disliked'
+                        ? 'Немає страв із позначкою «не подобається».'
+                        : 'Немає страв цього типу.'}
             </Empty>
           ) : null}
 
@@ -356,6 +388,49 @@ export function MealsScreen({ familyId }: { familyId: string }) {
         </Hint>
       </Panel>
     </AppShell>
+  )
+}
+
+function MealSearch({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="relative mb-3">
+      <MagnifyingGlass
+        aria-hidden
+        size={18}
+        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-subtle"
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+        }}
+        aria-label="Пошук страв"
+        placeholder="Назва або інгредієнт"
+        enterKeyHint="search"
+        autoComplete="off"
+        spellCheck={false}
+        className="block w-full appearance-none rounded-2xl border border-line bg-app py-2.5 pl-10 pr-12 text-base text-content transition-colors duration-200 focus:border-accent [&::-webkit-search-cancel-button]:hidden"
+      />
+      {value ? (
+        <button
+          type="button"
+          aria-label="Очистити пошук"
+          title="Очистити пошук"
+          onClick={() => onChange('')}
+          className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted transition-transform duration-300 ease-spring hover:text-content active:scale-90 motion-safe:animate-fade"
+        >
+          <X aria-hidden size={16} weight="bold" />
+        </button>
+      ) : null}
+    </div>
   )
 }
 
