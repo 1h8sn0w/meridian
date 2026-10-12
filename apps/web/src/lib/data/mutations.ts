@@ -18,6 +18,7 @@
  */
 
 import {
+  familySettingsId,
   hasRecipe,
   mealPrefId,
   planSlotId,
@@ -37,6 +38,8 @@ import type {
   WeekPlan,
 } from '@meridian/core'
 import type { CommonPowerSyncDatabase } from '@powersync/web'
+import { DEFAULT_MEAL_HOURS, sameMealHours } from '../day-clock.ts'
+import type { MealHours } from '../day-clock.ts'
 
 export type Db = CommonPowerSyncDatabase
 
@@ -467,6 +470,46 @@ export async function setMealPref(
       'INSERT INTO meal_pref (id, family_id, meal_id, value)' +
         ' VALUES (?, ?, ?, ?)',
       [id, familyId, mealId, value],
+    )
+  })
+}
+
+export async function saveMealHours(
+  db: Db,
+  familyId: string,
+  hours: MealHours,
+): Promise<void> {
+  const custom = !sameMealHours(hours, DEFAULT_MEAL_HOURS)
+  const values = custom
+    ? [
+        hours.breakfast.start,
+        hours.breakfast.end,
+        hours.lunch.start,
+        hours.lunch.end,
+        hours.dinner.start,
+        hours.dinner.end,
+      ]
+    : Array(6).fill(null)
+  await db.writeTransaction(async (tx) => {
+    const row = await tx.getOptional<{ id: string }>(
+      'SELECT id FROM family_settings WHERE family_id = ? AND deleted_at IS NULL',
+      [familyId],
+    )
+    if (row) {
+      await tx.execute(
+        'UPDATE family_settings SET breakfast_start = ?, breakfast_end = ?,' +
+          ' lunch_start = ?, lunch_end = ?, dinner_start = ?, dinner_end = ?' +
+          ' WHERE id = ?',
+        [...values, row.id],
+      )
+      return
+    }
+    if (!custom) return
+    await tx.execute(
+      'INSERT INTO family_settings (breakfast_start, breakfast_end,' +
+        ' lunch_start, lunch_end, dinner_start, dinner_end, id, family_id)' +
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [...values, familySettingsId(familyId), familyId],
     )
   })
 }

@@ -28,6 +28,7 @@
 | Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek` | `shopping_check` | `shopping.ts` |
 | Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
 | Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
+| Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |
 | Імпорт V1 | `ImportV1Panel` | — | `importV1` | усі синхронні | `migrate-v1.ts` |
 
 Охоплення списку покупок (`lib/shopping-scope.ts`) і активний профіль
@@ -73,6 +74,13 @@ MER-66). Наявний рядок шукається **за природним 
 знята й поставлена наново позначка — це той самий рядок, який оживає. Індекс
 `recipe_meal_id_key` НЕ частковий і тримає й м'яко видалений рядок, тож для
 рецепта пошук за `meal_id` перед записом обов'язковий подвійно.
+
+### saveMealHours
+
+Рядок налаштувань сім'ї один, створюється з виведеним id
+(`familySettingsId`) і шукається за `family_id`. Вікна, що збігаються зі
+стандартними, пишуться як `NULL`: «немає налаштування» і «стандартні» — одне й
+те саме, і рядка без потреби не з'являється.
 
 ### Відбиток списку покупок
 

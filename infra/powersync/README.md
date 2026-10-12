@@ -9,7 +9,7 @@
 | Файл | Що |
 |------|-----|
 | `service.yaml` | Конфіг PowerSync Service: підключення до `db`, сховище бакетів, перевірка токенів. Монтується лише для читання |
-| `sync-config.yaml` | Правила синхронізації: один стрім `family_data` на сім'ю, сім таблиць |
+| `sync-config.yaml` | Правила синхронізації: один стрім `family_data` на сім'ю, вісім таблиць |
 
 Зміни обох файлів сервіс на льоту не підхоплює: `docker compose restart powersync`.
 
@@ -27,8 +27,8 @@
 - **`deleted_at IS NULL` у кожній вибірці — це і є доставка видалень.** М'яко
   видалений рядок перестає збігатися з правилом і зникає з пристроїв.
   Фізичного DELETE немає ніде (`packages/db/README.md`).
-- **Синхронізуються сім таблиць:** `profile`, `meal`, `recipe`, `meal_pref`,
-  `week_plan`, `plan_slot`, `shopping_check`. `family`, `family_member` і
+- **Синхронізуються вісім таблиць:** `profile`, `meal`, `recipe`, `meal_pref`,
+  `week_plan`, `plan_slot`, `shopping_check`, `family_settings`. `family`, `family_member` і
   `family_invite` лишаються за PostgREST: це облік доступу, і операції з ним
   однаково потребують мережі. `pdf_import` теж лишається за сервером: на
   пристрої від імпорту потрібні страви, а не вихідний текст (MER-52).

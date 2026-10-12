@@ -25,6 +25,7 @@ import { useMeals, useProfiles, useWeek } from '../lib/data/queries'
 import type { WeekView } from '../lib/data/model'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute } from '../lib/day-clock'
+import { useMealWindows } from '../lib/meal-windows'
 import {
   DEFAULT_SETTINGS,
   LEAD_OPTIONS,
@@ -72,6 +73,7 @@ function ReminderTicker() {
   const { planOwnerId } = useActiveProfile(profiles.data)
   const week = useWeek(planOwnerId, meals.data, dateKey(now))
   const plan = week.data
+  const { windows } = useMealWindows()
 
   useEffect(() => {
     // Налаштування й дозвіл читаються щотакту: користувач міг вимкнути
@@ -85,6 +87,7 @@ function ReminderTicker() {
       minutesOf(now),
       settings.leadMinutes,
       readFired(today),
+      windows,
     )) {
       // Позначку ставимо ДО показу: інакше збій показу повторював би спробу
       // щотакту, поки триває вікно «доганяємо».
@@ -93,7 +96,7 @@ function ReminderTicker() {
         reminderMessage(item, today, mealLabel(plan, item.type)),
       )
     }
-  }, [now, plan])
+  }, [now, plan, windows])
 
   return null
 }
@@ -114,6 +117,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const [settings, setSettings] = useState<ReminderSettings>(DEFAULT_SETTINGS)
   const [permission, setPermission] = useState<NotificationState>('default')
   const [error, setError] = useState<string | null>(null)
+  const { windows } = useMealWindows()
 
   // Дозвіл і налаштування читаються в ефекті: до першого рендера вони не
   // потрібні, а дозвіл ще й міняється ззовні застосунку.
@@ -158,7 +162,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const test = () => {
     const now = new Date()
     const minutes = minutesOf(now)
-    const schedule = reminderSchedule(settings.leadMinutes)
+    const schedule = reminderSchedule(settings.leadMinutes, windows)
     // Найближче наступне нагадування, а після останнього за добу — перше.
     const next =
       schedule.find((item) => item.fireMinute >= minutes) ?? schedule[0]
@@ -200,7 +204,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
 
       <Hint>
         Сьогодні:{' '}
-        {reminderSchedule(settings.leadMinutes)
+        {reminderSchedule(settings.leadMinutes, windows)
           .map(
             (item) =>
               MEAL_TYPE_LABELS[item.type] +

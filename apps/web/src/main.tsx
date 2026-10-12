@@ -14,6 +14,8 @@ import { readPublicEnv } from './lib/public-env'
 import { AuthProvider } from './lib/auth'
 import { SyncProvider } from './lib/powersync/provider'
 import { Sky, applySky, markClassicScrollbar } from './components/Sky'
+import { DEFAULT_MEAL_WINDOWS } from './lib/day-clock'
+import { MealWindowsProvider } from './lib/meal-windows'
 import { minutesOf } from './lib/use-now'
 // Шрифти — свої, зі збірки: офлайн-застосунок не має тягнути їх із CDN.
 import '@fontsource-variable/geist'
@@ -37,7 +39,7 @@ declare module '@tanstack/react-router' {
 const env = readPublicEnv()
 
 // Фаза неба — до першого кадру, інакше застосунок блимав би полуднем.
-applySky(minutesOf(new Date()))
+applySky(minutesOf(new Date()), DEFAULT_MEAL_WINDOWS)
 markClassicScrollbar()
 
 /* Service worker (MER-51) — лише в продакшн-збірці: він кешує оболонку, а
@@ -54,9 +56,11 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   // Синхронізація — усередині входу: вона живе з токена, і без нього їй нічого
   // робити (MER-46).
   <AuthProvider env={env}>
-    <Sky />
     <SyncProvider env={env}>
-      <RouterProvider router={router} />
+      <MealWindowsProvider>
+        <Sky />
+        <RouterProvider router={router} />
+      </MealWindowsProvider>
     </SyncProvider>
   </AuthProvider>,
 )

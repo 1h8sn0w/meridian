@@ -35,6 +35,8 @@ import type {
 import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
 import type { AppProfile, CalendarDayView, WeekView } from './model'
 import { errorText } from '../messages'
+import { mealHoursFromRow } from '../day-clock'
+import type { MealHours } from '../day-clock'
 
 /** Результат читання: дані плюс чесний перелік того, що не розібралося. */
 type Read<T> = {
@@ -179,6 +181,15 @@ export function useTastePrefs(): Read<TastePrefs> {
     [],
     (row) => row,
     prefsFromRows,
+  )
+}
+
+export function useMealHours(): Read<MealHours | null> {
+  return useRead(
+    'SELECT * FROM family_settings WHERE deleted_at IS NULL LIMIT 1',
+    [],
+    mealHoursFromRow,
+    asFirst,
   )
 }
 

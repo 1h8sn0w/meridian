@@ -72,6 +72,7 @@ export {
 export type { Row } from './rows.ts'
 
 export {
+  familySettingsId,
   mealPrefId,
   planSlotId,
   recipeId,

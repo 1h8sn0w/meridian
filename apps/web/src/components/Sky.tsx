@@ -12,15 +12,20 @@
 
 import { useEffect } from 'react'
 import { phaseAt } from '../lib/day-clock'
+import type { MealWindow } from '../lib/day-clock'
+import { useMealWindows } from '../lib/meal-windows'
 import { minutesOf, useNow } from '../lib/use-now'
 
 /**
  * Поставити фазу на документ. Викликається і до першого рендеру (`main.tsx`),
  * щоб застосунок не відкривався полуднем о сьомій ранку.
  */
-export function applySky(minutes: number): void {
+export function applySky(
+  minutes: number,
+  windows: ReadonlyArray<MealWindow>,
+): void {
   const root = document.documentElement
-  const phase = phaseAt(minutes)
+  const phase = phaseAt(minutes, windows)
   if (root.dataset.phase !== phase) root.dataset.phase = phase
 
   // Системна смуга в standalone-режимі — колір верху неба, інакше над ним шов.
@@ -48,12 +53,13 @@ export function markClassicScrollbar(): void {
  */
 export function Sky() {
   const minutes = minutesOf(useNow())
+  const { windows } = useMealWindows()
   useEffect(() => {
-    applySky(minutes)
+    applySky(minutes, windows)
     const scheme = window.matchMedia('(prefers-color-scheme: dark)')
-    const repaint = () => applySky(minutes)
+    const repaint = () => applySky(minutes, windows)
     scheme.addEventListener('change', repaint)
     return () => scheme.removeEventListener('change', repaint)
-  }, [minutes])
+  }, [minutes, windows])
   return null
 }
