@@ -15,7 +15,7 @@
  *    зміна з іншого пристрою приїжджає на неї сама (MER-46).
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
@@ -26,11 +26,13 @@ import { saveRecipe } from '../lib/data/mutations'
 import { fieldText, validateRecipe } from '../lib/forms'
 import type { RecipeDraft } from '../lib/forms'
 import { plural } from '../lib/format'
+import { canKeepScreenAwake, keepScreenAwake } from '../lib/wake-lock'
 import { AppShell } from './AppShell'
 import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
-import { CaretLeft, PencilSimple, Plus } from '@phosphor-icons/react'
+import { CaretLeft, PencilSimple, Plus, Sun } from '@phosphor-icons/react'
 import {
   Button,
+  Chip,
   Field,
   Hint,
   Panel,
@@ -91,12 +93,14 @@ export function RecipeScreen({
         <Photo meal={meal} photo={recipe?.photo ?? null} />
         <MealMarks meal={meal} block />
         <Chips meal={meal} recipe={recipe} />
+        <StayAwake />
         {/* Той самий склад, що на картці «Сьогодні» — правило «показувати чи
             ні» має бути одне на застосунок. `hideEmpty`: сторінка вся про склад
             страви, тож рядок «не вказано» тут зайвий (MER-63). */}
         <MealDetails meal={meal} portion={profile?.portion ?? null} hideEmpty />
         <SourceIssues meal={meal} />
         <Steps
+          key={recipe?.steps.join('\n')}
           steps={recipe?.steps ?? []}
           servings={recipe?.servings ?? null}
         />
@@ -272,6 +276,41 @@ function Chips({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
   )
 }
 
+function StayAwake() {
+  const [on, setOn] = useState(false)
+  const [refused, setRefused] = useState(false)
+
+  useEffect(() => {
+    if (!on) return
+    return keepScreenAwake(navigator, document, () => {
+      setOn(false)
+      setRefused(true)
+    })
+  }, [on])
+
+  if (!canKeepScreenAwake()) return null
+  return (
+    <div className="mt-3">
+      <Chip
+        active={on}
+        onClick={() => {
+          setRefused(false)
+          setOn(!on)
+        }}
+      >
+        <Sun aria-hidden size={14} weight={on ? 'fill' : 'regular'} />
+        Не гасити екран
+      </Chip>
+      {refused ? (
+        <Warn>
+          Браузер не дав тримати екран увімкненим — можливо, через режим
+          енергозбереження.
+        </Warn>
+      ) : null}
+    </div>
+  )
+}
+
 /* ==========================================================================
  * Кроки приготування
  * ======================================================================== */
@@ -283,7 +322,14 @@ function Steps({
   steps: ReadonlyArray<string>
   servings: number | null
 }) {
+  const [done, setDone] = useState<ReadonlySet<number>>(new Set())
   if (!steps.length) return null
+  const toggle = (index: number) =>
+    setDone((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(index)) next.add(index)
+      return next
+    })
   return (
     <>
       <SectionLabel>
@@ -295,10 +341,22 @@ function Steps({
             ' ' +
             plural(servings, 'порцію', 'порції', 'порцій')}
       </SectionLabel>
+      <p className="m-0 text-xs text-muted">
+        Натисніть на крок, щоб відмітити його зробленим.
+      </p>
       <ol className="mb-0 mt-1 list-decimal pl-5 text-sm leading-relaxed marker:font-mono marker:text-accent">
         {steps.map((step, index) => (
           <li key={index} className="my-px">
-            {step}
+            <button
+              type="button"
+              aria-pressed={done.has(index)}
+              onClick={() => toggle(index)}
+              className={`block w-full cursor-pointer border-0 bg-transparent px-0 py-1 text-left transition-opacity duration-300 ${
+                done.has(index) ? 'text-muted line-through opacity-60' : 'text-content'
+              }`}
+            >
+              {step}
+            </button>
           </li>
         ))}
       </ol>
