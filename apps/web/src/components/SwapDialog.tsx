@@ -27,8 +27,12 @@ import { toWeekPlan } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { replaceSlotMeal } from '../lib/data/mutations'
 import { formatDayTitle } from '../lib/format'
+import { mealMatches } from '../lib/meals-search'
 import { Check, Heart, Prohibit } from '@phosphor-icons/react'
+import { MealSearch, SearchFound, notFoundText } from './MealSearch'
 import { Button, Empty, Sheet, Tag, Warn } from './ui'
+
+const SEARCH_MIN_CANDIDATES = 6
 
 export function SwapDialog({
   view,
@@ -50,6 +54,7 @@ export function SwapDialog({
   const db = usePowerSync()
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   // Через `.at()`, а не `days[dayIndex]`: індексний доступ у цьому пакеті
   // типізується як завжди визначений, а день за межами плану — цілком реальний
@@ -112,6 +117,14 @@ export function SwapDialog({
     ([type, meal]) => type !== slot && meal.caloriesApprox,
   )
 
+  const searchable = result.candidates.length >= SEARCH_MIN_CANDIDATES
+  const searching = searchable && query.trim() !== ''
+  const shown = searching
+    ? result.candidates.filter((candidate) =>
+        mealMatches(candidate.meal, query),
+      )
+    : result.candidates
+
   const apply = async (meal: Meal) => {
     setBusy(true)
     setFailure(null)
@@ -154,6 +167,17 @@ export function SwapDialog({
         . Ціль {result.target} ± {result.corridor} ккал/день.
       </p>
 
+      {searchable ? <MealSearch value={query} onChange={setQuery} /> : null}
+      <div role="status">
+        {searching ? (
+          shown.length ? (
+            <SearchFound count={shown.length} />
+          ) : (
+            <Empty>{notFoundText(query) + '.'}</Empty>
+          )
+        ) : null}
+      </div>
+
       {result.candidates.length === 0 ? (
         <Empty>
           Немає інших страв типу «{MEAL_TYPE_LABELS[slot]}» у пулі. Додайте їх
@@ -161,7 +185,7 @@ export function SwapDialog({
         </Empty>
       ) : null}
 
-      {result.candidates.map((candidate) => (
+      {shown.map((candidate) => (
         <button
           key={candidate.meal.id}
           type="button"
