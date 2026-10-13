@@ -1,17 +1,7 @@
-/**
- * Спільне для юніт-тестів ядра: детерміноване джерело випадковості, фабрики
- * страв і профілів, перевірка тижня на всі чотири правила дієтолога.
- */
-
 import { MEAL_TYPES } from './types.ts'
 import type { Meal, MealType, Profile, TastePrefs, WeekPlan } from './types.ts'
 import type { Random } from './generator.ts'
 
-/**
- * Детермінований PRNG (mulberry32). Генератор навмисно приймає `random`
- * параметром саме заради цього: інакше «жадібно + випадковість» неможливо
- * перевірити тестом, і кожен прогін перевіряв би інший тиждень.
- */
 export function seeded(seed: number): Random {
   let a = seed >>> 0
   return () => {
@@ -22,7 +12,6 @@ export function seeded(seed: number): Random {
   }
 }
 
-/** Кілька різних зерен — щоб тест ловив не одну щасливу розстановку. */
 export const SEEDS: ReadonlyArray<number> = [1, 7, 42, 1234, 20260807]
 
 type MealInput = {
@@ -77,10 +66,6 @@ export function prefs(
   return { favorites: new Set(favorites), disliked: new Set(disliked) }
 }
 
-/**
- * Пул, у якому мікс планів можливий: по чотири страви кожного типу, порівну з
- * «Тиждень 1» і «Тиждень 2». Денна сума лежить у 2000…2120 ккал.
- */
 export function mixedPool(): Array<Meal> {
   const base: Record<MealType, number> = {
     breakfast: 400,
@@ -104,21 +89,12 @@ export function mixedPool(): Array<Meal> {
   return out
 }
 
-/** Усі страви тижня одним масивом (тестам зручніше, ніж імпорт із `plans`). */
 export function weekMealIds(plan: WeekPlan): Array<Array<string>> {
   return plan.days.map((day) => MEAL_TYPES.map((type) => day.meals[type].id))
 }
 
 type WeekViolation = string
 
-/**
- * Перевірити зібраний тиждень на правила 1–3 дієтолога: тип слота, коридор дня
- * і антиповтор. Правило 4 (мікс) перевіряють окремі тести — воно єдине, яке
- * генератор має право свідомо послабити.
- *
- * `precedingDays` (MER-29) враховуються так само, як у генераторі: вони
- * заповнюють вікно антиповтору перед днем 0.
- */
 export function weekViolations(
   plan: WeekPlan,
   precedingDays: ReadonlyArray<ReadonlyArray<string>> = [],

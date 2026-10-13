@@ -1,18 +1,3 @@
-/**
- * MER-12 / MER-28 — ручна заміна страви в слоті збереженого плану.
- *
- * Дві частини, як у V1:
- *  - `suggestReplacements` рахує кандидатів і **позначає кожного валідним чи
- *    ні** (коридор, антиповтор, мікс). UI блокує невалідних, тож зберегти
- *    невалідний тиждень ручною заміною не можна (MER-28);
- *  - `replaceSlot` застосовує заміну до плану й повертає НОВИЙ план — чисто, без
- *    сховища. Запис у локальний SQLite (і LWW на рівні слота, MER-46) — справа
- *    викликача; тут лише правила.
- *
- * Смак (MER-18) впливає лише на порядок і позначку: ручний вибір за
- * користувачем, тож валідності він не змінює.
- */
-
 import { dayCalories, hasValue } from './provenance.ts'
 import { plansCovering, poolPlans, weekSources } from './plans.ts'
 import { DEFAULTS } from './generator.ts'
@@ -29,16 +14,12 @@ import type {
 
 type ReplacementCandidate = {
   meal: PlannedMeal
-  /** Якою стане калорійність дня після заміни. */
   dayCalories: number
   withinCorridor: boolean
-  /** Страва вже стоїть у сусідньому дні вікна антиповтору. */
   repeatSoon: boolean
-  /** Заміна не ламає мікс планів (або мікс і не вимагався). */
   mixOk: boolean
   favorite: boolean
   disliked: boolean
-  /** false — заміна порушила б коридор/антиповтор/мікс; UI її блокує. */
   valid: boolean
   reasons: Array<string>
 }
@@ -51,12 +32,6 @@ type Replacements = {
   candidates: Array<ReplacementCandidate>
 }
 
-/**
- * Кандидати на заміну слота `slotType` у дні `dayIndex` плану.
- *
- * Сортування: спершу валідні, далі не-небажані, далі улюблені, далі ті, що
- * тримають коридор, далі без повтору поруч, далі ближчі до цілі.
- */
 export function suggestReplacements(
   pool: ReadonlyArray<Meal>,
   plan: WeekPlan,
@@ -77,7 +52,6 @@ export function suggestReplacements(
     ? plan.usedCorridor
     : DEFAULTS.corridor
 
-  // Сума решти слотів дня: прогноз дня для кандидата = решта + кандидат.
   let others = 0
   let othersUnknown = 0
   for (const type of MEAL_TYPES) {
@@ -86,12 +60,8 @@ export function suggestReplacements(
     if (hasValue(meal.calories)) others += meal.calories as number
     else othersUnknown += 1
   }
-  /* Провенанс: якщо сусідній слот без калорійності, прогноз дня — не число, а
-   * здогад. Коридор тоді не перевіряємо (нічого підставляти замість цифри) і
-   * кажемо це прямо в причинах. */
   const dayComparable = othersUnknown === 0
 
-  // Страви сусідніх днів у вікні антиповтору (в обидва боки від дня dayIndex).
   const anti = Math.max(1, Math.floor(plan.params.antiRepeatDays) || 1)
   const nearIds = new Set<string>()
   const from = Math.max(0, dayIndex - anti + 1)
@@ -103,8 +73,6 @@ export function suggestReplacements(
     for (const type of MEAL_TYPES) nearIds.add(other.meals[type].id)
   }
 
-  // MER-28/30: чи план узагалі вимагає міксу — щоб перевіряти, що заміна його не
-  // зламає. Решта страв тижня (крім цього слота) — база для перевірки.
   const universe = poolPlans(pool)
   const mixRequired =
     universe.size >= 2 && plansCovering(pool, universe).size === 0
@@ -121,8 +89,6 @@ export function suggestReplacements(
       (meal): meal is PlannedMeal =>
         meal.type === slotType &&
         meal.id !== current.id &&
-        // Страву без калорійності в слот не ставимо: коридор дня став би
-        // невідомим, а вигадати нуль не можна (правило провенансу).
         hasValue(meal.calories),
     )
     .map((meal): ReplacementCandidate => {
@@ -163,15 +129,6 @@ export function suggestReplacements(
   return { ok: true, current, target, corridor, mixRequired, candidates }
 }
 
-/**
- * Застосувати заміну: повертає НОВИЙ план (вхідний не мутується). Набір джерел
- * після заміни перераховується чесно — він міг змінитися.
- *
- * Валідність кандидата тут не переперевіряється: рішення ухвалює UI за
- * `suggestReplacements`, і користувач має право свідомо поставити страву, яку
- * генератор не обрав би. Що перевіряємо — це цілісність: чи є такий день, такий
- * слот і чи збігається тип страви.
- */
 export function replaceSlot(
   plan: WeekPlan,
   dayIndex: number,

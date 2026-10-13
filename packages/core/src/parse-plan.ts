@@ -1,29 +1,5 @@
-/**
- * Розпізнавання тексту PDF-плану дієтолога (MER-15 → MER-52).
- *
- * Порт `PdfImport.parsePlanText` із V1 (`index.html`) — чиста функція, без
- * жодного знання про PDF, DOM чи базу. Читання самого файлу лишається у вебі
- * (`lib/pdf-text.ts`): pdf.js несе воркер і WASM, а ядро має лишатися
- * придатним до виклику з Node і з нативу.
- *
- * **Головне правило — провенанс (AGENTS.md).** Беремо лише те, що буквально є
- * в тексті:
- *
- *  - калорійність — тільки з «N ккал»; немає — `null`, і страва без ручного
- *    вводу в пул не потрапить (нуль тут був би вигадкою);
- *  - БЖВ не розпізнаються **ніколи**: «Ж» і «Ч» у плані — це порції Жінка/
- *    Чоловік, а не жири. Полів для них тут немає навмисно, щоб спокуси не було;
- *  - кількості інгредієнтів структуруються лише за однозначного «число +
- *    одиниця», решта лишається дослівним рядком;
- *  - «Готова порція: …» (MER-24) зберігається дослівно, без поділу на числа.
- *
- * Результат — кандидати, а не страви: кожен запис людина бачить поруч із сирим
- * текстом і підтверджує сама.
- */
-
 import type { Ingredient, MealType, Portion } from './types.ts'
 
-/** Український підпис слота → тип моделі. */
 const SLOT_TYPES: Readonly<Record<string, MealType>> = {
   сніданок: 'breakfast',
   обід: 'lunch',
@@ -31,38 +7,22 @@ const SLOT_TYPES: Readonly<Record<string, MealType>> = {
   десерт: 'snack',
 }
 
-/**
- * Що робити із записом:
- *
- *  - `meal`   — страва-кандидат, типово позначена до імпорту;
- *  - `repeat` — «Той самий…»: страва попереднього дня, окремим рядком у пул не
- *    йде (у V1 такий запис навіть не можна було позначити);
- *  - `dup`    — назва вже трапилась вище в цьому ж тексті: позначити можна, але
- *    типово не імпортується.
- */
 type PlanEntryKind = 'meal' | 'repeat' | 'dup'
 
-/** Сумнівне місце розбору — показується користувачеві як є. */
 type PlanFlag = { code: string; message: string }
 
 export type PlanEntry = {
   kind: PlanEntryKind
   type: MealType
   name: string
-  /** Номер дня з «День N»; null — до першого такого рядка. */
   day: number | null
-  /** Номер тижня з «ТИЖДЕНЬ N»; null — до першого такого рядка. */
   week: number | null
-  /** `meal.source` — план дієтолога («Тиждень 2»), а не провенанс. */
   source: string
   calories: number | null
   ingredients: Array<Ingredient>
-  /** Дослівні нотатки приготування/подачі з плану. */
   steps: Array<string>
-  /** 2 для страв «На 2-х»; null — у плані не сказано. */
   servings: number | null
   portions: Array<Portion>
-  /** Усі рядки блоку як у PDF — щоб було з чим звіряти. */
   raw: Array<string>
   flags: Array<PlanFlag>
 }
@@ -77,7 +37,6 @@ type PlanStats = {
 
 export type PlanParse = { entries: Array<PlanEntry>; stats: PlanStats }
 
-/** Рядки, що ПОЧИНАЮТЬ новий логічний блок (решта може бути перенесенням). */
 const STARTERS: ReadonlyArray<RegExp> = [
   /^ТИЖДЕНЬ\s+\d+/i,
   /^День\s+\d+/i,
@@ -86,11 +45,6 @@ const STARTERS: ReadonlyArray<RegExp> = [
   /^Готова порція/i,
 ]
 
-/**
- * Фізичні рядки PDF мають жорсткі переноси посеред речень. Склеюємо:
- * продовженням вважаємо рядок, що починається з малої літери, цифри, дужки чи
- * розділового знака, а також «Ж -»/«Ч -» (порційні рядки).
- */
 function toLogicalLines(text: string): Array<string> {
   const lines: Array<string> = []
   for (const raw of String(text || '').split(/\r?\n/)) {
@@ -107,11 +61,6 @@ function toLogicalLines(text: string): Array<string> {
   return lines
 }
 
-/**
- * «400 г цвітної капусти» → `{ name, amount, unit }` — лише коли кількість
- * однозначна (число + г/кг/мл/л). Діапазони, «≈», ложки, штуки тощо лишаються
- * дослівним рядком: нічого не переписуємо.
- */
 function structureIngredient(item: string): Ingredient {
   const m = /^(\d+(?:[.,]\d+)?)\s*(кг|мл|г|л)\s+(.+)$/.exec(item)
   if (!m) return item
@@ -122,26 +71,15 @@ function structureIngredient(item: string): Ingredient {
   }
 }
 
-/**
- * Група збігу рядком. `noUncheckedIndexedAccess` вважає будь-який індекс
- * можливо-порожнім, а тут групи або обов'язкові, або порожній рядок і є
- * правильною відповіддю («Обід» без двокрапки).
- */
 function group(m: RegExpExecArray, index: number): string {
   return m[index] ?? ''
 }
 
-/** Інгредієнти «На 2-х…»: у плані розділені «;» або « + ». */
 function splitIngredients(body: string): Array<string> {
   const parts = body.includes(';') ? body.split(';') : body.split(/\s\+\s/)
   return parts.map((s) => s.trim()).filter((s) => s.length > 0)
 }
 
-/**
- * MER-41: inline «N ккал» у заголовку слота («Омлет — 500 ккал»), не лише в
- * десертах. Витягуємо калорійність і прибираємо її з назви. «Ж-/Ч-» — окремі
- * рядки-порції, сюди не потрапляють (це заголовок слота).
- */
 function extractInlineKcal(text: string): {
   name: string
   calories: number | null
@@ -151,35 +89,26 @@ function extractInlineKcal(text: string): {
   const calories = Number(group(m, 1).replace(',', '.'))
   const name = text
     .replace(m[0], ' ')
-    .replace(/\(\s*\)/g, ' ') // порожні дужки після вирізу
+    .replace(/\(\s*\)/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
-    .replace(/[\s—–,;:.-]+$/g, '') // хвостовий роздільник
+    .replace(/[\s—–,;:.-]+$/g, '')
     .trim()
   return { name: name || text.trim(), calories }
 }
 
-/** Ключ дедуплікації: назва без регістру й зайвих пробілів + тип слота. */
 export function planEntryKey(name: string, type: MealType): string {
   return name.toLowerCase().replace(/\s+/g, ' ').trim() + '|' + type
 }
 
-/** Розпізнати текст PDF-плану в список страв-кандидатів. */
 export function parsePlanText(text: string): PlanParse {
   const lines = toLogicalLines(text)
   const entries: Array<PlanEntry> = []
   let week: number | null = null
   let day: number | null = null
   let entry: PlanEntry | null = null
-  /** Назва складника — чекає свого рядка «Готова порція» (MER-24). */
   let component: string | null = null
 
-  /**
-   * Закрити поточний блок. Далі кожен виклик або починає новий запис, або
-   * скидає `entry` у null — присвоєння лишається у видимому потоці функції, а
-   * не ховається в замиканні: інакше компілятор не бачить, що запису може й не
-   * бути (шапка документа до першого слота).
-   */
   const close = () => {
     if (entry) entries.push(entry)
   }
@@ -224,13 +153,9 @@ export function parsePlanText(text: string): PlanParse {
     m = /^(Сніданок|Обід|Вечеря|Десерт)\s*(?::\s*(.*))?$/i.exec(line)
     if (m) {
       const type = SLOT_TYPES[group(m, 1).toLowerCase()]
-      /* Недосяжно: регулярка ловить рівно ті чотири підписи, що є в словнику.
-       * Перевірка тут лише щоб тип слота не довелося стверджувати касто́м. */
       if (!type) continue
       const rest = group(m, 2).trim()
 
-      /* Порожній підпис слота або «Той самий / Та сама / те саме» — повтор
-       * страви попереднього дня: у пул не додається, показується як довідка. */
       if (!rest || /^т(ой|а|е)\s+сам/i.test(rest)) {
         close()
         component = null
@@ -243,8 +168,6 @@ export function parsePlanText(text: string): PlanParse {
       }
 
       if (type === 'snack') {
-        /* Десертний рядок: «назва - порція…» або «назва. далі…». Відділяємо
-         * назву механічно; місце розрізу позначаємо на перевірку. */
         const dashIdx = rest.indexOf(' - ')
         const dotIdx = rest.indexOf('. ')
         let cut = rest.length
@@ -269,7 +192,6 @@ export function parsePlanText(text: string): PlanParse {
         continue
       }
 
-      // MER-41: сніданок/обід/вечеря — теж витягуємо inline-калорійність.
       const parsed = extractInlineKcal(rest)
       close()
       component = null
@@ -278,7 +200,7 @@ export function parsePlanText(text: string): PlanParse {
       continue
     }
 
-    if (!entry) continue // шапка документа («МЕНЮ…») — поза стравами
+    if (!entry) continue
     const current: PlanEntry = entry
     current.raw.push(line)
 
@@ -286,16 +208,14 @@ export function parsePlanText(text: string): PlanParse {
     if (m) {
       if (current.kind !== 'meal') continue
       const body = group(m, 1).trim()
-      if (!body || /^[-–—]+$/.test(body)) continue // «-» = без нових продуктів
-      current.servings = 2 // дослівне «На 2-х» із плану «Для двох»
+      if (!body || /^[-–—]+$/.test(body)) continue
+      current.servings = 2
       for (const item of splitIngredients(body)) {
         current.ingredients.push(structureIngredient(item))
       }
       continue
     }
 
-    /* MER-24: «Готова порція: Ж - …; Ч - …» — дослівно, з прив'язкою до
-     * складника (рядок-назва перед «На 2-х…»). Поділ за літерами — при показі. */
     m = /^Готова порція\s*:?\s*(.*)$/i.exec(line)
     if (m) {
       const portion = group(m, 1).trim()
@@ -306,17 +226,12 @@ export function parsePlanText(text: string): PlanParse {
       continue
     }
 
-    /* Нотатка приготування/подачі (речення з крапкою) — дослівно в кроки.
-     * Рядки без крапки — назви складників: лишаються в сирому тексті і стають
-     * прив'язкою для наступного рядка «Готова порція» (MER-24). */
     if (current.kind !== 'meal') continue
     if (/\.\s*$/.test(line)) current.steps.push(line)
     else component = line
   }
   close()
 
-  /* Дублікати назв (десерти повторюються між днями): перша страва лишається,
-   * наступні позначаються і типово не імпортуються. */
   const seen = new Set<string>()
   for (const e of entries) {
     if (e.kind !== 'meal' || !e.name) continue
@@ -332,7 +247,6 @@ export function parsePlanText(text: string): PlanParse {
     }
   }
 
-  // Калорійності в плані здебільшого немає — чесно позначаємо (без вигадок).
   for (const e of entries) {
     if (e.kind === 'meal' && e.calories === null) {
       e.flags.push({
