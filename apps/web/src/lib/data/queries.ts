@@ -19,6 +19,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@powersync/react'
 import {
+  DEFAULTS,
   addDays,
   mealFromRow,
   prefsFromRows,
@@ -32,7 +33,12 @@ import type {
   Row,
   TastePrefs,
 } from '@meridian/core'
-import { appProfileFromRow, buildCalendarDays, buildWeekView } from './model'
+import {
+  antiRepeatDaysFromRow,
+  appProfileFromRow,
+  buildCalendarDays,
+  buildWeekView,
+} from './model'
 import type { AppProfile, CalendarDayView, WeekView } from './model'
 import { errorText } from '../messages'
 import { mealHoursFromRow } from '../day-clock'
@@ -190,6 +196,15 @@ export function useMealHours(): Read<MealHours | null> {
     [],
     mealHoursFromRow,
     asFirst,
+  )
+}
+
+export function useAntiRepeatDays(): Read<number> {
+  return useRead(
+    'SELECT anti_repeat_days FROM family_settings WHERE deleted_at IS NULL LIMIT 1',
+    [],
+    antiRepeatDaysFromRow,
+    (items) => asFirst(items) ?? DEFAULTS.antiRepeatDays,
   )
 }
 

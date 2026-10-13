@@ -173,6 +173,7 @@ const familySettings = new Table({
   lunch_end: column.integer,
   dinner_start: column.integer,
   dinner_end: column.integer,
+  anti_repeat_days: column.integer,
 })
 
 /**

@@ -469,6 +469,28 @@ test('пул, якого не вистачає на вікно антиповт�
   assert.match(error, /Вечеря — 1 \(потрібно ≥ 3\)/)
 })
 
+test('MER-116: антиповтор 1 збирає тиждень із пулу, якого не вистачає для 3', () => {
+  const pool = mixedPool().filter(
+    (m) => m.type !== 'dinner' || m.id === 'dinner-0',
+  )
+  const strict = generateWeek(pool, {
+    targetCalories: 2050,
+    antiRepeatDays: 3,
+    random: seeded(43),
+  })
+  assert.equal(strict.ok, false)
+  assert.match(strict.error, /зменшіть антиповтор на екрані «Сьогодні»/)
+
+  const relaxed = generateWeek(pool, {
+    targetCalories: 2050,
+    antiRepeatDays: 1,
+    random: seeded(43),
+  })
+  assert.ok(relaxed.ok, relaxed.ok ? '' : relaxed.error)
+  assert.equal(relaxed.params.antiRepeatDays, 1)
+  assert.ok(relaxed.days.every((day) => day.meals.dinner.id === 'dinner-0'))
+})
+
 test('достатність пулу: на кожен тип щонайменше стільки страв, скільки днів у вікні антиповтору', () => {
   const pool = MEAL_TYPES.flatMap((type) =>
     [0, 1, 2].map((n) => meal({ id: type + n, type })),

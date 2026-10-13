@@ -36,6 +36,7 @@ export function SwapDialog({
   slot,
   pool,
   prefs,
+  antiRepeatDays,
   onClose,
 }: {
   view: WeekView
@@ -43,6 +44,7 @@ export function SwapDialog({
   slot: MealType
   pool: ReadonlyArray<Meal>
   prefs: TastePrefs
+  antiRepeatDays: number
   onClose: () => void
 }) {
   const db = usePowerSync()
@@ -89,7 +91,13 @@ export function SwapDialog({
     )
   }
 
-  const result = suggestReplacements(pool, plan, dayIndex, slot, prefs)
+  const result = suggestReplacements(
+    pool,
+    { ...plan, params: { ...plan.params, antiRepeatDays } },
+    dayIndex,
+    slot,
+    prefs,
+  )
   if (!result.ok) {
     return (
       <Sheet title={title} onClose={onClose}>

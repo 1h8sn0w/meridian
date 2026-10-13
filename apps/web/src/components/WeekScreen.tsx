@@ -17,7 +17,6 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
-  DEFAULTS,
   MEAL_TYPE_LABELS,
   addDays,
   dateKey,
@@ -33,6 +32,7 @@ import type { MealType, TastePrefs } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
   prefOf,
+  useAntiRepeatDays,
   useMeals,
   usePrecedingSlots,
   useProfiles,
@@ -79,8 +79,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
 
-  const antiRepeatDays =
-    week.data?.params.antiRepeatDays ?? DEFAULTS.antiRepeatDays
+  const antiRepeatDays = useAntiRepeatDays().data
   const windowSize = precedingWindow(antiRepeatDays)
   const preceding = usePrecedingSlots(
     ownerId,
@@ -113,7 +112,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
       const result = generateWeek(mealsRead.data, {
         profile: owner,
         prefs: prefsRead.data,
-        antiRepeatDays: week.data?.params.antiRepeatDays,
+        antiRepeatDays,
         days: week.data?.params.days,
         // MER-29: вікно антиповтору заповнюється реальними попередніми днями
         // календаря, а не лише днями цього виклику.
@@ -280,6 +279,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           slot={swapping.slot}
           pool={poolForProfile(mealsRead.data, owner)}
           prefs={prefsRead.data}
+          antiRepeatDays={antiRepeatDays}
           onClose={() => setSwapping(null)}
         />
       ) : null}
