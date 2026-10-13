@@ -27,7 +27,7 @@ import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
 import { MealMarks } from './MealDetails'
 import { MealForm } from './MealForm'
-import { MealSearch } from './MealSearch'
+import { MealSearch, SearchFound, notFoundText } from './MealSearch'
 import { PdfImportPanel } from './PdfImportPanel'
 import { RecipeLink } from './RecipeLink'
 import { StarterOffer } from './StarterSet'
@@ -274,19 +274,12 @@ export function MealsScreen({ familyId }: { familyId: string }) {
           <div role="status">
             {shown.length ? (
               searching ? (
-                <p className="m-0 mb-2 text-xs text-muted">
-                  {'Знайдено ' +
-                    shown.length +
-                    ' ' +
-                    plural(shown.length, 'страву', 'страви', 'страв')}
-                </p>
+                <SearchFound count={shown.length} />
               ) : null
             ) : (
               <Empty>
                 {searching && meals.length
-                  ? 'Немає страв, де в назві чи інгредієнтах є «' +
-                    query.trim() +
-                    '»' +
+                  ? notFoundText(query) +
                     (filter !== 'all' || gerdOnly ? ' серед обраних.' : '.')
                   : gerdOnly && meals.length
                     ? 'Немає страв із маркером ГЕРХ серед обраних.'

@@ -26,10 +26,10 @@ import type { Meal, MealType, TastePrefs } from '@meridian/core'
 import { toWeekPlan } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { replaceSlotMeal } from '../lib/data/mutations'
-import { formatDayTitle, plural } from '../lib/format'
+import { formatDayTitle } from '../lib/format'
 import { mealMatches } from '../lib/meals-search'
 import { Check, Heart, Prohibit } from '@phosphor-icons/react'
-import { MealSearch } from './MealSearch'
+import { MealSearch, SearchFound, notFoundText } from './MealSearch'
 import { Button, Empty, Sheet, Tag, Warn } from './ui'
 
 const SEARCH_MIN_CANDIDATES = 6
@@ -163,18 +163,9 @@ export function SwapDialog({
       <div role="status">
         {searching ? (
           shown.length ? (
-            <p className="m-0 mb-2 text-xs text-muted">
-              {'Знайдено ' +
-                shown.length +
-                ' ' +
-                plural(shown.length, 'страву', 'страви', 'страв')}
-            </p>
+            <SearchFound count={shown.length} />
           ) : (
-            <Empty>
-              {'Немає страв, де в назві чи інгредієнтах є «' +
-                query.trim() +
-                '».'}
-            </Empty>
+            <Empty>{notFoundText(query) + '.'}</Empty>
           )
         ) : null}
       </div>

@@ -1,4 +1,5 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react'
+import { plural } from '../lib/format'
 
 export function MealSearch({
   value,
@@ -41,4 +42,16 @@ export function MealSearch({
       ) : null}
     </div>
   )
+}
+
+export function SearchFound({ count }: { count: number }) {
+  return (
+    <p className="m-0 mb-2 text-xs text-muted">
+      {'Знайдено ' + count + ' ' + plural(count, 'страву', 'страви', 'страв')}
+    </p>
+  )
+}
+
+export function notFoundText(query: string): string {
+  return 'Немає страв, де в назві чи інгредієнтах є «' + query.trim() + '»'
 }
