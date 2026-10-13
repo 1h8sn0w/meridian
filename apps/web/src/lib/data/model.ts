@@ -13,7 +13,12 @@
  * підставити «якусь» страву означало б вигадати план.
  */
 
-import { MEAL_TYPES, dayCalories, profileFromRow } from '@meridian/core'
+import {
+  DEFAULTS,
+  MEAL_TYPES,
+  dayCalories,
+  profileFromRow,
+} from '@meridian/core'
 import type {
   DayCalories,
   Meal,
@@ -97,6 +102,21 @@ function jsonStrings(row: Row, column: string): Array<string> {
     // ховати весь план: план показуємо, підпис лишається порожнім.
     return []
   }
+}
+
+export function antiRepeatDaysFromRow(row: Row): number | null {
+  const value = row.anti_repeat_days
+  if (value === null || value === undefined) return null
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > DEFAULTS.days
+  )
+    throw new Error(
+      "Антиповтор сім'ї збережено з помилкою: " + String(value) + '.',
+    )
+  return value
 }
 
 /** Рядок `profile` → профіль плюс колір інтерфейсу. */

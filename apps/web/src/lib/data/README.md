@@ -29,6 +29,7 @@
 | Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
 | Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
 | Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |
+| Антиповтор | `TodayScreen` → `AntiRepeatPanel`; `WeekScreen`, `SwapDialog` | `useAntiRepeatDays` | `saveAntiRepeatDays` | `family_settings` | `generator.ts`, `replace.ts` |
 | Імпорт V1 | `ImportV1Panel` | — | `importV1` | усі синхронні | `migrate-v1.ts` |
 
 Охоплення списку покупок (`lib/shopping-scope.ts`) і активний профіль
@@ -75,12 +76,22 @@ MER-66). Наявний рядок шукається **за природним 
 `recipe_meal_id_key` НЕ частковий і тримає й м'яко видалений рядок, тож для
 рецепта пошук за `meal_id` перед записом обов'язковий подвійно.
 
-### saveMealHours
+### saveMealHours / saveAntiRepeatDays
 
 Рядок налаштувань сім'ї один, створюється з виведеним id
-(`familySettingsId`) і шукається за `family_id`. Вікна, що збігаються зі
-стандартними, пишуться як `NULL`: «немає налаштування» і «стандартні» — одне й
-те саме, і рядка без потреби не з'являється.
+(`familySettingsId`) і шукається за `family_id`. Значення, що збігається зі
+стандартним (вікна з коду, антиповтор `DEFAULTS.antiRepeatDays`), пишеться як
+`NULL`: «немає налаштування» і «стандартне» — одне й те саме, і рядка без
+потреби не з'являється. Кожна функція пише лише свої колонки, тож вікна й
+антиповтор, змінені на різних пристроях, не затирають одне одного.
+
+### useAntiRepeatDays
+
+Віддає чинний антиповтор сім'ї (без налаштування — `DEFAULTS.antiRepeatDays`).
+Його беруть наступна генерація (`WeekScreen`, разом із вікном
+`precedingWindow`), ручна заміна (`SwapDialog` підставляє його в параметри
+плану для `suggestReplacements`) і «Перші кроки». Збережений план свого
+`anti_repeat_days` не міняє: заміна пише лише слот і `sources`.
 
 ### Відбиток списку покупок
 

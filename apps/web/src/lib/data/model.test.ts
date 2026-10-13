@@ -1,7 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildCalendarDays, buildWeekView, manualSwapsAhead } from './model.ts'
+import {
+  antiRepeatDaysFromRow,
+  buildCalendarDays,
+  buildWeekView,
+  manualSwapsAhead,
+} from './model.ts'
 import type { Meal, Row } from '@meridian/core'
 
 const meal = (id: string, type: Meal['type'], calories: number): Meal => ({
@@ -102,4 +107,18 @@ test('ручні заміни рахуються лише в сьогодніш�
 test('слот, що приїхав без колонки swapped (до міграції), — не ручна заміна', () => {
   const week = buildWeekView(PLAN, ROWS, MEALS, '2026-09-01')
   assert.equal(manualSwapsAhead(week), 0)
+})
+
+test("антиповтор сім'ї: NULL — стандартний, 1–7 — як є, решта — помилка", () => {
+  assert.equal(antiRepeatDaysFromRow({ anti_repeat_days: null }), null)
+  assert.equal(antiRepeatDaysFromRow({}), null)
+  assert.equal(antiRepeatDaysFromRow({ anti_repeat_days: 1 }), 1)
+  assert.equal(antiRepeatDaysFromRow({ anti_repeat_days: 7 }), 7)
+  for (const broken of [0, 8, 2.5, '3']) {
+    assert.throws(
+      () => antiRepeatDaysFromRow({ anti_repeat_days: broken }),
+      /Антиповтор/,
+      String(broken),
+    )
+  }
 })

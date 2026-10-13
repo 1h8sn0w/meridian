@@ -18,6 +18,7 @@
  */
 
 import {
+  DEFAULTS,
   familySettingsId,
   hasRecipe,
   mealPrefId,
@@ -480,16 +481,33 @@ export async function saveMealHours(
   hours: MealHours,
 ): Promise<void> {
   const custom = !sameMealHours(hours, DEFAULT_MEAL_HOURS)
-  const values = custom
-    ? [
-        hours.breakfast.start,
-        hours.breakfast.end,
-        hours.lunch.start,
-        hours.lunch.end,
-        hours.dinner.start,
-        hours.dinner.end,
-      ]
-    : Array(6).fill(null)
+  await saveFamilySettings(db, familyId, {
+    breakfast_start: custom ? hours.breakfast.start : null,
+    breakfast_end: custom ? hours.breakfast.end : null,
+    lunch_start: custom ? hours.lunch.start : null,
+    lunch_end: custom ? hours.lunch.end : null,
+    dinner_start: custom ? hours.dinner.start : null,
+    dinner_end: custom ? hours.dinner.end : null,
+  })
+}
+
+export async function saveAntiRepeatDays(
+  db: Db,
+  familyId: string,
+  days: number,
+): Promise<void> {
+  await saveFamilySettings(db, familyId, {
+    anti_repeat_days: days === DEFAULTS.antiRepeatDays ? null : days,
+  })
+}
+
+async function saveFamilySettings(
+  db: Db,
+  familyId: string,
+  values: Readonly<Record<string, number | null>>,
+): Promise<void> {
+  const columns = Object.keys(values)
+  const params = Object.values(values)
   await db.writeTransaction(async (tx) => {
     const row = await tx.getOptional<{ id: string }>(
       'SELECT id FROM family_settings WHERE family_id = ? AND deleted_at IS NULL',
@@ -497,19 +515,22 @@ export async function saveMealHours(
     )
     if (row) {
       await tx.execute(
-        'UPDATE family_settings SET breakfast_start = ?, breakfast_end = ?,' +
-          ' lunch_start = ?, lunch_end = ?, dinner_start = ?, dinner_end = ?' +
+        'UPDATE family_settings SET ' +
+          columns.map((column) => column + ' = ?').join(', ') +
           ' WHERE id = ?',
-        [...values, row.id],
+        [...params, row.id],
       )
       return
     }
-    if (!custom) return
+    if (params.every((value) => value === null)) return
+    const inserted = [...columns, 'id', 'family_id']
     await tx.execute(
-      'INSERT INTO family_settings (breakfast_start, breakfast_end,' +
-        ' lunch_start, lunch_end, dinner_start, dinner_end, id, family_id)' +
-        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [...values, familySettingsId(familyId), familyId],
+      'INSERT INTO family_settings (' +
+        inserted.join(', ') +
+        ') VALUES (' +
+        inserted.map(() => '?').join(', ') +
+        ')',
+      [...params, familySettingsId(familyId), familyId],
     )
   })
 }

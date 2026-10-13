@@ -12,7 +12,6 @@
 
 import { useState } from 'react'
 import {
-  DEFAULTS,
   MEAL_TYPE_LABELS,
   dateKey,
   formatMealCalories,
@@ -23,6 +22,7 @@ import type { MealType, PortionLetter, TastePrefs } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
   prefOf,
+  useAntiRepeatDays,
   useMeals,
   useProfiles,
   useTastePrefs,
@@ -33,6 +33,7 @@ import { formatToday } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute, slotAt } from '../lib/day-clock'
 import { useMealWindows } from '../lib/meal-windows'
+import { AntiRepeatPanel } from './AntiRepeat'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
 import { DayTotal } from './DayTotal'
@@ -78,6 +79,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
   const prefsRead = useTastePrefs()
+  const antiRepeatDays = useAntiRepeatDays().data
   const {
     profile,
     planOwnerId: ownerId,
@@ -139,13 +141,14 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           mealCount={mealsRead.data.length}
           shortage={poolShortage(
             poolForProfile(mealsRead.data, owner),
-            DEFAULTS.antiRepeatDays,
+            antiRepeatDays,
           )}
           onCreateProfile={() => setManaging(true)}
         />
       )}
 
       <MealHoursPanel familyId={familyId} />
+      <AntiRepeatPanel familyId={familyId} />
       <RemindersPanel week={week.data} />
 
       {managing ? (
@@ -164,6 +167,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           slot={swapping.slot}
           pool={mealsRead.data}
           prefs={prefsRead.data}
+          antiRepeatDays={antiRepeatDays}
           onClose={() => setSwapping(null)}
         />
       ) : null}
