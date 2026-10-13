@@ -523,11 +523,12 @@ async function saveFamilySettings(
       return
     }
     if (params.every((value) => value === null)) return
+    const inserted = [...columns, 'id', 'family_id']
     await tx.execute(
       'INSERT INTO family_settings (' +
-        [...columns, 'id', 'family_id'].join(', ') +
+        inserted.join(', ') +
         ') VALUES (' +
-        [...columns, 'id', 'family_id'].map(() => '?').join(', ') +
+        inserted.map(() => '?').join(', ') +
         ')',
       [...params, familySettingsId(familyId), familyId],
     )
