@@ -104,7 +104,6 @@ function jsonStrings(row: Row, column: string): Array<string> {
   }
 }
 
-/** Рядок `profile` → профіль плюс колір інтерфейсу. */
 export function antiRepeatDaysFromRow(row: Row): number | null {
   const value = row.anti_repeat_days
   if (value === null || value === undefined) return null
@@ -120,6 +119,7 @@ export function antiRepeatDaysFromRow(row: Row): number | null {
   return value
 }
 
+/** Рядок `profile` → профіль плюс колір інтерфейсу. */
 export function appProfileFromRow(row: Row): AppProfile {
   const color = text(row, 'color').trim().toLowerCase()
   return {
