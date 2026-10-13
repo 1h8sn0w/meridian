@@ -1,39 +1,3 @@
-/**
- * Міграція V1 → V2 (MER-48): розбір дампа `localStorage` V1 у рядки схеми V2.
- *
- * Задача складається з двох половин, і вони свідомо не з'єднані:
- *
- *  1. **Експорт можливий лише з браузера.** `localStorage` прив'язаний до
- *     origin, тож серверний скрипт до нього не дотягнеться ніяк — дамп збирає
- *     вставка в консоль на сторінці V1 (`tools/v1-export.js`).
- *  2. **Розбір дампа — оцей модуль:** чиста функція, окремо від запису в БД.
- *     Тому всю мапу перевіряють юніт-тести, а не запуск на живих даних сім'ї.
- *
- * ## Пропущене має бути видним
- *
- * Запис, який не проходить перевірку, не зникає: він повертається в `skipped` з
- * причиною українською, і екран показує список користувачеві. Тихо підставлене
- * типове значення виглядало б як успішний імпорт — а це найгірше, що може
- * зробити міграція, бо її наслідки помітять уже після видалення V1.
- *
- * З цього ж правила — суворість до записів: будь-яке некоректне поле відкидає
- * ВЕСЬ запис із поясненням, а не лише це поле. Єдиний виняток — колір профілю
- * (див. `migrateProfile`): він інтерфейсний, а не з плану дієтолога.
- *
- * ## Чого тут немає: тижні й календар
- *
- * V1 клав у план **знімки** страв (`stripDayMeals`), а `plan_slot` у V2
- * посилається на `meal.id` зовнішнім ключем. Знімок страви, яку потім видалили
- * з пулу, подіти нікуди: перенести лише «живі» дні означало б дірки саме там,
- * де страву колись прибрали, а створювати страви зі знімків — засмітити пул
- * тим, чого в ньому не було (генератор почав би це пропонувати).
- *
- * Тому історія не переноситься взагалі: календар V2 починається з дня імпорту,
- * прожиті тижні лишаються у V1. Це рішення видно користувачеві — ключі тижнів,
- * календаря й списку покупок потрапляють у `skipped` із поясненням, а не
- * зникають мовчки.
- */
-
 import { optionalNumber, requiredNumber } from './provenance.ts'
 import { derivedId, mealPrefId } from './sync-ids.ts'
 import { MEAL_TYPES } from './types.ts'
@@ -47,24 +11,10 @@ import type {
   Profile,
 } from './types.ts'
 
-/* ==========================================================================
- * Ключі сховища V1 — рівно ті, що їх пише `index.html`.
- * ======================================================================== */
-
-/** Пул страв: масив об'єктів `createMeal`. */
 const MEALS_KEY = 'meridian.meals.v1'
-/** Смаки (MER-18): мапа `{ "<mealId>": "favorite" | "disliked" }`. */
 const PREFS_KEY = 'meridian.mealPrefs.v1'
-/** Профілі (MER-21): `{ profiles: [...], activeId }`. */
 const PROFILES_KEY = 'meridian.profiles.v1'
 
-/**
- * Ключі, які до V2 не їдуть, — але сказати про них треба вголос.
- *
- * `week`/`calendar` — історія (рішення вище). `shopping` — позначки «куплено»
- * під відбитком планів, яких не буде, тож їм не було б до чого причепитися.
- * `app` — стан пристрою (активна вкладка), і в V2 його тримає адреса маршруту.
- */
 const NOT_MIGRATED: ReadonlyArray<{ prefix: string; reason: string }> = [
   {
     prefix: 'meridian.week.v1',
@@ -90,14 +40,6 @@ const NOT_MIGRATED: ReadonlyArray<{ prefix: string; reason: string }> = [
   },
 ]
 
-/* ==========================================================================
- * Що дає розбір
- * ======================================================================== */
-
-/**
- * Рецептна частина страви (MER-22) — окремий рядок `recipe`, як у схемі V2.
- * У V1 ці поля лежать на картці страви, тож тут вони від страви відділяються.
- */
 export type MigratedRecipe = {
   id: string
   mealId: string
@@ -107,29 +49,19 @@ export type MigratedRecipe = {
   photo: string | null
 }
 
-/** Смак страви (MER-18) — рядок `meal_pref`. */
 export type MigratedPref = {
   id: string
   mealId: string
   value: MealPrefValue
 }
 
-/**
- * Профіль плюс колір. Колір інтерфейсний, тож у доменному `Profile` його немає
- * (та сама межа, що й у `AppProfile` на боці веба), але схема тримає його NOT
- * NULL — і міграція мусить його привезти.
- */
 export type MigratedProfile = Profile & { color: string }
 
-/** Що саме не переїхало і чому. Показується користувачеві як є. */
 export type Skipped = {
-  /** Про який запис ідеться — назва страви, ім'я профілю, ключ сховища. */
   what: string
-  /** Причина українською, зрозуміла без коду. */
   reason: string
 }
 
-/** Результат розбору: готові рядки V2 плюс чесний перелік пропущеного. */
 export type V1Migration = {
   meals: Array<Meal>
   recipes: Array<MigratedRecipe>
@@ -137,11 +69,6 @@ export type V1Migration = {
   prefs: Array<MigratedPref>
   skipped: Array<Skipped>
 }
-
-/* ==========================================================================
- * Дрібні перевірки. Кидають українську помилку — викликач ловить її порядково
- * і кладе в `skipped`. Той самий прийом, що в `rows.ts`.
- * ======================================================================== */
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -157,11 +84,6 @@ function required(value: unknown, what: string): string {
   return text
 }
 
-/**
- * Інгредієнт: у V1 і V2 форма та сама (`string | {name, amount?, unit?}`), тож
- * перетворювати нічого — лише відкинути порожнє. Кількість і одиниця лишаються
- * необов'язковими: у джерелі вони є не завжди.
- */
 function ingredient(entry: unknown, what: string): Ingredient | null {
   if (typeof entry === 'string') return entry.trim() || null
   if (isRecord(entry)) {
@@ -180,7 +102,6 @@ function ingredient(entry: unknown, what: string): Ingredient | null {
   return null
 }
 
-/** Порція (MER-24): форма V1 і V2 та сама, текст не парситься в числа. */
 function portion(entry: unknown): Portion | null {
   if (typeof entry === 'string' || typeof entry === 'number') {
     const text = String(entry).trim()
@@ -198,11 +119,6 @@ function list(value: unknown): Array<unknown> {
   return Array.isArray(value) ? value : []
 }
 
-/* ==========================================================================
- * Страви
- * ======================================================================== */
-
-/** Один запис пулу V1 → страва V2. Кидає помилку на некоректному записі. */
 function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
   const v1Id = required(raw.id, 'id страви')
   const name = required(raw.name, 'назва страви')
@@ -216,8 +132,6 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     name,
     type: type as MealType,
     calories: optionalNumber(raw.calories, 'калорійність'),
-    // MER-26: прапорець «≈» переїжджає як є — інакше приблизна оцінка тихо
-    // видала б себе за цифру дієтолога.
     caloriesApprox: raw.caloriesApprox === true,
     protein: optionalNumber(raw.protein, 'білки'),
     fat: optionalNumber(raw.fat, 'жири'),
@@ -225,25 +139,15 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     ingredients: list(raw.ingredients)
       .map((entry) => ingredient(entry, 'страва «' + name + '»'))
       .filter((x): x is Ingredient => x !== null),
-    // План дієтолога («Тиждень 2»), а не провенанс-енум. Порожній рядок — плану
-    // не вказано, як у V1.
     source: trimmed(raw.source),
     portions: list(raw.portions)
       .map(portion)
       .filter((x): x is Portion => x !== null),
-    // MER-75: у V1 маркера ГЕРХ не було — отже, не позначено.
     gerd: false,
     sourceIssues: [],
   }
 }
 
-/**
- * Рецептна частина того самого запису — або null.
- *
- * Рядок `recipe` створюється ЛИШЕ тоді, коли є хоч що-небудь із чотирьох полів:
- * порожній рецепт означав би «рецепт є, але порожній», а це неправда — його
- * просто немає.
- */
 function migrateRecipe(
   raw: Record<string, unknown>,
   familyId: string,
@@ -272,23 +176,8 @@ function migrateRecipe(
   }
 }
 
-/* ==========================================================================
- * Профілі
- * ======================================================================== */
-
-/** Перший колір палітри V1 (`PROFILE_COLORS[0]`) — синій POC. */
 const FALLBACK_COLOR = '#4f9dff'
 
-/**
- * Запис профілю V1 → профіль V2. `sharedPlanWith` тут ще НЕ резолвиться:
- * власник може стояти в масиві пізніше, тож посилання зводяться другим проходом.
- *
- * Колір — єдине поле, яке міграція підставляє замість того, щоб відкинути
- * запис. Він інтерфейсний (акцент активного профілю), а не з плану дієтолога,
- * тож правило провенансу його не стосується; та сама підстановка вже стоїть у
- * читанні рядків на боці веба. Втратити через акцент цілий профіль разом із
- * ціллю, коридором і порційною літерою було б непропорційно.
- */
 function migrateProfile(
   raw: Record<string, unknown>,
   familyId: string,
@@ -315,8 +204,6 @@ function migrateProfile(
 
   const color = trimmed(raw.color).toLowerCase()
 
-  /* Порожній масив і null — різні стани: null означає «увесь спільний пул»,
-   * порожній — «жодної страви». Тому перевірка саме `Array.isArray`. */
   let mealIds: Array<string> | null = null
   if (Array.isArray(raw.mealIds)) {
     mealIds = raw.mealIds.map((id) => trimmed(id)).filter((id) => id.length > 0)
@@ -333,7 +220,6 @@ function migrateProfile(
     corridor,
     color: /^#[0-9a-f]{6}$/.test(color) ? color : FALLBACK_COLOR,
     portion: letter ? (letter as PortionLetter) : null,
-    // «Сирий» id V1 — зводиться другим проходом, коли всі профілі вже відомі.
     sharedPlanWith: trimmed(raw.sharedPlanWith) || null,
     mealIds,
     goalProtein: optionalNumber(goals.protein, 'ціль по білках'),
@@ -342,30 +228,15 @@ function migrateProfile(
   }
 }
 
-/* ==========================================================================
- * Розбір дампа цілком
- * ======================================================================== */
-
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Підпис запису для списку пропущеного — назва, id або чесне «без назви». */
 function labelOf(raw: unknown, fallback: string): string {
   if (!isRecord(raw)) return fallback
   return trimmed(raw.name) || trimmed(raw.id) || fallback
 }
 
-/**
- * Розібрати дамп `localStorage` V1 у рядки схеми V2.
- *
- * `familyId` — сім'я, у яку імпортують: він входить в ім'я, з якого виводяться
- * id (див. `derivedId`), тож без нього результат не був би унікальним між
- * родинами. Функція лишається чистою: той самий дамп і та сама сім'я завжди
- * дають той самий результат, і жодного звернення до БД тут немає.
- *
- * Кидає помилку ЛИШЕ тоді, коли файл узагалі не той: усе решта — це `skipped`.
- */
 export function migrateV1(dump: unknown, familyId: string): V1Migration {
   if (!trimmed(familyId)) {
     throw new Error('Не вказано сім’ю, у яку імпортувати.')
@@ -378,8 +249,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
   const data = dump.data
   const skipped: Array<Skipped> = []
 
-  /* Ключі, які не читаються взагалі, — теж пропущене, і мовчати про них не
-   * можна: користувач має знати, що частина сховища була зіпсована. */
   if (isRecord(dump.unreadable)) {
     for (const key of Object.keys(dump.unreadable)) {
       skipped.push({
@@ -389,10 +258,8 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     }
   }
 
-  /* ---- Страви + рецепти ---- */
   const meals: Array<Meal> = []
   const recipes: Array<MigratedRecipe> = []
-  /** id V1 → id V2: за ним зводяться смаки й `mealIds` профілів. */
   const mealIdMap = new Map<string, string>()
 
   const rawMeals = data[MEALS_KEY]
@@ -423,8 +290,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     mealIdMap.set(v1Id, meal.id)
     meals.push(meal)
 
-    /* Рецепт відпадає окремо від страви: зіпсовані «час/порції» не привід
-     * втратити саму страву — вона з плану дієтолога, а рецепт ні. */
     try {
       const recipe = migrateRecipe(raw, familyId, v1Id)
       if (recipe) recipes.push(recipe)
@@ -433,7 +298,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     }
   }
 
-  /* ---- Смаки (MER-18) ---- */
   const prefs: Array<MigratedPref> = []
   const rawPrefs = data[PREFS_KEY]
   if (rawPrefs !== undefined && !isRecord(rawPrefs)) {
@@ -453,8 +317,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
         continue
       }
       const mealId = mealIdMap.get(v1MealId)
-      // Смак страви, якої немає в перенесеному пулі, не переносимо: зовнішній
-      // ключ його не пропустить, а «висячий» смак нічого не означає.
       if (mealId === undefined) {
         skipped.push({
           what,
@@ -462,18 +324,12 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
         })
         continue
       }
-      /* id смаку виводиться зі СТРАВИ, а не з ключа V1: саме `meal_id` —
-       * природний ключ часткового унікального індексу, і рахувати його так
-       * само мусить застосунок, який поставить смак уже у V2 (MER-57). */
       prefs.push({ id: mealPrefId(mealId), mealId, value })
     }
   }
 
-  /* ---- Профілі (MER-21, MER-17) ---- */
   const profiles: Array<MigratedProfile> = []
-  /** id V1 → id V2 профілю: за ним зводиться `sharedPlanWith`. */
   const profileIdMap = new Map<string, string>()
-  /** Профіль V2 → «сирий» `sharedPlanWith` із V1, ще не зведений. */
   const sharedRaw = new Map<string, string>()
 
   const rawProfiles = data[PROFILES_KEY]
@@ -510,7 +366,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     profiles.push(profile)
   }
 
-  /* Другий прохід: зводимо посилання, коли всі профілі вже відомі. */
   for (const profile of profiles) {
     const what = 'Профіль «' + profile.name + '»'
 
@@ -518,9 +373,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     if (rawShared !== undefined) {
       const owner = profileIdMap.get(rawShared)
       if (owner === undefined) {
-        // Профіль, що ділив план із неперенесеним власником, стає власним:
-        // інакше він читав би тиждень, якого немає, і екран був би порожнім
-        // без жодного пояснення (MER-17).
         skipped.push({
           what,
           reason:
@@ -558,7 +410,6 @@ export function migrateV1(dump: unknown, familyId: string): V1Migration {
     profile.mealIds = kept
   }
 
-  /* ---- Ключі, які до V2 не їдуть ---- */
   for (const key of Object.keys(data)) {
     const rule = NOT_MIGRATED.find(
       (candidate) =>

@@ -1,12 +1,3 @@
-/**
- * Перевірка файлу стартового набору (MER-77) до того, як його покласти на
- * сервер: `pnpm starter:check <шлях до файлу>`.
- *
- * Та сама перевірка, що в застосунку перед засівом (`parseStarterSet`), — лише
- * помилки видно одразу, а не на екрані «Страви» після розгортання. Окремий
- * модуль, бо тільки він знає про файлову систему; сам домен про Node не знає.
- */
-
 import { readFileSync } from 'node:fs'
 import { hasRecipe, parseStarterSet } from './starter-set.ts'
 
@@ -29,7 +20,6 @@ if (!parsed.ok) {
   console.error(parsed.error)
   process.exit(1)
 }
-// Те саме правило, що в засіві: порожній рецепт рядка не створює.
 const recipes = parsed.set.meals.filter((meal) => hasRecipe(meal.recipe)).length
 console.log(
   'Гаразд. Страв: ' +

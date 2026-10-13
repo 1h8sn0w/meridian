@@ -101,8 +101,8 @@ test('храповик перевіряє лише чисті теки й обх
 })
 
 test('тести *.test.ts чисті в будь-якій теці, решта файлів теки — ні', () => {
-  assert.equal(isCommentFree('packages/core/src/generator.test.ts'), true)
-  assert.equal(isCommentFree('apps/web/src/lib/data/model.test.ts'), true)
-  assert.equal(isCommentFree('packages/core/src/generator.ts'), false)
-  assert.equal(isCommentFree('packages/core/src/test-support.ts'), false)
+  assert.equal(isCommentFree('packages/core/src/generator.test.ts', []), true)
+  assert.equal(isCommentFree('apps/web/src/lib/data/model.test.ts', []), true)
+  assert.equal(isCommentFree('packages/core/src/generator.ts', []), false)
+  assert.equal(isCommentFree('packages/core/src/test-support.ts', []), false)
 })

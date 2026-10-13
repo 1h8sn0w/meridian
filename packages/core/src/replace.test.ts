@@ -115,6 +115,27 @@ test('страву без калорійності в кандидати не п
   assert.ok(!result.candidates.some((c) => c.meal.id === 'no-kcal'))
 })
 
+test('сусідній слот без калорійності — коридор не перевіряється, а причина названа', () => {
+  const pool = mixedPool()
+  const week = plan(pool)
+  const day = week.days[1]
+  assert.ok(day)
+  day.meals.breakfast = meal({
+    id: 'breakfast-no-kcal',
+    type: 'breakfast',
+    calories: null,
+  })
+  const result = suggestReplacements(pool, week, 1, 'lunch')
+  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.candidates.length > 0)
+  for (const candidate of result.candidates) {
+    assert.equal(candidate.withinCorridor, false)
+    assert.equal(candidate.valid, false)
+    assert.ok(candidate.reasons.includes('калорійність дня неповна'))
+    assert.ok(!candidate.reasons.includes('поза коридором'))
+  }
+})
+
 test('неіснуючий день і невідомий слот — зрозуміла відмова', () => {
   const pool = mixedPool()
   const week = plan(pool)
