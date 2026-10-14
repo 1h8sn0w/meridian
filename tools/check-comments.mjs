@@ -3,7 +3,10 @@ import { readFileSync, realpathSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const COMMENT_FREE_DIRS = ['packages/core/src']
+export const COMMENT_FREE_DIRS = [
+  'packages/core/src',
+  'apps/web/src/lib/powersync',
+]
 
 export const COMMENT_FREE_FILES = [/\.test\.ts$/]
 
