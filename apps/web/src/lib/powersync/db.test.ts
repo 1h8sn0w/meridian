@@ -32,3 +32,12 @@ test('відмова однієї операції не рве чергу й д�
   await assert.rejects(failed, /connect failed/)
   assert.equal(await next, 'opened')
 })
+
+test('відмова операції, результат якої ніхто не чекає, не стає необробленою', async (t) => {
+  const unhandled = t.mock.fn()
+  process.on('unhandledRejection', unhandled)
+  t.after(() => process.off('unhandledRejection', unhandled))
+  void enqueue(() => Promise.reject(new Error('disconnect failed')))
+  await tick()
+  assert.equal(unhandled.mock.callCount(), 0)
+})

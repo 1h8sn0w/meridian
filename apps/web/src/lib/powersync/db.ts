@@ -13,7 +13,7 @@ let database: PowerSyncDatabase | null = null
 let queue: Promise<unknown> = Promise.resolve()
 
 export function enqueue<T>(work: () => Promise<T>): Promise<T> {
-  const next = queue.then(work, work)
+  const next = queue.then(work)
   queue = next.catch(() => undefined)
   return next
 }
