@@ -128,8 +128,8 @@
 
 ### connectPowerSync
 
-Підписуватися на стріми окремо не треба: `family_data` має
-`auto_subscribe: true`, дані їдуть відразу після з'єднання.
+Окремої підписки на стріми немає — `auto_subscribe` у
+[`infra/powersync/README.md`](../../../../../infra/powersync/README.md).
 
 ### disconnectPowerSync
 
