@@ -25,6 +25,8 @@ import {
   formatMealCalories,
   generateWeek,
   poolForProfile,
+  poolShortage,
+  poolShortageMessage,
   precedingMealIds,
   precedingWindow,
 } from '@meridian/core'
@@ -51,6 +53,7 @@ import { TasteMark } from './TodayScreen'
 import {
   ArrowsClockwise,
   ArrowsLeftRight,
+  CookingPot,
   ShoppingCart,
 } from '@phosphor-icons/react'
 import {
@@ -79,7 +82,8 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   } = useActiveProfile(profilesRead.data)
   const week = useWeek(ownerId, mealsRead.data, todayKey)
 
-  const antiRepeatDays = useAntiRepeatDays().data
+  const antiRepeat = useAntiRepeatDays()
+  const antiRepeatDays = antiRepeat.data
   const windowSize = precedingWindow(antiRepeatDays)
   const preceding = usePrecedingSlots(
     ownerId,
@@ -138,6 +142,10 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
   const view = week.data
   const swapsAhead = view ? manualSwapsAhead(view) : 0
+  const shortage =
+    mealsRead.isLoading || antiRepeat.isLoading || sharedNote
+      ? []
+      : poolShortage(poolForProfile(mealsRead.data, owner), antiRepeatDays)
   const problems = [
     mealsRead.problems,
     profilesRead.problems,
@@ -168,7 +176,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           <Button
             block
             variant="primary"
-            disabled={busy || !!sharedNote}
+            disabled={busy || !!sharedNote || shortage.length > 0}
             onClick={() =>
               swapsAhead > 0 ? setConfirming(true) : void regenerate()
             }
@@ -198,12 +206,23 @@ export function WeekScreen({ familyId }: { familyId: string }) {
             </Link>
           ) : null}
 
+          {shortage.length ? (
+            <>
+              <Warn>{poolShortageMessage(shortage, antiRepeatDays)}</Warn>
+              <Link to="/meals" className="mt-2 block no-underline">
+                <Button block>
+                  <CookingPot aria-hidden size={18} />
+                  Додати страви
+                </Button>
+              </Link>
+            </>
+          ) : null}
           {error ? <Warn>{error}</Warn> : null}
           {sharedNote && !error ? <Meta>{sharedNote}</Meta> : null}
 
           {view ? (
             <PlanSummary view={view} owner={owner} />
-          ) : (
+          ) : shortage.length ? null : (
             <Hint>
               Плану ще немає. Натисніть кнопку — генератор збере тиждень із пулу
               страв за правилами дієтолога: тип слота, коридор калорій,

@@ -199,6 +199,26 @@ export function poolShortage(
   })).filter((entry) => entry.have < entry.need)
 }
 
+export function poolShortageMessage(
+  shortage: ReadonlyArray<PoolShortage>,
+  antiRepeatDays: number,
+): string {
+  return (
+    'Недостатньо страв у пулі. Правило «не частіше, ніж раз на ' +
+    antiRepeatDays +
+    ' дн.» вимагає щонайменше ' +
+    antiRepeatDays +
+    ' страв кожного типу, а зараз: ' +
+    shortage
+      .map(
+        ({ type, have, need }) =>
+          MEAL_TYPE_LABELS[type] + ' — ' + have + ' (потрібно ≥ ' + need + ')',
+      )
+      .join('; ') +
+    '. Додайте страви на екрані «Страви» або зменшіть антиповтор на екрані «Сьогодні».'
+  )
+}
+
 export function generateWeek(
   pool: ReadonlyArray<Meal>,
   options: GenerateOptions = {},
@@ -262,12 +282,6 @@ export function generateWeek(
     return out
   }
 
-  const shortageOf = (list: ReadonlyArray<PlannedMeal>): Array<string> =>
-    poolShortage(list, antiRepeatDays).map(
-      ({ type, have, need }) =>
-        MEAL_TYPE_LABELS[type] + ' — ' + have + ' (потрібно ≥ ' + need + ')',
-    )
-
   const weightOf: WeightOf = prefs.favorites.size
     ? (meal) => (prefs.favorites.has(meal.id) ? FAVORITE_WEIGHT : 1)
     : null
@@ -292,18 +306,11 @@ export function generateWeek(
 
   function buildFrom(list: ReadonlyArray<PlannedMeal>): GenerateResult {
     const byType = byTypeOf(list)
-    const shortage = shortageOf(list)
+    const shortage = poolShortage(list, antiRepeatDays)
     if (shortage.length) {
       return {
         ok: false,
-        error:
-          'Недостатньо страв у пулі. Правило «не частіше, ніж раз на ' +
-          antiRepeatDays +
-          ' дн.» вимагає щонайменше ' +
-          antiRepeatDays +
-          ' страв кожного типу, а зараз: ' +
-          shortage.join('; ') +
-          '. Додайте страви на екрані «Страви» або зменшіть антиповтор на екрані «Сьогодні».',
+        error: poolShortageMessage(shortage, antiRepeatDays),
       }
     }
 
@@ -393,7 +400,10 @@ export function generateWeek(
   const kept = prefs.disliked.size
     ? planned.filter((meal) => !prefs.disliked.has(meal.id))
     : planned
-  if (kept.length !== planned.length && !shortageOf(kept).length) {
+  if (
+    kept.length !== planned.length &&
+    !poolShortage(kept, antiRepeatDays).length
+  ) {
     attempts.push(kept)
   }
   attempts.push(planned)
