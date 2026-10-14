@@ -1,7 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { DEFAULTS, generateWeek, poolShortage } from './generator.ts'
+import {
+  DEFAULTS,
+  generateWeek,
+  poolShortage,
+  poolShortageMessage,
+} from './generator.ts'
 import { MEAL_TYPES } from './types.ts'
 import type { GenerateResult } from './generator.ts'
 import type { Meal, WeekPlan } from './types.ts'
@@ -467,6 +472,15 @@ test('пул, якого не вистачає на вікно антиповт�
   const error = result.error
   assert.match(error, /Недостатньо страв у пулі/)
   assert.match(error, /Вечеря — 1 \(потрібно ≥ 3\)/)
+})
+
+test('екран показує до генерації дослівно ту саму нестачу, якою генератор відмовить', () => {
+  const pool = mixedPool().filter(
+    (m) => m.type !== 'dinner' || m.id === 'dinner-0',
+  )
+  const result = generateWeek(pool, { antiRepeatDays: 3, random: seeded(41) })
+  assert.equal(result.ok, false)
+  assert.equal(result.error, poolShortageMessage(poolShortage(pool, 3), 3))
 })
 
 test('MER-116: антиповтор 1 збирає тиждень із пулу, якого не вистачає для 3', () => {
