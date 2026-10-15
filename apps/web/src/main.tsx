@@ -1,12 +1,3 @@
-/**
- * Вхід застосунку в браузері.
- *
- * Сервера застосунку немає: `index.html` і бандли віддає Caddy як статичні
- * файли, а три значення конфігу вписує в сам `index.html` (див.
- * `lib/public-env.ts`). Тож конфіг лежить на сторінці ще до першого рядка
- * цього модуля — читається синхронно, чекати на нього нема чого.
- */
-
 import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
@@ -17,7 +8,6 @@ import { Sky, applySky, markClassicScrollbar } from './components/Sky'
 import { DEFAULT_MEAL_WINDOWS } from './lib/day-clock'
 import { MealWindowsProvider } from './lib/meal-windows'
 import { minutesOf } from './lib/use-now'
-// Шрифти — свої, зі збірки: офлайн-застосунок не має тягнути їх із CDN.
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
 import './styles.css'
@@ -26,7 +16,6 @@ const router = createRouter({
   routeTree,
   scrollRestoration: true,
   defaultPreload: 'intent',
-  // Екрани перетікають один в один, а підсвітка вкладки перелітає (styles.css).
   defaultViewTransition: true,
 })
 
@@ -38,14 +27,9 @@ declare module '@tanstack/react-router' {
 
 const env = readPublicEnv()
 
-// Фаза неба — до першого кадру, інакше застосунок блимав би полуднем.
 applySky(minutesOf(new Date()), DEFAULT_MEAL_WINDOWS)
 markClassicScrollbar()
 
-/* Service worker (MER-51) — лише в продакшн-збірці: він кешує оболонку, а
- * `pnpm dev` тим і цінний, що щоразу віддає свіжий модуль. Помилку реєстрації
- * не ковтаємо, але й застосунок через неї не гасимо: без воркера він робочий,
- * просто без офлайн-оболонки. */
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch((error: unknown) => {
     console.warn('Не вдалося зареєструвати service worker:', error)
@@ -53,8 +37,6 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 createRoot(document.getElementById('root') as HTMLElement).render(
-  // Синхронізація — усередині входу: вона живе з токена, і без нього їй нічого
-  // робити (MER-46).
   <AuthProvider env={env}>
     <SyncProvider env={env}>
       <MealWindowsProvider>

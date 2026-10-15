@@ -6,6 +6,17 @@ import { fileURLToPath } from 'node:url'
 export const COMMENT_FREE_DIRS = [
   'apps/web/src/lib/data',
   'packages/core/src',
+  'apps/web/public',
+  'apps/web/src/routes',
+  'apps/web/src/main.tsx',
+  'apps/web/src/env.d.ts',
+  'apps/web/src/styles.css',
+  'apps/web/index.html',
+  'apps/web/vite.config.ts',
+  'apps/web/capacitor.config.ts',
+  'apps/web/eslint.config.js',
+  'apps/web/tsconfig.json',
+  'apps/web/tsconfig.sw.json',
   'apps/web/src/lib/powersync',
   'apps/web/src/components',
 ]

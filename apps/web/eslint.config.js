@@ -5,13 +5,19 @@ import base from '../../eslint.config.base.mjs'
 export default [
   ...base,
   {
-    // Збірки — не код репозиторію; routeTree.gen.ts генерує TanStack Router.
+    files: ['public/sw.js'],
+    languageOptions: {
+      sourceType: 'script',
+      parserOptions: {
+        project: './tsconfig.sw.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
     ignores: [
-      // public/ їде у збірку як є — це не код застосунку, і в програмі
-      // TypeScript його немає (service worker MER-51).
-      'public/',
-      // Нативні проєкти Capacitor (MER-50): генерує `npx cap add`, а `cap sync`
-      // кладе туди копію вебзбірки — лінтувати нема чого.
+      'public/*',
+      '!public/sw.js',
       'android/',
       'ios/',
       'dist/',
