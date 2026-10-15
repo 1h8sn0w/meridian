@@ -10,7 +10,10 @@ export const COMMENT_FREE_DIRS = [
   'apps/web/src/components',
 ]
 
-export const COMMENT_FREE_FILES = [/\.test\.ts$/]
+export const COMMENT_FREE_FILES = [
+  /\.test\.ts$/,
+  /^apps\/web\/src\/lib\/[^/]+$/,
+]
 
 const EXCEPTIONS = [
   /^packages\/db\/migrations\/000[0-7]_/,

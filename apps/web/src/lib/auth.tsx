@@ -1,16 +1,3 @@
-/**
- * Стан входу й сім'ї (MER-45).
- *
- * Одне джерело правди — claim `family_id` в access-токені. Він же вирішує, що
- * покаже інтерфейс, він же лежить в основі RLS на сервері (MER-44) і саме його
- * читатимуть sync-правила PowerSync (MER-46). Тому після створення сім'ї або
- * прийняття запрошення обов'язково йде `refreshSession()`: без нового токена
- * застосунок бачив би порожньо, і це найнеприємніший спосіб зламатися — тихий.
- *
- * До першої відповіді GoTrue стан — `loading`: сесія живе на пристрої, і стек
- * про неї не знає й не має знати.
- */
-
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
@@ -21,20 +8,12 @@ import { authFailure, rpcFailure } from './messages'
 import type { Outcome } from './messages'
 
 type Status =
-  /** Конфіг не заданий — сервер не знає адреси Supabase. */
-  | 'not-configured'
-  /** Ще не знаємо: читаємо збережену сесію. */
-  | 'loading'
-  | 'signed-out'
-  /** Увійшли, але сім'ї ще немає — створити або приєднатися за кодом. */
-  | 'no-family'
-  | 'ready'
+  'not-configured' | 'loading' | 'signed-out' | 'no-family' | 'ready'
 
 type FamilyMember = { id: string; userId: string; email: string | null }
 type Family = { id: string; name: string }
 type Invite = { code: string; expiresAt: string }
 
-/** Рядки як їх віддає PostgREST — snake_case, без згенерованих типів схеми. */
 type FamilyRow = { id: string; name: string }
 type MemberRow = { id: string; user_id: string; email: string | null }
 type InviteRow = { code: string; expires_at: string }
@@ -42,23 +21,17 @@ type InviteRow = { code: string; expires_at: string }
 type AuthValue = {
   status: Status
   email: string | null
-  /** `auth.users.id` поточної сесії — щоб упізнати свій рядок у складі сім'ї. */
   userId: string | null
   familyId: string | null
   family: Family | null
   members: Array<FamilyMember>
   invite: Invite | null
   signIn: (email: string, password: string) => Promise<Outcome<null>>
-  /** `false` у значенні — сесії немає: GoTrue чекає підтвердження пошти. */
   signUp: (email: string, password: string) => Promise<Outcome<boolean>>
   signOut: () => Promise<void>
   createFamily: (name: string) => Promise<Outcome<null>>
   joinFamily: (code: string) => Promise<Outcome<null>>
   createInvite: () => Promise<Outcome<Invite>>
-  /**
-   * Клієнт PostgREST для таблиць поза синхронізацією (`pdf_import`, MER-52).
-   * `null` — конфігу немає або сесію ще не прочитано.
-   */
   supabase: SupabaseClient | null
 }
 
@@ -88,12 +61,7 @@ export function AuthProvider({
 
   useEffect(() => {
     if (!configured) return
-    // `getSupabase` уже тримає один екземпляр на вкладку (supabase.ts), тож
-    // мемоїзувати його виклик нема за чим — звертаємось прямо.
     const supabase = getSupabase(env)
-    // Підписка сама віддає INITIAL_SESSION, тож окремий getSession() не
-    // потрібен. У колбеку — лише setState: документація Supabase попереджає не
-    // викликати звідси інші методи клієнта.
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
       setResolved(true)
@@ -108,13 +76,10 @@ export function AuthProvider({
       setInvite(null)
       return
     }
-    // Сім'я може змінитися, доки запити в дорозі, — тоді відповіді вже нікому.
     const stale = new AbortController()
     const supabase = getSupabase(env)
 
     void (async () => {
-      // RLS уже звузила вибірку до своєї сім'ї — фільтрувати по family_id у
-      // запиті не треба, і саме так це має виглядати з боку клієнта.
       const [familyRows, memberRows, inviteRows] = await Promise.all([
         supabase
           .from('family')
@@ -195,8 +160,6 @@ export function AuthProvider({
           password,
         })
         if (error) return { ok: false, failure: authFailure(error) }
-        // Без сесії GoTrue чекає підтвердження пошти. Кажемо це прямо, а не
-        // вдаємо, що вхід стався.
         return { ok: true, value: data.session !== null }
       },
 
@@ -210,7 +173,6 @@ export function AuthProvider({
           family_name: name,
         })
         if (error) return { ok: false, failure: rpcFailure(error) }
-        // Токен ще без claim — без оновлення сесії сім'ї ніби й немає.
         await supabase.auth.refreshSession()
         return { ok: true, value: null }
       },
@@ -230,8 +192,6 @@ export function AuthProvider({
         const { data, error } = await supabase.rpc('create_family_invite')
         if (error) return { ok: false, failure: rpcFailure(error) }
         const code = String(data)
-        // Термін дії читаємо з бази, а не рахуємо тут: показане в інтерфейсі
-        // має збігатися з тим, що справді записано.
         const row = await supabase
           .from('family_invite')
           .select('code,expires_at')

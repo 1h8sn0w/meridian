@@ -30,6 +30,7 @@ type World = {
   seededHere?: boolean
   cancelAfter?: string
   writeFails?: boolean
+  claim?: Outcome<boolean>
 }
 
 async function run(world: World): Promise<Array<string>> {
@@ -65,7 +66,10 @@ async function run(world: World): Promise<Array<string>> {
       if (world.writeFails) throw new Error('диск')
       return SET.length
     }),
-    claim: step<Outcome<boolean>>('claim', () => ({ ok: true, value: true })),
+    claim: step<Outcome<boolean>>(
+      'claim',
+      () => world.claim ?? { ok: true, value: true },
+    ),
   }
   const error = console.error
   console.error = () => {}
@@ -143,6 +147,20 @@ test('вийшли чи змінили сім’ю — після будь-як�
     (await run({ cancelAfter: 'write' })).at(-1),
     'write',
     'Між записом і позначкою: позначки немає, пул уже не порожній — наступне відкриття лише поставить її.',
+  )
+})
+
+test('позначку вже поставив інший пристрій — сім’я однаково засіяна, кешуємо', async () => {
+  assert.equal(
+    (await run({ claim: { ok: true, value: false } })).at(-1),
+    'remember',
+  )
+})
+
+test('позначка не дійшла до сервера — не кешуємо, наступне відкриття поставить її', async () => {
+  assert.equal(
+    (await run({ claim: { ok: false, failure: { text: 'мережа' } } })).at(-1),
+    'claim',
   )
 })
 

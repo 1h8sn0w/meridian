@@ -45,6 +45,7 @@ export { replaceSlot, suggestReplacements } from './replace.ts'
 export {
   addDays,
   dateKey,
+  dateKeyParts,
   planSlots,
   precedingMealIds,
   precedingWindow,
