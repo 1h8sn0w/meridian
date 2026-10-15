@@ -2,12 +2,10 @@
   "include": ["public/sw.js"],
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
     "lib": ["ES2022", "WebWorker"],
     "types": [],
     "allowJs": true,
     "noEmit": true,
-    "strict": true,
-    "skipLibCheck": true
+    "strict": true
   }
 }
