@@ -1,19 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DatabaseSync } from 'node:sqlite'
-import type { SQLInputValue } from 'node:sqlite'
 
 import { MEAL_TYPES, planSlotId } from '@meridian/core'
 import type { Meal, MealType, PlanDay, WeekPlan } from '@meridian/core'
 import { clearStaleChecks, saveWeek } from './mutations.ts'
 import type { Db } from './mutations.ts'
+import { sqliteDb, testMeal } from './test-fixtures.ts'
 
 const OWNER = 'profile-1'
 const START = '2026-10-12'
 
 function localDb() {
-  const sqlite = new DatabaseSync(':memory:')
-  sqlite.exec(`
+  const { sqlite, db } = sqliteDb(`
     CREATE TABLE week_plan (id TEXT PRIMARY KEY, family_id TEXT,
       profile_id TEXT, generated_at TEXT, start_date TEXT,
       target_calories INTEGER, corridor INTEGER, anti_repeat_days INTEGER,
@@ -25,18 +23,6 @@ function localDb() {
     CREATE TABLE shopping_check (id TEXT PRIMARY KEY, fingerprint TEXT,
       updated_at TEXT, deleted_at TEXT);
   `)
-  const args = (params: ReadonlyArray<unknown> = []) =>
-    params as Array<SQLInputValue>
-  const tx = {
-    execute: (sql: string, params?: ReadonlyArray<unknown>) =>
-      Promise.resolve(sqlite.prepare(sql).run(...args(params))),
-    getAll: (sql: string, params?: ReadonlyArray<unknown>) =>
-      Promise.resolve(sqlite.prepare(sql).all(...args(params))),
-  }
-  const db = {
-    ...tx,
-    writeTransaction: (work: (t: typeof tx) => Promise<unknown>) => work(tx),
-  } as unknown as Db
   const slots = () =>
     sqlite
       .prepare(
@@ -55,26 +41,13 @@ function localDb() {
   return { sqlite, db, slots }
 }
 
-const meal = (id: string, type: MealType): Meal => ({
-  id,
-  name: id,
-  type,
-  calories: 100,
-  caloriesApprox: false,
-  protein: null,
-  fat: null,
-  carbs: null,
-  ingredients: [],
-  source: '',
-  portions: [],
-  gerd: false,
-  sourceIssues: [],
-})
-
 function week(days: number, mealPrefix: string): WeekPlan {
   const day = (): PlanDay => ({
     meals: Object.fromEntries(
-      MEAL_TYPES.map((type) => [type, meal(`${mealPrefix}-${type}`, type)]),
+      MEAL_TYPES.map((type) => [
+        type,
+        testMeal(`${mealPrefix}-${type}`, type, 100),
+      ]),
     ) as Record<MealType, Meal>,
     calories: { total: 400, unknown: 0, approx: false },
   })

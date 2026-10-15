@@ -1,11 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 
 import { hasRecipe, parseStarterSet, starterMealId } from '@meridian/core'
 import type { StarterMeal } from '@meridian/core'
 import { seedStarterMeals } from './data/mutations.ts'
+import { sqliteDb } from './data/test-fixtures.ts'
 import { autoSeed, missingStarterMeals } from './starter-set.ts'
 import type { Outcome } from './messages.ts'
 import type { SeedSteps, StarterFetch, StarterStatus } from './starter-set.ts'
@@ -153,8 +154,7 @@ test('кнопка бачить лише ті страви набору, яки�
 })
 
 function localDb() {
-  const sqlite = new DatabaseSync(':memory:')
-  sqlite.exec(
+  return sqliteDb(
     'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
       ' type TEXT, calories REAL, calories_approx INTEGER, protein REAL,' +
       ' fat REAL, carbs REAL, ingredients TEXT, source TEXT, portions TEXT,' +
@@ -163,19 +163,6 @@ function localDb() {
       ' meal_id TEXT, steps TEXT, prep_time INTEGER, servings INTEGER,' +
       ' deleted_at TEXT);',
   )
-  type Params = Array<null | number | string>
-  const tx = {
-    get: async (sql: string, params: Params = []) =>
-      sqlite.prepare(sql).get(...params),
-    getOptional: async (sql: string, params: Params = []) =>
-      sqlite.prepare(sql).get(...params) ?? null,
-    execute: async (sql: string, params: Params = []) =>
-      sqlite.prepare(sql).run(...params),
-  }
-  const db = {
-    writeTransaction: (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
-  } as unknown as Parameters<typeof seedStarterMeals>[0]
-  return { sqlite, db }
 }
 
 const nameOf = (sqlite: DatabaseSync, id: string) =>

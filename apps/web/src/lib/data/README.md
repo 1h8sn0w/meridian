@@ -6,32 +6,32 @@
 те, заради чого його беруть. Як записи доїжджають до сервера — у
 [`../powersync/README.md`](../powersync/README.md).
 
-| Файл | Що |
-|------|-----|
-| `queries.ts` | Хуки читання: пул, рецепт, профілі, смаки, план, календар, позначки покупок |
-| `mutations.ts` | Усі записи в локальну базу |
-| `model.ts` | Модель екранів поверх рядків: `AppProfile`, `WeekView`, `CalendarDayView` |
-| `sql.ts` | Спільні шматки SQL: `LATEST_PLAN_ORDER`, `inList`, `placeholders`, `NO_DATE` |
-| `import-v1.ts` | Запис міграції V1 → V2 (розбір дампа — `migrateV1` у ядрі) |
-| `pdf-import.ts` | Архів джерельного тексту в `pdf_import` — через PostgREST |
+| Файл            | Що                                                                           |
+| --------------- | ---------------------------------------------------------------------------- |
+| `queries.ts`    | Хуки читання: пул, рецепт, профілі, смаки, план, календар, позначки покупок  |
+| `mutations.ts`  | Усі записи в локальну базу                                                   |
+| `model.ts`      | Модель екранів поверх рядків: `AppProfile`, `WeekView`, `CalendarDayView`    |
+| `sql.ts`        | Спільні шматки SQL: `LATEST_PLAN_ORDER`, `inList`, `placeholders`, `NO_DATE` |
+| `import-v1.ts`  | Запис міграції V1 → V2 (розбір дампа — `migrateV1` у ядрі)                   |
+| `pdf-import.ts` | Архів джерельного тексту в `pdf_import` — через PostgREST                    |
 
 ## Фіча → де що лежить
 
-| Фіча | Екран | Читання | Запис | Таблиця | Ядро |
-|------|-------|---------|-------|---------|------|
-| Пул страв | `MealsScreen`, `MealForm` | `useMeals`, `useMealUsage` | `insertMeal`, `updateMeal`, `deleteMeal`, `clearMeals` | `meal` | `provenance.ts` |
-| Смаки | `MealsScreen`, `WeekScreen` | `useTastePrefs`, `prefOf` | `setMealPref` | `meal_pref` | `generator.ts` |
-| Рецепт | `RecipeScreen` | `useRecipe` | `saveRecipe` | `recipe` | — |
-| Профілі | `ProfilesSheet` | `useProfiles` | `insertProfile`, `updateProfile`, `deleteProfile` | `profile` | `profile.ts` |
-| Тиждень | `WeekScreen`, `TodayScreen` | `useWeek`, `usePrecedingSlots` | `saveWeek` | `week_plan`, `plan_slot` | `generator.ts`, `calendar.ts` |
-| Ручна заміна | `SwapDialog` | план від `WeekScreen` | `replaceSlotMeal` | `plan_slot` | `replace.ts` |
-| Календар | `CalendarScreen` | `useCalendarDays`, `useDayPlan`, `usePlannedDayCount` | — | `plan_slot` | `calendar.ts` |
-| Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek` | `shopping_check` | `shopping.ts` |
-| Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
-| Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
-| Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |
-| Антиповтор | `TodayScreen` → `AntiRepeatPanel`; `WeekScreen`, `SwapDialog` | `useAntiRepeatDays` | `saveAntiRepeatDays` | `family_settings` | `generator.ts`, `replace.ts` |
-| Імпорт V1 | `ImportV1Panel` | — | `importV1` | усі синхронні | `migrate-v1.ts` |
+| Фіча            | Екран                                                         | Читання                                               | Запис                                                  | Таблиця                        | Ядро                          |
+| --------------- | ------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ | ------------------------------ | ----------------------------- |
+| Пул страв       | `MealsScreen`, `MealForm`                                     | `useMeals`, `useMealUsage`                            | `insertMeal`, `updateMeal`, `deleteMeal`, `clearMeals` | `meal`                         | `provenance.ts`               |
+| Смаки           | `MealsScreen`, `WeekScreen`                                   | `useTastePrefs`, `prefOf`                             | `setMealPref`                                          | `meal_pref`                    | `generator.ts`                |
+| Рецепт          | `RecipeScreen`                                                | `useRecipe`                                           | `saveRecipe`                                           | `recipe`                       | —                             |
+| Профілі         | `ProfilesSheet`                                               | `useProfiles`                                         | `insertProfile`, `updateProfile`, `deleteProfile`      | `profile`                      | `profile.ts`                  |
+| Тиждень         | `WeekScreen`, `TodayScreen`                                   | `useWeek`, `usePrecedingSlots`                        | `saveWeek`                                             | `week_plan`, `plan_slot`       | `generator.ts`, `calendar.ts` |
+| Ручна заміна    | `SwapDialog`                                                  | план від `WeekScreen`                                 | `replaceSlotMeal`                                      | `plan_slot`                    | `replace.ts`                  |
+| Календар        | `CalendarScreen`                                              | `useCalendarDays`, `useDayPlan`, `usePlannedDayCount` | —                                                      | `plan_slot`                    | `calendar.ts`                 |
+| Покупки         | `ShoppingScreen`                                              | `useOwnerWeeks`, `useShoppingChecks`                  | `setShoppingCheck`, `clearStaleChecks`, `saveWeek`     | `shopping_check`               | `shopping.ts`                 |
+| Стартовий набір | `StarterSet`                                                  | —                                                     | `seedStarterMeals`                                     | `meal`, `recipe`               | `starter-set.ts`              |
+| Імпорт PDF      | `PdfImportPanel`                                              | `useMeals`                                            | `insertMeal`, `saveRecipe`, `archivePlanSource`        | `meal`, `recipe`, `pdf_import` | `parse-plan.ts`               |
+| Час прийомів    | `TodayScreen` → `MealHoursPanel`                              | `useMealHours` через `lib/meal-windows.tsx`           | `saveMealHours`                                        | `family_settings`              | —                             |
+| Антиповтор      | `TodayScreen` → `AntiRepeatPanel`; `WeekScreen`, `SwapDialog` | `useAntiRepeatDays`                                   | `saveAntiRepeatDays`                                   | `family_settings`              | `generator.ts`, `replace.ts`  |
+| Імпорт V1       | `ImportV1Panel`                                               | —                                                     | `importV1`                                             | усі синхронні                  | `migrate-v1.ts`               |
 
 Охоплення списку покупок (`lib/shopping-scope.ts`) і активний профіль
 (`lib/active-profile.ts`) — стан пристрою в `localStorage`, не в базі (рішення
@@ -44,7 +44,7 @@ MER-55).
 - **`created_at` / `updated_at` не пишемо ніколи** — їх ставить сервер, тож LWW
   не залежить від годинника телефона.
 - **Видалення — `softDelete`:** `deleted_at` замість DELETE, завжди з `AND
-  deleted_at IS NULL` — повтор не зсуває час уже видаленому рядку (для LWW це
+deleted_at IS NULL` — повтор не зсуває час уже видаленому рядку (для LWW це
   була б нова зміна). Імена таблиць і колонок у SQL (`softDelete`, `upsert`) —
   лише літерали модуля, значення — параметрами.
 - **`family_id` у кожному рядку** — без нього рядок не пройде RLS на сервері.
@@ -189,7 +189,8 @@ MER-35/MER-40). `null` — рецепта немає, і це нормальни
 Поточні плани всіх власників одним запитом (хуки в циклі не можна), з тим
 самим `LATEST_PLAN_ORDER`, що `useWeek`: у магазин їде той тиждень, що на
 екрані. Слоти фільтруються датою свого плану в пам'яті. **Нижня межа вибірки —
-від сьогодні (`PLAN_HISTORY_DAYS`), а не з відповіді про плани:** `isLoading` не
+від сьогодні (`PLAN_HISTORY_DAYS`, свідомо завелика стеля), а не з відповіді про
+плани:** `isLoading` не
 підіймається на зміну параметрів, і був би кадр «плани є, слотів ще немає».
 Порожній список власників — `inList`, без планів — `NO_DATE`. Порядок
 `day_index, date, updated_at, id` дає обом пристроям той самий id слота, а

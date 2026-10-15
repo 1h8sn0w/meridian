@@ -7,29 +7,14 @@ import {
   buildWeekView,
   manualSwapsAhead,
 } from './model.ts'
+import { testMeal } from './test-fixtures.ts'
 import type { Meal, Row } from '@meridian/core'
 
-const meal = (id: string, type: Meal['type'], calories: number): Meal => ({
-  id,
-  name: id,
-  type,
-  calories,
-  caloriesApprox: false,
-  protein: null,
-  fat: null,
-  carbs: null,
-  ingredients: [],
-  source: '',
-  portions: [],
-  gerd: false,
-  sourceIssues: [],
-})
-
 const MEALS = new Map<string, Meal>([
-  ['b', meal('b', 'breakfast', 300)],
-  ['l', meal('l', 'lunch', 500)],
-  ['s', meal('s', 'snack', 100)],
-  ['d', meal('d', 'dinner', 400)],
+  ['b', testMeal('b', 'breakfast', 300)],
+  ['l', testMeal('l', 'lunch', 500)],
+  ['s', testMeal('s', 'snack', 100)],
+  ['d', testMeal('d', 'dinner', 400)],
 ])
 
 const slot = (
