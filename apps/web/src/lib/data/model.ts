@@ -1,18 +1,3 @@
-/**
- * Модель екранів поверх рядків локального SQLite (MER-49).
- *
- * `@meridian/core` описує домен — страву, профіль, тиждень. Тут те, чого домену
- * знати не треба: id рядків `plan_slot` (одиниця LWW, MER-46), колір профілю
- * (акцент інтерфейсу) і чесна відповідь на питання «а чи всі страви плану ще є
- * в пулі».
- *
- * **Дірка в плані можлива, і вона не помилка даних.** Страву видаляють м'яко,
- * але sync віддає лише живі рядки — на іншому пристрої страва просто зникає, а
- * `plan_slot` із посиланням лишається. Тому `SlotView.meal` nullable, а
- * `toWeekPlan` для доменних викликів повертає null, якщо хоч один слот порожній:
- * підставити «якусь» страву означало б вигадати план.
- */
-
 import {
   DEFAULTS,
   MEAL_TYPES,
@@ -30,13 +15,8 @@ import type {
   WeekPlan,
 } from '@meridian/core'
 
-/**
- * Профіль плюс колір. Колір — суто інтерфейсна річ (акцент активного профілю),
- * тож у доменному `Profile` його немає й бути не має.
- */
 export type AppProfile = Profile & { color: string }
 
-/** Порядок слотів у картці дня — хронологічний, як вікна годинника (MER-9). */
 const SLOT_ORDER: ReadonlyArray<MealType> = [
   'breakfast',
   'lunch',
@@ -45,24 +25,19 @@ const SLOT_ORDER: ReadonlyArray<MealType> = [
 ]
 
 type SlotView = {
-  /** id рядка `plan_slot`: саме він оновлюється при заміні (LWW на слоті). */
   id: string
   slot: MealType
   mealId: string
-  /** null — страви більше немає в пулі; рядок слота при цьому живий. */
   meal: Meal | null
   swapped: boolean
 }
 
 export type DayView = {
-  /** «YYYY-MM-DD» — локальна дата без UTC-зсувів. */
   date: string
   dayIndex: number
-  /** Слоти в хронологічному порядку; типів, яких у плані немає, тут теж немає. */
   slots: Array<SlotView>
   byType: Partial<Record<MealType, SlotView>>
   calories: DayCalories
-  /** MER-33: минулі дні — незмінна історія, заміни в них немає. */
   isPast: boolean
   isToday: boolean
 }
@@ -77,7 +52,6 @@ export type WeekView = {
   sources: Array<string>
   warnings: Array<string>
   days: Array<DayView>
-  /** Скільки слотів лишилися без страви — показуємо це вголос. */
   missing: number
 }
 
@@ -98,8 +72,6 @@ function jsonStrings(row: Row, column: string): Array<string> {
     const parsed: unknown = JSON.parse(value)
     return Array.isArray(parsed) ? parsed.map(String) : []
   } catch {
-    // Джерела й попередження — довідкові підписи. Зіпсований JSON тут не привід
-    // ховати весь план: план показуємо, підпис лишається порожнім.
     return []
   }
 }
@@ -119,19 +91,14 @@ export function antiRepeatDaysFromRow(row: Row): number | null {
   return value
 }
 
-/** Рядок `profile` → профіль плюс колір інтерфейсу. */
 export function appProfileFromRow(row: Row): AppProfile {
   const color = text(row, 'color').trim().toLowerCase()
   return {
     ...profileFromRow(row),
-    // Схема тримає колір NOT NULL із CHECK на `#rrggbb`, тож сюди має приїхати
-    // валідне значення. Якщо ні — беремо перший колір палітри: порожній
-    // CSS-токен зробив би невидимим увесь акцент інтерфейсу.
     color: /^#[0-9a-f]{6}$/.test(color) ? color : '#4f9dff',
   }
 }
 
-/** День, зібраний із рядків: спільна частина «Тижня» й «Календаря». */
 type FoldedDay = {
   dayIndex: number
   byType: Partial<Record<MealType, SlotView>>
@@ -139,21 +106,6 @@ type FoldedDay = {
   calories: DayCalories
 }
 
-/**
- * Рядки `plan_slot` → дні за датами. Один згорток на обидва екрани: «Тиждень»
- * і «Календар» показують ті самі слоти в тому самому порядку, і рахувати це
- * двічі означало б рано чи пізно розійтись у калоріях (MER-71).
- *
- * Дублікат типу слота в межах дати (двоє пристроїв устигли вставити свій рядок
- * до збіжності) не множить рядки на екрані: лишається останній у поданому
- * порядку. «Останній» тут має сенс лише тому, що вибірка впорядкована
- * (`queries.ts`): без цього два пристрої показали б для того самого дня різні
- * страви. `missing` при цьому рахує саме рядки, а не типи: слот без страви
- * лишається дірою в плані навіть тоді, коли його продублювали.
- *
- * `dayIndex` бере перший рядок дати; календарю він не потрібен, і в
- * `CalendarDayView` не потрапляє.
- */
 function foldSlotRows(
   slotRows: ReadonlyArray<Row>,
   meals: ReadonlyMap<string, Meal>,
@@ -204,13 +156,6 @@ function foldSlotRows(
   return { days, missing }
 }
 
-/**
- * Рядки `week_plan` + `plan_slot` + пул страв → те, що малює екран «Тиждень».
- *
- * `todayKey` передається аргументом, а не читається з годинника всередині:
- * «сьогодні» — стан пристрою, і рахувати його в двох місцях по-різному — рівно
- * той клас помилки, на якому V1 уже наступав (MER-34).
- */
 export function buildWeekView(
   planRow: Row,
   slotRows: ReadonlyArray<Row>,
@@ -254,29 +199,12 @@ export function manualSwapsAhead(view: WeekView): number {
     .filter((slot) => slot.swapped).length
 }
 
-/**
- * День календаря (MER-61): слоти однієї дати без прив'язки до конкретного
- * рядка `week_plan`.
- *
- * Це навмисно НЕ `DayView`: календар читає слоти за календарним ключем
- * (профіль + дата, MER-66), і день тут може належати будь-якому поколінню
- * плану — минулому тижню, поточному чи згенерованому наперед. Полів
- * `isPast`/`dayIndex` немає, бо екран календаря сам знає вибрану дату, а
- * порядок днів — це порядок дат.
- */
 export type CalendarDayView = {
-  /** «YYYY-MM-DD» — локальна дата без UTC-зсувів. */
   date: string
-  /** Слоти в хронологічному порядку; відсутні типи не вигадуються. */
   slots: Array<SlotView>
   calories: DayCalories
 }
 
-/**
- * Рядки `plan_slot` + пул страв → дні календаря за датами. Той самий згорток,
- * що й у «Тижні» (`foldSlotRows`) — календар лише не бере з нього `byType` і
- * `dayIndex`.
- */
 export function buildCalendarDays(
   slotRows: ReadonlyArray<Row>,
   meals: ReadonlyMap<string, Meal>,
@@ -289,18 +217,6 @@ export function buildCalendarDays(
   return out
 }
 
-/**
- * Вигляд екрана → доменний `WeekPlan` для `suggestReplacements` / `replaceSlot`.
- *
- * null, якщо в плані є хоч один слот без страви або без повного набору типів:
- * домен рахує коридор і антиповтор за всіма слотами дня, і неповний день дав би
- * не «приблизну», а неправильну відповідь.
- *
- * `mixed` / `mixPossible` тут не відновлюються: їх рахує генератор під час
- * збирання тижня, а ручна заміна на них не дивиться (`replace.ts` виводить
- * потребу міксу з самого пулу). Значення, яке нікому не потрібне, краще не
- * вигадувати — тому обидва `false`.
- */
 export function toWeekPlan(view: WeekView): WeekPlan | null {
   const days: Array<PlanDay> = []
   for (const day of view.days) {

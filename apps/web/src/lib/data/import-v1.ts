@@ -1,27 +1,3 @@
-/**
- * Запис міграції V1 → V2 у локальний SQLite (MER-48).
- *
- * Розбір дампа зробив `migrateV1` у ядрі — сюди приїжджають уже готові рядки з
- * виведеними id. Цей модуль лише кладе їх у базу пристрою; далі PowerSync
- * вивантажує чергу сам, тож імпорт працює й без мережі.
- *
- * Правила ті самі, що в `mutations.ts`: `created_at`/`updated_at` не пишемо
- * ніколи (їх ставить сервер, на цьому тримається LWW), `family_id` — у кожному
- * рядку, порожнє лишається порожнім.
- *
- * **Порядок запису — не косметика.** Черга вивантаження зберігає порядок
- * операцій, а на сервері діють зовнішні ключі: `recipe` і `meal_pref`
- * посилаються на `meal`, а профіль зі спільним планом (MER-17) — на
- * профіль-власник. Тому спершу страви, потім усе, що на них посилається, а
- * серед профілів власники йдуть перед тими, хто ділить їхній план.
- *
- * **Повторний імпорт оновлює ті самі рядки.** id виведені з id V1
- * (`derivedId`), тож другий запуск того самого файлу нічого не подвоює. Разом з
- * оновленням знімається `deleted_at`: якщо запис колись видалили, а файл із ним
- * підсунули знову — користувач попросив саме цього, і тихо проігнорувати рядок
- * було б дивно.
- */
-
 import type {
   MigratedPref,
   MigratedProfile,
@@ -31,7 +7,6 @@ import type {
 } from '@meridian/core'
 import type { Db } from './mutations'
 
-/** Скільки рядків насправді записано — цифри для екрана. */
 export type ImportStats = {
   meals: number
   recipes: number
@@ -39,34 +14,16 @@ export type ImportStats = {
   prefs: number
 }
 
-/**
- * Транзакція PowerSync — виведена з самого `writeTransaction`, а не описана
- * руками: власний «схожий» тип розійшовся б із бібліотекою на першому ж її
- * оновленні, і розійшовся б мовчки.
- */
 type Tx = Parameters<Parameters<Db['writeTransaction']>[0]>[0]
 
-/** SQLite не має boolean — 1/0, як і в клієнтській схемі (MER-46). */
 function flag(value: boolean): number {
   return value ? 1 : 0
 }
 
-/**
- * `jsonb` на пристрої лежить рядком, і саме рядком його чекає вивантаження:
- * інакше PostgREST покладе в колонку jsonb-РЯДОК замість масиву, а CHECK
- * `jsonb_typeof(...) = 'array'` відкине запис (MER-49).
- */
 function json(value: unknown): string {
   return JSON.stringify(value)
 }
 
-/**
- * Вставити рядок або оновити наявний за id.
- *
- * Імена таблиці й колонок беруться ЛИШЕ з літералів цього модуля — вони не
- * приходять ні з дампа, ні від користувача, тож підстановка їх у SQL безпечна.
- * Значення, як і всюди, їдуть параметрами.
- */
 async function upsert(
   tx: Tx,
   table: string,
@@ -108,8 +65,6 @@ function mealValues(familyId: string, meal: Meal): Record<string, unknown> {
     name: meal.name,
     type: meal.type,
     calories: meal.calories,
-    // MER-26: приблизність переїжджає як є — інакше оцінка почала б видавати
-    // себе за цифру дієтолога.
     calories_approx: flag(meal.caloriesApprox),
     protein: meal.protein,
     fat: meal.fat,
@@ -151,7 +106,6 @@ function profileValues(
     goal_protein: profile.goalProtein,
     goal_fat: profile.goalFat,
     goal_carbs: profile.goalCarbs,
-    // NULL — увесь спільний пул; масив — обмежений. Порожній ≠ NULL.
     meal_ids: profile.mealIds === null ? null : json(profile.mealIds),
   }
 }
@@ -167,17 +121,7 @@ function prefValues(
   }
 }
 
-/**
- * Порядок запису профілів: власник спільного плану — перед тим, хто його
- * ділить (MER-17). На сервері зовнішній ключ `shared_plan_with` не пустить
- * посилання на рядок, якого ще немає.
- *
- * Не простим сортуванням на дві купки: якщо в дампі трапиться ланцюжок
- * (B ділить із A, а A — з C), обидва опиняться в одній купці й порядок між ними
- * лишиться довільним. V1 ланцюжки забороняє, але дамп можна відредагувати
- * руками — а цей модуль саме такому дампу й не довіряє.
- */
-function inWriteOrder(
+export function inWriteOrder(
   profiles: ReadonlyArray<MigratedProfile>,
 ): Array<MigratedProfile> {
   const pending = new Map(profiles.map((profile) => [profile.id, profile]))
@@ -187,8 +131,6 @@ function inWriteOrder(
   while (pending.size && progress) {
     progress = false
     for (const [id, profile] of pending) {
-      // Власника, який ще чекає своєї черги, треба пропустити — його рядок має
-      // лягти першим.
       const owner = profile.sharedPlanWith
       if (owner !== null && pending.has(owner)) continue
       ordered.push(profile)
@@ -196,19 +138,9 @@ function inWriteOrder(
       progress = true
     }
   }
-  /* Лишок — це цикл посилань, якого в коректних даних не буває. Викидати такі
-   * профілі не можна (це дані користувача), тож пишемо як є: сервер відкине
-   * рівно те посилання, що замикає цикл, а не весь імпорт. */
   return [...ordered, ...pending.values()]
 }
 
-/**
- * Записати розібраний дамп у базу пристрою.
- *
- * Однією транзакцією: імпорт або застосувався, або ні. Частково перенесені дані
- * були б найгіршим результатом — профілі з посиланнями на страви, яких не
- * записали, виглядали б як зіпсована база.
- */
 export async function importV1(
   db: Db,
   familyId: string,
@@ -221,14 +153,6 @@ export async function importV1(
       await upsert(tx, 'meal', meal.id, mealValues(familyId, meal))
     }
     for (const recipe of migration.recipes) {
-      /* Рецепт шукаємо за стравою, а не за id міграції — так само, як смак
-       * нижче, і рівно з тієї ж причини: рецепт могли додати вже у V2
-       * (`saveRecipe`, MER-63), і там лежить рядок із виведеним id
-       * `recipeId(mealId)`. Вставка «свого» дала б другий рядок на ту саму
-       * страву, і сервер відкинув би ВЕСЬ імпорт на `recipe_meal_id_key`.
-       *
-       * Фільтра `deleted_at` тут немає навмисно: цей індекс, на відміну від
-       * решти, не частковий — ключ тримає й м'яко видалений рядок. */
       const existing = await tx.getOptional<{ id: string }>(
         'SELECT id FROM recipe WHERE meal_id = ?',
         [recipe.mealId],
@@ -244,13 +168,6 @@ export async function importV1(
       await upsert(tx, 'profile', profile.id, profileValues(familyId, profile))
     }
     for (const pref of migration.prefs) {
-      /* Смак шукаємо за стравою, а не за виведеним id: живий рядок на страву в
-       * схемі рівно один (частковий унікальний індекс), а поставити смак могли
-       * вже у V2 — тоді там лежить рядок із власним випадковим id. Вставка
-       * «свого» рядка дала б другий живий смак тієї самої страви, і сервер
-       * відкинув би весь запис на індексі. Той самий прийом, що в
-       * `setMealPref`; новий рядок обидва шляхи створюють з тим самим
-       * виведеним id (`mealPrefId`, MER-57). */
       const live = await tx.getOptional<{ id: string }>(
         'SELECT id FROM meal_pref WHERE meal_id = ? AND deleted_at IS NULL',
         [pref.mealId],
