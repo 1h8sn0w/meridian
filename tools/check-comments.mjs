@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const COMMENT_FREE_DIRS = [
+  'apps/web/src/lib/data',
   'packages/core/src',
   'apps/web/src/lib/powersync',
 ]
