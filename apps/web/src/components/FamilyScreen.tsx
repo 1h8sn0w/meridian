@@ -1,12 +1,3 @@
-/**
- * Сім'я (MER-45): хто в ній, як покликати другого і в якому стані синхронізація.
- *
- * Четверта вкладка застосунку. Раціон живе на трьох інших екранах, тут — усе
- * про доступ: склад сім'ї, одноразовий код запрошення й вихід. Панель
- * синхронізації теж тут, а не на головній: користувач іде дивитися на неї
- * свідомо, коли щось не сходиться між пристроями.
- */
-
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { formatDate, formatInviteCode } from '../lib/messages'
@@ -41,8 +32,6 @@ export function FamilyScreen() {
               key={member.id}
               className="flex items-center gap-2.5 border-b border-line py-2.5 last:border-b-0 last:pb-0"
             >
-              {/* Літера з пошти — як аватар профілю у V1. Пошти може не бути:
-                  у токені вона не завжди є, і вигадувати підпис нема з чого. */}
               <Avatar letter={(member.email?.[0] ?? '?').toUpperCase()} />
               <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm">
                 {member.email ?? 'акаунт без пошти'}

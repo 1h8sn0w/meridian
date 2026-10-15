@@ -1,18 +1,3 @@
-/**
- * Ручна заміна страви в слоті (MER-12, MER-28) — порт діалогу з V1.
- *
- * Правила рахує ядро (`suggestReplacements`), інтерфейс лише показує їх і
- * **блокує невалідних кандидатів**: зберегти невалідний тиждень ручною заміною
- * не можна (MER-28). Причини поруч із кожним — коридор, повтор, мікс, — щоб
- * заблокований рядок не виглядав поламаною кнопкою.
- *
- * Смак (MER-18) впливає лише на порядок і позначку: остаточний вибір за
- * користувачем, тож валідності він не змінює.
- *
- * Запис — один UPDATE рядка `plan_slot`, тобто рівно та одиниця, на якій
- * обіцяно last-write-wins (MER-46).
- */
-
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
@@ -56,10 +41,6 @@ export function SwapDialog({
   const [failure, setFailure] = useState<string | null>(null)
   const [query, setQuery] = useState('')
 
-  // Через `.at()`, а не `days[dayIndex]`: індексний доступ у цьому пакеті
-  // типізується як завжди визначений, а день за межами плану — цілком реальний
-  // стан (тиждень могли перегенерувати коротшим, доки діалог відкритий).
-  // Від'ємний індекс відсікаємо самі: `.at(-1)` віддав би останній день.
   const day: DayView | undefined =
     dayIndex >= 0 ? view.days.at(dayIndex) : undefined
   const plan = toWeekPlan(view)
@@ -73,7 +54,6 @@ export function SwapDialog({
     )
   }
 
-  // MER-33: прожитий день — незмінна історія.
   if (day.isPast) {
     return (
       <Sheet title="Минулий день" onClose={onClose}>
@@ -111,8 +91,6 @@ export function SwapDialog({
     )
   }
 
-  /* MER-26: прогноз дня показуємо з «≈», якщо приблизний хоч один слот, який
-   * лишається на місці, — або сам кандидат. */
   const otherApprox = Object.entries(plan.days[dayIndex]?.meals ?? {}).some(
     ([type, meal]) => type !== slot && meal.caloriesApprox,
   )

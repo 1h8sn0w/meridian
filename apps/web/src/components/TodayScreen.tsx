@@ -1,15 +1,3 @@
-/**
- * Екран «Сьогодні» (MER-9, MER-11, MER-49) — годинник дня й страва поточного
- * прийому.
- *
- * Це головний екран продукту: він відповідає на питання «що їсти зараз», не
- * змушуючи гортати план. Поза вікнами прийомів показує найближчий наступний —
- * можливо, вже завтрашній, і тоді бере страву наступного дня плану.
- *
- * Усе читається з локального SQLite, тож екран однаково працює офлайн і
- * оновлюється сам, коли зміна приїде з іншого пристрою (MER-46).
- */
-
 import { useState } from 'react'
 import {
   MEAL_TYPE_LABELS,
@@ -48,7 +36,6 @@ import { SwapDialog } from './SwapDialog'
 import { ArrowsLeftRight, Heart, Prohibit } from '@phosphor-icons/react'
 import { Button, Hint, Panel, Problems, Tag } from './ui'
 
-/** Позначка смаку (MER-18) — та сама, що в плані тижня й у списку страв. */
 export function TasteMark({
   value,
 }: {
@@ -116,13 +103,10 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         />
       ) : null}
 
-      {/* Годинник — герой екрана, тож без картки: він стоїть просто на небі. */}
       <div className="clock-hero mb-4 px-2">
         <DayClock minutes={minutes} full />
       </div>
 
-      {/* Доки читання в дорозі, «профілю чи плану немає» було б неправдою —
-          мовчимо, інакше картка «Перші кроки» блимала б на кожному старті. */}
       {profilesRead.isLoading ||
       mealsRead.isLoading ||
       week.isLoading ? null : profile && week.data ? (
@@ -175,10 +159,6 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   )
 }
 
-/* ==========================================================================
- * Картка поточного прийому (MER-11)
- * ======================================================================== */
-
 function CurrentMeal({
   minutes,
   week,
@@ -205,8 +185,6 @@ function CurrentMeal({
     </h2>
   )
 
-  // Активний прийом; поза вікнами — найближчий наступний. Якщо його початок уже
-  // позаду, це вже завтрашній прийом, і страву беремо з наступного дня плану.
   const { windows } = useMealWindows()
   const active = slotAt(minutes, windows)
   const slot: MealType | null = active.type ?? active.next?.type ?? null
@@ -267,8 +245,6 @@ function CurrentMeal({
       <div className="flex items-end justify-between gap-3 border-b border-line pb-4 pt-3">
         <div className="min-w-0 flex-auto">
           <div className="text-xl font-semibold leading-snug tracking-tight">
-            {/* Назва веде на сторінку рецепта (MER-63) — саме звідси її
-                відкривають найчастіше: страва вже на столі. */}
             <RecipeLink mealId={meal.id}>{meal.name}</RecipeLink>{' '}
             <TasteMark value={prefOf(prefs, meal.id)} />{' '}
             <MealMarks meal={meal} />
@@ -292,7 +268,6 @@ function CurrentMeal({
         }}
       />
 
-      {/* MER-33: у прожитому дні заміни немає — історія незмінна. */}
       {day.isPast ? null : (
         <div className="mt-4">
           <Button block onClick={() => onSwap(dayIndex, slot)}>

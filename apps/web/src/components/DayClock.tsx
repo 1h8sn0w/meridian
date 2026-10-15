@@ -1,18 +1,3 @@
-/**
- * Годинник дня (MER-45, MER-49) — сонячна дуга доби з вікнами прийомів.
- *
- * Два розміри однієї фігури: значок на екранах входу й повний циферблат на
- * «Сьогодні». Різниця лише в підписах — геометрія спільна, бо це той самий знак
- * застосунку.
- *
- * Поточний час — це сонце на кільці (вночі — місяць). Активне вікно світиться
- * кольором фази неба: пройдена частина яскраво, решта притушено, тож видно, як
- * далеко вже зайшов обід. Колір дає `--sun` зі styles.css, а не цей файл.
- *
- * Час приходить згори (`useNow`), а не читається тут: активний прийом і картка
- * страви під ним мусять показувати одну й ту саму хвилину.
- */
-
 import { useId } from 'react'
 import { MEAL_TYPE_LABELS } from '@meridian/core'
 
@@ -33,11 +18,8 @@ import {
 } from '../lib/day-clock'
 import { useMealWindows } from '../lib/meal-windows'
 
-/** Зазор 6 хв з кожного боку — щоб межі вікон читались, як у V1. */
-const GAP = 6
-/** Риски годин — усередині кільця, з відступом від нього. */
+const WINDOW_GAP_MINUTES = 6
 const TICK_OUTER = RING_RADIUS - RING_WIDTH / 2 - 5
-/** Цифри годин — ще глибше, щоб не сперечатися з підписами прийомів назовні. */
 const HOUR_LABEL_RADIUS = RING_RADIUS - 36
 
 export function DayClock({
@@ -79,7 +61,6 @@ export function DayClock({
           >
             <feGaussianBlur stdDeviation="6" />
           </filter>
-          {/* Серп місяця: диск мінус зсунутий диск. */}
           <mask id={ids + 'moon'}>
             <circle cx={CENTER} cy={CENTER - RING_RADIUS} r={10} fill="white" />
             <circle
@@ -100,7 +81,6 @@ export function DayClock({
           strokeWidth={1}
         />
 
-        {/* Риски годин: довші на 00/06/12/18. */}
         {full
           ? Array.from({ length: 24 }, (_, hour) => {
               const major = hour % 6 === 0
@@ -142,8 +122,8 @@ export function DayClock({
 
         {windows.map((w, index) => {
           const on = active.type === w.type
-          const from = w.startMinute + GAP
-          const to = w.endMinute - GAP
+          const from = w.startMinute + WINDOW_GAP_MINUTES
+          const to = w.endMinute - WINDOW_GAP_MINUTES
           const now = Math.min(Math.max(minutes, from), to)
           const delay = { animationDelay: `${index * 90}ms` }
           return (
@@ -157,7 +137,6 @@ export function DayClock({
                 fill="none"
                 strokeWidth={RING_WIDTH}
               />
-              {/* Пройдена частина активного вікна: світло під нею й сама дуга. */}
               {on && now > from ? (
                 <>
                   <path
@@ -205,11 +184,6 @@ export function DayClock({
             })
           : null}
 
-        {/* Сонце малюється вгорі й повертається на кут поточної хвилини —
-            так його переїзд анімує CSS (`sun-orbit`), а не перерахунок точок. */}
-        {/* Ключ за половиною доби: опівночі кут скидається з ~360° на 0°, і
-            перехід провів би сонце назад через увесь циферблат. Новий елемент
-            стає на місце без переходу. */}
         <g
           key={minutes < 720 ? 'am' : 'pm'}
           className="sun-orbit"
@@ -278,7 +252,6 @@ export function DayClock({
         ) : null}
       </svg>
 
-      {/* Повний циферблат каже все сам; значку потрібен підпис. */}
       {full ? null : (
         <p className="mb-0 mt-3 text-center text-sm text-muted">{sentence}</p>
       )}
