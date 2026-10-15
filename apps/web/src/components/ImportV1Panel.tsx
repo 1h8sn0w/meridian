@@ -1,19 +1,3 @@
-/**
- * Перенесення даних з V1 (MER-48).
- *
- * Місце — вкладка «Сім'я»: це разова дія рівня «налаштувати застосунок», а не
- * щоденна робота з раціоном, тож на трьох головних екранах їй нема чого робити
- * (та сама логіка, що й у панелі синхронізації).
- *
- * **Два кроки, а не один.** Файл спершу розбирається й показується: скільки
- * страв, профілів і смаків приїде — і що саме НЕ приїде та чому. Записуємо
- * лише після явного підтвердження. Міграція, яка мовчки застосувалась, а
- * половину даних загубила, помічається вже після видалення V1 — тобто пізно.
- *
- * Розбір робить чиста функція ядра (`migrateV1`), запис — `importV1`. Тут лише
- * екран: файл, попередній перегляд, підтвердження, підсумок.
- */
-
 import { useState } from 'react'
 import { migrateV1 } from '@meridian/core'
 import type { V1Migration } from '@meridian/core'
@@ -22,19 +6,10 @@ import { useSyncState } from '../lib/powersync/provider'
 import { importV1 } from '../lib/data/import-v1'
 import type { ImportStats } from '../lib/data/import-v1'
 import { errorText } from '../lib/messages'
+import { plural } from '../lib/format'
 import type { Failure } from '../lib/messages'
 import { Button, ErrorText, Hint, InfoText, LinkButton, Panel } from './ui'
 
-/** Українська множина: 1 страва, 2–4 страви, 5+ страв. */
-function plural(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return one
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
-  return many
-}
-
-/** «3 страви, 2 профілі» — порожні складові не згадуємо взагалі. */
 function summary(counts: {
   meals: number
   recipes: number
@@ -90,8 +65,6 @@ export function ImportV1Panel() {
     setBusy(true)
     try {
       const text = await file.text()
-      // Розбір і читання файлу падають по-різному, але для користувача це одна
-      // й та сама відповідь: «цей файл не підходить», плюс оригінал причини.
       const parsed: unknown = JSON.parse(text)
       setMigration(migrateV1(parsed, familyId ?? ''))
       setFileName(file.name)
@@ -202,8 +175,6 @@ export function ImportV1Panel() {
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0]
-              // Значення поля скидаємо, щоб той самий файл можна було вибрати
-              // вдруге після «Скасувати» — інакше `change` просто не настане.
               event.target.value = ''
               if (file) void readFile(file)
             }}

@@ -1,19 +1,3 @@
-/**
- * Профілі: список і форма (MER-21, MER-17, MER-24, MER-31).
- *
- * Профіль — раціон, а не акаунт: ціль калорійності, коридор, порційна літера з
- * плану дієтолога і, за потреби, звужений пул страв. Пул і смаки лишаються
- * спільними для сім'ї — профіль лише вирішує, що з них йому видно.
- *
- * Три правила тут не обговорюються, бо кожне колись ламало дані:
- *
- *  - **спільний план — це один крок, а не ланцюг** (MER-31): профіль, який уже
- *    є власником плану для інших, не може сам приєднатися до чужого;
- *  - **порційна літера береться з плану, а не обчислюється** (MER-24);
- *  - **`null` і порожній список страв — різні стани**: перше означає «увесь
- *    пул», друге — «жодної страви». Саме тому в схемі `meal_ids` nullable.
- */
-
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { usePowerSync } from '@powersync/react'
@@ -85,8 +69,6 @@ export function ProfilesSheet({
 }) {
   const db = usePowerSync()
   const [draft, setDraft] = useState<ProfileDraft | null>(
-    // Сім'я без жодного профілю одразу відкриває форму: список порожній, і
-    // показувати його немає сенсу.
     profiles.length ? null : draftOf(null),
   )
   const [error, setError] = useState<string | null>(null)
@@ -186,7 +168,6 @@ export function ProfilesSheet({
     )
   }
 
-  /* Власником спільного плану може бути лише профіль, який сам план не ділить. */
   const owners = profiles.filter((p) => p.id !== draft.id && !p.sharedPlanWith)
 
   return (

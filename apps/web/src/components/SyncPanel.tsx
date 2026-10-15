@@ -1,22 +1,3 @@
-/**
- * Стан синхронізації (MER-46).
- *
- * Це не «індикатор для краси»: без нього єдиний спосіб дізнатися, що дані
- * стоять у черзі й нікуди не їдуть, — дивитися в консоль. Local-first означає,
- * що застосунок працює однаково і онлайн, і офлайн, — саме тому користувач має
- * бачити, у якому саме стані він зараз.
- *
- * Місце панелі — вкладка «Сім'я» (MER-49): на головні екрани вона не проситься.
- * Local-first означає, що стан з'єднання не має впливати на роботу, тож у
- * шапці «Сьогодні» він був би шумом; сюди ж заходять свідомо — коли між
- * пристроями щось не сходиться.
- *
- * **Помилка — окремий стан, а не «Офлайн»** (MER-84). Сервер, що не приймає
- * вхід чи зміни, раніше виглядав тут як відсутність мережі, а причина лежала в
- * консолі. Тепер панель каже, що саме не так, і дає оригінальний текст — його
- * потребує той, хто піднімав self-host.
- */
-
 import { useEffect, useState } from 'react'
 import { usePowerSync, useQuery, useStatus } from '@powersync/react'
 import { syncFailure } from '../lib/messages'
@@ -26,7 +7,6 @@ import { SYNCED_TABLES } from '../lib/powersync/schema'
 import { LocalDbPending } from './RequireLocalDb'
 import { Button, ErrorText, Hint, Panel } from './ui'
 
-/** «18:42» — панель показує час у межах доби, дата тут нічого не додає. */
 function formatTime(date: Date): string {
   return new Intl.DateTimeFormat('uk-UA', {
     hour: '2-digit',
@@ -53,11 +33,6 @@ function Row({
   )
 }
 
-/**
- * Помилки статусу PowerSync українською. Мережі немає — `null`: це «Офлайн», а
- * не тривога. Сам статус живе у воркері й приходить новим об'єктом на кожну
- * зміну, тож кешувати тут нічого.
- */
 function statusFailures(status: {
   downloadError?: Error
   uploadError?: Error
@@ -69,7 +44,6 @@ function statusFailures(status: {
   const upload = status.uploadError
     ? syncFailure(status.uploadError, { direction: 'upload', online })
     : null
-  // Протухлий вхід валить обидва напрями тим самим текстом — двічі не кажемо.
   return {
     download,
     upload: upload && upload.text === download?.text ? null : upload,
@@ -79,8 +53,6 @@ function statusFailures(status: {
 export function SyncPanel() {
   const { configured, db, failure } = useSyncState()
 
-  // Раніше за «не налаштована»: без бази пристрою застосунок не працює взагалі,
-  // і саме тут, у розділі про дані на пристрої, людина шукатиме причину.
   if (failure) {
     return (
       <Panel title="Синхронізація">
@@ -113,19 +85,12 @@ export function SyncPanel() {
   return <SyncDetails />
 }
 
-/**
- * Окремим компонентом, бо хуки PowerSync вимагають готової бази в контексті, а
- * умовних хуків у React не буває.
- */
 function SyncDetails() {
   const db = usePowerSync()
   const status = useStatus()
   const { connectFailure, retryConnect } = useSyncState()
   const [pending, setPending] = useState<number | null>(null)
 
-  // Кількість невідправленого лежить у службовій черзі, а не в наших таблицях,
-  // тож звичайним запитом її не поспостерігаєш. Перечитуємо на кожну зміну
-  // стану — цього досить: черга росте й тане саме разом із ним.
   useEffect(() => {
     let stale = false
     void db.getUploadQueueStats().then((stats) => {

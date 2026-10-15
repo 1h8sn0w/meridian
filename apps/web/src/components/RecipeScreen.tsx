@@ -1,20 +1,3 @@
-/**
- * Сторінка рецепта (MER-63) — V2-реалізація наміру MER-22.
- *
- * Окремий екран, а не секція картки: тут кроки приготування, фото й повний
- * склад — те, заради чого страву відкривають, коли вже стоять біля плити.
- *
- * Три правила, з яких росте весь файл:
- *
- *  - **Секції без даних немає взагалі.** Ні порожнього заголовка, ні «0 хв»:
- *    порожнє поле означає «у джерелі цього немає» (правило провенансу).
- *  - **Фото береться з рядка `recipe` за `meal_id`**, тобто завжди живе. Саме
- *    копія фото всередині знімка плану давала граблі MER-40 і MER-35 — тут
- *    копії немає в принципі, бо `plan_slot` посилається на страву за id.
- *  - **Усе читається з локального SQLite**, тож сторінка працює офлайн, а
- *    зміна з іншого пристрою приїжджає на неї сама (MER-46).
- */
-
 import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
@@ -94,9 +77,6 @@ export function RecipeScreen({
         <MealMarks meal={meal} block />
         <Chips meal={meal} recipe={recipe} />
         <StayAwake />
-        {/* Той самий склад, що на картці «Сьогодні» — правило «показувати чи
-            ні» має бути одне на застосунок. `hideEmpty`: сторінка вся про склад
-            страви, тож рядок «не вказано» тут зайвий (MER-63). */}
         <MealDetails meal={meal} portion={profile?.portion ?? null} hideEmpty />
         <SourceIssues meal={meal} />
         <Steps
@@ -107,9 +87,6 @@ export function RecipeScreen({
       </Panel>
 
       <Panel>
-        {/* Форма знімає чернетку з рецепта РІВНО ОДИН раз, тож відкрити її до
-            першого читання не можна: чернетка вийшла б порожньою, а «Зберегти»
-            стерло б те, що вже є в рядку. */}
         {recipeRead.isLoading ? (
           <Hint>Читаємо рецепт…</Hint>
         ) : editing ? (
@@ -143,25 +120,12 @@ export function RecipeScreen({
   )
 }
 
-/**
- * Повернення (MER-86). Рецепт відкривають із «Сьогодні», «Тижня» й «Страв», і
- * жорстке «До страв» губило місце, з якого прийшли. Прийшли посиланням на
- * рецепт (`RecipeLink`) — «Назад» веде на ту адресу, а звичайне натискання йде
- * історією: так екран відновить і прокрутку. Рецепт відкрито напряму за
- * адресою — веде на «Страви».
- */
 function Back() {
   const router = useRouter()
-  // Адресу беремо раз, із запису, з яким рецепт відкрили: щойно «Назад» почне
-  // перехід, адреса роутера вже вказує туди, куди йдемо. І лише якщо позаду є
-  // записи застосунку (`__TSR_index`, як у `useCanGoBack`): стан історії може
-  // пережити саму історію (відновлена сесія), і тоді йти назад нікуди.
   const [from] = useState(() => {
     const { state } = router.latestLocation
     return state.__TSR_index !== 0 ? state.recipeFrom : undefined
   })
-  // Під час переходу посилання ще на екрані: другий тап пішов би історією ще на
-  // крок назад, повз екран, з якого прийшли.
   const leaving = useRef(false)
   const look =
     'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
@@ -172,7 +136,6 @@ function Back() {
         href={from}
         className={look}
         onClick={(event) => {
-          // З модифікатором — нова вкладка чи вікно, як у будь-якого посилання.
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
             return
           event.preventDefault()
@@ -193,10 +156,6 @@ function Back() {
   )
 }
 
-/* ==========================================================================
- * Фото
- * ======================================================================== */
-
 function Photo({ meal, photo }: { meal: Meal; photo: string | null }) {
   if (!photo) return null
   return (
@@ -208,13 +167,6 @@ function Photo({ meal, photo }: { meal: Meal; photo: string | null }) {
   )
 }
 
-/**
- * Фото зменшується до 800 px і зберігається JPEG-ом — як у V1.
- *
- * Це не косметика: `photo` — data-URL у синхронізованій таблиці, тож знімок із
- * камери на 4 МБ поїхав би через мережу цілком і на кожен пристрій. 800/0.8 —
- * калібрувальна ручка під телефон, а не константа з якогось стандарту.
- */
 async function shrink(file: File): Promise<string> {
   const url = URL.createObjectURL(file)
   try {
@@ -237,10 +189,6 @@ async function shrink(file: File): Promise<string> {
     URL.revokeObjectURL(url)
   }
 }
-
-/* ==========================================================================
- * Метадані: калорійність із страви, час і порції — з рецепта
- * ======================================================================== */
 
 function Chips({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
   const calories = formatMealCalories(meal)
@@ -311,10 +259,6 @@ function StayAwake() {
   )
 }
 
-/* ==========================================================================
- * Кроки приготування
- * ======================================================================== */
-
 function Steps({
   steps,
   servings,
@@ -366,10 +310,6 @@ function Steps({
   )
 }
 
-/* ==========================================================================
- * Редагування — єдине місце у V2, де ці поля взагалі можна ввести (MER-22)
- * ======================================================================== */
-
 function RecipeForm({
   mealId,
   familyId,
@@ -378,7 +318,6 @@ function RecipeForm({
 }: {
   mealId: string
   familyId: string
-  /** null — рецепта ще немає; тоді це його створення. */
   recipe: Recipe | null
   onDone: () => void
 }) {

@@ -1,15 +1,3 @@
-/**
- * Екран «Страви» (MER-49) — пул, з якого генератор збирає тиждень.
- *
- * Пул спільний для сім'ї, як і смаки: сім'я планує один раціон. Профіль може
- * бачити лише частину пулу (MER-21), але керується він тут цілком — інакше
- * страву, прибрану з одного профілю, ніхто не зміг би повернути.
- *
- * Позначки «улюблене» / «не подобається» (MER-18) стоять просто в рядку списку: це не косметика,
- * а правило добору в генераторі, і ставити їх має бути так само легко, як
- * подивитися на страву.
- */
-
 import { useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
@@ -58,12 +46,8 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   const prefsRead = useTastePrefs()
   const search = useSearch({ from: '/meals' })
   const filter = search.filter ?? 'all'
-  /* MER-75: «лише ГЕРХ» — окремий перемикач, а не ще одне значення `filter`:
-   * його поєднують із типом слота («ГЕРХ-сніданки»). */
   const gerdOnly = search.gerd ?? false
   const navigate = useNavigate({ from: '/meals' })
-  /* Фільтр — це той самий екран, а не перехід: без нового запису в історії,
-   * без стрибка вгору й без анімації зміни екрана. */
   const setSearch = (next: MealsSearch) =>
     void navigate({
       search: (prev) => ({ ...prev, ...next }),
@@ -108,8 +92,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     }
   }
 
-  /* MER-77: усі страви разом із рецептами й смаками. Страви зі слотів планів
-   * лишаються — те саме правило, що для видалення однієї (`MealForm`). */
   const clearAll = async () => {
     if (
       !window.confirm(
@@ -183,8 +165,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       label: MEAL_TYPE_LABELS[type],
       count: meals.filter((meal) => meal.type === type).length,
     })),
-    // Фільтр живе в адресі, тож може пережити свої страви: його чип лишається,
-    // щоб було видно, що саме вибрано, і як це зняти (так само «Лише ГЕРХ»).
     ...(prefs.favorites.size || filter === 'favorite'
       ? [
           {
@@ -259,8 +239,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             Додати страву
           </Button>
 
-          {/* Напівавтоматичний імпорт плану дієтолога (MER-52): розпізнане
-              людина перевіряє й підтверджує перед додаванням у пул. */}
           <Button block onClick={() => setImporting(true)}>
             <FilePdf aria-hidden size={18} />
             Імпорт із PDF-плану дієтолога
@@ -302,8 +280,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                 key={meal.id}
                 className="flex items-center justify-between gap-2 border-b border-line py-3 last:border-b-0 last:pb-0"
               >
-                {/* Рядок веде на сторінку рецепта (MER-63): кроки, фото й
-                    повний склад. Редагування самої страви лишається на «✎». */}
                 <RecipeLink
                   mealId={meal.id}
                   className="group min-w-0 flex-auto text-content no-underline"
@@ -312,8 +288,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                     {meal.name} <MealMarks meal={meal} />
                   </div>
                   <div className="mt-0.5 text-xs text-muted">
-                    {/* Калорійність — у рядку під назвою, а не окремою
-                        колонкою: на телефоні колонка з'їдала б ширину назви. */}
                     {calories ? (
                       <span className="font-mono font-medium tabular-nums text-accent">
                         {calories}
@@ -351,9 +325,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
           })}
         </div>
 
-        {/* MER-77: стартовий набір, якщо на сервері є страви, яких у пулі
-            немає. «Очистити всі» лишає страви з планів, тож кнопка потрібна й
-            у непорожньому пулі — це єдиний шлях повернути решту. */}
         {mealsRead.isLoading ? null : (
           <StarterOffer familyId={familyId} meals={meals} />
         )}
@@ -383,10 +354,6 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   )
 }
 
-/**
- * Позначка смаку. Увімкнення «підстрибує» (`pop`) — підтвердження, що
- * натискання дійшло, бо сама іконка змінюється ледь помітно.
- */
 function TasteButton({
   icon: Glyph,
   title,

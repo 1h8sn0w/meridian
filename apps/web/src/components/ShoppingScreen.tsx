@@ -1,29 +1,3 @@
-/**
- * Екран «Список покупок» (MER-16 → MER-62).
- *
- * Список збирається з інгредієнтів страв поточних тижневих планів і ніде не
- * зберігається — зберігаються лише позначки «куплено» (`shopping_check`).
- * Збірку робить `aggregate` з ядра, тож правило провенансу (кількість лише
- * там, де вона є в джерелі) описане один раз і перевірене тестами.
- *
- * Три речі, які тут легко зробити «зручніше» й зламати:
- *
- *  - **позначки спільні для сім'ї, а охоплення — ні.** Двоє в магазині бачать
- *    відмітки одне одного (це і є сценарій, заради якого робився sync), але
- *    фільтр «чиї плани» лишається на пристрої (рішення MER-55). Тому відбиток
- *    планів рахується по ВСІХ профілях, незалежно від вибраного охоплення;
- *  - **спільний план сім'ї (MER-17) рахується один раз.** Власник і пов'язані
- *    профілі їдять ті самі страви, і без дедуплікації власників кількості в
- *    списку подвоїлися б;
- *  - **позначка перемикається записом у базу, без локальної копії стану.**
- *    Реактивний запит повертає її назад тим самим шляхом, яким приходить
- *    позначка з іншого телефона — тож обидва випадки виглядають однаково й
- *    другого джерела правди на екрані немає.
- *
- * «Поділитися» (MER-85) віддає лишок некупленого текстом — системним меню, а де
- * його немає, через буфер обміну. Текст збирає `lib/shopping-share.ts`.
- */
-
 import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
@@ -72,44 +46,18 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const mealsRead = useMeals()
   const profilesRead = useProfiles()
   const profiles = profilesRead.data
-  // Сам список сімейний, але акцент інтерфейсу тримає активний профіль — той
-  // самий хук, що й на решті екранів. Без нього застосунок, відкритий одразу
-  // за цією адресою, лишився б із кольором за замовчуванням.
   useActiveProfile(profiles)
   const { scope, setScope } = useShoppingScope(profiles)
 
-  /* Власники планів без повторів: спільний план фізично один, і пов'язані
-   * профілі дають ОДИН запис (інакше кількості подвоїлись би). Порядок —
-   * як у списку профілів, тож він стабільний між рендерами. */
   const allOwners = [...new Set(profiles.map(planOwnerId))]
   const weeksRead = useOwnerWeeks(allOwners, mealsRead.data, todayKey)
 
-  /* «Ще не знаємо» — окремий стан, і кожне його джерело названо тут поіменно.
-   * Без цього екран стверджує неправду на кадрах між відповідями підписок:
-   * `useMeals` і плани — РІЗНІ підписки, і на кадрі, де плани вже приїхали, а
-   * страви ні, кожен слот виглядав би порожнім («28 слотів без страви» для
-   * цілого плану).
-   *
-   * `isLoading` у `useQuery` показує лише ПЕРШЕ завантаження й більше не
-   * підіймається, коли міняються параметри запиту (це `isFetching`). А
-   * власники приходять із відповіді про профілі, тобто параметри вибірки планів
-   * міняються вже після старту — тому кожне джерело перелічене тут прямо. */
   const isLoading =
     mealsRead.isLoading ||
     profilesRead.isLoading ||
     weeksRead.isLoading ||
-    /* План є, а жодного його дня ще немає — слоти під нову межу вибірки ще в
-     * дорозі. Стверджувати «немає інгредієнтів» на такому кадрі не можна:
-     * живого плану без слотів не буває (`saveWeek` видаляє рядок плану разом
-     * із ними), тож це саме «ще не приїхало». */
     weeksRead.data.some((week) => week.days.length === 0)
 
-  /* Відбиток — по ВСІХ планах сім'ї, а не по вибраному охопленню: позначки
-   * спільні, і два пристрої з різним фільтром мусять писати їх під одним
-   * відбитком. Рахується зі змісту плану — з клітинок і страв у них
-   * (`planFingerprint`), тож однаковий тиждень дає однаковий відбиток на обох
-   * пристроях, чиїм би рядком `week_plan` він не був представлений. Порожній —
-   * плану ще немає. */
   const fingerprint = planFingerprint(
     weeksRead.data.flatMap((week) =>
       week.days.flatMap((day) =>
@@ -123,18 +71,9 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
 
   const checksRead = useShoppingChecks(fingerprint)
 
-  /* Позначки минулих походів у магазин прибираємо м'яким видаленням (рішення
-   * MER-55): у список вони й так не потрапляють (читання фільтрує за
-   * відбитком), але інакше накопичувалися б назавжди. Свіжих рядків це не
-   * чіпає — інакше пристрій зі ще не догнаним планом стирав би позначки, які
-   * інший щойно зробив (див. `clearStaleChecks`). Доки вибірки в дорозі,
-   * відбиток ще неповний, тож і не прибираємо нічого. */
   useEffect(() => {
     if (!fingerprint || isLoading) return
-    void clearStaleChecks(db, fingerprint).catch(() => {
-      // Прибирання — не те, заради чого користувач сюди прийшов: список від
-      // нього не залежить, тож невдача лишається тихою й повториться сама.
-    })
+    void clearStaleChecks(db, fingerprint).catch(() => {})
   }, [db, fingerprint, isLoading])
 
   const scopeOwners =
@@ -145,8 +84,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     scopeOwners.includes(week.profileId),
   )
 
-  /* Страви беруться СЛОТАМИ, а не унікальним переліком: страва двічі на
-   * тиждень — це дві реальні потреби в магазині. */
   const slotMeals: Array<Meal> = []
   let missing = 0
   for (const week of weeks) {
@@ -169,10 +106,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     checksRead.problems,
   ]
 
-  /* Позначка малюється ЛИШЕ з бази — локальної копії стану тут немає навмисно
-   * (див. шапку файлу). Тому невдалий запис не просто «не зберігся»: дотик не
-   * дав би взагалі нічого, і мовчки. Кажемо про це вголос, як і решта екранів
-   * із записами. */
   const [error, setError] = useState<string | null>(null)
 
   const toggle = async (item: ShoppingItem) => {
@@ -196,15 +129,10 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   })
   const [copied, setCopied] = useState(false)
 
-  /* Системне меню там, де воно є (телефони), інакше — буфер обміну. Закрите
-   * меню — це рішення людини, а не збій. Меню, що відмовило з іншої причини
-   * (десктопні браузери буває оголошують `share`, але не дають), не кінець:
-   * пробуємо буфер. */
   const share = async () => {
     setError(null)
     setCopied(false)
     const data = { title: 'Список покупок', text: shareText }
-    // Типи DOM оголошують `canShare` завжди, а десктопний Firefox його не має.
     if ('canShare' in navigator && navigator.canShare(data)) {
       try {
         await navigator.share(data)
@@ -241,9 +169,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       ) : null}
 
       {isLoading ? null : !profiles.length ? (
-        /* Профілів немає — і причина саме в цьому, а не в плані. Той самий
-         * текст, що на «Календарі» й «Тижні»: без профілю генерувати нема
-         * для кого, тож і списку взятися нізвідки. */
         <Panel title="Спершу — профіль">
           <Hint>
             Список збирається з плану профілю. Створіть його на екрані
@@ -251,7 +176,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
           </Hint>
         </Panel>
       ) : !weeks.length ? (
-        // «Плану немає» стверджуємо лише тоді, коли всі вибірки вже відповіли.
         <Panel>
           <Hint>
             Плану тижня ще немає. Згенеруйте його на екрані «Тиждень» — список
@@ -269,8 +193,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
               {weekRangeOf(weeks)}
               {weeks.length > 1 ? ` · планів: ${weeks.length}` : ''}
             </Meta>
-            {/* Дірка в плані (страву видалили з пулу) робить список неповним —
-                це видно на екрані «Тиждень», і мовчати про це тут не можна. */}
             {missing > 0 ? (
               <Warn>
                 {`${missing} ${plural(missing, 'слот', 'слоти', 'слотів')} без страви — її видалено з пулу, тож її інгредієнтів у списку немає.`}
@@ -325,13 +247,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   )
 }
 
-/**
- * «14–20 лип. 2026» — межі всіх планів охоплення разом.
- *
- * `addDays` кидає на даті не у форматі «YYYY-MM-DD», а `start_date` у
- * клієнтській схемі — звичайний TEXT. Битий рядок плану має коштувати підпису
- * над списком, а не всього екрана, тож ловимо й лишаємо підпис порожнім.
- */
 function weekRangeOf(
   weeks: ReadonlyArray<{ startDate: string; params: { days: number } }>,
 ): string {
@@ -349,10 +264,6 @@ function weekRangeOf(
   }
   return from && to ? formatWeekRange(from, to) : ''
 }
-
-/* ==========================================================================
- * Охоплення
- * ======================================================================== */
 
 function ScopeChips({
   profiles,
@@ -390,11 +301,6 @@ function ScopeChips({
   )
 }
 
-/* ==========================================================================
- * Позиції
- * ======================================================================== */
-
-/** Прогрес купленого — той самий рядок, що й у підзаголовку, але видимий. */
 function Progress({ bought, total }: { bought: number; total: number }) {
   const percent = total ? Math.round((bought / total) * 100) : 0
   return (
@@ -406,9 +312,6 @@ function Progress({ bought, total }: { bought: number; total: number }) {
       aria-label={`Куплено ${bought} з ${total}`}
       className="h-2 w-full overflow-hidden rounded-full bg-app"
     >
-      {/* Ширина приходить рантаймом, тож через `style`, а не arbitrary value
-          в класі (правило значень у AGENTS.md). Масштаб, а не ширина: кожну
-          позначку видно як крок уперед, а анімується лише `transform`. */}
       <div
         className="h-full w-full origin-left bg-accent-fill transition-transform duration-700 ease-out-expo"
         style={{ transform: `scaleX(${percent / 100})` }}
@@ -426,7 +329,6 @@ function Sections({
   items: ReadonlyArray<ShoppingItem>
   checks: ReadonlyMap<string, boolean>
   onToggle: (item: ShoppingItem) => void
-  /** Без обгортки-панелі — коли секції вже лежать усередині чужої панелі. */
   flat?: boolean
 }) {
   return (

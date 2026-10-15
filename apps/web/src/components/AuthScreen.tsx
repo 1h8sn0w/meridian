@@ -1,12 +1,3 @@
-/**
- * Вхід і реєстрація (MER-45). Пошта й пароль — більше GoTrue у self-host без
- * SMTP і без зовнішніх провайдерів нічого й не вміє.
- *
- * Вхід — стан за замовчуванням, реєстрація — тихий перемикач під формою.
- * Сегментований перемикач угорі був би зайвим: акаунт заводять один раз, а
- * входять постійно, і рівновелика пара вкладок цю різницю ховає.
- */
-
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { minutesOf, useNow } from '../lib/use-now'
@@ -45,7 +36,6 @@ export function AuthScreen() {
         ? await signIn(address, password)
         : await signUp(address, password)
     if (!result.ok) setFailure(result.failure)
-    // Реєстрація без сесії означає, що GoTrue чекає підтвердження пошти.
     else if (mode === 'sign-up' && result.value === false)
       setConfirmSent(address)
     setBusy(false)

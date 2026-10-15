@@ -1,25 +1,3 @@
-/**
- * Стартовий набір страв (MER-77): автозасів і кнопка «Додати стартовий набір».
- *
- * Набір лежить на сервері self-host (infra/README.md), а засів — звичайні
- * записи в локальну базу з виведеними id (`seedStarterMeals`). Порядок кроків і
- * рішення «засівати чи ні» — у `lib/starter-set.ts` (`autoSeed`); тут лише
- * прив'язка до бази, сесії й екрана. Правила:
- *
- *  - **Автозасів — один раз на сім'ю й лише в порожній пул.** Сім'я, що
- *    завела страви до появи набору, отримує тільки кнопку. Очистила сім'я пул —
- *    страви самі не повертаються.
- *  - **Нічого не вирішуємо до першої синхронізації**: до неї пул пристрою
- *    порожній, хоч би що лежало на сервері, і засів переписав би правки.
- *  - **Позначка — після запису, формат — до нього.** Зіпсований чи порожній
- *    набір засіву не «спалює».
- *  - **Кнопка додає відсутні**: живих страв не чіпає (їх могли відредагувати),
- *    м'яко видалені оживляє. Видно її, коли в наборі є страви, яких у пулі
- *    немає, — і в непорожньому пулі теж.
- *  - **Без набору на сервері нічого не змінюється**: кнопки немає, автозасів
- *    мовчить.
- */
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePowerSync, useStatus } from '@powersync/react'
 import type { CommonPowerSyncDatabase } from '@powersync/web'
@@ -54,7 +32,6 @@ function seedSteps(
     cancelled: () => signal.aborted,
     seededHere: () => seededHere(familyId),
     rememberSeeded: () => rememberSeeded(familyId),
-    // Скасування завершує очікування — далі `autoSeed` перевіряє `cancelled`.
     firstSync: () => db.waitForFirstSync(signal),
     status: () => starterStatus(supabase),
     poolHasMeals: async () =>
@@ -67,13 +44,6 @@ function seedSteps(
   }
 }
 
-/**
- * Автозасів при першому відкритті сім'ї. Живе в `AppGate` поруч із
- * нагадуваннями: пул має з'явитися, хоч би який екран відкрили першим.
- *
- * Мережі немає — нічого не робить і спробує з наступним відкриттям. Вийшов
- * користувач чи змінив сім'ю — ланцюжок зупиняється на найближчому кроці.
- */
 export function StarterSeed() {
   const { familyId, supabase } = useAuth()
   const { db } = useSyncState()
@@ -90,10 +60,6 @@ export function StarterSeed() {
   return null
 }
 
-/**
- * Кнопка «Додати стартовий набір» на «Стравах». Видно лише після першої
- * синхронізації й лише тоді, коли в наборі є страви, яких у пулі немає.
- */
 export function StarterOffer({
   familyId,
   meals,
@@ -144,7 +110,6 @@ export function StarterOffer({
   )
 
   if (!hasSynced || !supabase || !set) return null
-  // Мережа впала — кнопки просто немає; зіпсований файл — кажемо чесно.
   if (!set.ok)
     return 'broken' in set ? <ErrorText failure={set.failure} /> : null
   if (!missing.length && added === null) return null
@@ -154,8 +119,6 @@ export function StarterOffer({
     setFailure(null)
     setAdded(null)
     try {
-      // Увесь набір, а не `missing`: живі страви запис перевіряє сам, у
-      // транзакції, і їх не чіпає.
       setAdded(await seedStarterMeals(db, familyId, set.value))
       await markSeeded({
         cancelled: () => !alive.current,
@@ -190,7 +153,6 @@ export function StarterOffer({
         </>
       ) : null}
       {failure ? <ErrorText failure={failure} /> : null}
-      {/* Після «Очистити всі» кнопка повертається — старий підсумок їй не пара. */}
       {added !== null && !missing.length ? (
         <InfoText>
           {added

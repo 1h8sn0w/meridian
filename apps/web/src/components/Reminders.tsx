@@ -1,21 +1,3 @@
-/**
- * Нагадування перед прийомами їжі (MER-65, порт MER-20): такт і налаштування.
- *
- * Такт (`MealReminders`) висить у кореневому гейті, а не на екрані «Сьогодні»:
- * нагадування мають приходити й тоді, коли користувач на «Тижні» чи «Стравах»
- * (те саме рішення, що у V1). Свого таймера тут немає — такт дає `useNow`, той
- * самий, з якого живе годинник дня, тож «зараз» в усьому застосунку одне.
- *
- * Налаштування (`RemindersPanel`) стоять на «Сьогодні», поруч із годинником,
- * бо саме його вікна вони й зсувають.
- *
- * Обидві частини читають налаштування з `localStorage` (`lib/reminders.ts`), а
- * не з React-стану: вони в різних гілках дерева, і будь-який спільний стан
- * коштував би контексту заради двох полів. Ціна названа вголос — вимкнення
- * доходить до такту не миттєво, а з наступним тактом (пів хвилини); показані
- * сповіщення при цьому прибираються одразу.
- */
-
 import { useEffect, useState } from 'react'
 import { MEAL_TYPE_LABELS, dateKey, formatMealCalories } from '@meridian/core'
 import type { MealType } from '@meridian/core'
@@ -45,7 +27,6 @@ import {
 import type { NotificationState, ReminderSettings } from '../lib/reminders'
 import { Button, ErrorText, Hint, Meta, Panel, SelectField } from './ui'
 
-/** Страва слота з плану на сьогодні — рівно те, що піде в текст сповіщення. */
 function mealLabel(week: WeekView | null, slot: MealType): string | null {
   const meal = week?.days.find((day) => day.isToday)?.byType[slot]?.meal
   if (!meal) return null
@@ -53,14 +34,6 @@ function mealLabel(week: WeekView | null, slot: MealType): string | null {
   return calories ? meal.name + ' · ' + calories : meal.name
 }
 
-/* ==========================================================================
- * Такт
- * ======================================================================== */
-
-/**
- * Хуки запитів вимагають бази в контексті, а умовних хуків у React не буває —
- * тому такт існує окремим компонентом (той самий прийом, що в `RequireLocalDb`).
- */
 export function MealReminders() {
   const { db } = useSyncState()
   return db ? <ReminderTicker /> : null
@@ -76,9 +49,6 @@ function ReminderTicker() {
   const { windows } = useMealWindows()
 
   useEffect(() => {
-    // Налаштування й дозвіл читаються щотакту: користувач міг вимкнути
-    // нагадування хвилину тому — або заблокувати їх у налаштуваннях браузера,
-    // про що застосунку ніхто не повідомляє.
     const settings = readSettings()
     if (!settings.enabled || notificationState() !== 'granted') return
 
@@ -89,8 +59,6 @@ function ReminderTicker() {
       readFired(today),
       windows,
     )) {
-      // Позначку ставимо ДО показу: інакше збій показу повторював би спробу
-      // щотакту, поки триває вікно «доганяємо».
       markFired(today, item.type)
       void showReminder(
         reminderMessage(item, today, mealLabel(plan, item.type)),
@@ -101,11 +69,6 @@ function ReminderTicker() {
   return null
 }
 
-/* ==========================================================================
- * Налаштування
- * ======================================================================== */
-
-/** Чому нагадувань не буде. «Дозволено» тут немає — тоді й казати нічого. */
 const PERMISSION_TEXT: Record<Exclude<NotificationState, 'granted'>, string> = {
   denied:
     'Сповіщення заблоковані для цього сайту — дозвольте їх у налаштуваннях браузера.',
@@ -119,10 +82,6 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const [error, setError] = useState<string | null>(null)
   const { windows } = useMealWindows()
 
-  // Дозвіл і налаштування читаються в ефекті: до першого рендера вони не
-  // потрібні, а дозвіл ще й міняється ззовні застосунку.
-  // «Заблоковано» видно одразу, ще до дотику до перемикача: інакше єдиною
-  // підказкою був би перемикач, що мовчки не вмикається.
   useEffect(() => {
     setSettings(readSettings())
     const state = notificationState()
@@ -134,21 +93,16 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const save = (next: ReminderSettings) => {
     writeSettings(next)
     setSettings(next)
-    // Щойно змінили умови — сьогоднішні позначки не мають глушити те, про що
-    // користувач тільки що попросив.
     clearFired()
   }
 
   const toggle = async (on: boolean) => {
     if (!on) {
       save({ ...settings, enabled: false })
-      // Вимкнули — на екрані не має лишитись нічого: сповіщення з тегом висить,
-      // доки його не закрили.
       void closeReminders()
       setError(null)
       return
     }
-    // Дозвіл питаємо саме тут — це жест користувача, без нього браузер відмовить.
     const state = await askPermission()
     setPermission(state)
     if (state !== 'granted') {
@@ -163,7 +117,6 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
     const now = new Date()
     const minutes = minutesOf(now)
     const schedule = reminderSchedule(settings.leadMinutes, windows)
-    // Найближче наступне нагадування, а після останнього за добу — перше.
     const next =
       schedule.find((item) => item.fireMinute >= minutes) ?? schedule[0]
     void showReminder(

@@ -1,31 +1,3 @@
-/**
- * Екран «Календар» (MER-14, MER-61) — перегляд плану на будь-який день і
- * історія минулих тижнів.
- *
- * Форма та сама, що у V1: сітка одного тижня (пн–нд) із гортанням «‹ / ›»,
- * клік дня показує його прийоми та калорійність. Джерело — локальний SQLite за
- * календарним ключем «профіль + дата» (MER-66), тож екран однаково працює
- * офлайн і бачить дні будь-якого покоління плану.
- *
- * Екран суто читає. Минулі дні — незмінна історія (MER-33), а редагування
- * поточного тижня живе на екрані «Тиждень»: другий шлях запису до тих самих
- * слотів був би другим місцем для помилок LWW. Уся арифметика дат — через
- * `addDays`/`startOfWeek` з ядра: календарний зсув, а не «+24 години», інакше
- * осінній перехід DST дублює або з'їдає день (MER-34).
- *
- * **Сітка тижня й панель дня — окремі компоненти з `key`.** Кожен має власний
- * запит до бази, і при зміні діапазону `useQuery` якийсь час віддає ще СТАРІ
- * рядки. Ключ робить зміну діапазону новим монтуванням: замість чужих даних
- * компонент чесно починає з «завантажується». Тримати це прапорцем
- * «зараз перезапитуємо» не вийшло б — той самий прапорець підіймається й на
- * звичайний прихід даних із sync, і тоді сітка блимала б порожнечею на кожній
- * порції синхронізації. Кнопки гортання лишаються ЗОВНІ ключа: інакше
- * перемонтування забирало б у них фокус на кожному натисканні.
- *
- * **Вибраний день і тиждень — в адресі** (`?day=&week=`, MER-88), як фільтри
- * «Страв»: перезавантаження й «Назад» із рецепта повертають той самий день.
- */
-
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   MEAL_TYPE_LABELS,
@@ -53,7 +25,6 @@ import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
 import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
 
-/** Тиждень в Україні — з понеділка, як у `startOfWeek`. */
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
 
 export function CalendarScreen() {
@@ -67,16 +38,11 @@ export function CalendarScreen() {
     planOwner: owner,
   } = useActiveProfile(profilesRead.data)
 
-  // Вид: понеділок видимого тижня + вибраний день, обидва з адреси. Без них —
-  // «тиждень сьогодні»: вид їде за годинником пристрою, і кнопка «Сьогодні»
-  // просто прибирає параметри.
   const search = useSearch({ from: '/calendar' })
   const selected = search.day ?? todayKey
   const start = search.week ?? (selected ? startOfWeek(selected) : '')
   const end = start ? addDays(start, 6) : ''
   const navigate = useNavigate({ from: '/calendar' })
-  /* Вибір дня й гортання — той самий екран, а не перехід: без нового запису в
-   * історії, без стрибка вгору й без анімації зміни екрана. */
   const setView = (next: CalendarSearch) =>
     void navigate({
       search: next,
@@ -92,10 +58,6 @@ export function CalendarScreen() {
     plannedRead.problems,
   ]
 
-  // Кнопка повертає ОБИДВА: і тиждень, і вибір. Тож ховати її можна лише тоді,
-  // коли обидва вже на сьогодні. Інакше після «‹ → вибрати день → ›» вибір
-  // лишався б у минулому тижні, жодна клітинка не була б підсвічена — і
-  // повернутися до сьогодні не було б чим.
   const atToday =
     todayKey !== '' &&
     start <= todayKey &&
@@ -153,7 +115,6 @@ export function CalendarScreen() {
                 selected={selected}
                 todayKey={todayKey}
                 meals={mealsRead.data}
-                // День із сітки лежить у видимому тижні, тож тиждень з нього виводиться.
                 onSelect={(date) => setView({ day: date })}
               />
 
@@ -167,7 +128,6 @@ export function CalendarScreen() {
             </Panel>
           ) : null}
 
-          {/* Порожня історія — нормальний перший стан, і кажемо це прямо. */}
           {plannedRead.data === 0 && !plannedRead.isLoading ? (
             <Panel>
               <Hint>
@@ -201,10 +161,6 @@ export function CalendarScreen() {
   )
 }
 
-/* ==========================================================================
- * Сітка тижня
- * ======================================================================== */
-
 function WeekGrid({
   ownerId,
   start,
@@ -228,8 +184,6 @@ function WeekGrid({
     <>
       <Problems of={[daysRead.problems]} />
 
-      {/* Сітка перемонтовується на кожен тиждень (`key={start}`), тож
-          гортання тижнів читається як рух, а не як підміна цифр. */}
       <div className="grid grid-cols-7 gap-1 motion-safe:animate-rise">
         {DOW_LABELS.map((dow, i) => {
           const key = addDays(start, i)
@@ -263,8 +217,6 @@ function WeekGrid({
               <span className="font-mono text-base font-semibold tabular-nums">
                 {Number(key.slice(8, 10))}
               </span>
-              {/* «—» — плану немає; порожньо — або план є без цифр, або
-                  вибірка ще в дорозі й стверджувати нічого не можна. */}
               <span className="max-w-full truncate px-0.5 font-mono text-xs tabular-nums opacity-70">
                 {daysRead.isLoading
                   ? ''
@@ -279,10 +231,6 @@ function WeekGrid({
     </>
   )
 }
-
-/* ==========================================================================
- * Панель вибраного дня — лише перегляд
- * ======================================================================== */
 
 function DaySection({
   ownerId,
@@ -310,7 +258,6 @@ function DaySection({
       <Problems of={problems} />
 
       {!day ? (
-        // Доки запит у дорозі, «плану немає» було б неправдою — мовчимо.
         daysRead.isLoading ? null : (
           <Hint>
             На цей день плану немає.
@@ -326,15 +273,12 @@ function DaySection({
               key={slotView.id}
               className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0"
             >
-              {/* Тип прийому над назвою, а не колонкою: на телефоні колонка
-                  забирала б у назви страви чверть ширини. */}
               <span className="min-w-0 flex-1">
                 <span className="block text-xs text-muted">
                   {MEAL_TYPE_LABELS[slotView.slot]}
                 </span>
                 <span className="block text-sm font-medium leading-snug">
                   {slotView.meal ? (
-                    // MER-88: рецепт і з календаря; «Назад» поверне на цей день.
                     <RecipeLink mealId={slotView.mealId}>
                       {slotView.meal.name}
                     </RecipeLink>
@@ -351,7 +295,6 @@ function DaySection({
 
           <DayTotal calories={day.calories} plan={planRead.data} />
 
-          {/* MER-33: минулий день — незмінна історія. */}
           {todayKey && date < todayKey ? (
             <Meta>Минулий день — незмінна історія, лише перегляд.</Meta>
           ) : null}

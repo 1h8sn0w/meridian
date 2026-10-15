@@ -1,16 +1,3 @@
-/**
- * Спільні елементи інтерфейсу (MER-45, MER-49).
- *
- * Дизайн «Сонячна дуга» (styles.css). Форми мають одну шкалу заокруглень, і її
- * легко розхитати «по-своєму», тож правило записане тут:
- * - скляні картки й аркуші — `rounded-3xl` (утиліта `glass`);
- * - поля, плитки й рядки всередині картки — `rounded-2xl`;
- * - усе, що натискається (кнопки, чипи, позначки, іконки-дії), — `rounded-full`.
- * Помилка — `text-warning` (не червоний із палітри страв).
- *
- * Arbitrary values не використовуємо — правило в AGENTS.md.
- */
-
 import { useEffect, useId, useRef } from 'react'
 import type {
   ButtonHTMLAttributes,
@@ -23,14 +10,6 @@ import type {
 import { WarningCircle, X } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
 
-/**
- * Липка шапка екрана — одна на обидва каркаси: `AuthShell` тут і `AppShell`
- * у застосунку. Розмітка стояла двічі, і будь-яка правка відступу лишала шов
- * рівно на переході «увійшли».
- *
- * Над небом шапка прозора, скло набирає лише тоді, коли під неї заїхав вміст
- * (`header-glass` у styles.css).
- */
 export function ScreenHeader({
   title,
   subtitle,
@@ -50,11 +29,6 @@ export function ScreenHeader({
   )
 }
 
-/**
- * Каркас екранів входу — той самий, що в застосунку: липка шапка з назвою
- * екрана й підписом, вміст у колонці `max-w-screen-sm`. Нижнього таб-бару тут
- * немає, тож і відступу під нього теж.
- */
 export function AuthShell({
   title,
   subtitle,
@@ -74,7 +48,6 @@ export function AuthShell({
   )
 }
 
-/** Скляна картка — основна поверхня екранів. */
 export function Panel({
   title,
   children,
@@ -94,7 +67,6 @@ export function Panel({
   )
 }
 
-/** Пояснення під заголовком. */
 export function Hint({ children }: { children: ReactNode }) {
   return (
     <p className="m-0 mb-3 text-sm leading-relaxed text-muted">{children}</p>
@@ -104,11 +76,6 @@ export function Hint({ children }: { children: ReactNode }) {
 const FIELD_LOOK =
   'mt-1.5 block w-full rounded-2xl border border-line bg-app px-3.5 py-2.5 text-base text-content transition-colors duration-200 focus:border-accent'
 
-/**
- * Поле форми. Нативний фокус свідомо не прибираємо: Preflight вимкнено, тож
- * обведення браузера — єдине, що показує фокус із клавіатури. Рамка в колір
- * профілю — лише підсилення поверх нього.
- */
 export function Field({
   label,
   hint,
@@ -127,11 +94,6 @@ export function Field({
   )
 }
 
-/**
- * Кнопка. Натискання відчутне: на hover вона трохи підіймається, на натиск —
- * просідає пружиною. Основна — у колір профілю з темним текстом (усі кольори
- * палітри профілів світлі, тож контраст тримається на кожному).
- */
 export function Button({
   variant = 'default',
   block = false,
@@ -156,7 +118,6 @@ export function Button({
   )
 }
 
-/** Текстова дія без рамки — для «Вийти» й перемикання вхід/реєстрація. */
 export function LinkButton({
   children,
   ...button
@@ -172,11 +133,6 @@ export function LinkButton({
   )
 }
 
-/**
- * Помилка. Оригінальний текст сервера показуємо поруч, коли для нього немає
- * перекладу: краще незрозуміле англійське речення, ніж мовчання — саме воно
- * допоможе тому, хто піднімає self-host.
- */
 export function ErrorText({ failure }: { failure: Failure }) {
   return (
     <div
@@ -196,7 +152,6 @@ export function ErrorText({ failure }: { failure: Failure }) {
   )
 }
 
-/** Спокійне повідомлення. */
 export function InfoText({ children }: { children: ReactNode }) {
   return (
     <p
@@ -208,16 +163,6 @@ export function InfoText({ children }: { children: ReactNode }) {
   )
 }
 
-/**
- * Кружечок-аватар з літерою.
- *
- * Колір профілю приходить рантаймом, тож підставляється через CSS-змінні, а не
- * arbitrary value в класі: токени `--color-profile` / `--color-profile-soft`
- * оголошені в `@theme inline` саме для цього (правило значень у AGENTS.md).
- *
- * Прозорий фон рахує `color-mix` із того самого `--profile-color` (MER-71).
- * Без кольору аватар лишається на акценті.
- */
 export function Avatar({ letter, color }: { letter: string; color?: string }) {
   return (
     <span
@@ -233,7 +178,6 @@ export function Avatar({ letter, color }: { letter: string; color?: string }) {
   )
 }
 
-/** Позначка-пігулка. */
 export function Tag({
   tone = 'default',
   children,
@@ -256,7 +200,6 @@ export function Tag({
   )
 }
 
-/** Чип — фільтр списку. */
 export function Chip({
   active = false,
   children,
@@ -278,7 +221,6 @@ export function Chip({
   )
 }
 
-/** Порожній список. */
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm leading-relaxed text-muted">
@@ -287,7 +229,6 @@ export function Empty({ children }: { children: ReactNode }) {
   )
 }
 
-/** Чесне попередження, а не помилка. */
 export function Warn({ children }: { children: ReactNode }) {
   return (
     <p className="mb-0 mt-2 flex gap-2 rounded-2xl bg-warning-soft px-3.5 py-2.5 text-sm leading-normal text-warning">
@@ -297,14 +238,6 @@ export function Warn({ children }: { children: ReactNode }) {
   )
 }
 
-/**
- * Те, що не розібралося при читанні бази, — вголос (MER-49).
- *
- * Кожен екран зводив свої `Read.problems` руками й однаково їх розгортав, але
- * дедуплікацію пам'ятав лише один із шести: той самий битий рядок, прочитаний
- * двома запитами, друкувався двічі (а однакові `key` React ще й лає). Тепер
- * правило одне: зліпити, прибрати повтори, показати.
- */
 export function Problems({ of }: { of: ReadonlyArray<ReadonlyArray<string>> }) {
   return (
     <>
@@ -315,21 +248,18 @@ export function Problems({ of }: { of: ReadonlyArray<ReadonlyArray<string>> }) {
   )
 }
 
-/** Довідковий рядок під кнопками. */
 export function Meta({ children }: { children: ReactNode }) {
   return (
     <p className="mb-0 mt-2 text-xs leading-relaxed text-muted">{children}</p>
   )
 }
 
-/** Заголовок секції всередині картки. */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="mb-1.5 mt-4 text-sm font-semibold text-content">{children}</p>
   )
 }
 
-/** Багаторядкове поле — той самий вигляд, що й `Field`. */
 export function TextField({
   label,
   hint,
@@ -350,7 +280,6 @@ export function TextField({
   )
 }
 
-/** Селект — той самий вигляд, що й `Field`. */
 export function SelectField({
   label,
   children,
@@ -369,7 +298,6 @@ export function SelectField({
   )
 }
 
-/** Кругла кнопка-іконка для дій у рядку (замінити, редагувати). */
 export function IconButton({
   label,
   children,
@@ -388,28 +316,6 @@ export function IconButton({
   )
 }
 
-/**
- * Модальний аркуш.
- *
- * MER-41 залишив тут три вимоги, і кожна з них — про клавіатуру, а не про
- * красу: Escape закриває, Tab не виходить за межі діалогу, після закриття фокус
- * повертається на кнопку, що його відкрила. Без цього діалог для клавіатури —
- * пастка.
- *
- * Усі три дає нативний `<dialog>` із `showModal()` (MER-71): пастка фокуса,
- * `cancel` на Escape, повернення фокуса на `close()` і фонова сторінка як
- * inert — тобто до неї не дотягтись ні Tab'ом, ні мишею.
- *
- * Сам `<dialog>` тут — це шар оверлея (звідси `fixed inset-0` і скидання
- * стилів UA, аж до `text-content`: UA-таблиця задає діалогу власний колір
- * тексту), а картка лежить усередині: клік по елементу діалогу — це клік повз
- * картку, тобто закриття. Колір оверлея лишається на самому елементі, а не на
- * `::backdrop`, щоб не залежати від того, чи успадковує псевдоелемент змінні
- * теми. `z-index` не потрібен: модальний діалог і так у top layer.
- *
- * Аркуш виїжджає знизу, оверлей проявляється — відкриття читається як рух,
- * а не як підміна екрана.
- */
 export function Sheet({
   title,
   onClose,
@@ -425,9 +331,6 @@ export function Sheet({
     sheet.current?.showModal()
   }, [])
 
-  // Спершу `close()`, потім `onClose()`. Фокус на кнопку-відкривач повертає
-  // саме `close()`, і тільки поки елемент у документі: батько знімає аркуш із
-  // дерева, а видалення з DOM забирає діалог із top layer мовчки, без фокуса.
   const close = () => {
     sheet.current?.close()
     onClose()
@@ -438,8 +341,6 @@ export function Sheet({
       ref={sheet}
       aria-label={title}
       onCancel={(event) => {
-        // Escape закрив би діалог сам, але тоді `onClose` дізнався б про це
-        // після; закриваємо своїм шляхом, щоб він був один.
         event.preventDefault()
         close()
       }}

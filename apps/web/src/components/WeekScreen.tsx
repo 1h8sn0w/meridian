@@ -1,18 +1,3 @@
-/**
- * Екран «Тиждень» (MER-10, MER-13, MER-49) — ядро продукту в інтерфейсі.
- *
- * Кнопка «Перегенерувати» має виконувати обіцянку з AGENTS.md: за секунди —
- * інший валідний тиждень, який тримає правила дієтолога. Сам добір робить
- * `generateWeek` з ядра; тут — те, що навколо: звідки взяти пул, як заповнити
- * вікно антиповтору через межу тижнів і як записати результат так, щоб не
- * зіткнутися з чужим пристроєм.
- *
- * **Попередження генератора показуються як є.** Він чесно каже, коли розширив
- * коридор, коли мікс планів був неможливий і коли страва без калорійності не
- * брала участі в доборі. Ховати це означало б видати послаблений тиждень за
- * повноцінний.
- */
-
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
@@ -99,8 +84,6 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   } | null>(null)
   const [confirming, setConfirming] = useState(false)
 
-  // MER-17: спільний план перегенерує лише власник — інакше пов'язані профілі
-  // перезаписували б одне сімейне меню різними цілями.
   const sharedNote =
     profile && profile.sharedPlanWith
       ? 'Цей профіль користується спільним планом профілю «' +
@@ -118,16 +101,12 @@ export function WeekScreen({ familyId }: { familyId: string }) {
         prefs: prefsRead.data,
         antiRepeatDays,
         days: week.data?.params.days,
-        // MER-29: вікно антиповтору заповнюється реальними попередніми днями
-        // календаря, а не лише днями цього виклику.
         precedingDays: precedingMealIds(preceding, todayKey, windowSize),
       })
       if (!result.ok) {
         setError(result.error)
         return
       }
-      // План завжди починається сьогоднішньою датою — так минулі дні лишаються
-      // недоторканою історією (MER-33).
       await saveWeek(db, familyId, {
         ownerId,
         startDate: todayKey,
@@ -194,9 +173,6 @@ export function WeekScreen({ familyId }: { familyId: string }) {
                 : 'Згенерувати тиждень'}
           </Button>
 
-          {/* MER-62: список покупок збирається з інгредієнтів страв цього
-              плану, тож і вхід у нього — тут, як у V1. Окремої вкладки він не
-              отримує: п'ять уже є, а список без плану порожній за визначенням. */}
           {view ? (
             <Link to="/shopping" className="mt-2 block no-underline">
               <Button block>
@@ -306,10 +282,6 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   )
 }
 
-/* ==========================================================================
- * Підсумок плану
- * ======================================================================== */
-
 function PlanSummary({
   view,
   owner,
@@ -322,7 +294,6 @@ function PlanSummary({
   const approx = view.days.some((day) => day.calories.approx)
   const incomplete = view.days.length - known.length
 
-  // MER-41: профіль змінили після генерації — план міг застаріти.
   const stale =
     owner !== null &&
     (owner.targetCalories !== view.params.targetCalories ||
@@ -383,10 +354,6 @@ function PlanSummary({
   )
 }
 
-/* ==========================================================================
- * Картка дня
- * ======================================================================== */
-
 function DayCard({
   day,
   target,
@@ -435,8 +402,6 @@ function DayCard({
           key={slotView.id}
           className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 last:pb-0"
         >
-          {/* Тип прийому над назвою, а не колонкою: на телефоні колонка
-              забирала б у назви страви чверть ширини. */}
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-muted">
               {MEAL_TYPE_LABELS[slotView.slot]}
@@ -445,8 +410,6 @@ function DayCard({
               {slotView.meal ? (
                 <>
                   <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
-                  {/* Рецепт — звідси теж (MER-86): тиждень переглядають, коли
-                      вирішують, що готувати, і склад потрібен саме тут. */}
                   <RecipeLink mealId={slotView.mealId}>
                     {slotView.meal.name}
                   </RecipeLink>
@@ -459,7 +422,6 @@ function DayCard({
           <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
             {slotView.meal ? formatMealCalories(slotView.meal) : ''}
           </span>
-          {/* MER-33: минулий день не редагується. */}
           {day.isPast ? null : (
             <IconButton
               label={'Замінити страву: ' + MEAL_TYPE_LABELS[slotView.slot]}

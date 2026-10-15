@@ -1,25 +1,3 @@
-/**
- * Імпорт плану дієтолога з PDF (MER-15 → MER-52).
- *
- * Шлях той самий, що у V1: файл → текст (pdf.js) → розпізнавання
- * (`parsePlanText`, чиста функція ядра) → **екран перевірки**, де людина
- * бачить кожну страву поруч із сирим текстом і підтверджує чи править перед
- * додаванням у пул. Автоматичного «імпортувати все» тут немає й не буде: у
- * раціон їде те, що людина підтвердила.
- *
- * Три речі, які легко зламати рефакторингом:
- *
- *  - **Без калорійності страва в пул не йде.** У PDF її здебільшого немає, а
- *    на ній тримається коридор генератора (MER-10). Нуль тут був би вигаданим
- *    числом у медичних даних, тож картка просто не імпортується, доки цифру не
- *    впишуть.
- *  - **Кроки з плану — це рецепт, а не страва.** `steps` і `servings` лежать у
- *    таблиці `recipe` (MER-22), тож пишуться другим викликом, після страви.
- *  - **Текст плану архівується окремо й вимагає мережі** (`archivePlanSource`,
- *    таблиця поза синхронізацією). Страви від цього не залежать: вони вже в
- *    локальній базі. Але змовчати про невдалий архів не можна.
- */
-
 import { useMemo, useRef, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
@@ -56,14 +34,11 @@ type Card = {
   entry: PlanEntry
   draft: PlanEntryDraft
   checked: boolean
-  /** Уже додано в пул — картка більше не бере участі в наступному натисканні. */
   added: boolean
   error: string | null
-  /** Позначки розбору плюс «така страва вже є в пулі» — разом, як у V1. */
   flags: Array<string>
 }
 
-/** Розібраний текст разом із тим, звідки він узявся — для архіву. */
 type Source = { fileName: string | null; text: string }
 
 function draftOf(entry: PlanEntry): PlanEntryDraft {
@@ -79,15 +54,6 @@ function draftOf(entry: PlanEntry): PlanEntryDraft {
   }
 }
 
-/**
- * Картки з розбору. `inPool` — ключі страв, які вже є: такі типово не
- * позначені, як і дублікати всередині самого тексту. `poolKnown` — чи пул
- * узагалі вдалося прочитати; якщо ні, не позначено нічого.
- *
- * Повтори лишаються в списку, хоч у пул і не йдуть: екран перевірки існує саме
- * для того, щоб бачити розібране поруч із сирим текстом, а блок, який мовчки
- * зник, читався б як загублений плану кусок.
- */
 function cardsOf(
   parsed: PlanParse,
   inPool: ReadonlySet<string>,
@@ -130,22 +96,13 @@ export function PdfImportPanel({
   const [status, setStatus] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [paste, setPaste] = useState('')
-  /** Чи текст цього розбору вже лежить у `pdf_import`. */
   const [archived, setArchived] = useState(false)
   const [busy, setBusy] = useState(false)
-  /**
-   * MER-39: токен активної операції. Читання PDF асинхронне, і його результат
-   * має право показати лише той запуск, який досі актуальний, — інакше
-   * скасований імпорт відтворив би екран перевірки поверх нового.
-   */
-  const op = useRef(0)
-  /** Захист від двох одночасних записів в архів — стан гонки, а не рендеру. */
-  const archiving = useRef(false)
+  const latestRun = useRef(0)
+  const archiveInFlight = useRef(false)
 
-  /* Закриття скасовує читання, що триває (MER-39): інакше pdf.js домелює всі
-   * сторінки в нікуди, а документ у воркері звільниться лише в кінці. */
   const close = () => {
-    op.current++
+    latestRun.current++
     onDone()
   }
 
@@ -157,9 +114,6 @@ export function PdfImportPanel({
   const review = (text: string, fileName: string | null) => {
     const parsed = parsePlanText(text)
     setSource({ fileName, text })
-    /* Пул не прочитався — типово не позначаємо нічого: порожній `inPool`
-     * виглядає точно як «жодної такої страви ще немає», і одне натискання
-     * подвоїло б увесь пул. */
     setCards(cardsOf(parsed, inPool, pool.problems.length === 0))
     setStats(parsed.stats)
     setStatus(null)
@@ -167,8 +121,8 @@ export function PdfImportPanel({
   }
 
   const readPdf = async (file: File) => {
-    const token = ++op.current
-    const stale = () => token !== op.current
+    const token = ++latestRun.current
+    const stale = () => token !== latestRun.current
     setProblem(null)
     setStatus('Читаю «' + file.name + '»…')
     try {
@@ -209,23 +163,11 @@ export function PdfImportPanel({
         ) ?? null,
     )
 
-  /**
-   * Додати позначені страви.
-   *
-   * Пишемо по одній і по одній звітуємо: одна картка без калорійності не має
-   * скасовувати решту (так само поводився V1). Спільної транзакції тут нема за
-   * чим — кожна страва самостійна, а часткового стану, який виглядав би як
-   * зіпсована база, не буває.
-   */
   const confirm = async () => {
     if (!cards || !source) return
     setBusy(true)
     setProblem(null)
 
-    /* Назад у стан кладемо не знімок карток, а лише наслідки запису. Поля на
-     * час запису й так заблоковані, але зливати знімок означало б тримати цю
-     * обіцянку на самому лише `disabled` — знімок мовчки відкотив би будь-яку
-     * правку, що просочилася повз нього. */
     const outcomes = new Map<number, Partial<Card>>()
     let added = 0
     let failed = 0
@@ -241,9 +183,6 @@ export function PdfImportPanel({
 
       try {
         const mealId = await insertMeal(db, familyId, checked.input.meal)
-        /* Страва вже в базі — картка закрита незалежно від того, що станеться
-         * з рецептом. Інакше невдалий другий запис виглядав би як «не додалося»,
-         * і повторне натискання вставило б ту саму страву вдруге. */
         outcomes.set(index, { added: true, checked: false, error: null })
         added++
 
@@ -289,24 +228,14 @@ export function PdfImportPanel({
             : 'Нічого не вибрано.'),
     )
 
-    // Архівуємо лише те джерело, з якого справді щось узяли.
     if (added) await archive()
 
     setBusy(false)
   }
 
-  /**
-   * Покласти текст плану в `pdf_import` — рівно один раз на розбір, інакше
-   * друге натискання «Додати» подвоїло б рядок.
-   *
-   * Помилка тут не скасовує імпорт: страви вже в локальній базі й нікуди звідти
-   * не подінуться. Але й змовчати про неї не можна — уся користь таблиці в
-   * тому, щоб завжди було видно, з чого зроблено страви, тож екран пропонує
-   * повторити, коли мережа з'явиться.
-   */
   const archive = async () => {
-    if (!source || archived || archiving.current) return
-    archiving.current = true
+    if (!source || archived || archiveInFlight.current) return
+    archiveInFlight.current = true
     try {
       if (!supabase) throw new Error('Сервер Supabase не налаштований.')
       await archivePlanSource(supabase, familyId, source.fileName, source.text)
@@ -319,12 +248,12 @@ export function PdfImportPanel({
           errorText(error),
       )
     } finally {
-      archiving.current = false
+      archiveInFlight.current = false
     }
   }
 
   const restart = () => {
-    op.current++
+    latestRun.current++
     setArchived(false)
     setSource(null)
     setCards(null)
@@ -349,7 +278,6 @@ export function PdfImportPanel({
           accept=".pdf,application/pdf"
           onChange={(event) => {
             const file = event.target.files?.[0]
-            // Скидаємо значення, щоб той самий файл можна було вибрати вдруге.
             event.target.value = ''
             if (file) void readPdf(file)
           }}
@@ -371,7 +299,7 @@ export function PdfImportPanel({
             <Button
               disabled={!paste.replace(/\s+/g, '')}
               onClick={() => {
-                op.current++ // вставлений текст витісняє читання PDF у польоті
+                latestRun.current++
                 review(paste, null)
               }}
             >
@@ -398,8 +326,6 @@ export function PdfImportPanel({
         позначки, сирий текст плану — під кожною карткою.
       </Hint>
 
-      {/* Пул не прочитався — тоді жодна картка не позначена, і сказати про це
-          треба прямо: інакше порожній екран виглядав би як «нічого нового». */}
       {pool.problems.map((issue) => (
         <Warn key={issue}>
           Не вдалося прочитати пул страв, тож нічого не позначено наперед —
@@ -464,16 +390,12 @@ function ReviewCard({
   onPatch,
 }: {
   card: Card
-  /** Триває запис — правити картку зараз означало б правити те, що вже пишеться. */
   busy: boolean
   onCheck: (checked: boolean) => void
   onPatch: (part: Partial<PlanEntryDraft>) => void
 }) {
   const { draft, entry } = card
 
-  /* Повтор — довідка, а не кандидат: окрема страва вже є вище, і другий рядок
-   * у пулі був би тією самою стравою під тією самою назвою. Полів для правки
-   * тут немає навмисно — правити нема чого. */
   if (entry.kind === 'repeat') {
     return (
       <div className="mb-2.5 rounded-2xl border border-line px-3 py-2.5 opacity-70">
@@ -586,7 +508,6 @@ function ReviewCard({
   )
 }
 
-/** Сирий текст блоку — те, з чим людина звіряє розпізнане. */
 function RawText({ entry }: { entry: PlanEntry }) {
   return (
     <details className="mt-2">
