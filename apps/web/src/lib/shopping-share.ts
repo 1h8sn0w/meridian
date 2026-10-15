@@ -1,21 +1,6 @@
-/**
- * Список покупок текстом (MER-85) — щоб передати його в месенджер тому, хто йде
- * в магазин без застосунку.
- *
- * Текст — це той самий список, що на екрані, а не новий: ті самі розділи в тому
- * самому порядку (його вже дав `aggregate` з ядра), ті самі кількості. Звідси два
- * правила:
- *
- *  - **лише ще не куплене.** Куплене в магазині не потрібне, а позначки спільні
- *    для сім'ї — тож текст показує рівно той лишок, який бачать усі телефони;
- *  - **кількість лише з джерела.** Позиції без неї йдуть окремим блоком, як на
- *    екрані, і цифри там не з'являються (правило провенансу).
- */
-
 import { SHOPPING_CATEGORIES } from '@meridian/core'
 import type { ShoppingItem } from '@meridian/core'
 
-/** Кількість для показу: «120 г» / «4 шт» — лише з реальних сум джерела. */
 export function amountText(item: ShoppingItem): string {
   if (item.amount === null) return ''
   return (
@@ -28,17 +13,12 @@ function line(item: ShoppingItem): string {
   return `• ${item.name}${qty ? ' — ' + qty : ''}`
 }
 
-/**
- * Зібрати текст. Порожній рядок — купувати нічого: ділитися тоді нема чим, і
- * екран кнопки не показує.
- */
 export function shoppingListText({
   range,
   withQty,
   noQty,
   checks,
 }: {
-  /** «6–12 жовт. 2026» — межі планів; порожній, якщо їх не вдалося прочитати. */
   range: string
   withQty: ReadonlyArray<ShoppingItem>
   noQty: ReadonlyArray<ShoppingItem>

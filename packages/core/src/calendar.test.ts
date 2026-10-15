@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   addDays,
   dateKey,
+  dateKeyParts,
   planSlots,
   precedingMealIds,
   precedingWindow,
@@ -48,6 +49,12 @@ test('тиждень починається з понеділка', () => {
 test('сміття замість дати — помилка, а не тиха підстановка', () => {
   assert.throws(() => addDays('07.08.2026', 1), /YYYY-MM-DD/)
   assert.throws(() => addDays('', 1), /YYYY-MM-DD/)
+})
+
+test('розбір ключа дати віддає рік, місяць і день, а сміття — null', () => {
+  assert.deepEqual(dateKeyParts('2026-08-07'), [2026, 8, 7])
+  assert.equal(dateKeyParts('07.08.2026'), null)
+  assert.equal(dateKeyParts('2026-8-7'), null)
 })
 
 test('ключ дати береться з локального календаря, а не з UTC', () => {

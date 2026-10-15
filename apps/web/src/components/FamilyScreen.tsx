@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { formatDate, formatInviteCode } from '../lib/messages'
+import { formatDate, formatInviteCode } from '../lib/format'
 import type { Failure } from '../lib/messages'
 import { AppShell } from './AppShell'
 import { Avatar, Button, ErrorText, Hint, LinkButton, Panel, Tag } from './ui'

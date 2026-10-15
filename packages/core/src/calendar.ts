@@ -3,12 +3,17 @@ import type { MealType } from './types.ts'
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
-function parseDate(key: string): [number, number, number] {
+export function dateKeyParts(key: string): [number, number, number] | null {
   const m = DATE_RE.exec(key)
-  if (!m) {
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+}
+
+function parseDate(key: string): [number, number, number] {
+  const parts = dateKeyParts(key)
+  if (!parts) {
     throw new Error('Очікувалась дата у форматі YYYY-MM-DD, отримано: ' + key)
   }
-  return [Number(m[1]), Number(m[2]), Number(m[3])]
+  return parts
 }
 
 export function dateKey(date: Date): string {
