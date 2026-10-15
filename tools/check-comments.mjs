@@ -10,7 +10,6 @@ export const COMMENT_FREE_DIRS = [
   'apps/web/src/main.tsx',
   'apps/web/src/env.d.ts',
   'apps/web/src/styles.css',
-  'apps/web/src/sw.test.ts',
   'apps/web/index.html',
   'apps/web/vite.config.ts',
   'apps/web/capacitor.config.ts',
