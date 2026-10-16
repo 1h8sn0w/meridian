@@ -50,7 +50,7 @@ export function nutritionDraft(
   return { Ч: draftOf('Ч'), Ж: draftOf('Ж') }
 }
 
-export const NUTRITION_LABELS: Readonly<Record<keyof Nutrition, string>> = {
+const NUTRITION_LABELS: Readonly<Record<keyof Nutrition, string>> = {
   calories: 'Калорійність',
   protein: 'Білки',
   fat: 'Жири',

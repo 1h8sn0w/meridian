@@ -98,29 +98,25 @@ function portion(entry: unknown): Portion | null {
   return null
 }
 
+function nutritionFromRow(row: Row, suffix: '' | '_w'): Nutrition {
+  return {
+    calories: optionalNumber(row['calories' + suffix]),
+    protein: optionalNumber(row['protein' + suffix]),
+    fat: optionalNumber(row['fat' + suffix]),
+    carbs: optionalNumber(row['carbs' + suffix]),
+  }
+}
+
 export function mealFromRow(row: Row): Meal {
   const what = 'Страва «' + text(row, 'id') + '»'
-  const nutritionCh: Nutrition = {
-    calories: optionalNumber(row.calories),
-    protein: optionalNumber(row.protein),
-    fat: optionalNumber(row.fat),
-    carbs: optionalNumber(row.carbs),
-  }
+  const nutritionCh = nutritionFromRow(row, '')
   return {
     id: requiredText(row, 'id', 'Страва'),
     name: requiredText(row, 'name', what),
     type: mealType(requiredText(row, 'type', what), what),
     ...nutritionCh,
     caloriesApprox: bool(row, 'calories_approx'),
-    nutrition: {
-      Ч: nutritionCh,
-      Ж: {
-        calories: optionalNumber(row.calories_w),
-        protein: optionalNumber(row.protein_w),
-        fat: optionalNumber(row.fat_w),
-        carbs: optionalNumber(row.carbs_w),
-      },
-    },
+    nutrition: { Ч: nutritionCh, Ж: nutritionFromRow(row, '_w') },
     ingredients: jsonArray(row, 'ingredients', what)
       .map(ingredient)
       .filter((x): x is Ingredient => x !== null),

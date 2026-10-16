@@ -23,6 +23,7 @@ import type {
 import type { CommonPowerSyncDatabase } from '@powersync/web'
 import { DEFAULT_MEAL_HOURS, sameMealHours } from '../day-clock.ts'
 import type { MealHours } from '../day-clock.ts'
+import { placeholders } from './sql.ts'
 
 export type Db = CommonPowerSyncDatabase
 
@@ -99,24 +100,25 @@ export async function insertMeal(
   input: MealInput,
 ): Promise<string> {
   const id = newId()
+  const values = [
+    id,
+    familyId,
+    input.name,
+    input.type,
+    flag(false),
+    ...nutritionValues(input.nutrition),
+    JSON.stringify(input.ingredients),
+    input.source,
+    JSON.stringify(input.portions),
+    flag(input.gerd),
+    JSON.stringify(input.sourceIssues),
+  ]
   await db.execute(
     'INSERT INTO meal (id, family_id, name, type, calories_approx, ' +
       NUTRITION_COLUMNS.join(', ') +
       ', ingredients, source, portions, gerd, source_issues)' +
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [
-      id,
-      familyId,
-      input.name,
-      input.type,
-      flag(false),
-      ...nutritionValues(input.nutrition),
-      JSON.stringify(input.ingredients),
-      input.source,
-      JSON.stringify(input.portions),
-      flag(input.gerd),
-      JSON.stringify(input.sourceIssues),
-    ],
+      ` VALUES (${placeholders(values.length)})`,
+    values,
   )
   return id
 }
@@ -221,7 +223,7 @@ export async function seedStarterMeals(
             NUTRITION_COLUMNS.join(', ') +
             ', ingredients, source, portions, gerd, source_issues,' +
             ' id, family_id)' +
-            ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            ` VALUES (${placeholders(values.length + 2)})`,
           [...values, id, familyId],
         )
       }

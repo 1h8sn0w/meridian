@@ -31,7 +31,6 @@ type MealInput = {
   protein?: number | null
   fat?: number | null
   carbs?: number | null
-  nutritionW?: Partial<Nutrition>
 }
 
 export function meal(input: MealInput): Meal {
@@ -49,7 +48,7 @@ export function meal(input: MealInput): Meal {
     caloriesApprox: input.caloriesApprox ?? false,
     nutrition: {
       Ч: nutritionCh,
-      Ж: { ...NO_NUTRITION, ...input.nutritionW },
+      Ж: { ...NO_NUTRITION },
     },
     ingredients: [],
     source: input.source ?? '',
