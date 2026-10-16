@@ -42,12 +42,20 @@ test('сканер ловить коментар кожного формату, 
     ],
     [
       'a.tsx',
-      `/// <reference types="vite/client" />\n// @ts-expect-error -- причина\n// eslint-disable-next-line\n<p>{/* c */}</p>\n///<reference path="x"/>`,
+      '/// <reference types="vite/client" />\n// @ts-expect-error -- причина\n// eslint-disable-next-line\n<p>{/* c */}</p>\n///<reference path="x"/>',
       [3, 4],
     ],
     [
       'a.ts',
-      `a /* eslint-disable ${rule} */\nconst r = '${rule}'\n/* eslint-disable\n  ${rule} */\n/* eslint ${rule}: off */`,
+      'a /* eslint-disable ' +
+        rule +
+        " */\nconst r = '" +
+        rule +
+        "'\n/* eslint-disable\n  " +
+        rule +
+        ' */\n/* eslint ' +
+        rule +
+        ': off */',
       [1, 3, 5],
     ],
     ['main.go', '//go:build x\nfunc f() {} // c\nx:=1// c', [2, 3]],
@@ -97,7 +105,7 @@ test('храповик перевіряє лише чисті теки й обх
   assert.equal(isCommentFree('packages/db/migrations/0008_x.sql', dirs), true)
   assert.equal(isCommentFree('apps/web/android/a.xml', dirs), false)
   assert.equal(isCommentFree('apps/web/src/routeTree.gen.ts', dirs), false)
-  assert.equal(isCommentFree('infra/caddy/Caddyfile'), false)
+  assert.equal(isCommentFree('apps/web/.env.example'), false)
 })
 
 test('тести *.test.ts чисті в будь-якій теці, решта файлів теки — ні', () => {

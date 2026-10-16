@@ -19,6 +19,19 @@ export const COMMENT_FREE_DIRS = [
   'apps/web/tsconfig.sw.json',
   'apps/web/src/lib/powersync',
   'apps/web/src/components',
+  'infra',
+  'packages/db',
+  'tools',
+  '.github/workflows',
+  'compose.yaml',
+  'pnpm-workspace.yaml',
+  'eslint.config.base.mjs',
+  'prettier.config.mjs',
+  'tsconfig.base.json',
+  '.gitattributes',
+  '.gitignore',
+  '.dockerignore',
+  '.prettierignore',
 ]
 
 export const COMMENT_FREE_FILES = [

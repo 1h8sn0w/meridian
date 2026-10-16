@@ -55,7 +55,8 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 | `apps/web/src/routes` | Тонкі маршрути TanStack; `routeTree.gen.ts` генерується й комітиться | `apps/web/README.md` |
 | `packages/core` | Домен чистим TS: генератор, заміна, провенанс, покупки, стартовий набір, виведені id | [`README.md`](packages/core/README.md) |
 | `packages/db` | SQL-міграції Postgres, `migrate.sh`, RLS, модель сім'ї | [`README.md`](packages/db/README.md) |
-| `infra` | Compose-стек, Caddy, образ, CI. Людині — `README.md`, агенту — `DECISIONS.md` | [`DECISIONS.md`](infra/DECISIONS.md) |
+| `infra` | Compose-стек, секрети, ролі БД, CI. Людині — `README.md`, агенту — `DECISIONS.md` | [`DECISIONS.md`](infra/DECISIONS.md) |
+| `infra/caddy` | Єдиний вхід (Caddyfile), образ `caddy`, CVE-скани, оновлення Caddy | [`README.md`](infra/caddy/README.md) |
 | `infra/powersync` | Серверні правила синхронізації | [`README.md`](infra/powersync/README.md) |
 | `tools` | `v1-export.js`, `check-comments.mjs` | [`README.md`](tools/README.md) |
 | `.github/workflows` | `ci.yml`, `docker-publish.yml`, `image-scan.yml` | `infra/DECISIONS.md` |
@@ -161,11 +162,23 @@ demo- і seed-дані, README, коміти, PR, задачі й докумен
 
 ### Репозиторій
 
-- **Кінці рядків — LF скрізь** (`.gitattributes`: `* text=auto eol=lf`). Не
-  додавати `core.autocrlf`.
+- **Кінці рядків — LF скрізь** (`.gitattributes`: `* text=auto eol=lf`, MER-54).
+  Не додавати `core.autocrlf`: з CRLF на Windows `prettier --check` вічно
+  червоний, а `git status` показує незмінені файли. Бінарні розширення
+  перелічено явно — автовизначення може зіпсувати файл без NUL на початку.
 - **`.prettierignore` — шляхи повністю.** Патерни без якоря: голе `data/`
-  сховало б і `apps/web/src/lib/data/`.
+  сховало б і `apps/web/src/lib/data/`. Prettier не чіпає `*.md` (пишуться
+  руками), `routeTree.gen.ts` і нативні `android`/`ios` (їх малює `cap add`, а
+  `cap sync` кладе туди копію вебзбірки); ті самі `android`/`ios`, `*.md` і
+  `.env` виключає `.dockerignore` — контекст образу корінь репозиторію.
+- **`pnpm-workspace.yaml`:** `allowBuilds` — `esbuild`, `lightningcss` (зі
+  стартера TanStack Start), `unrs-resolver` (`eslint-plugin-import-x`) і
+  `@journeyapps/wa-sqlite` (його postinstall тягне бінарник
+  SQLite під версію PowerSync, без нього клієнтської бази немає, MER-46).
+  `ignoredOptionalDependencies: @napi-rs/canvas` — рендер PDF у Node (37 МБ),
+  а потрібен лише текстовий шар у браузері (MER-52).
 - **ESLint спільний:** правила — `eslint.config.base.mjs` у корені, `eslint.config.js`
-  пакета лише розгортає базу й додає свій `ignores` (MER-71). Prettier —
-  `prettier.config.mjs` у корені.
+  пакета лише розгортає базу й додає свій `ignores` (MER-71; `dist/` і
+  `eslint.config.js` база ігнорує сама). Prettier —
+  `prettier.config.mjs` у корені (значення — зі стартера TanStack Start).
 - Один менеджер пакетів — pnpm (`pnpm-lock.yaml`).
