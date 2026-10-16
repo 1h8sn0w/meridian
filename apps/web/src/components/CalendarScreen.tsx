@@ -30,13 +30,14 @@ const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as c
 export function CalendarScreen() {
   const todayKey = dateKey(useNow())
 
-  const mealsRead = useMeals()
   const profilesRead = useProfiles()
   const {
     profile,
     planOwnerId: ownerId,
     planOwner: owner,
+    ownerCorridorApplies,
   } = useActiveProfile(profilesRead.data)
+  const mealsRead = useMeals(profile?.portion)
 
   const search = useSearch({ from: '/calendar' })
   const selected = search.day ?? todayKey
@@ -147,6 +148,7 @@ export function CalendarScreen() {
               date={selected}
               todayKey={todayKey}
               meals={mealsRead.data}
+              ownerCorridorApplies={ownerCorridorApplies}
             />
           ) : null}
 
@@ -237,11 +239,13 @@ function DaySection({
   date,
   todayKey,
   meals,
+  ownerCorridorApplies,
 }: {
   ownerId: string | null
   date: string
   todayKey: string
   meals: ReadonlyArray<Meal>
+  ownerCorridorApplies: boolean
 }) {
   const daysRead = useCalendarDays(ownerId, date, date, meals)
   const planRead = useDayPlan(ownerId, date)
@@ -293,7 +297,10 @@ function DaySection({
             </div>
           ))}
 
-          <DayTotal calories={day.calories} plan={planRead.data} />
+          <DayTotal
+            calories={day.calories}
+            plan={ownerCorridorApplies ? planRead.data : null}
+          />
 
           {todayKey && date < todayKey ? (
             <Meta>Минулий день — незмінна історія, лише перегляд.</Meta>

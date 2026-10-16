@@ -1,5 +1,10 @@
-import { MEAL_TYPES, numberFromField } from '@meridian/core'
-import type { MealType, PortionLetter } from '@meridian/core'
+import {
+  MEAL_TYPES,
+  NO_NUTRITION,
+  PORTION_LETTERS,
+  numberFromField,
+} from '@meridian/core'
+import type { Meal, MealType, Nutrition, PortionLetter } from '@meridian/core'
 import { ingredientsFromText, portionsFromText } from './meal-text.ts'
 import type { AppProfile } from './data/model.ts'
 import type { MealInput, ProfileInput, RecipeInput } from './data/mutations.ts'
@@ -28,13 +33,44 @@ function fieldError(raw: string, label: string): string | null {
   return null
 }
 
+export type NutritionDraft = Record<keyof Nutrition, string>
+
+export function nutritionDraft(
+  meal: Pick<Meal, 'nutrition'> | null,
+): Record<PortionLetter, NutritionDraft> {
+  const draftOf = (letter: PortionLetter): NutritionDraft => {
+    const value = meal?.nutrition[letter] ?? NO_NUTRITION
+    return {
+      calories: fieldText(value.calories),
+      protein: fieldText(value.protein),
+      fat: fieldText(value.fat),
+      carbs: fieldText(value.carbs),
+    }
+  }
+  return { Ч: draftOf('Ч'), Ж: draftOf('Ж') }
+}
+
+export const NUTRITION_LABELS: Readonly<Record<keyof Nutrition, string>> = {
+  calories: 'Калорійність',
+  protein: 'Білки',
+  fat: 'Жири',
+  carbs: 'Вуглеводи',
+}
+
+function nutritionFromDraft(draft: NutritionDraft): Nutrition {
+  const calories = numberFromField(draft.calories)
+  return {
+    calories: calories === null ? null : Math.round(calories),
+    protein: numberFromField(draft.protein),
+    fat: numberFromField(draft.fat),
+    carbs: numberFromField(draft.carbs),
+  }
+}
+
 export type MealDraft = {
   name: string
   type: MealType
-  calories: string
-  protein: string
-  fat: string
-  carbs: string
+  nutrition: Record<PortionLetter, NutritionDraft>
   ingredients: string
   portions: string
   source: string
@@ -48,24 +84,23 @@ export function validateMeal(draft: MealDraft): Checked<MealInput> {
   if (!MEAL_TYPES.includes(draft.type)) {
     return { error: 'Оберіть тип слота.' }
   }
-  for (const [raw, label] of [
-    [draft.calories, 'Калорійність'],
-    [draft.protein, 'Білки'],
-    [draft.fat, 'Жири'],
-    [draft.carbs, 'Вуглеводи'],
-  ] as const) {
-    const error = fieldError(raw, label)
-    if (error) return { error }
+  for (const letter of PORTION_LETTERS) {
+    for (const [field, label] of Object.entries(NUTRITION_LABELS)) {
+      const error = fieldError(
+        draft.nutrition[letter][field as keyof Nutrition],
+        label + ' · порція ' + letter,
+      )
+      if (error) return { error }
+    }
   }
-  const calories = numberFromField(draft.calories)
   return {
     input: {
       name,
       type: draft.type,
-      calories: calories === null ? null : Math.round(calories),
-      protein: numberFromField(draft.protein),
-      fat: numberFromField(draft.fat),
-      carbs: numberFromField(draft.carbs),
+      nutrition: {
+        Ч: nutritionFromDraft(draft.nutrition.Ч),
+        Ж: nutritionFromDraft(draft.nutrition.Ж),
+      },
       ingredients: ingredientsFromText(draft.ingredients),
       source: draft.source.trim(),
       portions: portionsFromText(draft.portions),
@@ -236,10 +271,10 @@ export function validatePlanEntry(
       meal: {
         name,
         type: draft.type,
-        calories: Math.round(calories),
-        protein: null,
-        fat: null,
-        carbs: null,
+        nutrition: {
+          Ч: { ...NO_NUTRITION, calories: Math.round(calories) },
+          Ж: { ...NO_NUTRITION },
+        },
         ingredients: ingredientsFromText(draft.ingredients),
         source: draft.source.trim(),
         portions: portionsFromText(draft.portions),

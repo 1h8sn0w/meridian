@@ -5,6 +5,7 @@ import type {
   Meal,
   MealPrefValue,
   MealType,
+  Nutrition,
   Portion,
   PortionLetter,
   Profile,
@@ -99,15 +100,27 @@ function portion(entry: unknown): Portion | null {
 
 export function mealFromRow(row: Row): Meal {
   const what = 'Страва «' + text(row, 'id') + '»'
+  const nutritionCh: Nutrition = {
+    calories: optionalNumber(row.calories),
+    protein: optionalNumber(row.protein),
+    fat: optionalNumber(row.fat),
+    carbs: optionalNumber(row.carbs),
+  }
   return {
     id: requiredText(row, 'id', 'Страва'),
     name: requiredText(row, 'name', what),
     type: mealType(requiredText(row, 'type', what), what),
-    calories: optionalNumber(row.calories),
+    ...nutritionCh,
     caloriesApprox: bool(row, 'calories_approx'),
-    protein: optionalNumber(row.protein),
-    fat: optionalNumber(row.fat),
-    carbs: optionalNumber(row.carbs),
+    nutrition: {
+      Ч: nutritionCh,
+      Ж: {
+        calories: optionalNumber(row.calories_w),
+        protein: optionalNumber(row.protein_w),
+        fat: optionalNumber(row.fat_w),
+        carbs: optionalNumber(row.carbs_w),
+      },
+    },
     ingredients: jsonArray(row, 'ingredients', what)
       .map(ingredient)
       .filter((x): x is Ingredient => x !== null),

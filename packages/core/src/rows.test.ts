@@ -7,6 +7,7 @@ import {
   profileFromRow,
   recipeFromRow,
 } from './rows.ts'
+import { mealForPortion } from './profile.ts'
 
 const mealRow = {
   id: 'm1',
@@ -38,6 +39,33 @@ test('рядок страви розбирається зі значень, як
   assert.deepEqual(meal.portions, [
     { component: null, text: 'Ж - 130 г; Ч - 200 г' },
   ])
+})
+
+test('MER-79: колонки *_w — цифри порції Ж, без них порція Ж порожня', () => {
+  const meal = mealFromRow({
+    ...mealRow,
+    calories_w: 390,
+    protein_w: 28.5,
+    fat_w: null,
+  })
+  assert.deepEqual(meal.nutrition.Ч, {
+    calories: 520,
+    protein: 38,
+    fat: null,
+    carbs: null,
+  })
+  assert.deepEqual(meal.nutrition.Ж, {
+    calories: 390,
+    protein: 28.5,
+    fat: null,
+    carbs: null,
+  })
+  assert.equal(meal.calories, 520, 'страва з рядка читається в порції Ч')
+  assert.equal(mealFromRow(mealRow).nutrition.Ж.calories, null)
+  assert.equal(mealForPortion(meal, 'Ж').calories, 390)
+  assert.equal(mealForPortion(meal, 'Ж').protein, 28.5)
+  assert.equal(mealForPortion(meal, null).calories, 520)
+  assert.deepEqual(mealForPortion(meal, 'Ж').nutrition, meal.nutrition)
 })
 
 test('NULL лишається порожнечею — жодних нулів замість «невідомо»', () => {

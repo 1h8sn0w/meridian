@@ -3,7 +3,12 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 
-import { hasRecipe, parseStarterSet, starterMealId } from '@meridian/core'
+import {
+  hasRecipe,
+  mealFromRow,
+  parseStarterSet,
+  starterMealId,
+} from '@meridian/core'
 import type { StarterMeal } from '@meridian/core'
 import { seedStarterMeals } from './data/mutations.ts'
 import { sqliteDb } from './data/test-fixtures.ts'
@@ -175,7 +180,8 @@ function localDb() {
   return sqliteDb(
     'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
       ' type TEXT, calories REAL, calories_approx INTEGER, protein REAL,' +
-      ' fat REAL, carbs REAL, ingredients TEXT, source TEXT, portions TEXT,' +
+      ' fat REAL, carbs REAL, calories_w REAL, protein_w REAL, fat_w REAL,' +
+      ' carbs_w REAL, ingredients TEXT, source TEXT, portions TEXT,' +
       ' gerd INTEGER, source_issues TEXT, deleted_at TEXT);' +
       'CREATE TABLE recipe (id TEXT PRIMARY KEY, family_id TEXT,' +
       ' meal_id TEXT, steps TEXT, prep_time INTEGER, servings INTEGER,' +
@@ -221,4 +227,16 @@ test('засів: відредагована жива страва лишаєт�
     count('recipe'),
     SET.filter((meal) => hasRecipe(meal.recipe)).length,
   )
+})
+
+test('MER-79: засів пише цифри обох порцій, і страва читається з ними назад', async () => {
+  const { sqlite, db } = localDb()
+  await seedStarterMeals(db, FAMILY, SET)
+  for (const meal of SET) {
+    const row = sqlite
+      .prepare('SELECT * FROM meal WHERE id = ?')
+      .get(starterMealId(FAMILY, meal.key))
+    assert.ok(row)
+    assert.deepEqual(mealFromRow({ ...row }).nutrition, meal.nutrition)
+  }
 })

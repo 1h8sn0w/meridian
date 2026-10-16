@@ -21,6 +21,24 @@ export type Portion = { component: string | null; text: string }
 
 export type PortionLetter = 'Ж' | 'Ч'
 
+export const PORTION_LETTERS: ReadonlyArray<PortionLetter> = ['Ч', 'Ж']
+
+export const DEFAULT_PORTION: PortionLetter = 'Ч'
+
+export type Nutrition = {
+  calories: number | null
+  protein: number | null
+  fat: number | null
+  carbs: number | null
+}
+
+export const NO_NUTRITION: Readonly<Nutrition> = {
+  calories: null,
+  protein: null,
+  fat: null,
+  carbs: null,
+}
+
 export type MealPrefValue = 'favorite' | 'disliked'
 
 export type Meal = {
@@ -32,6 +50,7 @@ export type Meal = {
   protein: number | null
   fat: number | null
   carbs: number | null
+  nutrition: Record<PortionLetter, Nutrition>
   ingredients: Array<Ingredient>
   source: string
   portions: Array<Portion>

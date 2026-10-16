@@ -4,7 +4,7 @@ import { usePowerSync } from '@powersync/react'
 import {
   MEAL_TYPES,
   MEAL_TYPE_LABELS,
-  formatMealCalories,
+  formatPortionCalories,
 } from '@meridian/core'
 import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
@@ -274,7 +274,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
           {shown.map((meal) => {
             const taste = prefOf(prefs, meal.id)
-            const calories = formatMealCalories(meal)
+            const calories = formatPortionCalories(meal)
             return (
               <div
                 key={meal.id}

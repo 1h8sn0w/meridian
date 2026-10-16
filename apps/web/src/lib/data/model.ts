@@ -2,6 +2,7 @@ import {
   DEFAULTS,
   MEAL_TYPES,
   dayCalories,
+  mealForPortion,
   profileFromRow,
 } from '@meridian/core'
 import type {
@@ -9,6 +10,7 @@ import type {
   Meal,
   MealType,
   PlanDay,
+  PortionLetter,
   Profile,
   Row,
   WeekParams,
@@ -217,16 +219,19 @@ export function buildCalendarDays(
   return out
 }
 
-export function toWeekPlan(view: WeekView): WeekPlan | null {
+export function toWeekPlan(
+  view: WeekView,
+  portion: PortionLetter | null,
+): WeekPlan | null {
   const days: Array<PlanDay> = []
   for (const day of view.days) {
     const meals = {} as Record<MealType, Meal>
     for (const type of MEAL_TYPES) {
       const meal = day.byType[type]?.meal
       if (!meal) return null
-      meals[type] = meal
+      meals[type] = mealForPortion(meal, portion)
     }
-    days.push({ meals, calories: day.calories })
+    days.push({ meals, calories: dayCalories(meals) })
   }
   return {
     days,

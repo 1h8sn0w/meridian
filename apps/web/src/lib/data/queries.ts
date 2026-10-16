@@ -4,6 +4,7 @@ import {
   DEFAULTS,
   addDays,
   mealFromRow,
+  mealsForPortion,
   prefsFromRows,
   recipeFromRow,
 } from '@meridian/core'
@@ -11,6 +12,7 @@ import type {
   CalendarSlot,
   Meal,
   MealType,
+  PortionLetter,
   Recipe,
   Row,
   TastePrefs,
@@ -79,12 +81,15 @@ const asList = <T>(items: Array<T>): Array<T> => items
 const asFirst = <T>(items: Array<T>): T | null =>
   items.length ? items[0] : null
 
-export function useMeals(): Read<Array<Meal>> {
+export function useMeals(
+  portion: PortionLetter | null = null,
+): Read<Array<Meal>> {
   return useRead(
     'SELECT * FROM meal WHERE deleted_at IS NULL ORDER BY name',
     [],
     mealFromRow,
-    asList,
+    (meals) => mealsForPortion(meals, portion),
+    [portion],
   )
 }
 

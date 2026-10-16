@@ -19,6 +19,7 @@
 | `0010_plan_slot_swapped.sql` | MER-111: `plan_slot.swapped` — слот змінено ручною заміною, `boolean NOT NULL DEFAULT false`. Ставить `replaceSlotMeal`, знімає `saveWeek`; рядки, що приїхали на пристрій до міграції, мають у SQLite `NULL` і читаються як «не замінено» |
 | `0011_family_settings.sql` | MER-114: `family_settings` — налаштування сім'ї одним рядком (частковий унікальний індекс на `family_id`), поки що часові вікна сніданку, обіду й вечері в хвилинах доби. Таблиця, RLS, тригер, права й публікація — в одному файлі, як у `0003` |
 | `0012_family_settings_anti_repeat.sql` | MER-116: `family_settings.anti_repeat_days` — антиповтор сім'ї, `integer` 1–7 (`family_settings_anti_repeat_days_range`); `NULL` — стандартні 3 дні з коду |
+| `0013_meal_portion_w.sql` | MER-79: `meal.calories_w`, `protein_w`, `fat_w`, `carbs_w` — цифри порції Ж; наявні `calories` і БЖВ — порція Ч. `NULL` — немає в джерелі, межі ті самі (`>= 0`) |
 
 ## Таблиці
 

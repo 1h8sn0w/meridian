@@ -1,10 +1,17 @@
-export { MEAL_TYPES, MEAL_TYPE_LABELS } from './types.ts'
+export {
+  DEFAULT_PORTION,
+  MEAL_TYPES,
+  MEAL_TYPE_LABELS,
+  NO_NUTRITION,
+  PORTION_LETTERS,
+} from './types.ts'
 export type {
   DayCalories,
   Ingredient,
   Meal,
   MealPrefValue,
   MealType,
+  Nutrition,
   PlanDay,
   Portion,
   PortionLetter,
@@ -23,6 +30,7 @@ export {
   formatDayCalories,
   formatMacro,
   formatMealCalories,
+  formatPortionCalories,
   hasMacros,
   hasValue,
   numberFromField,
@@ -30,7 +38,14 @@ export {
 
 export { weekSources } from './plans.ts'
 
-export { planOwnerId, poolForProfile } from './profile.ts'
+export {
+  generationPool,
+  mealForPortion,
+  mealsForPortion,
+  planOwnerId,
+  poolForProfile,
+  portionOf,
+} from './profile.ts'
 
 export {
   DEFAULTS,

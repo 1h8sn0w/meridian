@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
 
+import { NO_NUTRITION } from '@meridian/core'
 import type { Meal } from '@meridian/core'
 import type { Db } from './mutations.ts'
 
@@ -37,6 +38,10 @@ export const testMeal = (
   protein: null,
   fat: null,
   carbs: null,
+  nutrition: {
+    Ч: { ...NO_NUTRITION, calories },
+    Ж: { ...NO_NUTRITION },
+  },
   ingredients: [],
   source: '',
   portions: [],

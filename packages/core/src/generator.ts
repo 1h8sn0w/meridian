@@ -6,7 +6,7 @@ import {
   poolPlans,
   weekSources,
 } from './plans.ts'
-import { poolForProfile } from './profile.ts'
+import { generationPool, portionOf } from './profile.ts'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
 import type {
   Meal,
@@ -266,7 +266,7 @@ export function generateWeek(
     days,
   }
 
-  const visible = poolForProfile(pool, profile)
+  const visible = generationPool(pool, profile)
 
   const planned = visible.filter(
     (meal): meal is PlannedMeal =>
@@ -291,7 +291,9 @@ export function generateWeek(
   const poolWarnings: Array<string> = []
   if (withoutCalories > 0) {
     poolWarnings.push(
-      'Страв без калорійності: ' +
+      'Страв без калорійності для порції ' +
+        portionOf(profile) +
+        ': ' +
         withoutCalories +
         '. Вони не брали участі в доборі — коридор дня рахується лише за відомими цифрами.',
     )

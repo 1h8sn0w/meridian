@@ -9,13 +9,20 @@ import {
   formatCalories,
   formatMealCalories,
   generateWeek,
+  generationPool,
   poolForProfile,
   poolShortage,
   poolShortageMessage,
+  portionOf,
   precedingMealIds,
   precedingWindow,
 } from '@meridian/core'
-import type { MealType, TastePrefs } from '@meridian/core'
+import type {
+  MealType,
+  PortionLetter,
+  Profile,
+  TastePrefs,
+} from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
   prefOf,
@@ -57,14 +64,15 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
   const todayKey = dateKey(useNow())
 
-  const mealsRead = useMeals()
   const profilesRead = useProfiles()
-  const prefsRead = useTastePrefs()
   const {
     profile,
     planOwnerId: ownerId,
     planOwner: owner,
+    ownerCorridorApplies,
   } = useActiveProfile(profilesRead.data)
+  const mealsRead = useMeals(profile?.portion)
+  const prefsRead = useTastePrefs()
   const week = useWeek(ownerId, mealsRead.data, todayKey)
 
   const antiRepeat = useAntiRepeatDays()
@@ -124,7 +132,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const shortage =
     mealsRead.isLoading || antiRepeat.isLoading || sharedNote
       ? []
-      : poolShortage(poolForProfile(mealsRead.data, owner), antiRepeatDays)
+      : poolShortage(generationPool(mealsRead.data, owner), antiRepeatDays)
   const problems = [
     mealsRead.problems,
     profilesRead.problems,
@@ -197,7 +205,11 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           {sharedNote && !error ? <Meta>{sharedNote}</Meta> : null}
 
           {view ? (
-            <PlanSummary view={view} owner={owner} />
+            <PlanSummary
+              view={view}
+              owner={owner}
+              viewerPortion={ownerCorridorApplies ? null : portionOf(profile)}
+            />
           ) : shortage.length ? null : (
             <Hint>
               Плану ще немає. Натисніть кнопку — генератор збере тиждень із пулу
@@ -212,8 +224,14 @@ export function WeekScreen({ familyId }: { familyId: string }) {
         <DayCard
           key={day.date}
           day={day}
-          target={view.params.targetCalories}
-          corridor={view.usedCorridor}
+          plan={
+            ownerCorridorApplies
+              ? {
+                  target: view.params.targetCalories,
+                  corridor: view.usedCorridor,
+                }
+              : null
+          }
           prefs={prefsRead.data}
           onSwap={(slot) => setSwapping({ dayIndex, slot })}
         />
@@ -273,6 +291,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           dayIndex={swapping.dayIndex}
           slot={swapping.slot}
           pool={poolForProfile(mealsRead.data, owner)}
+          ownerPortion={owner?.portion ?? null}
           prefs={prefsRead.data}
           antiRepeatDays={antiRepeatDays}
           onClose={() => setSwapping(null)}
@@ -285,9 +304,11 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 function PlanSummary({
   view,
   owner,
+  viewerPortion,
 }: {
   view: WeekView
-  owner: { targetCalories: number; corridor: number } | null
+  owner: Pick<Profile, 'targetCalories' | 'corridor' | 'portion'> | null
+  viewerPortion: PortionLetter | null
 }) {
   const known = view.days.filter((day) => day.calories.unknown === 0)
   const total = known.reduce((sum, day) => sum + day.calories.total, 0)
@@ -311,6 +332,13 @@ function PlanSummary({
           {view.sources.length
             ? ' Джерела: ' + view.sources.join(', ') + '.'
             : ''}
+        </Meta>
+      ) : null}
+
+      {viewerPortion ? (
+        <Meta>
+          Калорійність показано для порції {viewerPortion}, а коридор тримає
+          власник плану з порцією {portionOf(owner)}.
         </Meta>
       ) : null}
 
@@ -356,19 +384,18 @@ function PlanSummary({
 
 function DayCard({
   day,
-  target,
-  corridor,
+  plan,
   prefs,
   onSwap,
 }: {
   day: DayView
-  target: number
-  corridor: number
+  plan: { target: number; corridor: number } | null
   prefs: TastePrefs
   onSwap: (slot: MealType) => void
 }) {
   const total = formatCalories(day.calories.total, day.calories.approx)
-  const within = dayInCorridor(day.calories, target, corridor)
+  const within =
+    plan !== null && dayInCorridor(day.calories, plan.target, plan.corridor)
 
   return (
     <section
@@ -383,13 +410,15 @@ function DayCard({
         </div>
         <div
           className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-xs font-medium tabular-nums ${
-            within
-              ? 'bg-success-soft text-success'
-              : 'bg-warning-soft text-warning'
+            plan === null
+              ? 'bg-app text-muted'
+              : within
+                ? 'bg-success-soft text-success'
+                : 'bg-warning-soft text-warning'
           }`}
         >
           {total || 'калорійність невідома'}
-          {total && !within
+          {total && plan && !within
             ? day.calories.unknown > 0
               ? ' · сума неповна'
               : ' · поза коридором'

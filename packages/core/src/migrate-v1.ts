@@ -1,11 +1,12 @@
 import { optionalNumber, requiredNumber } from './provenance.ts'
 import { derivedId, mealPrefId } from './sync-ids.ts'
-import { MEAL_TYPES } from './types.ts'
+import { MEAL_TYPES, NO_NUTRITION } from './types.ts'
 import type {
   Ingredient,
   Meal,
   MealPrefValue,
   MealType,
+  Nutrition,
   Portion,
   PortionLetter,
   Profile,
@@ -127,15 +128,19 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     throw new Error('невідомий тип слота «' + type + '».')
   }
 
+  const nutritionCh: Nutrition = {
+    calories: optionalNumber(raw.calories, 'калорійність'),
+    protein: optionalNumber(raw.protein, 'білки'),
+    fat: optionalNumber(raw.fat, 'жири'),
+    carbs: optionalNumber(raw.carbs, 'вуглеводи'),
+  }
   return {
     id: derivedId(familyId, 'meal', v1Id),
     name,
     type: type as MealType,
-    calories: optionalNumber(raw.calories, 'калорійність'),
+    ...nutritionCh,
     caloriesApprox: raw.caloriesApprox === true,
-    protein: optionalNumber(raw.protein, 'білки'),
-    fat: optionalNumber(raw.fat, 'жири'),
-    carbs: optionalNumber(raw.carbs, 'вуглеводи'),
+    nutrition: { Ч: nutritionCh, Ж: { ...NO_NUTRITION } },
     ingredients: list(raw.ingredients)
       .map((entry) => ingredient(entry, 'страва «' + name + '»'))
       .filter((x): x is Ingredient => x !== null),

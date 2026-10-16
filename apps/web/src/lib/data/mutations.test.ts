@@ -1,10 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { MEAL_TYPES, planSlotId } from '@meridian/core'
+import { MEAL_TYPES, mealFromRow, planSlotId } from '@meridian/core'
 import type { Meal, MealType, PlanDay, WeekPlan } from '@meridian/core'
-import { clearStaleChecks, saveWeek } from './mutations.ts'
-import type { Db } from './mutations.ts'
+import {
+  clearStaleChecks,
+  insertMeal,
+  saveWeek,
+  updateMeal,
+} from './mutations.ts'
+import type { Db, MealInput } from './mutations.ts'
 import { sqliteDb, testMeal } from './test-fixtures.ts'
 
 const OWNER = 'profile-1'
@@ -198,4 +203,41 @@ test('уже видалений рядок не отримує нової поз
   const { db, deleted } = withChecks([['gone', 'other', serverMoment(60), at]])
   await clearStaleChecks(db, 'current')
   assert.equal(deleted().gone, at)
+})
+
+test('MER-79: страва зберігає й оновлює цифри порцій Ж і Ч окремо', async () => {
+  const { sqlite, db } = sqliteDb(
+    'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
+      ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
+      ' fat REAL, carbs REAL, calories_w INTEGER, protein_w REAL, fat_w REAL,' +
+      ' carbs_w REAL, ingredients TEXT, source TEXT, portions TEXT,' +
+      ' gerd INTEGER, source_issues TEXT, deleted_at TEXT)',
+  )
+  const input: MealInput = {
+    name: 'Гречка',
+    type: 'lunch',
+    nutrition: {
+      Ч: { calories: 520, protein: 38, fat: null, carbs: null },
+      Ж: { calories: 390, protein: 28.5, fat: null, carbs: null },
+    },
+    ingredients: [],
+    source: '',
+    portions: [],
+    gerd: false,
+    sourceIssues: [],
+  }
+  const read = () =>
+    mealFromRow({ ...sqlite.prepare('SELECT * FROM meal').get() })
+
+  const id = await insertMeal(db, 'f1', input)
+  assert.deepEqual(read().nutrition, input.nutrition)
+
+  sqlite.prepare('UPDATE meal SET calories_approx = 1').run()
+  const nutrition = {
+    Ч: input.nutrition.Ч,
+    Ж: { ...input.nutrition.Ж, calories: 400 },
+  }
+  await updateMeal(db, id, { ...input, nutrition }, true)
+  assert.deepEqual(read().nutrition, nutrition)
+  assert.equal(read().caloriesApprox, false)
 })
