@@ -1,38 +1,25 @@
-# Agent / editor
 .claude/
 .vscode/
 .idea/
 
-# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Logs / temp
 *.log
 *.tmp
 tmp/
 node_modules/
 
-# Збірки воркспейсу V2
 dist/
 .tanstack/
 
-# Env
 .env
 .env.local
 
-# Офіційний compose Supabase — чужий код зі своїм життєвим циклом. Стек його
-# більше не тягне (compose.yaml піднімає потрібні сервіси сам), але каталог міг
-# лишитися від попереднього способу установки.
 /supabase-project/
 
-# Стартовий набір страв (MER-77) — персональні плани дієтолога, у публічний
-# репозиторій їм не можна. Файл живе на сервері поза репозиторієм; правило — на
-# випадок, якщо його все ж покладуть поруч. Приклад із вигаданими стравами —
-# виняток.
 starter-set*.json
 !/infra/starter-set.example.json
 
-# Локальний аналіз/рев'ю — не для репо
 docs/POC_REVIEW.md

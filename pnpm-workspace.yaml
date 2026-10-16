@@ -2,22 +2,11 @@ packages:
   - apps/*
   - packages/*
 
-# Дозволені build-скрипти залежностей (pnpm 11: заміна onlyBuiltDependencies).
-# esbuild і lightningcss — зі стартера TanStack Start; решта — нативні модулі
-# наших же інструментів: unrs-resolver (eslint-plugin-import-x).
-#
-# @journeyapps/wa-sqlite (MER-46) — не збірка, а завантаження: його postinstall
-# тягне бінарник ядра SQLite під версію PowerSync (`powersync-version` у самому
-# пакеті). Без нього @powersync/web падає вже в рантаймі, тож заборонити цей
-# скрипт означає не мати клієнтського SQLite взагалі.
 allowBuilds:
   '@journeyapps/wa-sqlite': true
   esbuild: true
   lightningcss: true
   unrs-resolver: true
 
-# pdfjs-dist (MER-52) має необов'язкову залежність @napi-rs/canvas — це рендер
-# сторінок PDF у Node, 37 МБ нативного бінарника. Нам потрібен лише текстовий
-# шар і лише в браузері, тож ставити її нема за чим.
 ignoredOptionalDependencies:
   - '@napi-rs/canvas'

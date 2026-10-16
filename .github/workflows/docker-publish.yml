@@ -1,14 +1,5 @@
 name: Docker Publish
 
-# Публікація образу застосунку на Docker Hub (MER-58), щоб self-host можна було
-# підняти без збірки з вихідників (infra/compose.prebuilt.yaml). Образ — це
-# Caddy зі статичною збіркою apps/web (infra/web.Dockerfile); решта сервісів
-# стека й так тягнуться з Docker Hub готовими.
-#
-# `main` у списку гілок стоїть свідомо, хоч там досі V1 без apps/web:
-# push-workflow запускається лише з тієї гілки, у якій він сам лежить, а на
-# `main` цього файлу ще немає. Тобто до злиття staging → main публікація йде зі
-# `staging`, а після злиття `main` підхопить її сам, без правок тут.
 on:
   push:
     branches: [main, staging]
@@ -24,7 +15,6 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4
 
-      # Токен доступу Docker Hub, не пароль: його можна відкликати окремо.
       - uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -33,13 +23,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          # Namespace — із секрету DOCKERHUB_USERNAME, того самого, під яким
-          # іде логін вище: конкретний власник образу не зашитий у репозиторій.
           images: ${{ secrets.DOCKERHUB_USERNAME }}/meridian
-          # `latest` — лише з гілки за замовчуванням (`main`) і з git-тегів
-          # `v*` (типовий flavor latest=auto). Кожна гілка дає ще й тег зі
-          # своїм іменем (`staging`), а short-SHA — щоб відкотитись на
-          # конкретний коміт. Перелік тегів продубльовано в infra/README.md.
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
@@ -49,29 +33,15 @@ jobs:
       - id: build
         uses: docker/build-push-action@v7
         with:
-          # Контекст — КОРІНЬ репозиторію, а не infra/: Dockerfile збирає
-          # pnpm-воркспейс, і йому потрібні кореневі маніфести й лок-файл.
           context: .
           file: infra/web.Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Кеш шарів між запусками — інакше кожна публікація ставить
-          # залежності воркспейсу з нуля.
           cache-from: type=gha
           cache-to: type=gha,mode=max
           no-cache-filters: runtime
 
-      # Запобіжник для публічного образу: «Critical» на Docker Hub бачить
-      # кожен, хто заходить туди перед `docker compose up`, а нова CVE приходить
-      # сама — з оновленням базового образу.
-      #
-      # Скан іде після push: тег на той момент уже опубліковано, тож це сигнал
-      # тривоги, а не шлагбаум. Свідомий вибір — інакше будь-яка свіжа CVE у
-      # базовому образі глушила б публікацію цілком, а лагодити її все одно
-      # доводиться наступним комітом. Ціль задано ДАЙДЖЕСТОМ щойно зібраного
-      # образу, а не тегом: паралельна публікація не підмінить те, що
-      # перевіряємо.
       - uses: docker/scout-action@v1
         with:
           command: cves
