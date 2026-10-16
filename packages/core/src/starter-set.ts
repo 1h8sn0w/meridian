@@ -1,14 +1,23 @@
-import { MEAL_TYPES } from './types.ts'
+import {
+  DEFAULT_PORTION,
+  MEAL_TYPES,
+  NO_NUTRITION,
+  PORTION_LETTERS,
+} from './types.ts'
 import type {
   Ingredient,
   Meal,
   MealType,
+  Nutrition,
   Portion,
+  PortionLetter,
   Recipe,
   Result,
 } from './types.ts'
 
-const STARTER_SET_VERSION = 1
+const STARTER_SET_VERSION = 2
+
+const FLAT_NUTRITION_VERSION = 1
 
 export type StarterRecipe = Pick<Recipe, 'steps' | 'prepTime' | 'servings'>
 
@@ -22,15 +31,13 @@ export type StarterSet = {
   meals: Array<StarterMeal>
 }
 
-const MEAL_FIELDS = [
+const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs'] as const
+
+const COMMON_MEAL_FIELDS = [
   'key',
   'name',
   'type',
-  'calories',
   'caloriesApprox',
-  'protein',
-  'fat',
-  'carbs',
   'ingredients',
   'portions',
   'source',
@@ -38,6 +45,11 @@ const MEAL_FIELDS = [
   'sourceIssues',
   'recipe',
 ] as const
+
+const MEAL_FIELDS: Readonly<Record<number, ReadonlyArray<string>>> = {
+  [FLAT_NUTRITION_VERSION]: [...COMMON_MEAL_FIELDS, ...NUTRITION_FIELDS],
+  [STARTER_SET_VERSION]: [...COMMON_MEAL_FIELDS, 'nutrition'],
+}
 
 const RECIPE_FIELDS = ['steps', 'prepTime', 'servings'] as const
 
@@ -186,9 +198,58 @@ function checkRecipe(
   }
 }
 
+function checkNutrition(
+  raw: Raw,
+  prefix: string,
+  errors: Array<string>,
+): Nutrition {
+  return {
+    calories: checkAmount(raw.calories, prefix + 'calories', true, errors),
+    protein: checkAmount(raw.protein, prefix + 'protein', false, errors),
+    fat: checkAmount(raw.fat, prefix + 'fat', false, errors),
+    carbs: checkAmount(raw.carbs, prefix + 'carbs', false, errors),
+  }
+}
+
+function checkPortionNutrition(
+  value: unknown,
+  at: string,
+  errors: Array<string>,
+): Record<PortionLetter, Nutrition> {
+  const out: Record<PortionLetter, Nutrition> = {
+    Ж: { ...NO_NUTRITION },
+    Ч: { ...NO_NUTRITION },
+  }
+  if (!isObject(value)) {
+    errors.push(at + ': nutrition — об’єкт {Ж, Ч}.')
+    return out
+  }
+  checkFields(value, PORTION_LETTERS, at + ', nutrition', errors)
+  for (const letter of PORTION_LETTERS) {
+    const entry = value[letter]
+    if (!isObject(entry)) {
+      errors.push(
+        at +
+          ': nutrition.' +
+          letter +
+          ' — об’єкт {calories, protein, fat, carbs}.',
+      )
+      continue
+    }
+    checkFields(entry, NUTRITION_FIELDS, at + ', nutrition.' + letter, errors)
+    out[letter] = checkNutrition(
+      entry,
+      at + ': nutrition.' + letter + '.',
+      errors,
+    )
+  }
+  return out
+}
+
 function checkMeal(
   raw: unknown,
   index: number,
+  version: number,
   errors: Array<string>,
 ): StarterMeal | null {
   if (!isObject(raw)) {
@@ -199,18 +260,24 @@ function checkMeal(
     'Страва #' +
     (index + 1) +
     (isText(raw.name) ? ' «' + raw.name.trim() + '»' : '')
-  checkFields(raw, MEAL_FIELDS, at, errors)
+  checkFields(raw, MEAL_FIELDS[version] as ReadonlyArray<string>, at, errors)
 
   if (!isText(raw.key)) errors.push(at + ': key — непорожній рядок.')
   if (!isText(raw.name)) errors.push(at + ': name — непорожній рядок.')
   if (!MEAL_TYPES.includes(raw.type as MealType)) {
     errors.push(at + ': type — одне з ' + MEAL_TYPES.join(' / ') + '.')
   }
-  const calories = checkAmount(raw.calories, at + ': calories', true, errors)
+  const nutrition =
+    version === FLAT_NUTRITION_VERSION
+      ? { Ж: { ...NO_NUTRITION }, Ч: checkNutrition(raw, at + ': ', errors) }
+      : checkPortionNutrition(raw.nutrition, at, errors)
   if (typeof raw.caloriesApprox !== 'boolean') {
     errors.push(at + ': caloriesApprox — true або false.')
-  } else if (raw.caloriesApprox && raw.calories === null) {
-    errors.push(at + ': caloriesApprox: true без calories.')
+  } else if (
+    raw.caloriesApprox &&
+    PORTION_LETTERS.every((letter) => nutrition[letter].calories === null)
+  ) {
+    errors.push(at + ': caloriesApprox: true без калорійності жодної порції.')
   }
   if (typeof raw.gerd !== 'boolean') {
     errors.push(at + ': gerd — true або false.')
@@ -234,11 +301,9 @@ function checkMeal(
     key: String(raw.key ?? '').trim(),
     name: String(raw.name ?? '').trim(),
     type: raw.type as MealType,
-    calories,
+    ...nutrition[DEFAULT_PORTION],
     caloriesApprox: raw.caloriesApprox === true,
-    protein: checkAmount(raw.protein, at + ': protein', false, errors),
-    fat: checkAmount(raw.fat, at + ': fat', false, errors),
-    carbs: checkAmount(raw.carbs, at + ': carbs', false, errors),
+    nutrition,
     ingredients: ingredients.filter((x): x is Ingredient => x !== null),
     portions: portions.filter((x): x is Portion => x !== null),
     source: typeof raw.source === 'string' ? raw.source.trim() : '',
@@ -254,10 +319,17 @@ export function parseStarterSet(input: unknown): Result<{ set: StarterSet }> {
     return { ok: false, error: 'Стартовий набір: очікується JSON-об’єкт.' }
   }
   checkFields(input, ['version', 'meals'], 'Стартовий набір', errors)
-  if (input.version !== STARTER_SET_VERSION) {
-    errors.push(
-      'Стартовий набір: version має бути ' + STARTER_SET_VERSION + '.',
-    )
+  const version = input.version
+  if (typeof version !== 'number' || !(version in MEAL_FIELDS)) {
+    return {
+      ok: false,
+      error:
+        'Стартовий набір: version має бути ' +
+        STARTER_SET_VERSION +
+        ' (або ' +
+        FLAT_NUTRITION_VERSION +
+        ' — цифри лише порції Ч).',
+    }
   }
   const raws = Array.isArray(input.meals) ? input.meals : []
   if (!Array.isArray(input.meals)) {
@@ -267,7 +339,7 @@ export function parseStarterSet(input: unknown): Result<{ set: StarterSet }> {
   const meals: Array<StarterMeal> = []
   const keys = new Set<string>()
   raws.forEach((raw, index) => {
-    const meal = checkMeal(raw, index, errors)
+    const meal = checkMeal(raw, index, version, errors)
     if (!meal) return
     if (meal.key && keys.has(meal.key)) {
       errors.push(

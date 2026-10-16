@@ -4,10 +4,11 @@ import {
   MEAL_TYPE_LABELS,
   formatCalories,
   formatMealCalories,
+  mealsForPortion,
   replaceSlot,
   suggestReplacements,
 } from '@meridian/core'
-import type { Meal, MealType, TastePrefs } from '@meridian/core'
+import type { Meal, MealType, PortionLetter, TastePrefs } from '@meridian/core'
 import { toWeekPlan } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { replaceSlotMeal } from '../lib/data/mutations'
@@ -24,6 +25,7 @@ export function SwapDialog({
   dayIndex,
   slot,
   pool,
+  ownerPortion,
   prefs,
   antiRepeatDays,
   onClose,
@@ -32,6 +34,7 @@ export function SwapDialog({
   dayIndex: number
   slot: MealType
   pool: ReadonlyArray<Meal>
+  ownerPortion: PortionLetter | null
   prefs: TastePrefs
   antiRepeatDays: number
   onClose: () => void
@@ -43,7 +46,7 @@ export function SwapDialog({
 
   const day: DayView | undefined =
     dayIndex >= 0 ? view.days.at(dayIndex) : undefined
-  const plan = toWeekPlan(view)
+  const plan = toWeekPlan(view, ownerPortion)
   const title = 'Замінити страву'
 
   if (!day) {
@@ -77,7 +80,7 @@ export function SwapDialog({
   }
 
   const result = suggestReplacements(
-    pool,
+    mealsForPortion(pool, ownerPortion),
     { ...plan, params: { ...plan.params, antiRepeatDays } },
     dayIndex,
     slot,

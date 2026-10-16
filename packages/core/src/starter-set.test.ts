@@ -22,6 +22,23 @@ function withMeal(patch: Record<string, unknown>, drop?: string): unknown {
   return set
 }
 
+function nutrition(patch: Record<string, unknown>): Record<string, unknown> {
+  return { calories: null, protein: null, fat: null, carbs: null, ...patch }
+}
+
+function withNutrition(
+  letter: 'Ж' | 'Ч',
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    nutrition: {
+      Ж: nutrition({}),
+      Ч: nutrition({}),
+      [letter]: nutrition(patch),
+    },
+  }
+}
+
 function errorOf(input: unknown): string {
   const parsed = parseStarterSet(input)
   assert.ok(!parsed.ok)
@@ -49,24 +66,120 @@ test('приклад з репозиторію — валідний набір',
   assert.equal(hasRecipe(snack.recipe), false)
 })
 
+test('кожна порція несе свої цифри з джерела, а верхні поля страви — порція Ч', () => {
+  const parsed = parseStarterSet(example)
+  assert.ok(parsed.ok)
+  const [breakfast] = parsed.set.meals
+  assert.ok(breakfast)
+  assert.deepEqual(breakfast.nutrition.Ж, {
+    calories: 240,
+    protein: 7,
+    fat: 5,
+    carbs: 40,
+  })
+  assert.deepEqual(breakfast.nutrition.Ч, {
+    calories: 310,
+    protein: 9,
+    fat: 6,
+    carbs: 52,
+  })
+  assert.equal(breakfast.calories, 310)
+  assert.equal(breakfast.carbs, 52)
+})
+
+test('набір версії 1 читається: пласкі цифри — порція Ч, порція Ж порожня', () => {
+  const parsed = parseStarterSet({
+    version: 1,
+    meals: [
+      {
+        key: 'flat-1',
+        name: 'Страва',
+        type: 'lunch',
+        calories: 500,
+        caloriesApprox: false,
+        protein: 20,
+        fat: null,
+        carbs: null,
+        ingredients: [],
+        portions: [],
+        source: '',
+        gerd: false,
+        sourceIssues: [],
+        recipe: null,
+      },
+    ],
+  })
+  assert.ok(parsed.ok, parsed.ok ? '' : parsed.error)
+  const [flat] = parsed.set.meals
+  assert.ok(flat)
+  assert.deepEqual(flat.nutrition.Ч, {
+    calories: 500,
+    protein: 20,
+    fat: null,
+    carbs: null,
+  })
+  assert.deepEqual(flat.nutrition.Ж, {
+    calories: null,
+    protein: null,
+    fat: null,
+    carbs: null,
+  })
+  assert.equal(parsed.set.version, 2)
+})
+
+test('невідома версія набору — одна помилка про версію', () => {
+  assert.match(
+    errorOf({ ...(example as object), version: 3 }),
+    /^Стартовий набір: version має бути 2/,
+  )
+})
+
+test('порція без цифр чи з невідомим полем — помилка з назвою порції', () => {
+  assert.match(
+    errorOf(withMeal({ nutrition: { Ч: nutrition({}) } })),
+    /немає поля «Ж»/,
+  )
+  assert.match(
+    errorOf(withMeal({ nutrition: { Ж: { calories: 1 }, Ч: nutrition({}) } })),
+    /nutrition\.Ж: немає поля «protein»/,
+  )
+  assert.match(
+    errorOf(withMeal({ nutrition: { Ж: nutrition({}), Ч: null } })),
+    /nutrition\.Ч — об’єкт/,
+  )
+})
+
 test('пропущене й невідоме поле — помилка, а не тихе значення', () => {
   assert.match(errorOf(withMeal({}, 'gerd')), /немає поля «gerd»/)
   assert.match(errorOf(withMeal({ calorie: 300 })), /невідоме поле «calorie»/)
 })
 
 test('межі — ті самі, що в схемі БД', () => {
-  assert.match(errorOf(withMeal({ calories: 310.5 })), /calories/)
-  assert.match(errorOf(withMeal({ protein: -1 })), /protein/)
+  assert.match(
+    errorOf(withMeal(withNutrition('Ч', { calories: 310.5 }))),
+    /nutrition\.Ч\.calories/,
+  )
+  assert.match(
+    errorOf(withMeal(withNutrition('Ж', { protein: -1 }))),
+    /nutrition\.Ж\.protein/,
+  )
   assert.match(errorOf(withMeal({ type: 'brunch' })), /type/)
   assert.match(
     errorOf(withMeal({ recipe: { steps: [], prepTime: null, servings: 0 } })),
     /servings/,
   )
   assert.match(
-    errorOf(withMeal({ calories: null, caloriesApprox: true })),
+    errorOf(withMeal({ ...withNutrition('Ч', {}), caloriesApprox: true })),
     /caloriesApprox/,
     '«≈» без числа — позначка ні про що (MER-26).',
   )
+  const approxW = parseStarterSet(
+    withMeal({
+      ...withNutrition('Ж', { calories: 300 }),
+      caloriesApprox: true,
+    }),
+  )
+  assert.ok(approxW.ok, '«≈» з цифрою лише порції Ж — валідна оцінка')
 })
 
 test('key повторюється — помилка: інакше дві страви злилися б в один рядок', () => {

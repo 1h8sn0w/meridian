@@ -3,7 +3,7 @@ import {
   MEAL_TYPE_LABELS,
   dateKey,
   formatMealCalories,
-  poolForProfile,
+  generationPool,
   poolShortage,
 } from '@meridian/core'
 import type { MealType, PortionLetter, TastePrefs } from '@meridian/core'
@@ -63,16 +63,17 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   const minutes = minutesOf(now)
   const todayKey = dateKey(now)
 
-  const mealsRead = useMeals()
   const profilesRead = useProfiles()
-  const prefsRead = useTastePrefs()
-  const antiRepeatDays = useAntiRepeatDays().data
   const {
     profile,
     planOwnerId: ownerId,
     planOwner: owner,
+    ownerCorridorApplies,
     setActive,
   } = useActiveProfile(profilesRead.data)
+  const mealsRead = useMeals(profile?.portion)
+  const prefsRead = useTastePrefs()
+  const antiRepeatDays = useAntiRepeatDays().data
   const week = useWeek(ownerId, mealsRead.data, todayKey)
   const { problems: windowProblems } = useMealWindows()
 
@@ -115,6 +116,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           week={week.data}
           profileName={profile.name}
           portion={profile.portion}
+          ownerCorridorApplies={ownerCorridorApplies}
           showProfileName={profilesRead.data.length > 1}
           prefs={prefsRead.data}
           onSwap={(dayIndex, slot) => setSwapping({ dayIndex, slot })}
@@ -124,7 +126,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           hasProfile={Boolean(profile)}
           mealCount={mealsRead.data.length}
           shortage={poolShortage(
-            poolForProfile(mealsRead.data, owner),
+            generationPool(mealsRead.data, owner),
             antiRepeatDays,
           )}
           onCreateProfile={() => setManaging(true)}
@@ -150,6 +152,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           dayIndex={swapping.dayIndex}
           slot={swapping.slot}
           pool={mealsRead.data}
+          ownerPortion={owner?.portion ?? null}
           prefs={prefsRead.data}
           antiRepeatDays={antiRepeatDays}
           onClose={() => setSwapping(null)}
@@ -164,6 +167,7 @@ function CurrentMeal({
   week,
   profileName,
   portion,
+  ownerCorridorApplies,
   showProfileName,
   prefs,
   onSwap,
@@ -172,6 +176,7 @@ function CurrentMeal({
   week: WeekView
   profileName: string
   portion: PortionLetter | null
+  ownerCorridorApplies: boolean
   showProfileName: boolean
   prefs: TastePrefs
   onSwap: (dayIndex: number, slot: MealType) => void
@@ -262,10 +267,14 @@ function CurrentMeal({
 
       <DayTotal
         calories={day.calories}
-        plan={{
-          target: week.params.targetCalories,
-          corridor: week.usedCorridor,
-        }}
+        plan={
+          ownerCorridorApplies
+            ? {
+                target: week.params.targetCalories,
+                corridor: week.usedCorridor,
+              }
+            : null
+        }
       />
 
       {day.isPast ? null : (

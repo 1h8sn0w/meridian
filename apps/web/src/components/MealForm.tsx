@@ -1,11 +1,16 @@
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import { MEAL_TYPES, MEAL_TYPE_LABELS } from '@meridian/core'
-import type { Meal, MealType } from '@meridian/core'
+import {
+  DEFAULT_PORTION,
+  MEAL_TYPES,
+  MEAL_TYPE_LABELS,
+  PORTION_LETTERS,
+} from '@meridian/core'
+import type { Meal, MealType, PortionLetter } from '@meridian/core'
 import { useMealUsage } from '../lib/data/queries'
 import { deleteMeal, insertMeal, updateMeal } from '../lib/data/mutations'
-import { fieldText, validateMeal } from '../lib/forms'
-import type { MealDraft } from '../lib/forms'
+import { nutritionDraft, validateMeal } from '../lib/forms'
+import type { MealDraft, NutritionDraft } from '../lib/forms'
 import { ingredientsToText, portionsToText } from '../lib/meal-text'
 import { Button, Field, SelectField, TextField, Warn } from './ui'
 
@@ -13,10 +18,7 @@ function draftOf(meal: Meal | null): MealDraft {
   return {
     name: meal?.name ?? '',
     type: meal?.type ?? MEAL_TYPES[0],
-    calories: fieldText(meal?.calories),
-    protein: fieldText(meal?.protein),
-    fat: fieldText(meal?.fat),
-    carbs: fieldText(meal?.carbs),
+    nutrition: nutritionDraft(meal),
     ingredients: meal ? ingredientsToText(meal.ingredients) : '',
     portions: meal ? portionsToText(meal.portions) : '',
     source: meal?.source ?? '',
@@ -42,6 +44,14 @@ export function MealForm({
 
   const patch = (part: Partial<MealDraft>) =>
     setDraft((current) => ({ ...current, ...part }))
+  const patchPortion = (letter: PortionLetter, part: Partial<NutritionDraft>) =>
+    setDraft((current) => ({
+      ...current,
+      nutrition: {
+        ...current.nutrition,
+        [letter]: { ...current.nutrition[letter], ...part },
+      },
+    }))
 
   const save = async () => {
     const checked = validateMeal(draft)
@@ -53,7 +63,11 @@ export function MealForm({
     setError(null)
     try {
       if (meal) {
-        const changed = (meal.calories ?? null) !== checked.input.calories
+        const changed = PORTION_LETTERS.some(
+          (letter) =>
+            meal.nutrition[letter].calories !==
+            checked.input.nutrition[letter].calories,
+        )
         await updateMeal(db, meal.id, checked.input, changed)
       } else {
         await insertMeal(db, familyId, checked.input)
@@ -114,46 +128,14 @@ export function MealForm({
         ))}
       </SelectField>
 
-      <Field
-        label="Калорійність, ккал"
-        hint="Порожньо — генератор цю страву не братиме: коридор дня рахується числами."
-        type="number"
-        min={0}
-        step={1}
-        placeholder="—"
-        value={draft.calories}
-        onChange={(e) => patch({ calories: e.target.value })}
-      />
-
-      <div className="flex gap-2 [&>*]:flex-1">
-        <Field
-          label="Білки, г"
-          type="number"
-          min={0}
-          step="0.1"
-          placeholder="—"
-          value={draft.protein}
-          onChange={(e) => patch({ protein: e.target.value })}
+      {PORTION_LETTERS.map((letter) => (
+        <PortionFields
+          key={letter}
+          letter={letter}
+          value={draft.nutrition[letter]}
+          onChange={(part) => patchPortion(letter, part)}
         />
-        <Field
-          label="Жири, г"
-          type="number"
-          min={0}
-          step="0.1"
-          placeholder="—"
-          value={draft.fat}
-          onChange={(e) => patch({ fat: e.target.value })}
-        />
-        <Field
-          label="Вуглеводи, г"
-          type="number"
-          min={0}
-          step="0.1"
-          placeholder="—"
-          value={draft.carbs}
-          onChange={(e) => patch({ carbs: e.target.value })}
-        />
-      </div>
+      ))}
 
       <TextField
         label="Інгредієнти"
@@ -222,5 +204,72 @@ export function MealForm({
         ) : null}
       </div>
     </section>
+  )
+}
+
+function PortionFields({
+  letter,
+  value,
+  onChange,
+}: {
+  letter: PortionLetter
+  value: NutritionDraft
+  onChange: (part: Partial<NutritionDraft>) => void
+}) {
+  return (
+    <fieldset className="m-0 mb-1 border-0 p-0">
+      <legend className="mb-1 p-0 text-sm font-semibold text-content">
+        Порція {letter}
+        {letter === DEFAULT_PORTION ? (
+          <span className="font-normal text-muted">
+            {' '}
+            · і профілі без порції
+          </span>
+        ) : null}
+      </legend>
+      <Field
+        label="Калорійність, ккал"
+        hint={
+          'Порожньо — генератор не братиме страву для профілів порції ' +
+          letter +
+          ': коридор дня рахується числами.'
+        }
+        type="number"
+        min={0}
+        step={1}
+        placeholder="—"
+        value={value.calories}
+        onChange={(e) => onChange({ calories: e.target.value })}
+      />
+      <div className="flex gap-2 [&>*]:flex-1">
+        <Field
+          label="Білки, г"
+          type="number"
+          min={0}
+          step="0.1"
+          placeholder="—"
+          value={value.protein}
+          onChange={(e) => onChange({ protein: e.target.value })}
+        />
+        <Field
+          label="Жири, г"
+          type="number"
+          min={0}
+          step="0.1"
+          placeholder="—"
+          value={value.fat}
+          onChange={(e) => onChange({ fat: e.target.value })}
+        />
+        <Field
+          label="Вуглеводи, г"
+          type="number"
+          min={0}
+          step="0.1"
+          placeholder="—"
+          value={value.carbs}
+          onChange={(e) => onChange({ carbs: e.target.value })}
+        />
+      </div>
+    </fieldset>
   )
 }

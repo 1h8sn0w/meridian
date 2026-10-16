@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
-import { MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
-import type { Meal, Recipe } from '@meridian/core'
+import { MEAL_TYPE_LABELS, formatMealCalories, portionOf } from '@meridian/core'
+import type { Meal, PortionLetter, Recipe } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import { useMeals, useProfiles, useRecipe } from '../lib/data/queries'
 import { saveRecipe } from '../lib/data/mutations'
@@ -32,10 +32,10 @@ export function RecipeScreen({
   mealId: string
   familyId: string
 }) {
-  const mealsRead = useMeals()
   const profilesRead = useProfiles()
-  const recipeRead = useRecipe(mealId)
   const { profile } = useActiveProfile(profilesRead.data)
+  const mealsRead = useMeals(profile?.portion)
+  const recipeRead = useRecipe(mealId)
   const [editing, setEditing] = useState(false)
 
   const meal = mealsRead.data.find((item) => item.id === mealId) ?? null
@@ -75,7 +75,7 @@ export function RecipeScreen({
       <Panel>
         <Photo meal={meal} photo={recipe?.photo ?? null} />
         <MealMarks meal={meal} block />
-        <Chips meal={meal} recipe={recipe} />
+        <Chips meal={meal} recipe={recipe} portion={portionOf(profile)} />
         <StayAwake />
         <MealDetails meal={meal} portion={profile?.portion ?? null} hideEmpty />
         <SourceIssues meal={meal} />
@@ -190,10 +190,20 @@ async function shrink(file: File): Promise<string> {
   }
 }
 
-function Chips({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
+function Chips({
+  meal,
+  recipe,
+  portion,
+}: {
+  meal: Meal
+  recipe: Recipe | null
+  portion: PortionLetter
+}) {
   const calories = formatMealCalories(meal)
   const chips: Array<{ value: string; label: string }> = [
-    ...(calories ? [{ value: calories, label: 'калорійність' }] : []),
+    ...(calories
+      ? [{ value: calories, label: 'калорійність · ' + portion }]
+      : []),
     ...(recipe?.prepTime != null
       ? [{ value: recipe.prepTime + ' хв', label: 'готувати' }]
       : []),

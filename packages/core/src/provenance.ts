@@ -1,4 +1,4 @@
-import { MEAL_TYPES } from './types.ts'
+import { MEAL_TYPES, PORTION_LETTERS } from './types.ts'
 import type { DayCalories, Meal, MealType } from './types.ts'
 
 export function hasValue(value: unknown): boolean {
@@ -64,6 +64,19 @@ export function formatCalories(
 
 export function formatMealCalories(meal: Meal): string {
   return formatCalories(meal.calories, meal.caloriesApprox)
+}
+
+export function formatPortionCalories(meal: Meal): string {
+  return PORTION_LETTERS.filter((letter) =>
+    hasValue(meal.nutrition[letter].calories),
+  )
+    .map(
+      (letter) =>
+        letter +
+        ' ' +
+        formatCalories(meal.nutrition[letter].calories, meal.caloriesApprox),
+    )
+    .join(' · ')
 }
 
 export function formatDayCalories(day: DayCalories): string {

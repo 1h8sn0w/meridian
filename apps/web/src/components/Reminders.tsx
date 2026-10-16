@@ -41,9 +41,9 @@ export function MealReminders() {
 
 function ReminderTicker() {
   const now = useNow()
-  const meals = useMeals()
   const profiles = useProfiles()
-  const { planOwnerId } = useActiveProfile(profiles.data)
+  const { profile, planOwnerId } = useActiveProfile(profiles.data)
+  const meals = useMeals(profile?.portion)
   const week = useWeek(planOwnerId, meals.data, dateKey(now))
   const plan = week.data
   const { windows } = useMealWindows()

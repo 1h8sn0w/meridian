@@ -14,6 +14,7 @@ import type {
   Ingredient,
   MealPrefValue,
   MealType,
+  Nutrition,
   Portion,
   PortionLetter,
   StarterMeal,
@@ -22,6 +23,7 @@ import type {
 import type { CommonPowerSyncDatabase } from '@powersync/web'
 import { DEFAULT_MEAL_HOURS, sameMealHours } from '../day-clock.ts'
 import type { MealHours } from '../day-clock.ts'
+import { placeholders } from './sql.ts'
 
 export type Db = CommonPowerSyncDatabase
 
@@ -50,13 +52,41 @@ function softDelete(
   )
 }
 
+const NUTRITION_COLUMNS = [
+  'calories',
+  'protein',
+  'fat',
+  'carbs',
+  'calories_w',
+  'protein_w',
+  'fat_w',
+  'carbs_w',
+] as const
+
+const NUTRITION_SET = NUTRITION_COLUMNS.map((column) => column + ' = ?').join(
+  ', ',
+)
+
+function nutritionValues(
+  nutrition: Readonly<Record<PortionLetter, Nutrition>>,
+): Array<number | null> {
+  const { Ч: ch, Ж: w } = nutrition
+  return [
+    ch.calories,
+    ch.protein,
+    ch.fat,
+    ch.carbs,
+    w.calories,
+    w.protein,
+    w.fat,
+    w.carbs,
+  ]
+}
+
 export type MealInput = {
   name: string
   type: MealType
-  calories: number | null
-  protein: number | null
-  fat: number | null
-  carbs: number | null
+  nutrition: Record<PortionLetter, Nutrition>
   ingredients: Array<Ingredient>
   source: string
   portions: Array<Portion>
@@ -70,26 +100,25 @@ export async function insertMeal(
   input: MealInput,
 ): Promise<string> {
   const id = newId()
+  const values = [
+    id,
+    familyId,
+    input.name,
+    input.type,
+    flag(false),
+    ...nutritionValues(input.nutrition),
+    JSON.stringify(input.ingredients),
+    input.source,
+    JSON.stringify(input.portions),
+    flag(input.gerd),
+    JSON.stringify(input.sourceIssues),
+  ]
   await db.execute(
-    'INSERT INTO meal (id, family_id, name, type, calories, calories_approx,' +
-      ' protein, fat, carbs, ingredients, source, portions, gerd,' +
-      ' source_issues) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [
-      id,
-      familyId,
-      input.name,
-      input.type,
-      input.calories,
-      flag(false),
-      input.protein,
-      input.fat,
-      input.carbs,
-      JSON.stringify(input.ingredients),
-      input.source,
-      JSON.stringify(input.portions),
-      flag(input.gerd),
-      JSON.stringify(input.sourceIssues),
-    ],
+    'INSERT INTO meal (id, family_id, name, type, calories_approx, ' +
+      NUTRITION_COLUMNS.join(', ') +
+      ', ingredients, source, portions, gerd, source_issues)' +
+      ` VALUES (${placeholders(values.length)})`,
+    values,
   )
   return id
 }
@@ -101,18 +130,16 @@ export async function updateMeal(
   caloriesChanged: boolean,
 ): Promise<void> {
   await db.execute(
-    'UPDATE meal SET name = ?, type = ?, calories = ?, protein = ?, fat = ?,' +
-      ' carbs = ?, ingredients = ?, source = ?, portions = ?, gerd = ?,' +
+    'UPDATE meal SET name = ?, type = ?, ' +
+      NUTRITION_SET +
+      ', ingredients = ?, source = ?, portions = ?, gerd = ?,' +
       ' source_issues = ?' +
       (caloriesChanged ? ', calories_approx = 0' : '') +
       ' WHERE id = ?',
     [
       input.name,
       input.type,
-      input.calories,
-      input.protein,
-      input.fat,
-      input.carbs,
+      ...nutritionValues(input.nutrition),
       JSON.stringify(input.ingredients),
       input.source,
       JSON.stringify(input.portions),
@@ -174,11 +201,8 @@ export async function seedStarterMeals(
       const values = [
         meal.name,
         meal.type,
-        meal.calories,
         flag(meal.caloriesApprox),
-        meal.protein,
-        meal.fat,
-        meal.carbs,
+        ...nutritionValues(meal.nutrition),
         JSON.stringify(meal.ingredients),
         meal.source,
         JSON.stringify(meal.portions),
@@ -187,17 +211,19 @@ export async function seedStarterMeals(
       ]
       if (existing) {
         await tx.execute(
-          'UPDATE meal SET name = ?, type = ?, calories = ?,' +
-            ' calories_approx = ?, protein = ?, fat = ?, carbs = ?,' +
-            ' ingredients = ?, source = ?, portions = ?, gerd = ?,' +
+          'UPDATE meal SET name = ?, type = ?, calories_approx = ?, ' +
+            NUTRITION_SET +
+            ', ingredients = ?, source = ?, portions = ?, gerd = ?,' +
             ' source_issues = ?, deleted_at = NULL WHERE id = ?',
           [...values, id],
         )
       } else {
         await tx.execute(
-          'INSERT INTO meal (name, type, calories, calories_approx, protein,' +
-            ' fat, carbs, ingredients, source, portions, gerd, source_issues,' +
-            ' id, family_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO meal (name, type, calories_approx, ' +
+            NUTRITION_COLUMNS.join(', ') +
+            ', ingredients, source, portions, gerd, source_issues,' +
+            ' id, family_id)' +
+            ` VALUES (${placeholders(values.length + 2)})`,
           [...values, id, familyId],
         )
       }

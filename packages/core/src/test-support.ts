@@ -1,5 +1,12 @@
-import { MEAL_TYPES } from './types.ts'
-import type { Meal, MealType, Profile, TastePrefs, WeekPlan } from './types.ts'
+import { MEAL_TYPES, NO_NUTRITION } from './types.ts'
+import type {
+  Meal,
+  MealType,
+  Nutrition,
+  Profile,
+  TastePrefs,
+  WeekPlan,
+} from './types.ts'
 import type { Random } from './generator.ts'
 
 export function seeded(seed: number): Random {
@@ -27,15 +34,22 @@ type MealInput = {
 }
 
 export function meal(input: MealInput): Meal {
+  const nutritionCh: Nutrition = {
+    calories: input.calories === undefined ? 500 : input.calories,
+    protein: input.protein ?? null,
+    fat: input.fat ?? null,
+    carbs: input.carbs ?? null,
+  }
   return {
     id: input.id,
     name: input.name ?? input.id,
     type: input.type,
-    calories: input.calories === undefined ? 500 : input.calories,
+    ...nutritionCh,
     caloriesApprox: input.caloriesApprox ?? false,
-    protein: input.protein ?? null,
-    fat: input.fat ?? null,
-    carbs: input.carbs ?? null,
+    nutrition: {
+      Ч: nutritionCh,
+      Ж: { ...NO_NUTRITION },
+    },
     ingredients: [],
     source: input.source ?? '',
     portions: [],

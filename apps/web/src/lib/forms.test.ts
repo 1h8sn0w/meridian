@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   fieldText,
   linesFromText,
+  nutritionDraft,
   validateMeal,
   validatePlanEntry,
   validateProfile,
@@ -11,6 +12,7 @@ import {
 } from './forms.ts'
 import type {
   MealDraft,
+  NutritionDraft,
   PlanEntryDraft,
   ProfileDraft,
   RecipeDraft,
@@ -20,10 +22,7 @@ import type { AppProfile } from './data/model.ts'
 const MEAL: MealDraft = {
   name: ' Гречка ',
   type: 'lunch',
-  calories: '',
-  protein: '',
-  fat: '',
-  carbs: '',
+  nutrition: nutritionDraft(null),
   ingredients: '',
   portions: '',
   source: '',
@@ -81,6 +80,19 @@ const profile = (
   color: '#4f9dff',
 })
 
+function withPortion(
+  letter: 'Ж' | 'Ч',
+  patch: Partial<NutritionDraft>,
+): MealDraft {
+  return {
+    ...MEAL,
+    nutrition: {
+      ...MEAL.nutrition,
+      [letter]: { ...MEAL.nutrition[letter], ...patch },
+    },
+  }
+}
+
 function input<T>(checked: { input: T } | { error: string }): T {
   if ('error' in checked) assert.fail(checked.error)
   return checked.input
@@ -92,27 +104,59 @@ function error(checked: { input: unknown } | { error: string }): string {
 }
 
 test('порожнє поле страви лишається порожнім, а нуль — нулем', () => {
-  const meal = input(validateMeal({ ...MEAL, calories: '', protein: '0' }))
+  const meal = input(validateMeal(withPortion('Ч', { protein: '0' })))
   assert.equal(meal.name, 'Гречка')
-  assert.equal(meal.calories, null)
-  assert.equal(meal.protein, 0)
-  assert.equal(meal.fat, null)
+  assert.equal(meal.nutrition.Ч.calories, null)
+  assert.equal(meal.nutrition.Ч.protein, 0)
+  assert.equal(meal.nutrition.Ч.fat, null)
+  assert.deepEqual(meal.nutrition.Ж, {
+    calories: null,
+    protein: null,
+    fat: null,
+    carbs: null,
+  })
+})
+
+test('MER-79: цифри порцій Ж і Ч зберігаються окремо й повертаються в чернетку', () => {
+  const draft = withPortion('Ж', { calories: '410', fat: '12,5' })
+  const meal = input(
+    validateMeal({
+      ...draft,
+      nutrition: {
+        ...draft.nutrition,
+        Ч: { ...draft.nutrition.Ч, calories: '520' },
+      },
+    }),
+  )
+  assert.equal(meal.nutrition.Ж.calories, 410)
+  assert.equal(meal.nutrition.Ж.fat, 12.5)
+  assert.equal(meal.nutrition.Ч.calories, 520)
+  assert.equal(meal.nutrition.Ч.fat, null)
+  assert.deepEqual(nutritionDraft(meal).Ж, {
+    calories: '410',
+    protein: '',
+    fat: '12.5',
+    carbs: '',
+  })
 })
 
 test('калорійність страви округлюється, БЖВ — ні, кома — десятковий роздільник', () => {
   const meal = input(
-    validateMeal({ ...MEAL, calories: '320,6', carbs: '12,5' }),
+    validateMeal(withPortion('Ж', { calories: '320,6', carbs: '12,5' })),
   )
-  assert.equal(meal.calories, 321)
-  assert.equal(meal.carbs, 12.5)
+  assert.equal(meal.nutrition.Ж.calories, 321)
+  assert.equal(meal.nutrition.Ж.carbs, 12.5)
 })
 
 test('не число й від’ємне в полі страви — помилка з назвою поля', () => {
   assert.match(
-    error(validateMeal({ ...MEAL, fat: 'багато' })),
-    /Поле «Жири» має бути числом/,
+    error(validateMeal(withPortion('Ж', { fat: 'багато' }))),
+    /Поле «Жири · порція Ж» має бути числом/,
   )
-  assert.match(error(validateMeal({ ...MEAL, calories: '-1' })), /невід'ємним/)
+  assert.match(
+    error(validateMeal(withPortion('Ч', { calories: '-1' }))),
+    /«Калорійність · порція Ч» має бути невід'ємним/,
+  )
   assert.match(error(validateMeal({ ...MEAL, name: '  ' })), /Назва/)
 })
 
@@ -230,10 +274,13 @@ test('страва з PDF без калорійності в пул не йде:
 
 test('страва з PDF не отримує БЖВ і ГЕРХ: «Ж»/«Ч» у плані — порції, а не жири', () => {
   const { meal, recipe } = input(validatePlanEntry(ENTRY))
-  assert.equal(meal.calories, 320)
-  assert.equal(meal.protein, null)
-  assert.equal(meal.fat, null)
-  assert.equal(meal.carbs, null)
+  assert.deepEqual(meal.nutrition.Ч, {
+    calories: 320,
+    protein: null,
+    fat: null,
+    carbs: null,
+  })
+  assert.equal(meal.nutrition.Ж.calories, null)
   assert.equal(meal.gerd, false)
   assert.equal(recipe, null)
 })

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { planOwnerId } from '@meridian/core'
+import { planOwnerId, portionOf } from '@meridian/core'
 import { useStoredChoice } from './device-choice'
 import type { AppProfile } from './data/model'
 
@@ -23,6 +23,7 @@ type ActiveProfile = {
   profile: AppProfile | null
   planOwnerId: string | null
   planOwner: AppProfile | null
+  ownerCorridorApplies: boolean
   setActive: (id: string) => void
 }
 
@@ -47,5 +48,11 @@ export function useActiveProfile(
   const ownerId = profile ? planOwnerId(profile) : null
   const planOwner = profiles.find((p) => p.id === ownerId) ?? profile
 
-  return { profile, planOwnerId: ownerId, planOwner, setActive: setId }
+  return {
+    profile,
+    planOwnerId: ownerId,
+    planOwner,
+    ownerCorridorApplies: portionOf(profile) === portionOf(planOwner),
+    setActive: setId,
+  }
 }

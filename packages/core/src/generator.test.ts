@@ -318,7 +318,9 @@ test('страва без калорійності не потрапляє в т
   )
   assert.ok(!weekMealIds(result).flat().includes('no-kcal'))
   assert.ok(
-    result.warnings.some((w) => w.startsWith('Страв без калорійності: 1.')),
+    result.warnings.some((w) =>
+      w.startsWith('Страв без калорійності для порції Ч: 1.'),
+    ),
     JSON.stringify(result.warnings),
   )
   for (const day of result.days) assert.equal(day.calories.unknown, 0)
@@ -451,6 +453,72 @@ test('MER-21: підмножина mealIds звужує пул профілю', 
       'страва «' + id + '» поза підмножиною профілю',
     )
   }
+})
+
+function twoPortionPool(): Array<Meal> {
+  return mixedPool().map((entry) => ({
+    ...entry,
+    nutrition: {
+      ...entry.nutrition,
+      Ж: {
+        calories: (entry.calories as number) - 150,
+        protein: null,
+        fat: null,
+        carbs: null,
+      },
+    },
+  }))
+}
+
+test('MER-79: профіль порції Ж тримає свій коридор за цифрами порції Ж', () => {
+  const woman = profile({
+    id: 'p-w',
+    portion: 'Ж',
+    targetCalories: 1450,
+    corridor: 50,
+  })
+  for (const seed of SEEDS) {
+    const result = expectOk(
+      generateWeek(twoPortionPool(), { profile: woman, random: seeded(seed) }),
+    )
+    assert.deepEqual(weekViolations(result), [])
+    assert.equal(result.usedCorridor, 50)
+    for (const day of result.days) {
+      for (const type of MEAL_TYPES) {
+        const planned = day.meals[type]
+        assert.equal(planned.calories, planned.nutrition.Ж.calories)
+      }
+    }
+  }
+})
+
+test('MER-79: профіль без порції рахується за порцією Ч', () => {
+  const plain = profile({ id: 'p-0', targetCalories: 2050 })
+  const result = expectOk(
+    generateWeek(twoPortionPool(), { profile: plain, random: seeded(3) }),
+  )
+  assert.deepEqual(weekViolations(result), [])
+  for (const day of result.days) {
+    assert.equal(day.meals.lunch.calories, day.meals.lunch.nutrition.Ч.calories)
+  }
+})
+
+test('MER-79: страва без цифри порції Ж для профілю Ж — як страва без калорійності', () => {
+  const pool = twoPortionPool()
+  pool.push(
+    meal({ id: 'only-ch', type: 'lunch', calories: 450, source: 'Тиждень 2' }),
+  )
+  const woman = profile({ id: 'p-w', portion: 'Ж', targetCalories: 1450 })
+  const result = expectOk(
+    generateWeek(pool, { profile: woman, random: seeded(5) }),
+  )
+  assert.ok(!weekMealIds(result).flat().includes('only-ch'))
+  assert.ok(
+    result.warnings.some((w) =>
+      w.startsWith('Страв без калорійності для порції Ж: 1.'),
+    ),
+    JSON.stringify(result.warnings),
+  )
 })
 
 test('порожній пул — відмова, а не порожній тиждень', () => {
