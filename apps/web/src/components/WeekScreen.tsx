@@ -7,6 +7,7 @@ import {
   dateKey,
   dayInCorridor,
   formatCalories,
+  formatDayCalories,
   formatMealCalories,
   generateWeek,
   generationPool,
@@ -393,7 +394,7 @@ function DayCard({
   prefs: TastePrefs
   onSwap: (slot: MealType) => void
 }) {
-  const total = formatCalories(day.calories.total, day.calories.approx)
+  const total = formatDayCalories(day.calories)
   const within =
     plan !== null && dayInCorridor(day.calories, plan.target, plan.corridor)
 
@@ -418,11 +419,11 @@ function DayCard({
           }`}
         >
           {total || 'калорійність невідома'}
-          {total && plan && !within
-            ? day.calories.unknown > 0
-              ? ' · сума неповна'
-              : ' · поза коридором'
-            : ''}
+          {total && day.calories.unknown > 0
+            ? ' · сума неповна'
+            : total && plan && !within
+              ? ' · поза коридором'
+              : ''}
         </div>
       </div>
 
