@@ -14,6 +14,7 @@ import { isSyncConfigured } from '../public-env'
 import type { PublicEnv } from '../public-env'
 import { localDbFailure, syncFailure } from '../messages'
 import type { Failure, LocalDbFailure } from '../messages'
+import type { Rejection } from './connector'
 
 type SyncState = {
   configured: boolean
@@ -21,6 +22,8 @@ type SyncState = {
   failure: LocalDbFailure | null
   connectFailure: Failure | null
   retryConnect: () => void
+  rejected: ReadonlyArray<Rejection>
+  dismissRejected: () => void
 }
 
 const SyncStateContext = createContext<SyncState>({
@@ -29,6 +32,8 @@ const SyncStateContext = createContext<SyncState>({
   failure: null,
   connectFailure: null,
   retryConnect: () => undefined,
+  rejected: [],
+  dismissRejected: () => undefined,
 })
 
 export function useSyncState(): SyncState {
@@ -48,6 +53,9 @@ export function SyncProvider({
   const [failure, setFailure] = useState<LocalDbFailure | null>(null)
   const [connectFailure, setConnectFailure] = useState<Failure | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [rejected, setRejected] = useState<ReadonlyArray<Rejection>>([])
+
+  useEffect(() => setRejected([]), [familyId])
 
   useEffect(() => {
     setFailure(null)
@@ -94,6 +102,9 @@ export function SyncProvider({
       const connector = connectorModule.createConnector(
         getSupabase(env),
         env.powersyncUrl,
+        (rejection) => {
+          if (!isSuperseded()) setRejected((list) => [...list, rejection])
+        },
       )
       try {
         await connectPowerSync(connector)
@@ -120,10 +131,19 @@ export function SyncProvider({
   }, [attempt, configured, env, familyId])
 
   const retryConnect = useCallback(() => setAttempt((n) => n + 1), [])
+  const dismissRejected = useCallback(() => setRejected([]), [])
 
   return (
     <SyncStateContext.Provider
-      value={{ configured, db, failure, connectFailure, retryConnect }}
+      value={{
+        configured,
+        db,
+        failure,
+        connectFailure,
+        retryConnect,
+        rejected,
+        dismissRejected,
+      }}
     >
       {db ? (
         <PowerSyncContext.Provider value={db}>

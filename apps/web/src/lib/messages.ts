@@ -1,3 +1,6 @@
+import type { UpdateType } from '@powersync/web'
+import type { Rejection } from './powersync/connector'
+
 const AUTH: Record<string, string> = {
   invalid_credentials: 'Невірна пошта або пароль.',
   email_not_confirmed: 'Пошту ще не підтверджено — перевірте лист.',
@@ -115,5 +118,48 @@ export function syncFailure(
   return {
     text: 'Не вдалося отримати дані із сервера синхронізації. Зміни з цього пристрою збережено на ньому.',
     detail,
+  }
+}
+
+const REJECTED_TABLE: Record<string, string> = {
+  profile: 'Профіль',
+  meal: 'Страва',
+  recipe: 'Рецепт',
+  meal_pref: 'Позначка смаку',
+  week_plan: 'План тижня',
+  plan_slot: 'Страва в плані',
+  shopping_check: 'Позначка в списку покупок',
+  family_settings: 'Налаштування сім’ї',
+}
+
+const REJECTED_OP: Record<UpdateType, string> = {
+  PUT: 'створення',
+  PATCH: 'зміну',
+  DELETE: 'видалення',
+}
+
+const REJECTED_REASON: ReadonlyArray<[RegExp, string]> = [
+  [/^23505$/, 'такий запис уже є (мабуть, його створили на іншому пристрої)'],
+  [/^23503$/, 'пов’язаного запису вже немає'],
+  [/^23502$/, 'бракує обов’язкового поля'],
+  [/^23514$/, 'значення поза допустимими межами'],
+  [/^42501$/, 'немає доступу — можливо, пристрій уже не в цій сім’ї'],
+  [/^22/, 'некоректне значення'],
+]
+
+export function rejectionFailure(rejection: Rejection): Failure {
+  const what = REJECTED_TABLE[rejection.table] ?? rejection.table
+  const reason =
+    REJECTED_REASON.find(([code]) => code.test(rejection.code))?.[1] ??
+    'сервер відхилив дані'
+  return {
+    text:
+      what +
+      ': сервер не прийняв ' +
+      REJECTED_OP[rejection.op] +
+      ' — ' +
+      reason +
+      '.',
+    detail: rejection.code + ' ' + rejection.message,
   }
 }
