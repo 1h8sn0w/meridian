@@ -3,11 +3,7 @@ import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { noComments } from '../eslint.config.base.mjs'
-import {
-  COMMENT_FREE_DIRS,
-  commentLines,
-  isCommentFree,
-} from './check-comments.mjs'
+import { commentLines, isCommentFree } from './check-comments.mjs'
 
 const rule = ['meridian', 'no-comments'].join('/')
 
@@ -86,31 +82,39 @@ test('ESLint-правило пропускає ті самі директиви,
   ]
   const code =
     '#!/usr/bin/env node\n// c\n/// <reference types="x" />\nf(/* #__PURE__ */ g()) /* d */'
-  COMMENT_FREE_DIRS.push('clean')
-  try {
-    const lines = linter
-      .verify(code, config, { filename: 'clean/a.js' })
-      .map((message) => message.line)
-    assert.deepEqual(lines, [2, 4])
-  } finally {
-    COMMENT_FREE_DIRS.pop()
+  const lines = linter
+    .verify(code, config, { filename: 'tools/a.js' })
+    .map((message) => message.line)
+  assert.deepEqual(lines, [2, 4])
+  assert.deepEqual(
+    linter.verify('// c', config, { filename: 'apps/web/android/a.js' }),
+    [],
+  )
+})
+
+test('храповик перевіряє будь-який файл репозиторію, крім винятків', () => {
+  for (const file of [
+    'packages/db/migrate.sh',
+    'packages/db/migrations/0008_x.sql',
+    'packages/core/src/generator.ts',
+    'packages/core/src/generator.test.ts',
+    'apps/web/src/lib/data/model.ts',
+    'new-folder/a.ts',
+    '.github/workflows/ci.yml',
+    'compose.yaml',
+  ]) {
+    assert.equal(isCommentFree(file), true, file)
   }
-})
-
-test('храповик перевіряє лише чисті теки й обходить винятки', () => {
-  const dirs = ['packages/db', 'apps/web']
-  assert.equal(isCommentFree('packages/db/migrate.sh', dirs), true)
-  assert.equal(isCommentFree('packages/dbx/a.sql', dirs), false)
-  assert.equal(isCommentFree('packages/db/migrations/0007_x.sql', dirs), false)
-  assert.equal(isCommentFree('packages/db/migrations/0008_x.sql', dirs), true)
-  assert.equal(isCommentFree('apps/web/android/a.xml', dirs), false)
-  assert.equal(isCommentFree('apps/web/src/routeTree.gen.ts', dirs), false)
-  assert.equal(isCommentFree('apps/web/.env.example'), false)
-})
-
-test('тести *.test.ts чисті в будь-якій теці, решта файлів теки — ні', () => {
-  assert.equal(isCommentFree('packages/core/src/generator.test.ts', []), true)
-  assert.equal(isCommentFree('apps/web/src/lib/data/model.test.ts', []), true)
-  assert.equal(isCommentFree('packages/core/src/generator.ts', []), false)
-  assert.equal(isCommentFree('packages/core/src/test-support.ts', []), false)
+  for (const file of [
+    'packages/db/migrations/0007_x.sql',
+    'apps/web/android/a.xml',
+    'apps/web/ios/App/a.swift',
+    'apps/web/src/routeTree.gen.ts',
+    'apps/web/.env.example',
+    '.env.example',
+    '.github/ISSUE_TEMPLATE/bug.yml',
+    '.github/PULL_REQUEST_TEMPLATE.md',
+  ]) {
+    assert.equal(isCommentFree(file), false, file)
+  }
 })
