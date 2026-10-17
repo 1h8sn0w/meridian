@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MEAL_TYPE_LABELS, dateKey, formatMealCalories } from '@meridian/core'
 import type { MealType } from '@meridian/core'
 import { useSyncState } from '../lib/powersync/provider'
 import { useActiveProfile } from '../lib/active-profile'
 import { useMeals, useProfiles, useWeek } from '../lib/data/queries'
+import { windowsInPlan } from '../lib/data/model'
 import type { WeekView } from '../lib/data/model'
 import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute } from '../lib/day-clock'
@@ -46,7 +47,11 @@ function ReminderTicker() {
   const meals = useMeals(profile?.portion)
   const week = useWeek(planOwnerId, meals.data, dateKey(now))
   const plan = week.data
-  const { windows } = useMealWindows()
+  const allWindows = useMealWindows().windows
+  const windows = useMemo(
+    () => windowsInPlan(allWindows, plan),
+    [allWindows, plan],
+  )
 
   useEffect(() => {
     const settings = readSettings()
@@ -80,7 +85,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const [settings, setSettings] = useState<ReminderSettings>(DEFAULT_SETTINGS)
   const [permission, setPermission] = useState<NotificationState>('default')
   const [error, setError] = useState<string | null>(null)
-  const { windows } = useMealWindows()
+  const windows = windowsInPlan(useMealWindows().windows, week)
 
   useEffect(() => {
     setSettings(readSettings())

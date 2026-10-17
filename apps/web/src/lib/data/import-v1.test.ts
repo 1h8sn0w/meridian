@@ -18,6 +18,7 @@ const profile = (
   goalProtein: null,
   goalFat: null,
   goalCarbs: null,
+  withSnack: true,
   color: '#4f9dff',
 })
 

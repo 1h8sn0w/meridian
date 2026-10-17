@@ -134,6 +134,20 @@ test('денна сума рахує лише відомі значення й �
   assert.deepEqual(dayCalories(day), { total: 1300, unknown: 1, approx: false })
 })
 
+test('відсутній слот у денну суму не входить і невідомим не рахується', () => {
+  const day = {
+    breakfast: meal({ id: 'b', type: 'breakfast', calories: 400 }),
+    lunch: meal({ id: 'l', type: 'lunch', calories: 600 }),
+    dinner: meal({ id: 'd', type: 'dinner', calories: 700 }),
+  }
+  assert.deepEqual(dayCalories(day), { total: 1700, unknown: 0, approx: false })
+  assert.deepEqual(dayCalories({ ...day, snack: null }), {
+    total: 1700,
+    unknown: 1,
+    approx: false,
+  })
+})
+
 test('приблизна складова робить приблизною всю денну суму', () => {
   const day = {
     breakfast: meal({

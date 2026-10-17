@@ -42,6 +42,7 @@ const PROFILE: ProfileDraft = {
   goalFat: '',
   goalCarbs: '',
   mealIds: null,
+  withSnack: true,
 }
 
 const RECIPE: RecipeDraft = {
@@ -76,6 +77,7 @@ const profile = (
   goalProtein: null,
   goalFat: null,
   goalCarbs: null,
+  withSnack: true,
   mealIds: null,
   color: '#4f9dff',
 })

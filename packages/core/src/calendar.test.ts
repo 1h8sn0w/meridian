@@ -126,3 +126,19 @@ test('слоти тижня розкладаються по датах від с
     mealId: 'b1',
   })
 })
+
+test('день без перекусу дає слоти лише для наявних прийомів', () => {
+  const days = [
+    {
+      meals: {
+        breakfast: { id: 'b0' },
+        lunch: { id: 'l0' },
+        dinner: { id: 'd0' },
+      },
+    },
+  ]
+  assert.deepEqual(
+    planSlots(days, '2026-08-07').map((slot) => slot.slot),
+    ['breakfast', 'lunch', 'dinner'],
+  )
+})

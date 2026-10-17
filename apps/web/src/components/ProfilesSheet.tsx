@@ -39,6 +39,7 @@ function draftOf(profile: AppProfile | null): ProfileDraft {
       goalFat: '',
       goalCarbs: '',
       mealIds: null,
+      withSnack: true,
     }
   }
   return {
@@ -53,6 +54,7 @@ function draftOf(profile: AppProfile | null): ProfileDraft {
     goalFat: fieldText(profile.goalFat),
     goalCarbs: fieldText(profile.goalCarbs),
     mealIds: profile.mealIds,
+    withSnack: profile.withSnack,
   }
 }
 
@@ -144,6 +146,9 @@ export function ProfilesSheet({
                   {profile.targetCalories} ± {profile.corridor} ккал
                   {profile.portion ? ' · порція ' + profile.portion : ''}
                   {profile.sharedPlanWith ? ' · спільний план' : ''}
+                  {profile.sharedPlanWith || profile.withSnack
+                    ? ''
+                    : ' · без перекусу'}
                   {profile.mealIds ? ' · пул: ' + profile.mealIds.length : ''}
                 </span>
               </span>
@@ -249,6 +254,17 @@ export function ProfilesSheet({
       <Hint>
         Пов’язані профілі їдять ті самі страви — план у них один, власників.
       </Hint>
+
+      {draft.sharedPlanWith ? null : (
+        <SelectField
+          label="Перекус"
+          value={draft.withSnack ? 'daily' : 'none'}
+          onChange={(e) => patch({ withSnack: e.target.value === 'daily' })}
+        >
+          <option value="daily">щодня</option>
+          <option value="none">без перекусу</option>
+        </SelectField>
+      )}
 
       <div className="flex gap-2 [&>*]:flex-1">
         <Field

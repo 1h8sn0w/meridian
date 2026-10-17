@@ -3,8 +3,7 @@ import {
   MEAL_TYPE_LABELS,
   dateKey,
   formatMealCalories,
-  generationPool,
-  poolShortage,
+  poolShortageFor,
 } from '@meridian/core'
 import type { MealType, PortionLetter, TastePrefs } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
@@ -16,6 +15,7 @@ import {
   useTastePrefs,
   useWeek,
 } from '../lib/data/queries'
+import { windowsInPlan } from '../lib/data/model'
 import type { WeekView } from '../lib/data/model'
 import { formatToday } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
@@ -125,10 +125,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
         <FirstSteps
           hasProfile={Boolean(profile)}
           mealCount={mealsRead.data.length}
-          shortage={poolShortage(
-            generationPool(mealsRead.data, owner),
-            antiRepeatDays,
-          )}
+          shortage={poolShortageFor(mealsRead.data, owner, antiRepeatDays)}
           onCreateProfile={() => setManaging(true)}
         />
       )}
@@ -191,7 +188,7 @@ function CurrentMeal({
   )
 
   const { windows } = useMealWindows()
-  const active = slotAt(minutes, windows)
+  const active = slotAt(minutes, windowsInPlan(windows, week))
   const slot: MealType | null = active.type ?? active.next?.type ?? null
   const dayOffset =
     !active.type && active.next && active.next.startMinute <= minutes ? 1 : 0

@@ -26,8 +26,9 @@ function requiredText(row: Row, column: string, what: string): string {
   return value
 }
 
-function bool(row: Row, column: string): boolean {
+function bool(row: Row, column: string, missing = false): boolean {
   const value = row[column]
+  if (value === null || value === undefined || value === '') return missing
   if (typeof value === 'boolean') return value
   if (typeof value === 'number') return value !== 0
   if (typeof value === 'string') return value === '1' || value === 'true'
@@ -171,6 +172,7 @@ export function profileFromRow(row: Row): Profile {
     goalProtein: optionalNumber(row.goal_protein),
     goalFat: optionalNumber(row.goal_fat),
     goalCarbs: optionalNumber(row.goal_carbs),
+    withSnack: bool(row, 'with_snack', true),
   }
 }
 

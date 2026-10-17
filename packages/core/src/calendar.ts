@@ -74,14 +74,15 @@ export function precedingWindow(antiRepeatDays: number): number {
 }
 
 export function planSlots(
-  days: ReadonlyArray<{ meals: Record<MealType, { id: string }> }>,
+  days: ReadonlyArray<{ meals: Partial<Record<MealType, { id: string }>> }>,
   startDate: string,
 ): Array<CalendarSlot & { dayIndex: number }> {
   const out: Array<CalendarSlot & { dayIndex: number }> = []
   days.forEach((day, dayIndex) => {
     const date = addDays(startDate, dayIndex)
     for (const slot of MEAL_TYPES) {
-      out.push({ date, dayIndex, slot, mealId: day.meals[slot].id })
+      const meal = day.meals[slot]
+      if (meal) out.push({ date, dayIndex, slot, mealId: meal.id })
     }
   })
   return out

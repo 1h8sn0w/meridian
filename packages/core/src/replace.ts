@@ -32,6 +32,21 @@ type Replacements = {
   candidates: Array<ReplacementCandidate>
 }
 
+function noSlot(
+  dayIndex: number,
+  slotType: MealType,
+): { ok: false; error: string } {
+  return {
+    ok: false,
+    error:
+      'У дні №' +
+      (dayIndex + 1) +
+      ' немає слота «' +
+      MEAL_TYPE_LABELS[slotType] +
+      '».',
+  }
+}
+
 export function suggestReplacements(
   pool: ReadonlyArray<Meal>,
   plan: WeekPlan,
@@ -47,6 +62,7 @@ export function suggestReplacements(
     return { ok: false, error: 'Невідомий тип слота: «' + slotType + '».' }
   }
   const current = day.meals[slotType]
+  if (!current) return noSlot(dayIndex, slotType)
   const target = plan.params.targetCalories
   const corridor = Number.isFinite(plan.usedCorridor)
     ? plan.usedCorridor
@@ -57,6 +73,7 @@ export function suggestReplacements(
   for (const type of MEAL_TYPES) {
     if (type === slotType) continue
     const meal = day.meals[type]
+    if (!meal) continue
     if (hasValue(meal.calories)) others += meal.calories as number
     else othersUnknown += 1
   }
@@ -70,7 +87,7 @@ export function suggestReplacements(
     if (d === dayIndex) continue
     const other = plan.days[d]
     if (!other) continue
-    for (const type of MEAL_TYPES) nearIds.add(other.meals[type].id)
+    for (const meal of Object.values(other.meals)) nearIds.add(meal.id)
   }
 
   const universe = poolPlans(pool)
@@ -79,8 +96,10 @@ export function suggestReplacements(
   const fixedWeekMeals: Array<Meal> = []
   plan.days.forEach((planDay, di) => {
     for (const type of MEAL_TYPES) {
-      if (di === dayIndex && type === slotType) continue
-      fixedWeekMeals.push(planDay.meals[type])
+      const meal = planDay.meals[type]
+      if (meal && !(di === dayIndex && type === slotType)) {
+        fixedWeekMeals.push(meal)
+      }
     }
   })
 
@@ -142,6 +161,7 @@ export function replaceSlot(
   if (!MEAL_TYPES.includes(slotType)) {
     return { ok: false, error: 'Невідомий тип слота: «' + slotType + '».' }
   }
+  if (!day.meals[slotType]) return noSlot(dayIndex, slotType)
   if (meal.type !== slotType) {
     return {
       ok: false,

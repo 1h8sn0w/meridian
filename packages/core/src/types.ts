@@ -80,6 +80,7 @@ export type Profile = {
   goalProtein: number | null
   goalFat: number | null
   goalCarbs: number | null
+  withSnack: boolean
 }
 
 export type TastePrefs = {
@@ -98,8 +99,12 @@ export type DayCalories = {
   approx: boolean
 }
 
+export type DayMeals<TMeal extends Meal = Meal> = Partial<
+  Record<MealType, TMeal>
+>
+
 export type PlanDay = {
-  meals: Record<MealType, Meal>
+  meals: DayMeals
   calories: DayCalories
 }
 

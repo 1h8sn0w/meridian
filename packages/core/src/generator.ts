@@ -6,9 +6,10 @@ import {
   poolPlans,
   weekSources,
 } from './plans.ts'
-import { generationPool, portionOf } from './profile.ts'
-import { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+import { generationPool, mealTypesFor, portionOf } from './profile.ts'
+import { MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
 import type {
+  DayMeals,
   Meal,
   MealType,
   PlanDay,
@@ -51,7 +52,9 @@ type GenerateOptions = {
 
 export type GenerateResult = Result<WeekPlan>
 
-type ByType = Record<MealType, Array<PlannedMeal>>
+type ByType = ReadonlyArray<{ type: MealType; meals: Array<PlannedMeal> }>
+
+type Day = DayMeals<PlannedMeal>
 
 type WeightOf = ((meal: PlannedMeal) => number) | null
 
@@ -77,11 +80,11 @@ function dayCandidates(
   limit: number,
   weightOf: WeightOf,
   random: Random,
-): Array<Record<MealType, PlannedMeal>> {
-  const slots = MEAL_TYPES.map((type) => ({
+): Array<Day> {
+  const slots = byType.map(({ type, meals }) => ({
     type,
     candidates: weightedShuffle(
-      byType[type].filter((meal) => !bannedIds.has(meal.id)),
+      meals.filter((meal) => !bannedIds.has(meal.id)),
       weightOf,
       random,
     ),
@@ -99,14 +102,14 @@ function dayCandidates(
     maxRest[i] = (maxRest[i + 1] as number) + Math.max(...cals)
   }
 
-  const out: Array<Record<MealType, PlannedMeal>> = []
-  const chosen: Partial<Record<MealType, PlannedMeal>> = {}
+  const out: Array<Day> = []
+  const chosen: Day = {}
 
   function dfs(i: number, sum: number): void {
     if (out.length >= limit) return
     if (i === slots.length) {
       if (sum >= minSum && sum <= maxSum) {
-        out.push({ ...chosen } as Record<MealType, PlannedMeal>)
+        out.push({ ...chosen })
       }
       return
     }
@@ -134,16 +137,15 @@ function tryBuildWeek(
   precedingDays: ReadonlyArray<ReadonlyArray<string>>,
   weightOf: WeightOf,
   random: Random,
-): Array<Record<MealType, PlannedMeal>> | null {
-  const week: Array<Record<MealType, PlannedMeal>> = []
+): Array<Day> | null {
+  const week: Array<Day> = []
   let budget = DAY_PLACEMENTS_PER_TRY
 
   function bansFor(d: number): Set<string> {
     const banned = new Set<string>()
     for (let b = d - antiRepeatDays + 1; b < d; b++) {
       if (b >= 0) {
-        const day = week[b] as Record<MealType, PlannedMeal>
-        for (const type of MEAL_TYPES) banned.add(day[type].id)
+        for (const meal of Object.values(week[b] as Day)) banned.add(meal.id)
       } else {
         const preceding = precedingDays[-b - 1]
         if (preceding) for (const id of preceding) banned.add(id)
@@ -177,7 +179,7 @@ function tryBuildWeek(
   return dfs(0) ? week : null
 }
 
-function toPlanDay(meals: Record<MealType, PlannedMeal>): PlanDay {
+function toPlanDay(meals: Day): PlanDay {
   return { meals, calories: dayCalories(meals) }
 }
 
@@ -186,17 +188,32 @@ export type PoolShortage = { type: MealType; have: number; need: number }
 export function poolShortage(
   meals: ReadonlyArray<Meal>,
   need: number,
+  types: ReadonlyArray<MealType>,
 ): Array<PoolShortage> {
-  return MEAL_TYPES.map((type) => ({
-    type,
-    have: meals.filter(
-      (meal) =>
-        meal.type === type &&
-        typeof meal.calories === 'number' &&
-        Number.isFinite(meal.calories),
-    ).length,
+  return types
+    .map((type) => ({
+      type,
+      have: meals.filter(
+        (meal) =>
+          meal.type === type &&
+          typeof meal.calories === 'number' &&
+          Number.isFinite(meal.calories),
+      ).length,
+      need,
+    }))
+    .filter((entry) => entry.have < entry.need)
+}
+
+export function poolShortageFor(
+  meals: ReadonlyArray<Meal>,
+  profile: Profile | null | undefined,
+  need: number,
+): Array<PoolShortage> {
+  return poolShortage(
+    generationPool(meals, profile),
     need,
-  })).filter((entry) => entry.have < entry.need)
+    mealTypesFor(profile),
+  )
 }
 
 export function poolShortageMessage(
@@ -274,13 +291,12 @@ export function generateWeek(
   )
   const withoutCalories = visible.length - planned.length
 
-  const byTypeOf = (list: ReadonlyArray<PlannedMeal>): ByType => {
-    const out = {} as ByType
-    for (const type of MEAL_TYPES) {
-      out[type] = list.filter((meal) => meal.type === type)
-    }
-    return out
-  }
+  const types = mealTypesFor(profile)
+  const byTypeOf = (list: ReadonlyArray<PlannedMeal>): ByType =>
+    types.map((type) => ({
+      type,
+      meals: list.filter((meal) => meal.type === type),
+    }))
 
   const weightOf: WeightOf = prefs.favorites.size
     ? (meal) => (prefs.favorites.has(meal.id) ? FAVORITE_WEIGHT : 1)
@@ -308,7 +324,7 @@ export function generateWeek(
 
   function buildFrom(list: ReadonlyArray<PlannedMeal>): GenerateResult {
     const byType = byTypeOf(list)
-    const shortage = poolShortage(list, antiRepeatDays)
+    const shortage = poolShortage(list, antiRepeatDays, types)
     if (shortage.length) {
       return {
         ok: false,
@@ -404,7 +420,7 @@ export function generateWeek(
     : planned
   if (
     kept.length !== planned.length &&
-    !poolShortage(kept, antiRepeatDays).length
+    !poolShortage(kept, antiRepeatDays, types).length
   ) {
     attempts.push(kept)
   }

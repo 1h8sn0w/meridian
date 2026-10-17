@@ -5,7 +5,7 @@ import { generateWeek } from './generator.ts'
 import { replaceSlot, suggestReplacements } from './replace.ts'
 import { MEAL_TYPES } from './types.ts'
 import type { Meal, MealType, WeekPlan } from './types.ts'
-import { meal, mixedPool, prefs, seeded } from './test-support.ts'
+import { meal, mixedPool, prefs, profile, seeded } from './test-support.ts'
 
 function plan(pool: Array<Meal>, targetCalories = 2050): WeekPlan {
   const result = generateWeek(pool, {
@@ -23,7 +23,7 @@ test('кандидати — лише страви того ж слота, бе�
   const result = suggestReplacements(pool, week, 2, 'lunch')
   assert.ok(result.ok, result.ok ? '' : result.error)
 
-  assert.equal(result.current.id, week.days[2]?.meals.lunch.id)
+  assert.equal(result.current.id, week.days[2]?.meals.lunch?.id)
   assert.ok(result.candidates.length > 0)
   for (const candidate of result.candidates) {
     assert.equal(candidate.meal.type, 'lunch')
@@ -55,7 +55,7 @@ test('MER-28: порушення названі поіменно, а канди�
 test('MER-28: повтор у сусідньому дні позначається, а не мовчки дозволяється', () => {
   const pool = mixedPool()
   const week = plan(pool)
-  const neighbourId = week.days[2]?.meals.lunch.id as string
+  const neighbourId = week.days[2]?.meals.lunch?.id as string
 
   const result = suggestReplacements(pool, week, 3, 'lunch')
   assert.ok(result.ok, result.ok ? '' : result.error)
@@ -86,7 +86,7 @@ test('MER-18: смак впливає лише на порядок і позна
   const pool = mixedPool()
   const week = plan(pool)
   const disliked = pool.find(
-    (m) => m.type === 'snack' && m.id !== week.days[0]?.meals.snack.id,
+    (m) => m.type === 'snack' && m.id !== week.days[0]?.meals.snack?.id,
   ) as Meal
 
   const neutral = suggestReplacements(pool, week, 0, 'snack')
@@ -154,18 +154,36 @@ test('неіснуючий день і невідомий слот — зроз�
   assert.match(noSlot.error, /Невідомий тип слота/)
 })
 
+test('слота, якого в дні немає, ні запропонувати, ні замінити не можна', () => {
+  const pool = mixedPool()
+  const result = generateWeek(pool, {
+    profile: profile({ id: 'p', targetCalories: 1750, withSnack: false }),
+    random: seeded(101),
+  })
+  assert.ok(result.ok, result.ok ? '' : result.error)
+  const snack = pool.find((m) => m.type === 'snack') as Meal
+
+  const suggest = suggestReplacements(pool, result, 0, 'snack')
+  assert.equal(suggest.ok, false)
+  assert.match(suggest.error, /немає слота «Перекус»/)
+
+  const replace = replaceSlot(result, 0, 'snack', snack)
+  assert.equal(replace.ok, false)
+  assert.match(replace.error, /немає слота «Перекус»/)
+})
+
 test('заміна повертає новий план і не чіпає вхідний', () => {
   const pool = mixedPool()
   const week = plan(pool)
   const before = structuredClone(week)
 
   const target = pool.find(
-    (m) => m.type === 'lunch' && m.id !== week.days[1]?.meals.lunch.id,
+    (m) => m.type === 'lunch' && m.id !== week.days[1]?.meals.lunch?.id,
   ) as Meal
   const result = replaceSlot(week, 1, 'lunch', target)
   assert.ok(result.ok, result.ok ? '' : result.error)
 
-  assert.equal(result.plan.days[1]?.meals.lunch.id, target.id)
+  assert.equal(result.plan.days[1]?.meals.lunch?.id, target.id)
   assert.deepEqual(week, before, 'вхідний план мутовано')
   assert.equal(
     result.plan.days[0],
@@ -178,7 +196,7 @@ test('калорійність дня після заміни перерахов
   const pool = mixedPool()
   const week = plan(pool)
   const target = pool.find(
-    (m) => m.type === 'snack' && m.id !== week.days[2]?.meals.snack.id,
+    (m) => m.type === 'snack' && m.id !== week.days[2]?.meals.snack?.id,
   ) as Meal
 
   const result = replaceSlot(week, 2, 'snack', target)
@@ -187,7 +205,7 @@ test('калорійність дня після заміни перерахов
   const day = result.plan.days[2]
   assert.ok(day)
   const expected = MEAL_TYPES.reduce(
-    (sum, type) => sum + (day.meals[type].calories as number),
+    (sum, type) => sum + (day.meals[type]?.calories as number),
     0,
   )
   assert.equal(day.calories.total, expected)
