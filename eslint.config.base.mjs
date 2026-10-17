@@ -12,7 +12,7 @@ export const noComments = {
     type: 'suggestion',
     messages: {
       comment:
-        'Коментар у теці без коментарів: нюанс — у README.md теки, інваріант — у тест (tools/README.md).',
+        'Коментар у коді: нюанс — у README.md теки, інваріант — у тест (tools/README.md).',
     },
   },
   create(context) {
