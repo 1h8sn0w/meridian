@@ -110,11 +110,14 @@ test('храповик перевіряє будь-який файл репоз�
     'apps/web/android/a.xml',
     'apps/web/ios/App/a.swift',
     'apps/web/src/routeTree.gen.ts',
-    'apps/web/.env.example',
-    '.env.example',
     '.github/ISSUE_TEMPLATE/bug.yml',
-    '.github/PULL_REQUEST_TEMPLATE.md',
   ]) {
     assert.equal(isCommentFree(file), false, file)
+  }
+  for (const file of [
+    'apps/web/.env.example',
+    '.github/PULL_REQUEST_TEMPLATE.md',
+  ]) {
+    assert.deepEqual(commentLines(file, '# c\n<!-- c -->'), [], file)
   }
 })

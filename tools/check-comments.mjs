@@ -7,8 +7,7 @@ const EXCEPTIONS = [
   /^packages\/db\/migrations\/000[0-7]_/,
   /^apps\/web\/(android|ios)\//,
   /(^|\/)routeTree\.gen\.ts$/,
-  /(^|\/)\.env\.example$/,
-  /^\.github\/(ISSUE_TEMPLATE\/|PULL_REQUEST_TEMPLATE)/,
+  /^\.github\/ISSUE_TEMPLATE\//,
 ]
 
 const RULE = String.raw`[\w@][\w@/-]*`
