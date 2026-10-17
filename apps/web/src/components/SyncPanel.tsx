@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { usePowerSync, useQuery, useStatus } from '@powersync/react'
-import { syncFailure } from '../lib/messages'
+import { plural } from '../lib/format'
+import { rejectionFailure, syncFailure } from '../lib/messages'
 import type { Failure } from '../lib/messages'
 import { useSyncState } from '../lib/powersync/provider'
 import { SYNCED_TABLES } from '../lib/powersync/schema'
 import { LocalDbPending } from './RequireLocalDb'
 import { Button, ErrorText, Hint, Panel } from './ui'
+
+const REJECTED_SHOWN = 5
 
 function formatTime(date: Date): string {
   return new Intl.DateTimeFormat('uk-UA', {
@@ -88,7 +91,8 @@ export function SyncPanel() {
 function SyncDetails() {
   const db = usePowerSync()
   const status = useStatus()
-  const { connectFailure, retryConnect } = useSyncState()
+  const { connectFailure, retryConnect, rejected, dismissRejected } =
+    useSyncState()
   const [pending, setPending] = useState<number | null>(null)
 
   useEffect(() => {
@@ -139,6 +143,22 @@ function SyncDetails() {
           <ErrorText failure={connectFailure} />
           <div className="mt-3">
             <Button onClick={retryConnect}>Спробувати ще раз</Button>
+          </div>
+        </div>
+      ) : null}
+      {rejected.length ? (
+        <div className="mb-3.5">
+          <p className="m-0 text-sm text-warning">
+            Сервер не прийняв {rejected.length}{' '}
+            {plural(rejected.length, 'зміну', 'зміни', 'змін')} з цього
+            пристрою. Їх відкинуто: на сервері й інших пристроях їх немає —
+            повторіть дію, якщо вона ще потрібна.
+          </p>
+          {rejected.slice(-REJECTED_SHOWN).map((rejection, i) => (
+            <ErrorText key={i} failure={rejectionFailure(rejection)} />
+          ))}
+          <div className="mt-3">
+            <Button onClick={dismissRejected}>Зрозуміло</Button>
           </div>
         </div>
       ) : null}

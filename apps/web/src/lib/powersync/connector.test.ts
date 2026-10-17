@@ -120,24 +120,41 @@ function fakeDatabase(crud: Array<CrudEntry>) {
   return { database, complete }
 }
 
+const ignore = () => undefined
+
 test('запис, який сервер не прийме ніколи, відкидається з гучним логом, щоб не блокувати чергу', async (t) => {
-  const logged = t.mock.method(console, 'error', () => undefined)
+  const logged = t.mock.method(console, 'error', ignore)
   for (const code of ['22P02', '23514', '42501']) {
     const { supabase } = fakeSupabase(code)
     const { database, complete } = fakeDatabase([
       entry(UpdateType.PATCH, 'meal'),
     ])
-    await createConnector(supabase, '').uploadData(database)
+    await createConnector(supabase, '', ignore).uploadData(database)
     assert.equal(complete.mock.callCount(), 1, code)
   }
   assert.equal(logged.mock.callCount(), 3)
 })
 
-test('тимчасова помилка лишає транзакцію в черзі на повтор', async () => {
+test('відкинута зміна доходить до інтерфейсу з таблицею, операцією й кодом', async (t) => {
+  t.mock.method(console, 'error', ignore)
+  const { supabase } = fakeSupabase('23505')
+  const { database } = fakeDatabase([entry(UpdateType.PUT, 'meal_pref')])
+  const rejected = mock.fn()
+  await createConnector(supabase, '', rejected).uploadData(database)
+  assert.deepEqual(rejected.mock.calls[0]?.arguments, [
+    { table: 'meal_pref', op: UpdateType.PUT, code: '23505', message: '23505' },
+  ])
+})
+
+test('тимчасова помилка лишає транзакцію в черзі на повтор і нічого не відкидає', async () => {
   const { supabase } = fakeSupabase('PGRST000')
   const { database, complete } = fakeDatabase([entry(UpdateType.PATCH, 'meal')])
-  await assert.rejects(createConnector(supabase, '').uploadData(database))
+  const rejected = mock.fn()
+  await assert.rejects(
+    createConnector(supabase, '', rejected).uploadData(database),
+  )
   assert.equal(complete.mock.callCount(), 0)
+  assert.equal(rejected.mock.callCount(), 0)
 })
 
 const withSession = (session: unknown) =>
@@ -149,7 +166,11 @@ const withSession = (session: unknown) =>
 
 test('без сесії конектор не під’єднується, а не падає', async () => {
   assert.equal(
-    await createConnector(withSession(null), 'https://sync').fetchCredentials(),
+    await createConnector(
+      withSession(null),
+      'https://sync',
+      ignore,
+    ).fetchCredentials(),
     null,
   )
 })
@@ -160,6 +181,7 @@ test('час протухання токена переводиться із с�
     await createConnector(
       withSession(session),
       'https://sync',
+      ignore,
     ).fetchCredentials(),
     {
       endpoint: 'https://sync',
