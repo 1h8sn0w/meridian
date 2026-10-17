@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { MEAL_TYPES, mealFromRow, planSlotId } from '@meridian/core'
-import type { Meal, MealType, PlanDay, WeekPlan } from '@meridian/core'
+import type { MealType, PlanDay, WeekPlan } from '@meridian/core'
 import {
   clearStaleChecks,
   insertMeal,
@@ -46,14 +46,15 @@ function localDb() {
   return { sqlite, db, slots }
 }
 
-function week(days: number, mealPrefix: string): WeekPlan {
+function week(
+  days: number,
+  mealPrefix: string,
+  types: ReadonlyArray<MealType> = MEAL_TYPES,
+): WeekPlan {
   const day = (): PlanDay => ({
     meals: Object.fromEntries(
-      MEAL_TYPES.map((type) => [
-        type,
-        testMeal(`${mealPrefix}-${type}`, type, 100),
-      ]),
-    ) as Record<MealType, Meal>,
+      types.map((type) => [type, testMeal(`${mealPrefix}-${type}`, type, 100)]),
+    ),
     calories: { total: 400, unknown: 0, approx: false },
   })
   return {
@@ -126,6 +127,19 @@ test('хвіст коротшого тижня м’яко видаляєтьс�
     .prepare('SELECT deleted_at FROM week_plan WHERE id = ?')
     .get(first) as { deleted_at: string | null }
   assert.notEqual(old.deleted_at, null)
+})
+
+test('перегенерація без перекусу м’яко видаляє перекуси попереднього плану', async () => {
+  const { db, slots } = localDb()
+  await save(db, week(2, 'a'))
+  const planId = await save(db, week(2, 'b', ['breakfast', 'lunch', 'dinner']))
+  const rows = slots()
+  const snacks = rows.filter((row) => row.slot === 'snack')
+  assert.equal(snacks.length, 2)
+  assert.ok(snacks.every((row) => row.deleted_at !== null))
+  const live = rows.filter((row) => row.deleted_at === null)
+  assert.equal(live.length, 6)
+  assert.ok(live.every((row) => row.week_plan_id === planId))
 })
 
 test('м’яко видалений слот із виведеним id оживає, а не вставляється наново', async () => {

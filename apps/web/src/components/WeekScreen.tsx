@@ -10,9 +10,8 @@ import {
   formatDayCalories,
   formatMealCalories,
   generateWeek,
-  generationPool,
   poolForProfile,
-  poolShortage,
+  poolShortageFor,
   poolShortageMessage,
   portionOf,
   precedingMealIds,
@@ -133,7 +132,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const shortage =
     mealsRead.isLoading || antiRepeat.isLoading || sharedNote
       ? []
-      : poolShortage(generationPool(mealsRead.data, owner), antiRepeatDays)
+      : poolShortageFor(mealsRead.data, owner, antiRepeatDays)
   const problems = [
     mealsRead.problems,
     profilesRead.problems,

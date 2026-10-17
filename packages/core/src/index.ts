@@ -7,6 +7,7 @@ export {
 } from './types.ts'
 export type {
   DayCalories,
+  DayMeals,
   Ingredient,
   Meal,
   MealPrefValue,
@@ -39,7 +40,6 @@ export {
 export { weekSources } from './plans.ts'
 
 export {
-  generationPool,
   mealForPortion,
   mealsForPortion,
   planOwnerId,
@@ -50,7 +50,7 @@ export {
 export {
   DEFAULTS,
   generateWeek,
-  poolShortage,
+  poolShortageFor,
   poolShortageMessage,
 } from './generator.ts'
 export type { PoolShortage } from './generator.ts'

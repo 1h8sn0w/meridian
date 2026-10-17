@@ -189,6 +189,23 @@ test('профіль розбирається, порційна літера й 
   assert.equal(profile.sharedPlanWith, null)
 })
 
+test('профіль без колонки перекусу — перекус щодня; 0 і false — без перекусу', () => {
+  assert.equal(profileFromRow(profileRow).withSnack, true)
+  assert.equal(
+    profileFromRow({ ...profileRow, with_snack: null }).withSnack,
+    true,
+  )
+  assert.equal(profileFromRow({ ...profileRow, with_snack: 1 }).withSnack, true)
+  assert.equal(
+    profileFromRow({ ...profileRow, with_snack: 0 }).withSnack,
+    false,
+  )
+  assert.equal(
+    profileFromRow({ ...profileRow, with_snack: false }).withSnack,
+    false,
+  )
+})
+
 test('meal_ids: NULL — увесь пул, порожній масив — жодної страви', () => {
   assert.equal(profileFromRow(profileRow).mealIds, null)
   assert.deepEqual(

@@ -479,6 +479,7 @@ export type ProfileInput = {
   goalFat: number | null
   goalCarbs: number | null
   mealIds: Array<string> | null
+  withSnack: boolean
 }
 
 export async function insertProfile(
@@ -490,7 +491,7 @@ export async function insertProfile(
   await db.execute(
     'INSERT INTO profile (id, family_id, name, target_calories, corridor,' +
       ' color, shared_plan_with, portion, goal_protein, goal_fat, goal_carbs,' +
-      ' meal_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ' meal_ids, with_snack) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       id,
       familyId,
@@ -504,6 +505,7 @@ export async function insertProfile(
       input.goalFat,
       input.goalCarbs,
       input.mealIds === null ? null : JSON.stringify(input.mealIds),
+      input.withSnack ? 1 : 0,
     ],
   )
   return id
@@ -517,7 +519,7 @@ export async function updateProfile(
   await db.execute(
     'UPDATE profile SET name = ?, target_calories = ?, corridor = ?, color = ?,' +
       ' shared_plan_with = ?, portion = ?, goal_protein = ?, goal_fat = ?,' +
-      ' goal_carbs = ?, meal_ids = ? WHERE id = ?',
+      ' goal_carbs = ?, meal_ids = ?, with_snack = ? WHERE id = ?',
     [
       input.name,
       input.targetCalories,
@@ -529,6 +531,7 @@ export async function updateProfile(
       input.goalFat,
       input.goalCarbs,
       input.mealIds === null ? null : JSON.stringify(input.mealIds),
+      input.withSnack ? 1 : 0,
       id,
     ],
   )

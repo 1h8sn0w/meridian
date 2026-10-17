@@ -107,6 +107,7 @@ function profileValues(
     goal_fat: profile.goalFat,
     goal_carbs: profile.goalCarbs,
     meal_ids: profile.mealIds === null ? null : json(profile.mealIds),
+    with_snack: flag(profile.withSnack),
   }
 }
 

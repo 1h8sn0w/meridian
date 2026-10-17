@@ -7,6 +7,7 @@ import {
 } from '@meridian/core'
 import type {
   DayCalories,
+  DayMeals,
   Meal,
   MealType,
   PlanDay,
@@ -16,6 +17,7 @@ import type {
   WeekParams,
   WeekPlan,
 } from '@meridian/core'
+import type { MealWindow } from '../day-clock'
 
 export type AppProfile = Profile & { color: string }
 
@@ -201,6 +203,17 @@ export function manualSwapsAhead(view: WeekView): number {
     .filter((slot) => slot.swapped).length
 }
 
+export function windowsInPlan(
+  windows: ReadonlyArray<MealWindow>,
+  view: WeekView | null | undefined,
+): ReadonlyArray<MealWindow> {
+  if (!view?.days.length) return windows
+  const planned = new Set(
+    view.days.flatMap((day) => day.slots.map((slot) => slot.slot)),
+  )
+  return windows.filter((window) => planned.has(window.type))
+}
+
 export type CalendarDayView = {
   date: string
   slots: Array<SlotView>
@@ -225,11 +238,10 @@ export function toWeekPlan(
 ): WeekPlan | null {
   const days: Array<PlanDay> = []
   for (const day of view.days) {
-    const meals = {} as Record<MealType, Meal>
-    for (const type of MEAL_TYPES) {
-      const meal = day.byType[type]?.meal
-      if (!meal) return null
-      meals[type] = mealForPortion(meal, portion)
+    const meals: DayMeals = {}
+    for (const slot of day.slots) {
+      if (!slot.meal) return null
+      meals[slot.slot] = mealForPortion(slot.meal, portion)
     }
     days.push({ meals, calories: dayCalories(meals) })
   }

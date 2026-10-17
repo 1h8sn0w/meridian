@@ -52,7 +52,10 @@ export function plansCovering(
 export function allWeekMeals(days: ReadonlyArray<PlanDay>): Array<Meal> {
   const out: Array<Meal> = []
   for (const day of days) {
-    for (const type of MEAL_TYPES) out.push(day.meals[type])
+    for (const type of MEAL_TYPES) {
+      const meal = day.meals[type]
+      if (meal) out.push(meal)
+    }
   }
   return out
 }
