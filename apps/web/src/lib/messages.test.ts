@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { localDbFailure, syncFailure } from './messages.ts'
+import { UpdateType } from '@powersync/web'
+import { localDbFailure, rejectionFailure, syncFailure } from './messages.ts'
 
 test('незахищена адреса: що робити, яка адреса, і без повтору', () => {
   const failure = localDbFailure(
@@ -107,4 +108,40 @@ test('connect() без мережі не мовчить: його ніхто н�
   })
   assert.match(failure?.text ?? '', /немає мережі/)
   assert.equal(failure?.detail, 'Failed to fetch')
+})
+
+test('відкинута зміна називає, що й чому сервер не прийняв, а код лишає в деталях', () => {
+  assert.deepEqual(
+    rejectionFailure({
+      table: 'meal_pref',
+      op: UpdateType.PUT,
+      code: '23505',
+      message: 'duplicate key value',
+    }),
+    {
+      text: 'Позначка смаку: сервер не прийняв створення — такий запис уже є (мабуть, його створили на іншому пристрої).',
+      detail: '23505 duplicate key value',
+    },
+  )
+  assert.match(
+    rejectionFailure({
+      table: 'meal',
+      op: UpdateType.PATCH,
+      code: '22P02',
+      message: 'invalid input',
+    }).text,
+    /^Страва: сервер не прийняв зміну — некоректне значення\.$/,
+  )
+})
+
+test('невідома таблиця й невідомий код не ховають відмову, а кажуть загально', () => {
+  assert.equal(
+    rejectionFailure({
+      table: 'new_table',
+      op: UpdateType.DELETE,
+      code: '23P01',
+      message: 'x',
+    }).text,
+    'new_table: сервер не прийняв видалення — сервер відхилив дані.',
+  )
 })

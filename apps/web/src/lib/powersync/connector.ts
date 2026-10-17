@@ -12,6 +12,13 @@ const FATAL_RESPONSE_CODES = [/^22...$/, /^23...$/, /^42501$/]
 
 const SERVER_OWNED_COLUMNS = ['created_at', 'updated_at']
 
+export type Rejection = {
+  table: string
+  op: UpdateType
+  code: string
+  message: string
+}
+
 function asJson(value: unknown): unknown {
   if (value === null || value === undefined) return null
   if (typeof value !== 'string') return value
@@ -46,11 +53,12 @@ function forServer(
   return out
 }
 
-function isFatal(error: unknown): boolean {
+function fatalCode(error: unknown): string | null {
   const code = (error as PostgrestError | null)?.code
-  return (
-    typeof code === 'string' && FATAL_RESPONSE_CODES.some((r) => r.test(code))
-  )
+  return typeof code === 'string' &&
+    FATAL_RESPONSE_CODES.some((r) => r.test(code))
+    ? code
+    : null
 }
 
 export async function applyCrudEntry(
@@ -75,6 +83,7 @@ export async function applyCrudEntry(
 export function createConnector(
   supabase: SupabaseClient,
   endpoint: string,
+  onRejected: (rejection: Rejection) => void,
 ): PowerSyncBackendConnector {
   return {
     async fetchCredentials(): Promise<PowerSyncCredentials | null> {
@@ -104,13 +113,22 @@ export function createConnector(
         }
         await transaction.complete()
       } catch (error) {
-        if (!isFatal(error)) throw error
+        const code = fatalCode(error)
+        if (code === null) throw error
         console.error(
           '[meridian] зміну не прийнято сервером, відкидаємо:',
           lastEntry,
           error,
         )
         await transaction.complete()
+        if (lastEntry) {
+          onRejected({
+            table: lastEntry.table,
+            op: lastEntry.op,
+            code,
+            message: (error as PostgrestError).message,
+          })
+        }
       }
     },
   }
