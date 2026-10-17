@@ -19,6 +19,7 @@ const profile = new Table({
   goal_fat: column.real,
   goal_carbs: column.real,
   meal_ids: column.text,
+  with_snack: column.integer,
 })
 
 const meal = new Table({
@@ -139,6 +140,7 @@ export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
 
 export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
   {
+    profile: ['with_snack'],
     meal: ['calories_approx', 'gerd'],
     plan_slot: ['swapped'],
     shopping_check: ['checked'],

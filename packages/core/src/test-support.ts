@@ -69,6 +69,7 @@ export function profile(input: Partial<Profile> & { id: string }): Profile {
     goalProtein: null,
     goalFat: null,
     goalCarbs: null,
+    withSnack: true,
     ...input,
   }
 }
@@ -104,7 +105,9 @@ export function mixedPool(): Array<Meal> {
 }
 
 export function weekMealIds(plan: WeekPlan): Array<Array<string>> {
-  return plan.days.map((day) => MEAL_TYPES.map((type) => day.meals[type].id))
+  return plan.days.map((day) =>
+    MEAL_TYPES.flatMap((type) => day.meals[type]?.id ?? []),
+  )
 }
 
 type WeekViolation = string
@@ -112,6 +115,7 @@ type WeekViolation = string
 export function weekViolations(
   plan: WeekPlan,
   precedingDays: ReadonlyArray<ReadonlyArray<string>> = [],
+  types: ReadonlyArray<MealType> = MEAL_TYPES,
 ): Array<WeekViolation> {
   const problems: Array<WeekViolation> = []
   const { targetCalories, antiRepeatDays, days } = plan.params
@@ -123,6 +127,15 @@ export function weekViolations(
   plan.days.forEach((day, i) => {
     for (const type of MEAL_TYPES) {
       const slot = day.meals[type]
+      if (!slot) {
+        if (types.includes(type)) {
+          problems.push('день ' + i + ': порожній слот «' + type + '»')
+        }
+        continue
+      }
+      if (!types.includes(type)) {
+        problems.push('день ' + i + ': зайвий слот «' + type + '»')
+      }
       if (slot.type !== type) {
         problems.push('день ' + i + ': у слот «' + type + '» став ' + slot.type)
       }

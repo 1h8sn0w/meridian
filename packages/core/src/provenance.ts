@@ -92,6 +92,7 @@ export function dayCalories(
   let approx = false
   for (const type of MEAL_TYPES) {
     const meal = meals[type]
+    if (meal === undefined) continue
     if (!meal || !hasValue(meal.calories)) {
       unknown += 1
       continue

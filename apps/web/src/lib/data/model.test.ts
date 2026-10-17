@@ -6,7 +6,10 @@ import {
   buildCalendarDays,
   buildWeekView,
   manualSwapsAhead,
+  toWeekPlan,
+  windowsInPlan,
 } from './model.ts'
+import { DEFAULT_MEAL_WINDOWS as WINDOWS } from '../day-clock.ts'
 import { testMeal } from './test-fixtures.ts'
 import type { Meal, Row } from '@meridian/core'
 
@@ -106,4 +109,41 @@ test("антиповтор сім'ї: NULL — стандартний, 1–7 —
       String(broken),
     )
   }
+})
+
+const NO_SNACK_ROWS: Array<Row> = [
+  slot('1', '2026-09-01', 0, 'breakfast', 'b'),
+  slot('2', '2026-09-01', 0, 'lunch', 'l'),
+  slot('3', '2026-09-01', 0, 'dinner', 'd'),
+]
+
+test('план без перекусу ховає вікно перекусу, а без плану вікна лишаються всі', () => {
+  const week = buildWeekView(PLAN, NO_SNACK_ROWS, MEALS, '2026-09-01')
+  assert.deepEqual(
+    windowsInPlan(WINDOWS, week).map((w) => w.type),
+    ['breakfast', 'lunch', 'dinner'],
+  )
+  const full = buildWeekView(PLAN, ROWS, MEALS, '2026-09-02')
+  assert.equal(windowsInPlan(WINDOWS, full).length, 4)
+  assert.equal(windowsInPlan(WINDOWS, null), WINDOWS)
+})
+
+test('день без перекусу стає днем плану для заміни, а дірка в слоті — ні', () => {
+  const week = buildWeekView(PLAN, NO_SNACK_ROWS, MEALS, '2026-09-01')
+  const plan = toWeekPlan(week, null)
+  assert.ok(plan)
+  assert.deepEqual(Object.keys(plan.days[0]?.meals ?? {}), [
+    'breakfast',
+    'lunch',
+    'dinner',
+  ])
+  assert.deepEqual(plan.days[0]?.calories, {
+    total: 1200,
+    unknown: 0,
+    approx: false,
+  })
+  assert.equal(
+    toWeekPlan(buildWeekView(PLAN, ROWS, MEALS, '2026-09-01'), null),
+    null,
+  )
 })

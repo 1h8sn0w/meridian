@@ -1,5 +1,5 @@
-import { DEFAULT_PORTION } from './types.ts'
-import type { Meal, PortionLetter, Profile } from './types.ts'
+import { DEFAULT_PORTION, MEAL_TYPES } from './types.ts'
+import type { Meal, MealType, PortionLetter, Profile } from './types.ts'
 
 export function poolForProfile(
   meals: ReadonlyArray<Meal>,
@@ -13,6 +13,14 @@ export function poolForProfile(
 
 export function planOwnerId(profile: Profile): string {
   return profile.sharedPlanWith ?? profile.id
+}
+
+export function mealTypesFor(
+  profile: Pick<Profile, 'withSnack'> | null | undefined,
+): ReadonlyArray<MealType> {
+  return profile?.withSnack === false
+    ? MEAL_TYPES.filter((type) => type !== 'snack')
+    : MEAL_TYPES
 }
 
 export function portionOf(

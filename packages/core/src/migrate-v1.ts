@@ -230,6 +230,7 @@ function migrateProfile(
     goalProtein: optionalNumber(goals.protein, 'ціль по білках'),
     goalFat: optionalNumber(goals.fat, 'ціль по жирах'),
     goalCarbs: optionalNumber(goals.carbs, 'ціль по вуглеводах'),
+    withSnack: true,
   }
 }
 

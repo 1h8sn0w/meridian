@@ -5,8 +5,10 @@ import {
   DEFAULTS,
   generateWeek,
   poolShortage,
+  poolShortageFor,
   poolShortageMessage,
 } from './generator.ts'
+import { mealTypesFor } from './profile.ts'
 import { MEAL_TYPES } from './types.ts'
 import type { GenerateResult } from './generator.ts'
 import type { Meal, WeekPlan } from './types.ts'
@@ -334,7 +336,7 @@ test('MER-26: приблизність страви піднімає «≈» н�
     generateWeek(pool, { targetCalories: 2050, random: seeded(19) }),
   )
   const withApprox = result.days.filter((day) =>
-    MEAL_TYPES.some((type) => day.meals[type].caloriesApprox),
+    MEAL_TYPES.some((type) => day.meals[type]?.caloriesApprox),
   )
   assert.ok(withApprox.length > 0, 'приблизна страва мала кудись потрапити')
   for (const day of withApprox) assert.equal(day.calories.approx, true)
@@ -486,6 +488,7 @@ test('MER-79: профіль порції Ж тримає свій коридо�
     for (const day of result.days) {
       for (const type of MEAL_TYPES) {
         const planned = day.meals[type]
+        assert.ok(planned)
         assert.equal(planned.calories, planned.nutrition.Ж.calories)
       }
     }
@@ -499,7 +502,10 @@ test('MER-79: профіль без порції рахується за пор�
   )
   assert.deepEqual(weekViolations(result), [])
   for (const day of result.days) {
-    assert.equal(day.meals.lunch.calories, day.meals.lunch.nutrition.Ч.calories)
+    assert.equal(
+      day.meals.lunch?.calories,
+      day.meals.lunch?.nutrition.Ч.calories,
+    )
   }
 })
 
@@ -570,7 +576,7 @@ test('MER-116: антиповтор 1 збирає тиждень із пулу,
   })
   assert.ok(relaxed.ok, relaxed.ok ? '' : relaxed.error)
   assert.equal(relaxed.params.antiRepeatDays, 1)
-  assert.ok(relaxed.days.every((day) => day.meals.dinner.id === 'dinner-0'))
+  assert.ok(relaxed.days.every((day) => day.meals.dinner?.id === 'dinner-0'))
 })
 
 test('достатність пулу: на кожен тип щонайменше стільки страв, скільки днів у вікні антиповтору', () => {
@@ -622,4 +628,55 @@ test('типові параметри — ті, що обіцяє докумен
     antiRepeatDays: 3,
     days: 7,
   })
+})
+
+const NO_SNACK = profile({ id: 'p', targetCalories: 1750, withSnack: false })
+
+test('профіль без перекусу збирає тиждень із трьох слотів і коридором без перекусу', () => {
+  for (const seed of SEEDS) {
+    const result = expectOk(
+      generateWeek(mixedPool(), { profile: NO_SNACK, random: seeded(seed) }),
+    )
+    assert.deepEqual(
+      weekViolations(result, [], mealTypesFor(NO_SNACK)),
+      [],
+      'зерно ' + seed,
+    )
+    for (const day of result.days) {
+      assert.deepEqual(Object.keys(day.meals).sort(), [
+        'breakfast',
+        'dinner',
+        'lunch',
+      ])
+    }
+  }
+})
+
+test('профіль з перекусом збирає всі чотири слоти, як без поля', () => {
+  const withSnack = profile({ id: 'p', targetCalories: 2050 })
+  assert.equal(withSnack.withSnack, true)
+  const result = expectOk(
+    generateWeek(mixedPool(), { profile: withSnack, random: seeded(1) }),
+  )
+  assert.deepEqual(weekViolations(result), [])
+})
+
+test('порожній пул перекусів не валить генерацію, коли перекус вимкнено', () => {
+  const pool = mixedPool().filter((m) => m.type !== 'snack')
+  expectOk(generateWeek(pool, { profile: NO_SNACK, random: seeded(1) }))
+
+  const withSnack = generateWeek(pool, {
+    profile: { ...NO_SNACK, withSnack: true },
+    random: seeded(1),
+  })
+  assert.equal(withSnack.ok, false)
+  assert.match(withSnack.error, /Перекус — 0/)
+})
+
+test('нестача пулу профілю без перекусу перекусів не рахує', () => {
+  const pool = mixedPool().filter((m) => m.type !== 'snack')
+  assert.deepEqual(poolShortageFor(pool, NO_SNACK, 3), [])
+  assert.deepEqual(poolShortageFor(pool, { ...NO_SNACK, withSnack: true }, 3), [
+    { type: 'snack', have: 0, need: 3 },
+  ])
 })

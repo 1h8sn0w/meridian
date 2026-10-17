@@ -122,6 +122,7 @@ export type ProfileDraft = {
   goalFat: string
   goalCarbs: string
   mealIds: Array<string> | null
+  withSnack: boolean
 }
 
 export function validateProfile(
@@ -194,6 +195,7 @@ export function validateProfile(
       goalFat: numberFromField(draft.goalFat),
       goalCarbs: numberFromField(draft.goalCarbs),
       mealIds: draft.mealIds,
+      withSnack: draft.withSnack,
     },
   }
 }
