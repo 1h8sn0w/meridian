@@ -7,7 +7,7 @@ import {
   weekSources,
 } from './plans.ts'
 import { generationPool, mealTypesFor, portionOf } from './profile.ts'
-import { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+import { MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
 import type {
   DayMeals,
   Meal,
@@ -188,7 +188,7 @@ export type PoolShortage = { type: MealType; have: number; need: number }
 export function poolShortage(
   meals: ReadonlyArray<Meal>,
   need: number,
-  types: ReadonlyArray<MealType> = MEAL_TYPES,
+  types: ReadonlyArray<MealType>,
 ): Array<PoolShortage> {
   return types
     .map((type) => ({

@@ -554,7 +554,10 @@ test('екран показує до генерації дослівно ту с
   )
   const result = generateWeek(pool, { antiRepeatDays: 3, random: seeded(41) })
   assert.equal(result.ok, false)
-  assert.equal(result.error, poolShortageMessage(poolShortage(pool, 3), 3))
+  assert.equal(
+    result.error,
+    poolShortageMessage(poolShortage(pool, 3, MEAL_TYPES), 3),
+  )
 })
 
 test('MER-116: антиповтор 1 збирає тиждень із пулу, якого не вистачає для 3', () => {
@@ -583,11 +586,12 @@ test('достатність пулу: на кожен тип щонайменш
   const pool = MEAL_TYPES.flatMap((type) =>
     [0, 1, 2].map((n) => meal({ id: type + n, type })),
   )
-  assert.deepEqual(poolShortage(pool, 3), [])
+  assert.deepEqual(poolShortage(pool, 3, MEAL_TYPES), [])
   assert.deepEqual(
     poolShortage(
       pool.filter((m) => m.id !== 'snack0'),
       3,
+      MEAL_TYPES,
     ),
     [{ type: 'snack', have: 2, need: 3 }],
   )
@@ -603,7 +607,9 @@ test('страва без калорійності достатності пул
       }),
     ),
   )
-  assert.deepEqual(poolShortage(pool, 3), [{ type: 'lunch', have: 1, need: 3 }])
+  assert.deepEqual(poolShortage(pool, 3, MEAL_TYPES), [
+    { type: 'lunch', have: 1, need: 3 },
+  ])
 })
 
 test('недосяжна ціль — відмова з названою межею коридору', () => {
