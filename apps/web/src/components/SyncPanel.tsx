@@ -113,6 +113,7 @@ function SyncDetails() {
   )
   const stored = counts.reduce((sum, row) => sum + row.rows, 0)
 
+  const shownFrom = Math.max(0, rejected.length - REJECTED_SHOWN)
   const failures = statusFailures(status)
   const failing = connectFailure ?? failures.download
   const state = failing
@@ -151,11 +152,14 @@ function SyncDetails() {
           <p className="m-0 text-sm text-warning">
             Сервер не прийняв {rejected.length}{' '}
             {plural(rejected.length, 'зміну', 'зміни', 'змін')} з цього
-            пристрою. Їх відкинуто: на сервері й інших пристроях їх немає —
-            повторіть дію, якщо вона ще потрібна.
+            пристрою. Їх відкинуто: на сервер і на інші пристрої вони не
+            потрапили — повторіть дію, якщо вона ще потрібна.
           </p>
-          {rejected.slice(-REJECTED_SHOWN).map((rejection, i) => (
-            <ErrorText key={i} failure={rejectionFailure(rejection)} />
+          {rejected.slice(shownFrom).map((rejection, i) => (
+            <ErrorText
+              key={shownFrom + i}
+              failure={rejectionFailure(rejection)}
+            />
           ))}
           <div className="mt-3">
             <Button onClick={dismissRejected}>Зрозуміло</Button>
