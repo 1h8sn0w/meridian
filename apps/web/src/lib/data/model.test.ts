@@ -6,6 +6,7 @@ import {
   buildCalendarDays,
   buildWeekView,
   manualSwapsAhead,
+  snackSettingDrift,
   toWeekPlan,
   windowsInPlan,
 } from './model.ts'
@@ -126,6 +127,18 @@ test('план без перекусу ховає вікно перекусу, �
   const full = buildWeekView(PLAN, ROWS, MEALS, '2026-09-02')
   assert.equal(windowsInPlan(WINDOWS, full).length, 4)
   assert.equal(windowsInPlan(WINDOWS, null), WINDOWS)
+})
+
+test('перекус, увімкнений чи вимкнений після генерації, помітний за слотами плану', () => {
+  const noSnack = buildWeekView(PLAN, NO_SNACK_ROWS, MEALS, '2026-09-01')
+  const withSnack = buildWeekView(PLAN, ROWS, MEALS, '2026-09-02')
+  assert.equal(snackSettingDrift(noSnack, { withSnack: true }), 'on')
+  assert.equal(snackSettingDrift(withSnack, { withSnack: false }), 'off')
+  assert.equal(snackSettingDrift(noSnack, { withSnack: false }), null)
+  assert.equal(snackSettingDrift(withSnack, { withSnack: true }), null)
+  assert.equal(snackSettingDrift(withSnack, null), null)
+  const empty = buildWeekView(PLAN, [], MEALS, '2026-09-01')
+  assert.equal(snackSettingDrift(empty, { withSnack: true }), null)
 })
 
 test('день без перекусу стає днем плану для заміни, а дірка в слоті — ні', () => {

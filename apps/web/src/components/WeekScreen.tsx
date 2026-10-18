@@ -33,7 +33,7 @@ import {
   useTastePrefs,
   useWeek,
 } from '../lib/data/queries'
-import { manualSwapsAhead } from '../lib/data/model'
+import { manualSwapsAhead, snackSettingDrift } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
 import { formatDayTitle, formatMoment, plural } from '../lib/format'
@@ -307,7 +307,10 @@ function PlanSummary({
   viewerPortion,
 }: {
   view: WeekView
-  owner: Pick<Profile, 'targetCalories' | 'corridor' | 'portion'> | null
+  owner: Pick<
+    Profile,
+    'targetCalories' | 'corridor' | 'portion' | 'withSnack'
+  > | null
   viewerPortion: PortionLetter | null
 }) {
   const known = view.days.filter((day) => day.calories.unknown === 0)
@@ -319,6 +322,7 @@ function PlanSummary({
     owner !== null &&
     (owner.targetCalories !== view.params.targetCalories ||
       owner.corridor !== view.params.corridor)
+  const snackDrift = snackSettingDrift(view, owner)
 
   const hasToday = view.days.some((day) => day.isToday)
 
@@ -372,6 +376,14 @@ function PlanSummary({
         <Warn>
           Профіль змінився після генерації (ціль або коридор) — перегенеруйте
           тиждень.
+        </Warn>
+      ) : null}
+
+      {snackDrift ? (
+        <Warn>
+          {snackDrift === 'on'
+            ? 'Перекус у профілі ввімкнено після генерації, а в плані його немає — перегенеруйте тиждень.'
+            : 'Перекус у профілі вимкнено після генерації, а в плані він лишився — перегенеруйте тиждень.'}
         </Warn>
       ) : null}
 

@@ -41,6 +41,7 @@ export { weekSources } from './plans.ts'
 
 export {
   mealForPortion,
+  mealTypesFor,
   mealsForPortion,
   planOwnerId,
   poolForProfile,

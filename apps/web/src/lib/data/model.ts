@@ -3,6 +3,7 @@ import {
   MEAL_TYPES,
   dayCalories,
   mealForPortion,
+  mealTypesFor,
   profileFromRow,
 } from '@meridian/core'
 import type {
@@ -203,15 +204,27 @@ export function manualSwapsAhead(view: WeekView): number {
     .filter((slot) => slot.swapped).length
 }
 
+function slotTypesIn(view: WeekView): ReadonlySet<MealType> {
+  return new Set(view.days.flatMap((day) => day.slots.map((slot) => slot.slot)))
+}
+
 export function windowsInPlan(
   windows: ReadonlyArray<MealWindow>,
   view: WeekView | null | undefined,
 ): ReadonlyArray<MealWindow> {
   if (!view?.days.length) return windows
-  const planned = new Set(
-    view.days.flatMap((day) => day.slots.map((slot) => slot.slot)),
-  )
+  const planned = slotTypesIn(view)
   return windows.filter((window) => planned.has(window.type))
+}
+
+export function snackSettingDrift(
+  view: WeekView,
+  owner: Pick<Profile, 'withSnack'> | null | undefined,
+): 'on' | 'off' | null {
+  if (!owner || !view.days.length) return null
+  const wanted = mealTypesFor(owner).includes('snack')
+  if (slotTypesIn(view).has('snack') === wanted) return null
+  return wanted ? 'on' : 'off'
 }
 
 export type CalendarDayView = {
