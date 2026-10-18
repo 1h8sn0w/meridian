@@ -3,7 +3,6 @@ import {
   MEAL_TYPES,
   dayCalories,
   mealForPortion,
-  mealTypesFor,
   profileFromRow,
 } from '@meridian/core'
 import type {
@@ -222,9 +221,8 @@ export function snackSettingDrift(
   owner: Pick<Profile, 'withSnack'> | null | undefined,
 ): 'on' | 'off' | null {
   if (!owner || !view.days.length) return null
-  const wanted = mealTypesFor(owner).includes('snack')
-  if (slotTypesIn(view).has('snack') === wanted) return null
-  return wanted ? 'on' : 'off'
+  if (slotTypesIn(view).has('snack') === owner.withSnack) return null
+  return owner.withSnack ? 'on' : 'off'
 }
 
 export type CalendarDayView = {
