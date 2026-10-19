@@ -1,6 +1,5 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
-  MEAL_TYPE_LABELS,
   addDays,
   dateKey,
   formatDayCalories,
@@ -16,7 +15,8 @@ import {
   usePlannedDayCount,
   useProfiles,
 } from '../lib/data/queries'
-import { formatDayTitle, formatWeekRange, plural } from '../lib/format'
+import { formatDayTitle, formatWeekRange } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 import { useNow } from '../lib/use-now'
 import type { CalendarSearch } from '../lib/calendar-search'
 import { AppShell } from './AppShell'
@@ -25,9 +25,9 @@ import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
 import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
 
-const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] as const
-
 export function CalendarScreen() {
+  const messages = useMessages()
+  const t = messages.calendar
   const todayKey = dateKey(useNow())
 
   const profilesRead = useProfiles()
@@ -67,20 +67,14 @@ export function CalendarScreen() {
 
   return (
     <AppShell
-      title="Календар"
-      subtitle={
-        plannedRead.data > 0
-          ? `Заплановано ${plannedRead.data} ${plural(plannedRead.data, 'день', 'дні', 'днів')}`
-          : 'Історія та плани'
-      }
+      title={messages.titles.calendar}
+      subtitle={plannedRead.data > 0 ? t.planned(plannedRead.data) : t.history}
     >
       <Problems of={problems} />
 
       {!profile ? (
-        <Panel title="Спершу — профіль">
-          <Hint>
-            Календар показує план профілю. Створіть його на екрані «Сьогодні».
-          </Hint>
+        <Panel title={t.profileFirst}>
+          <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : (
         <>
@@ -88,7 +82,7 @@ export function CalendarScreen() {
             <Panel>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <IconButton
-                  label="Попередній тиждень"
+                  label={t.previous}
                   onClick={() =>
                     setView({ week: addDays(start, -7), day: selected })
                   }
@@ -99,7 +93,7 @@ export function CalendarScreen() {
                   {formatWeekRange(start, end)}
                 </span>
                 <IconButton
-                  label="Наступний тиждень"
+                  label={t.next}
                   onClick={() =>
                     setView({ week: addDays(start, 7), day: selected })
                   }
@@ -122,7 +116,7 @@ export function CalendarScreen() {
               {atToday ? null : (
                 <div className="mt-3">
                   <Button block onClick={() => setView({})}>
-                    Сьогодні
+                    {t.today}
                   </Button>
                 </div>
               )}
@@ -131,12 +125,9 @@ export function CalendarScreen() {
 
           {plannedRead.data === 0 && !plannedRead.isLoading ? (
             <Panel>
-              <Hint>
-                Історія порожня — ще жоден тиждень не згенеровано. Згенеруйте
-                перший на екрані «Тиждень», і його дні з’являться тут.
-              </Hint>
+              <Hint>{t.empty}</Hint>
               <Link to="/week" className="block no-underline">
-                <Button block>Відкрити екран «Тиждень»</Button>
+                <Button block>{t.openWeek}</Button>
               </Link>
             </Panel>
           ) : null}
@@ -153,9 +144,7 @@ export function CalendarScreen() {
           ) : null}
 
           {profile.sharedPlanWith ? (
-            <Meta>
-              Це календар спільного плану профілю «{owner?.name ?? '—'}».
-            </Meta>
+            <Meta>{t.shared(owner?.name ?? '—')}</Meta>
           ) : null}
         </>
       )}
@@ -181,16 +170,18 @@ function WeekGrid({
   onSelect: (date: string) => void
 }) {
   const daysRead = useCalendarDays(ownerId, start, end, meals)
+  const messages = useMessages()
+  const unit = messages.common.kcalUnit
 
   return (
     <>
       <Problems of={[daysRead.problems]} />
 
       <div className="grid grid-cols-7 gap-1 motion-safe:animate-rise">
-        {DOW_LABELS.map((dow, i) => {
+        {messages.calendar.weekdays.map((dow, i) => {
           const key = addDays(start, i)
           const day = daysRead.data.get(key)
-          const kcal = day ? formatDayCalories(day.calories) : ''
+          const kcal = day ? formatDayCalories(day.calories, unit) : ''
           const isSelected = key === selected
           const border = isSelected
             ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
@@ -210,7 +201,7 @@ function WeekGrid({
                     ? kcal
                       ? ', ' + kcal
                       : ''
-                    : ', без плану')
+                    : messages.calendar.noPlanLabel)
               }
               onClick={() => onSelect(key)}
               className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl border px-0 py-2 transition duration-300 ease-spring active:scale-95 ${border}`}
@@ -223,7 +214,7 @@ function WeekGrid({
                 {daysRead.isLoading
                   ? ''
                   : day
-                    ? kcal.replace(' ккал', '')
+                    ? kcal.replace(' ' + unit, '')
                     : '—'}
               </span>
             </button>
@@ -251,12 +242,14 @@ function DaySection({
   const planRead = useDayPlan(ownerId, date)
   const day = daysRead.data.get(date) ?? null
   const problems = [daysRead.problems, planRead.problems]
+  const messages = useMessages()
+  const t = messages.calendar
 
   return (
     <Panel>
       <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
         {formatDayTitle(date)}{' '}
-        {date === todayKey ? <Tag tone="accent">сьогодні</Tag> : null}
+        {date === todayKey ? <Tag tone="accent">{t.todayTag}</Tag> : null}
       </h2>
 
       <Problems of={problems} />
@@ -264,10 +257,8 @@ function DaySection({
       {!day ? (
         daysRead.isLoading ? null : (
           <Hint>
-            На цей день плану немає.
-            {todayKey && date >= todayKey
-              ? ' Новий тиждень генерується на екрані «Тиждень» і починається сьогоднішнім днем.'
-              : ''}
+            {t.noPlan}
+            {todayKey && date >= todayKey ? t.noPlanFuture : ''}
           </Hint>
         )
       ) : (
@@ -279,7 +270,7 @@ function DaySection({
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-xs text-muted">
-                  {MEAL_TYPE_LABELS[slotView.slot]}
+                  {messages.common.mealType[slotView.slot]}
                 </span>
                 <span className="block text-sm font-medium leading-snug">
                   {slotView.meal ? (
@@ -287,12 +278,14 @@ function DaySection({
                       {slotView.meal.name}
                     </RecipeLink>
                   ) : (
-                    <span className="text-warning">страву видалено з пулу</span>
+                    <span className="text-warning">{t.mealRemoved}</span>
                   )}
                 </span>
               </span>
               <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
-                {slotView.meal ? formatMealCalories(slotView.meal) : ''}
+                {slotView.meal
+                  ? formatMealCalories(slotView.meal, messages.common.kcalUnit)
+                  : ''}
               </span>
             </div>
           ))}
@@ -302,9 +295,7 @@ function DaySection({
             plan={ownerCorridorApplies ? planRead.data : null}
           />
 
-          {todayKey && date < todayKey ? (
-            <Meta>Минулий день — незмінна історія, лише перегляд.</Meta>
-          ) : null}
+          {todayKey && date < todayKey ? <Meta>{t.past}</Meta> : null}
         </>
       )}
     </Panel>

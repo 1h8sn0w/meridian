@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { usePowerSync, useQuery, useStatus } from '@powersync/react'
-import { plural } from '../lib/format'
 import { rejectionFailure, syncFailure } from '../lib/messages'
 import type { Failure } from '../lib/messages'
 import { useSyncState } from '../lib/powersync/provider'
 import { SYNCED_TABLES } from '../lib/powersync/schema'
 import { LocalDbPending } from './RequireLocalDb'
 import { Button, ErrorText, Hint, Panel } from './ui'
+import { intlLocale } from '../lib/i18n/locale'
+import { RichText } from '../lib/i18n/rich-text'
+import { useMessages } from '../lib/i18n/use-messages'
 
 const REJECTED_SHOWN = 5
 
 function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat('uk-UA', {
+  return new Intl.DateTimeFormat(intlLocale(), {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
@@ -55,10 +57,11 @@ function statusFailures(status: {
 
 export function SyncPanel() {
   const { configured, db, failure } = useSyncState()
+  const t = useMessages().sync
 
   if (failure) {
     return (
-      <Panel title="Синхронізація">
+      <Panel title={t.title}>
         <LocalDbPending />
       </Panel>
     )
@@ -66,12 +69,15 @@ export function SyncPanel() {
 
   if (!configured) {
     return (
-      <Panel title="Синхронізація">
+      <Panel title={t.title}>
         <Hint>
-          Не налаштована: сервер не отримав{' '}
-          <code className="text-content">PUBLIC_POWERSYNC_URL</code>. Застосунок
-          працює, але дані лишаються на цьому пристрої. Де взяти адресу — в{' '}
-          <code className="text-content">infra/README.md</code>.
+          <RichText
+            text={t.notConfigured}
+            parts={{
+              url: <code className="text-content">PUBLIC_POWERSYNC_URL</code>,
+              readme: <code className="text-content">infra/README.md</code>,
+            }}
+          />
         </Hint>
       </Panel>
     )
@@ -79,7 +85,7 @@ export function SyncPanel() {
 
   if (!db) {
     return (
-      <Panel title="Синхронізація">
+      <Panel title={t.title}>
         <LocalDbPending />
       </Panel>
     )
@@ -90,6 +96,9 @@ export function SyncPanel() {
 
 function SyncDetails() {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.sync
+  const retry = messages.common.retry
   const status = useStatus()
   const { connectFailure, retryConnect, rejected, dismissRejected } =
     useSyncState()
@@ -117,43 +126,40 @@ function SyncDetails() {
   const failures = statusFailures(status)
   const failing = connectFailure ?? failures.download
   const state = failing
-    ? 'Помилка'
+    ? t.error
     : status.connected
-      ? 'Онлайн'
+      ? t.online
       : status.connecting
-        ? 'З’єднуємось…'
-        : 'Офлайн — зміни збережено на пристрої'
+        ? t.connecting
+        : t.offline
 
   return (
-    <Panel title="Синхронізація">
+    <Panel title={t.title}>
       <div className="mb-2">
-        <Row label="Стан" value={state} alert={failing !== null} />
+        <Row label={t.state} value={state} alert={failing !== null} />
         <Row
-          label="Останнє оновлення"
+          label={t.lastSynced}
           value={
-            status.lastSyncedAt ? formatTime(status.lastSyncedAt) : 'ще не було'
+            status.lastSyncedAt ? formatTime(status.lastSyncedAt) : t.never
           }
         />
-        <Row label="Записів на пристрої" value={String(stored)} />
+        <Row label={t.stored} value={String(stored)} />
         {pending !== null && pending > 0 ? (
-          <Row label="Чекають на відправку" value={String(pending)} />
+          <Row label={t.pending} value={String(pending)} />
         ) : null}
       </div>
       {connectFailure ? (
         <div className="mb-3.5">
           <ErrorText failure={connectFailure} />
           <div className="mt-3">
-            <Button onClick={retryConnect}>Спробувати ще раз</Button>
+            <Button onClick={retryConnect}>{retry}</Button>
           </div>
         </div>
       ) : null}
       {rejected.length ? (
         <div className="mb-3.5">
           <p className="m-0 text-sm text-warning">
-            Сервер не прийняв {rejected.length}{' '}
-            {plural(rejected.length, 'зміну', 'зміни', 'змін')} з цього
-            пристрою. Їх відкинуто: на сервер і на інші пристрої вони не
-            потрапили — повторіть дію, якщо вона ще потрібна.
+            {t.rejected(rejected.length)}
           </p>
           {rejected.slice(shownFrom).map((rejection, i) => (
             <ErrorText
@@ -162,7 +168,7 @@ function SyncDetails() {
             />
           ))}
           <div className="mt-3">
-            <Button onClick={dismissRejected}>Зрозуміло</Button>
+            <Button onClick={dismissRejected}>{t.understood}</Button>
           </div>
         </div>
       ) : null}
@@ -170,16 +176,10 @@ function SyncDetails() {
         <div className="mb-3.5">
           {failures.download ? <ErrorText failure={failures.download} /> : null}
           {failures.upload ? <ErrorText failure={failures.upload} /> : null}
-          <p className="m-0 mt-2 text-xs text-subtle">
-            Застосунок повторює спроби сам, щойно сервер відповість — помилка
-            зникне.
-          </p>
+          <p className="m-0 mt-2 text-xs text-subtle">{t.retrying}</p>
         </div>
       ) : null}
-      <Hint>
-        Застосунок читає й пише локальну базу, тому працює без мережі. Зміни
-        їдуть на сервер, щойно вона з’явиться.
-      </Hint>
+      <Hint>{t.hint}</Hint>
     </Panel>
   )
 }

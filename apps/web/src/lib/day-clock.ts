@@ -1,9 +1,8 @@
-import { MEAL_TYPE_LABELS } from '@meridian/core'
+import { messages } from './i18n/locale.ts'
 import type { MealType, Row } from '@meridian/core'
 
 export type MealWindow = {
   type: MealType
-  genitive: string
   startMinute: number
   endMinute: number
 }
@@ -35,13 +34,6 @@ export const DEFAULT_MEAL_HOURS: MealHours = {
   dinner: { start: minute(18, 0), end: minute(22, 0) },
 }
 
-const GENITIVE: Record<MealType, string> = {
-  breakfast: 'сніданку',
-  lunch: 'обіду',
-  dinner: 'вечері',
-  snack: 'перекусу',
-}
-
 export function mealWindows(hours: MealHours): Array<MealWindow> {
   const bounds: Record<MealType, { start: number; end: number }> = {
     ...hours,
@@ -50,7 +42,6 @@ export function mealWindows(hours: MealHours): Array<MealWindow> {
   return [...MEAL_HOUR_TYPES, 'snack' as const]
     .map((type) => ({
       type,
-      genitive: GENITIVE[type],
       startMinute: bounds[type].start,
       endMinute: bounds[type].end,
     }))
@@ -69,6 +60,7 @@ export function mealHoursProblems(
   hours: MealHours,
 ): Partial<Record<MealHourType, string>> {
   const problems: Partial<Record<MealHourType, string>> = {}
+  const t = messages().mealHours
   MEAL_HOUR_TYPES.forEach((type, index) => {
     const { start, end } = hours[type]
     const previous = index ? MEAL_HOUR_TYPES[index - 1] : null
@@ -81,17 +73,15 @@ export function mealHoursProblems(
           value % MEAL_HOUR_STEP === 0,
       )
     ) {
-      problems[type] = 'Час — від 00:00 до 24:00 із кроком 15 хвилин.'
+      problems[type] = t.timeRange
     } else if (start >= end) {
-      problems[type] = 'Початок має бути раніше за кінець.'
+      problems[type] = t.startBeforeEnd
     } else if (previous && start < hours[previous].end) {
-      problems[type] =
-        MEAL_TYPE_LABELS[type] +
-        ' має починатися не раніше за кінець ' +
-        GENITIVE[previous] +
-        ' (' +
-        formatMinute(hours[previous].end) +
-        ').'
+      problems[type] = t.afterPrevious(
+        type,
+        previous,
+        formatMinute(hours[previous].end),
+      )
     }
   })
   return problems
@@ -105,7 +95,7 @@ export function mealHoursFromRow(row: Row): MealHours | null {
   if (values.every((value) => value === null || value === undefined))
     return null
   if (!values.every((value): value is number => typeof value === 'number'))
-    throw new Error('Часові вікна прийомів збережено не повністю.')
+    throw new Error(messages().mealHours.savedPartly)
   const hours = Object.fromEntries(
     MEAL_HOUR_TYPES.map((type, index) => [
       type,
@@ -113,7 +103,7 @@ export function mealHoursFromRow(row: Row): MealHours | null {
     ]),
   ) as MealHours
   const problem = Object.values(mealHoursProblems(hours))[0]
-  if (problem) throw new Error('Часові вікна прийомів: ' + problem)
+  if (problem) throw new Error(messages().mealHours.savedBroken(problem))
   return hours
 }
 

@@ -6,7 +6,7 @@ export const Route = createFileRoute('/shopping')({ component: Shopping })
 
 function Shopping() {
   return (
-    <RequireLocalDb title="Список покупок">
+    <RequireLocalDb screen="shopping">
       {(familyId) => <ShoppingScreen familyId={familyId} />}
     </RequireLocalDb>
   )

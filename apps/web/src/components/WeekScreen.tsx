@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
-  MEAL_TYPE_LABELS,
   addDays,
   dateKey,
   dayInCorridor,
@@ -36,7 +35,8 @@ import {
 import { manualSwapsAhead, snackSettingDrift } from '../lib/data/model'
 import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
-import { formatDayTitle, formatMoment, plural } from '../lib/format'
+import { formatDayTitle, formatMoment } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import { RecipeLink } from './RecipeLink'
@@ -62,6 +62,8 @@ import {
 
 export function WeekScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.week
   const todayKey = dateKey(useNow())
 
   const profilesRead = useProfiles()
@@ -93,11 +95,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
   const [confirming, setConfirming] = useState(false)
 
   const sharedNote =
-    profile && profile.sharedPlanWith
-      ? 'Цей профіль користується спільним планом профілю «' +
-        (owner?.name ?? '—') +
-        '». Перегенерувати може лише власник.'
-      : null
+    profile && profile.sharedPlanWith ? t.sharedNote(owner?.name ?? '—') : null
 
   const regenerate = async () => {
     if (!owner || !ownerId) return
@@ -142,21 +140,18 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
   return (
     <AppShell
-      title="Тиждень"
+      title={messages.titles.week}
       subtitle={
         view
-          ? `Ціль ${view.params.targetCalories} ± ${view.usedCorridor} ккал/день`
-          : 'План на 7 днів'
+          ? t.target(view.params.targetCalories, view.usedCorridor)
+          : t.sevenDays
       }
     >
       <Problems of={problems} />
 
       {!profile ? (
-        <Panel title="Спершу — профіль">
-          <Hint>
-            Ціль калорійності й коридор генератор бере з профілю. Створіть його
-            на екрані «Сьогодні».
-          </Hint>
+        <Panel title={t.profileFirst}>
+          <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : (
         <Panel>
@@ -174,18 +169,14 @@ export function WeekScreen({ familyId }: { familyId: string }) {
               weight="bold"
               className={busy ? 'motion-safe:animate-spin' : ''}
             />
-            {busy
-              ? 'Збираємо тиждень…'
-              : view
-                ? 'Перегенерувати тиждень'
-                : 'Згенерувати тиждень'}
+            {busy ? t.generating : view ? t.regenerate : t.generate}
           </Button>
 
           {view ? (
             <Link to="/shopping" className="mt-2 block no-underline">
               <Button block>
                 <ShoppingCart aria-hidden size={18} />
-                Список покупок
+                {t.shopping}
               </Button>
             </Link>
           ) : null}
@@ -196,7 +187,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
               <Link to="/meals" className="mt-2 block no-underline">
                 <Button block>
                   <CookingPot aria-hidden size={18} />
-                  Додати страви
+                  {t.addMeals}
                 </Button>
               </Link>
             </>
@@ -211,11 +202,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
               viewerPortion={ownerCorridorApplies ? null : portionOf(profile)}
             />
           ) : shortage.length ? null : (
-            <Hint>
-              Плану ще немає. Натисніть кнопку — генератор збере тиждень із пулу
-              страв за правилами дієтолога: тип слота, коридор калорій,
-              антиповтор і мікс планів.
-            </Hint>
+            <Hint>{t.noPlan}</Hint>
           )}
         </Panel>
       )}
@@ -239,30 +226,16 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
       {view ? (
         <Panel>
-          <Hint>
-            Щоб замінити окрему страву, натисніть кнопку заміни праворуч у її
-            рядку. Діалог запропонує страви того ж типу з прогнозом калорій дня.
-          </Hint>
+          <Hint>{t.swapHint}</Hint>
         </Panel>
       ) : null}
 
       {confirming ? (
-        <Sheet
-          title="Перегенерувати тиждень?"
-          onClose={() => setConfirming(false)}
-        >
+        <Sheet title={t.confirmTitle} onClose={() => setConfirming(false)}>
           {(close) => (
             <>
               <p className="mb-4 mt-0 text-sm leading-relaxed text-muted">
-                У плані {swapsAhead}{' '}
-                {plural(
-                  swapsAhead,
-                  'ручна заміна',
-                  'ручні заміни',
-                  'ручних замін',
-                )}{' '}
-                на сьогодні й наступні дні. Генератор збере тиждень наново, і
-                ручні заміни не збережуться.
+                {t.confirmText(swapsAhead)}
               </p>
               <div className="flex flex-col gap-2">
                 <Button
@@ -274,10 +247,10 @@ export function WeekScreen({ familyId }: { familyId: string }) {
                   }}
                 >
                   <ArrowsClockwise aria-hidden size={18} weight="bold" />
-                  Перегенерувати
+                  {t.confirm}
                 </Button>
                 <Button block onClick={close}>
-                  Скасувати
+                  {t.cancel}
                 </Button>
               </div>
             </>
@@ -313,6 +286,9 @@ function PlanSummary({
   > | null
   viewerPortion: PortionLetter | null
 }) {
+  const messages = useMessages()
+  const t = messages.week
+  const unit = messages.common.kcalUnit
   const known = view.days.filter((day) => day.calories.unknown === 0)
   const total = known.reduce((sum, day) => sum + day.calories.total, 0)
   const approx = view.days.some((day) => day.calories.approx)
@@ -330,66 +306,38 @@ function PlanSummary({
     <>
       {known.length ? (
         <Meta>
-          Разом за {known.length} дн.: {formatCalories(total, approx)} · у
-          середньому {formatCalories(Math.round(total / known.length), approx)}
-          /день. Ціль {view.params.targetCalories} ± {view.usedCorridor} ккал.
-          {view.sources.length
-            ? ' Джерела: ' + view.sources.join(', ') + '.'
-            : ''}
+          {t.summary(
+            known.length,
+            formatCalories(total, approx, unit),
+            formatCalories(Math.round(total / known.length), approx, unit),
+            view.params.targetCalories,
+            view.usedCorridor,
+          )}
+          {view.sources.length ? t.sources(view.sources.join(', ')) : ''}
         </Meta>
       ) : null}
 
       {viewerPortion ? (
-        <Meta>
-          Калорійність показано для порції {viewerPortion}, а коридор тримає
-          власник плану з порцією {portionOf(owner)}.
-        </Meta>
+        <Meta>{t.viewerPortion(viewerPortion, portionOf(owner))}</Meta>
       ) : null}
 
-      {incomplete > 0 ? (
-        <Meta>
-          У {incomplete} дн. калорійність відома не для всіх слотів — ці дні в
-          суму не входять.
-        </Meta>
-      ) : null}
+      {incomplete > 0 ? <Meta>{t.incomplete(incomplete)}</Meta> : null}
 
-      <Meta>Згенеровано {formatMoment(view.generatedAt)}.</Meta>
+      <Meta>{t.generated(formatMoment(view.generatedAt))}</Meta>
 
       {view.warnings.map((warning) => (
         <Warn key={warning}>{warning}</Warn>
       ))}
 
-      {view.missing > 0 ? (
-        <Warn>
-          {view.missing}{' '}
-          {plural(
-            view.missing,
-            'слот посилається',
-            'слоти посилаються',
-            'слотів посилаються',
-          )}{' '}
-          на страви, яких уже немає в пулі — перегенеруйте тиждень.
-        </Warn>
-      ) : null}
+      {view.missing > 0 ? <Warn>{t.missing(view.missing)}</Warn> : null}
 
-      {stale ? (
-        <Warn>
-          Профіль змінився після генерації (ціль або коридор) — перегенеруйте
-          тиждень.
-        </Warn>
-      ) : null}
+      {stale ? <Warn>{t.stale}</Warn> : null}
 
       {snackDrift ? (
-        <Warn>
-          {snackDrift === 'on'
-            ? 'Перекус у профілі увімкнено після генерації, а в плані його немає — перегенеруйте тиждень.'
-            : 'Перекус у профілі вимкнено після генерації, а в плані він лишився — перегенеруйте тиждень.'}
-        </Warn>
+        <Warn>{snackDrift === 'on' ? t.snackOn : t.snackOff}</Warn>
       ) : null}
 
-      {!hasToday ? (
-        <Warn>Сьогодні поза періодом цього плану — перегенеруйте тиждень.</Warn>
-      ) : null}
+      {!hasToday ? <Warn>{t.outsidePlan}</Warn> : null}
     </>
   )
 }
@@ -405,7 +353,10 @@ function DayCard({
   prefs: TastePrefs
   onSwap: (slot: MealType) => void
 }) {
-  const total = formatDayCalories(day.calories)
+  const messages = useMessages()
+  const t = messages.week
+  const unit = messages.common.kcalUnit
+  const total = formatDayCalories(day.calories, unit)
   const within =
     plan !== null && dayInCorridor(day.calories, plan.target, plan.corridor)
 
@@ -418,7 +369,7 @@ function DayCard({
       <div className="mb-2 flex items-center justify-between gap-2.5">
         <div className="text-base font-semibold tracking-tight">
           {formatDayTitle(day.date)}{' '}
-          {day.isToday ? <Tag tone="accent">сьогодні</Tag> : null}
+          {day.isToday ? <Tag tone="accent">{t.today}</Tag> : null}
         </div>
         <div
           className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-xs font-medium tabular-nums ${
@@ -429,11 +380,11 @@ function DayCard({
                 : 'bg-warning-soft text-warning'
           }`}
         >
-          {total || 'калорійність невідома'}
+          {total || t.unknownCalories}
           {total && day.calories.unknown > 0
-            ? ' · сума неповна'
+            ? t.incompleteShort
             : total && plan && !within
-              ? ' · поза коридором'
+              ? t.outside
               : ''}
         </div>
       </div>
@@ -445,7 +396,7 @@ function DayCard({
         >
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-muted">
-              {MEAL_TYPE_LABELS[slotView.slot]}
+              {messages.common.mealType[slotView.slot]}
             </span>
             <span className="block text-sm font-medium leading-snug">
               {slotView.meal ? (
@@ -456,16 +407,16 @@ function DayCard({
                   </RecipeLink>
                 </>
               ) : (
-                <span className="text-warning">страву видалено з пулу</span>
+                <span className="text-warning">{t.mealRemoved}</span>
               )}
             </span>
           </span>
           <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
-            {slotView.meal ? formatMealCalories(slotView.meal) : ''}
+            {slotView.meal ? formatMealCalories(slotView.meal, unit) : ''}
           </span>
           {day.isPast ? null : (
             <IconButton
-              label={'Замінити страву: ' + MEAL_TYPE_LABELS[slotView.slot]}
+              label={t.swap(slotView.slot)}
               onClick={() => onSwap(slotView.slot)}
             >
               <ArrowsLeftRight size={16} />

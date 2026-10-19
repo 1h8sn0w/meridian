@@ -6,46 +6,28 @@ import { useSyncState } from '../lib/powersync/provider'
 import { importV1 } from '../lib/data/import-v1'
 import type { ImportStats } from '../lib/data/import-v1'
 import { errorText } from '../lib/messages'
-import { plural } from '../lib/format'
 import type { Failure } from '../lib/messages'
+import { RichText } from '../lib/i18n/rich-text'
+import { useMessages } from '../lib/i18n/use-messages'
+import type { Messages } from '../lib/i18n/uk'
 import { Button, ErrorText, Hint, InfoText, LinkButton, Panel } from './ui'
 
-function summary(counts: {
-  meals: number
-  recipes: number
-  profiles: number
-  prefs: number
-}): string {
-  const parts: Array<string> = []
-  if (counts.meals) {
-    parts.push(
-      counts.meals + ' ' + plural(counts.meals, 'страва', 'страви', 'страв'),
-    )
-  }
-  if (counts.recipes) {
-    parts.push(
-      counts.recipes +
-        ' ' +
-        plural(counts.recipes, 'рецепт', 'рецепти', 'рецептів'),
-    )
-  }
-  if (counts.profiles) {
-    parts.push(
-      counts.profiles +
-        ' ' +
-        plural(counts.profiles, 'профіль', 'профілі', 'профілів'),
-    )
-  }
-  if (counts.prefs) {
-    parts.push(
-      counts.prefs + ' ' + plural(counts.prefs, 'смак', 'смаки', 'смаків'),
-    )
-  }
-  return parts.length ? parts.join(', ') : 'нічого'
+const COUNTED = ['meals', 'recipes', 'profiles', 'prefs'] as const
+
+function summary(
+  t: Messages['importV1'],
+  counts: Record<(typeof COUNTED)[number], number>,
+): string {
+  const parts = COUNTED.filter((key) => counts[key] > 0).map((key) =>
+    t[key](counts[key]),
+  )
+  return parts.length ? parts.join(', ') : t.nothing
 }
 
 export function ImportV1Panel() {
   const { familyId } = useAuth()
+  const messages = useMessages()
+  const t = messages.importV1
   const { db, failure: dbFailure } = useSyncState()
   const [migration, setMigration] = useState<V1Migration | null>(null)
   const [fileName, setFileName] = useState('')
@@ -70,7 +52,7 @@ export function ImportV1Panel() {
       setFileName(file.name)
     } catch (error) {
       setFailure({
-        text: 'Не вдалося прочитати файл експорту.',
+        text: t.readFailed,
         detail: errorText(error),
       })
     }
@@ -86,7 +68,7 @@ export function ImportV1Panel() {
       setMigration(null)
     } catch (error) {
       setFailure({
-        text: 'Не вдалося записати дані на пристрій.',
+        text: t.writeFailed,
         detail: errorText(error),
       })
     }
@@ -95,42 +77,42 @@ export function ImportV1Panel() {
 
   if (!familyId || !db) {
     return (
-      <Panel title="Перенести дані з V1">
-        <Hint>
-          {dbFailure
-            ? 'Недоступно: дані переносяться в локальну базу, а вона на цьому пристрої не відкрилась. Причина — у розділі «Синхронізація».'
-            : 'Готуємо локальну базу…'}
-        </Hint>
+      <Panel title={t.title}>
+        <Hint>{dbFailure ? t.unavailable : messages.gate.localDbPending}</Hint>
       </Panel>
     )
   }
 
   return (
-    <Panel title="Перенести дані з V1">
+    <Panel title={t.title}>
       {stats ? (
         <>
-          <InfoText>Перенесено: {summary(stats)}.</InfoText>
+          <InfoText>{t.done(summary(t, stats))}</InfoText>
           <p className="mt-3">
-            <LinkButton onClick={reset}>Перенести ще один файл</LinkButton>
+            <LinkButton onClick={reset}>{t.another}</LinkButton>
           </p>
         </>
       ) : migration ? (
         <>
           <Hint>
-            Файл <span className="text-content">{fileName}</span> — приїде:{' '}
-            {summary({
-              meals: migration.meals.length,
-              recipes: migration.recipes.length,
-              profiles: migration.profiles.length,
-              prefs: migration.prefs.length,
-            })}
-            .
+            <RichText
+              text={t.preview}
+              parts={{
+                file: <span className="text-content">{fileName}</span>,
+                summary: summary(t, {
+                  meals: migration.meals.length,
+                  recipes: migration.recipes.length,
+                  profiles: migration.profiles.length,
+                  prefs: migration.prefs.length,
+                }),
+              }}
+            />
           </Hint>
 
           {migration.skipped.length ? (
             <>
               <p className="mb-1 mt-3 text-xs uppercase tracking-wider text-muted">
-                Не переноситься ({migration.skipped.length})
+                {t.skipped(migration.skipped.length)}
               </p>
               <ul className="m-0 max-h-64 list-none overflow-y-auto p-0">
                 {migration.skipped.map((item, index) => (
@@ -152,22 +134,24 @@ export function ImportV1Panel() {
               disabled={busy}
               onClick={() => void apply()}
             >
-              {busy ? 'Переносимо…' : 'Перенести'}
+              {busy ? t.applying : t.apply}
             </Button>
             <Button disabled={busy} onClick={reset}>
-              Скасувати
+              {t.cancel}
             </Button>
           </div>
         </>
       ) : (
         <>
           <Hint>
-            Дані V1 лежать у сховищі браузера, тож дістати їх може лише сам
-            браузер. Відкрийте V1 на тій самій адресі, де ним користуєтесь,
-            виконайте в консолі вміст{' '}
-            <code className="text-content">tools/v1-export.js</code> — і
-            виберіть збережений файл тут. Повторний імпорт того самого файлу
-            нічого не подвоїть.
+            <RichText
+              text={t.hint}
+              parts={{
+                script: (
+                  <code className="text-content">tools/v1-export.js</code>
+                ),
+              }}
+            />
           </Hint>
           <input
             type="file"

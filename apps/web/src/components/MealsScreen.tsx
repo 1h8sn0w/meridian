@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
-import {
-  MEAL_TYPES,
-  MEAL_TYPE_LABELS,
-  formatPortionCalories,
-} from '@meridian/core'
+import { MEAL_TYPES, formatPortionCalories } from '@meridian/core'
 import type { Meal } from '@meridian/core'
 import { prefOf, useMeals, useTastePrefs } from '../lib/data/queries'
 import { clearMeals, setMealPref } from '../lib/data/mutations'
-import { plural } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 import { mealMatches } from '../lib/meals-search'
 import type { MealsFilter, MealsSearch } from '../lib/meals-search'
 import { AppShell } from './AppShell'
@@ -42,6 +38,8 @@ import {
 
 export function MealsScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.meals
   const mealsRead = useMeals()
   const prefsRead = useTastePrefs()
   const search = useSearch({ from: '/meals' })
@@ -93,46 +91,24 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   }
 
   const clearAll = async () => {
-    if (
-      !window.confirm(
-        'Видалити всі страви з пулу разом із рецептами? Страви, що стоять у ' +
-          'планах, лишаться. Стартовий набір потім можна додати знову.',
-      )
-    ) {
+    if (!window.confirm(t.clearConfirm)) {
       return
     }
     setFailure(null)
     try {
       const { removed, kept } = await clearMeals(db)
-      setCleared(
-        'Видалено ' +
-          removed +
-          ' ' +
-          plural(removed, 'страву', 'страви', 'страв') +
-          '.' +
-          (kept
-            ? ' ' +
-              kept +
-              ' ' +
-              plural(kept, 'лишилась', 'лишились', 'лишилось') +
-              ', бо стоять у планах: спершу замініть їх або перегенеруйте тиждень.'
-            : ''),
-      )
+      setCleared(t.cleared(removed, kept))
     } catch (cause) {
       setFailure(cause instanceof Error ? cause.message : String(cause))
     }
   }
 
-  const subtitle = meals.length
-    ? meals.length +
-      ' ' +
-      plural(meals.length, 'страва', 'страви', 'страв') +
-      ' у пулі'
-    : 'Пул страв порожній'
+  const subtitle = meals.length ? t.inPool(meals.length) : t.emptyPool
+  const title = messages.titles.meals
 
   if (editing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle}>
+      <AppShell title={title} subtitle={subtitle}>
         <MealForm
           meal={editing.meal}
           familyId={familyId}
@@ -144,7 +120,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
 
   if (importing) {
     return (
-      <AppShell title="Страви" subtitle={subtitle}>
+      <AppShell title={title} subtitle={subtitle}>
         <PdfImportPanel
           familyId={familyId}
           onDone={() => setImporting(false)}
@@ -159,17 +135,17 @@ export function MealsScreen({ familyId }: { familyId: string }) {
     count: number
     icon?: Icon
   }> = [
-    { id: 'all', label: 'Усі', count: meals.length },
+    { id: 'all', label: t.all, count: meals.length },
     ...MEAL_TYPES.map((type) => ({
       id: type,
-      label: MEAL_TYPE_LABELS[type],
+      label: messages.common.mealType[type],
       count: meals.filter((meal) => meal.type === type).length,
     })),
     ...(prefs.favorites.size || filter === 'favorite'
       ? [
           {
             id: 'favorite' as MealsFilter,
-            label: 'Улюблені',
+            label: t.favorites,
             icon: Heart,
             count: prefs.favorites.size,
           },
@@ -179,7 +155,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
       ? [
           {
             id: 'disliked' as MealsFilter,
-            label: 'Небажані',
+            label: t.disliked,
             icon: Prohibit,
             count: prefs.disliked.size,
           },
@@ -188,7 +164,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell title="Страви" subtitle={subtitle}>
+    <AppShell title={title} subtitle={subtitle}>
       <Problems of={[mealsRead.problems, prefsRead.problems]} />
 
       <Panel>
@@ -221,7 +197,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               active={gerdOnly}
               onClick={() => setSearch({ gerd: gerdOnly ? undefined : true })}
             >
-              Лише ГЕРХ
+              {t.gerdOnly}
               <span className="font-mono tabular-nums opacity-70">
                 {gerdCount}
               </span>
@@ -236,12 +212,12 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             onClick={() => setEditing({ meal: null })}
           >
             <Plus aria-hidden size={18} weight="bold" />
-            Додати страву
+            {t.add}
           </Button>
 
           <Button block onClick={() => setImporting(true)}>
             <FilePdf aria-hidden size={18} />
-            Імпорт із PDF-плану дієтолога
+            {t.importPdf}
           </Button>
         </div>
 
@@ -258,23 +234,26 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               <Empty>
                 {searching && meals.length
                   ? notFoundText(query) +
-                    (filter !== 'all' || gerdOnly ? ' серед обраних.' : '.')
+                    (filter !== 'all' || gerdOnly ? t.amongChosen : '.')
                   : gerdOnly && meals.length
-                    ? 'Немає страв із маркером ГЕРХ серед обраних.'
+                    ? t.noGerd
                     : filter === 'all'
-                      ? 'Поки що жодної страви. Додайте першу вручну — з плану дієтолога.'
+                      ? t.none
                       : filter === 'favorite'
-                        ? 'Немає страв із позначкою «улюблене».'
+                        ? t.noFavorites
                         : filter === 'disliked'
-                          ? 'Немає страв із позначкою «не подобається».'
-                          : 'Немає страв цього типу.'}
+                          ? t.noDisliked
+                          : t.noType}
               </Empty>
             )}
           </div>
 
           {shown.map((meal) => {
             const taste = prefOf(prefs, meal.id)
-            const calories = formatPortionCalories(meal)
+            const calories = formatPortionCalories(
+              meal,
+              messages.common.kcalUnit,
+            )
             return (
               <div
                 key={meal.id}
@@ -294,28 +273,28 @@ export function MealsScreen({ familyId }: { familyId: string }) {
                       </span>
                     ) : null}
                     {calories ? ' · ' : ''}
-                    {MEAL_TYPE_LABELS[meal.type]}
+                    {messages.common.mealType[meal.type]}
                     {meal.source ? ' · ' + meal.source : ''}
                   </div>
                 </RecipeLink>
 
                 <TasteButton
                   icon={Heart}
-                  title="Улюблене"
+                  title={messages.taste.favorite}
                   on={taste === 'favorite'}
                   tone="accent"
                   onClick={() => void toggle(meal, 'favorite')}
                 />
                 <TasteButton
                   icon={Prohibit}
-                  title="Не подобається"
+                  title={messages.taste.disliked}
                   on={taste === 'disliked'}
                   tone="warn"
                   onClick={() => void toggle(meal, 'disliked')}
                 />
 
                 <IconButton
-                  label={'Редагувати страву «' + meal.name + '»'}
+                  label={t.edit(meal.name)}
                   onClick={() => setEditing({ meal })}
                 >
                   <PencilSimple size={16} />
@@ -337,18 +316,14 @@ export function MealsScreen({ familyId }: { familyId: string }) {
               className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97"
             >
               <Trash aria-hidden size={16} />
-              Очистити всі страви
+              {t.clearAll}
             </button>
           </div>
         ) : null}
       </Panel>
 
       <Panel>
-        <Hint>
-          Улюблені страви частіше потрапляють у план, небажані — виключаються.
-          Правила дієтолога (тип слота, коридор калорій, антиповтор і мікс
-          планів) головніші за смак і ніколи ним не послаблюються.
-        </Hint>
+        <Hint>{t.tasteHint}</Hint>
       </Panel>
     </AppShell>
   )

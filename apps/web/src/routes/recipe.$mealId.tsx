@@ -7,7 +7,7 @@ export const Route = createFileRoute('/recipe/$mealId')({ component: Recipe })
 function Recipe() {
   const { mealId } = Route.useParams()
   return (
-    <RequireLocalDb title="Рецепт">
+    <RequireLocalDb screen="recipe">
       {(familyId) => (
         <RecipeScreen key={mealId} mealId={mealId} familyId={familyId} />
       )}

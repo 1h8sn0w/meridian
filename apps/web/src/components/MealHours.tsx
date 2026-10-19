@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import { MEAL_TYPE_LABELS } from '@meridian/core'
 import {
   DEFAULT_MEAL_HOURS,
   MEAL_HOUR_MARKS,
@@ -13,10 +12,12 @@ import type { MealHourType, MealHours } from '../lib/day-clock'
 import { saveMealHours } from '../lib/data/mutations'
 import { useMealWindows } from '../lib/meal-windows'
 import { errorText } from '../lib/messages'
+import { useMessages } from '../lib/i18n/use-messages'
 import { Button, Hint, LinkButton, Meta, Panel, SelectField, Warn } from './ui'
 
 export function MealHoursPanel({ familyId }: { familyId: string }) {
   const db = usePowerSync()
+  const t = useMessages()
   const { hours, windows } = useMealWindows()
   const [draft, setDraft] = useState<MealHours | null>(null)
   const [busy, setBusy] = useState(false)
@@ -37,13 +38,13 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
 
   if (!draft) {
     return (
-      <Panel title="Час прийомів">
+      <Panel title={t.mealHours.title}>
         <Hint>
           {[...windows]
             .sort((a, b) => a.startMinute - b.startMinute)
             .map(
               (w) =>
-                MEAL_TYPE_LABELS[w.type] +
+                t.common.mealType[w.type] +
                 ' ' +
                 formatMinute(w.startMinute) +
                 '–' +
@@ -52,7 +53,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
             .join(' · ')}
         </Hint>
         <Button block onClick={() => setDraft(hours ?? DEFAULT_MEAL_HOURS)}>
-          Змінити час прийомів
+          {t.mealHours.change}
         </Button>
       </Panel>
     )
@@ -64,15 +65,15 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
     setDraft({ ...draft, [type]: { ...draft[type], [bound]: Number(value) } })
 
   return (
-    <Panel title="Час прийомів">
+    <Panel title={t.mealHours.title}>
       {MEAL_HOUR_TYPES.map((type) => (
         <fieldset key={type} className="m-0 mb-1 border-0 p-0">
           <legend className="mb-1 p-0 text-sm font-semibold text-content">
-            {MEAL_TYPE_LABELS[type]}
+            {t.common.mealType[type]}
           </legend>
           <div className="flex gap-2 [&>*]:flex-1">
             <SelectField
-              label="Початок"
+              label={t.mealHours.start}
               value={draft[type].start}
               aria-invalid={Boolean(problems[type])}
               onChange={(event) => patch(type, 'start', event.target.value)}
@@ -84,7 +85,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
               ))}
             </SelectField>
             <SelectField
-              label="Кінець"
+              label={t.mealHours.end}
               value={draft[type].end}
               aria-invalid={Boolean(problems[type])}
               onChange={(event) => patch(type, 'end', event.target.value)}
@@ -104,10 +105,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
         </fieldset>
       ))}
 
-      <Meta>
-        Час спільний для всієї сім&apos;ї: його побачать усі пристрої, і
-        нагадування прийдуть за ним. Перекус — між обідом і вечерею.
-      </Meta>
+      <Meta>{t.mealHours.hint}</Meta>
 
       {failure ? <Warn>{failure}</Warn> : null}
 
@@ -117,10 +115,10 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
           disabled={busy || !valid}
           onClick={() => void save(draft)}
         >
-          Зберегти
+          {t.mealHours.save}
         </Button>
         <Button disabled={busy} onClick={() => setDraft(null)}>
-          Скасувати
+          {t.mealHours.cancel}
         </Button>
       </div>
       {sameMealHours(draft, DEFAULT_MEAL_HOURS) ? null : (
@@ -129,7 +127,7 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
             disabled={busy}
             onClick={() => setDraft(DEFAULT_MEAL_HOURS)}
           >
-            Скинути до стандартних
+            {t.mealHours.reset}
           </LinkButton>
         </div>
       )}

@@ -1,19 +1,13 @@
 import { dateKeyParts } from '@meridian/core'
-
-const PLURAL = new Intl.PluralRules('uk-UA')
+import { intlLocale, messages } from './i18n/locale.ts'
 
 function dateFromKey(key: string): Date {
   const parts = dateKeyParts(key)
   return parts ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(NaN)
 }
 
-export function plural(n: number, one: string, few: string, many: string) {
-  const forms: Partial<Record<Intl.LDMLPluralRule, string>> = { one, few }
-  return forms[PLURAL.select(n)] ?? many
-}
-
 export function formatDayTitle(key: string): string {
-  const text = dateFromKey(key).toLocaleDateString('uk-UA', {
+  const text = dateFromKey(key).toLocaleDateString(intlLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
@@ -25,15 +19,16 @@ export function formatWeekRange(fromKey: string, toKey: string): string {
   const from = dateFromKey(fromKey)
   const to = dateFromKey(toKey)
   const opts = { day: 'numeric', month: 'short' } as const
-  const end = to.toLocaleDateString('uk-UA', opts) + ' ' + to.getFullYear()
+  const locale = intlLocale()
+  const end = to.toLocaleDateString(locale, opts) + ' ' + to.getFullYear()
   return from.getMonth() === to.getMonth() &&
     from.getFullYear() === to.getFullYear()
     ? from.getDate() + '–' + end
-    : from.toLocaleDateString('uk-UA', opts) + ' – ' + end
+    : from.toLocaleDateString(locale, opts) + ' – ' + end
 }
 
 export function formatToday(now: Date): string {
-  return now.toLocaleDateString('uk-UA', {
+  return now.toLocaleDateString(intlLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -44,19 +39,20 @@ export function formatMoment(value: string): string {
   const iso = value.includes('T') ? value : value.replace(' ', 'T')
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  const day = date.toLocaleDateString('uk-UA', {
+  const locale = intlLocale()
+  const day = date.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
   })
-  const time = date.toLocaleTimeString('uk-UA', {
+  const time = date.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   })
-  return day + ' о ' + time
+  return messages().common.at(day, time)
 }
 
 export function grams(value: number): string {
-  return value.toLocaleString('uk-UA') + ' г'
+  return messages().common.grams(value.toLocaleString(intlLocale()))
 }
 
 export function formatInviteCode(code: string): string {
@@ -64,7 +60,7 @@ export function formatInviteCode(code: string): string {
 }
 
 export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('uk-UA', {
+  return new Intl.DateTimeFormat(intlLocale(), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

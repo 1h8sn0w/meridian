@@ -21,8 +21,13 @@ import {
 } from '../lib/data/queries'
 import type { AppProfile } from '../lib/data/model'
 import { clearStaleChecks, setShoppingCheck } from '../lib/data/mutations'
-import { formatWeekRange, plural } from '../lib/format'
-import { amountText, shoppingListText } from '../lib/shopping-share'
+import { formatWeekRange } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
+import {
+  amountText,
+  categoryLabel,
+  shoppingListText,
+} from '../lib/shopping-share'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import {
@@ -41,6 +46,8 @@ import { Check, ShareNetwork } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.shopping
   const todayKey = dateKey(useNow())
 
   const mealsRead = useMeals()
@@ -132,7 +139,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const share = async () => {
     setError(null)
     setCopied(false)
-    const data = { title: 'Список покупок', text: shareText }
+    const data = { title: messages.titles.shopping, text: shareText }
     if ('canShare' in navigator && navigator.canShare(data)) {
       try {
         await navigator.share(data)
@@ -145,19 +152,17 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       await navigator.clipboard.writeText(shareText)
       setCopied(true)
     } catch {
-      setError(
-        'Браузер не дав ні меню «Поділитися», ні доступу до буфера обміну.',
-      )
+      setError(t.shareFailed)
     }
   }
 
   return (
     <AppShell
-      title="Список покупок"
+      title={messages.titles.shopping}
       subtitle={
         items.length
-          ? `${bought} з ${items.length} куплено`
-          : weekRangeOf(weeks) || 'Із поточного тижня'
+          ? t.bought(bought, items.length)
+          : weekRangeOf(weeks) || t.fromWeek
       }
     >
       <Problems of={problems} />
@@ -169,20 +174,14 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       ) : null}
 
       {isLoading ? null : !profiles.length ? (
-        <Panel title="Спершу — профіль">
-          <Hint>
-            Список збирається з плану профілю. Створіть його на екрані
-            «Сьогодні».
-          </Hint>
+        <Panel title={t.profileFirst}>
+          <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : !weeks.length ? (
         <Panel>
-          <Hint>
-            Плану тижня ще немає. Згенеруйте його на екрані «Тиждень» — список
-            збереться з інгредієнтів страв, нічого не вигадуючи.
-          </Hint>
+          <Hint>{t.noPlan}</Hint>
           <Link to="/week" className="block no-underline">
-            <Button block>Відкрити екран «Тиждень»</Button>
+            <Button block>{t.openWeek}</Button>
           </Link>
         </Panel>
       ) : (
@@ -191,31 +190,23 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
             <Progress bought={bought} total={items.length} />
             <Meta>
               {weekRangeOf(weeks)}
-              {weeks.length > 1 ? ` · планів: ${weeks.length}` : ''}
+              {weeks.length > 1 ? t.plans(weeks.length) : ''}
             </Meta>
-            {missing > 0 ? (
-              <Warn>
-                {`${missing} ${plural(missing, 'слот', 'слоти', 'слотів')} без страви — її видалено з пулу, тож її інгредієнтів у списку немає.`}
-              </Warn>
-            ) : null}
+            {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
             {shareText ? (
               <div className="mt-3.5">
                 <Button block onClick={() => void share()}>
                   <ShareNetwork aria-hidden size={18} />
-                  Поділитися некупленим
+                  {t.share}
                 </Button>
-                {copied ? (
-                  <InfoText>
-                    Список скопійовано — вставте його в месенджер.
-                  </InfoText>
-                ) : null}
+                {copied ? <InfoText>{t.copied}</InfoText> : null}
               </div>
             ) : null}
           </Panel>
 
           {!items.length ? (
             <Panel>
-              <Empty>У стравах цього тижня немає інгредієнтів.</Empty>
+              <Empty>{t.noIngredients}</Empty>
             </Panel>
           ) : (
             <>
@@ -226,11 +217,8 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
               />
 
               {noQty.length ? (
-                <Panel title="Без точної кількості">
-                  <Hint>
-                    У плані дієтолога цих кількостей немає — застосунок їх не
-                    вигадує.
-                  </Hint>
+                <Panel title={t.noQty}>
+                  <Hint>{t.noQtyHint}</Hint>
                   <Sections
                     items={noQty}
                     checks={checksRead.data}
@@ -274,6 +262,7 @@ function ScopeChips({
   scope: ShoppingScope
   onChange: (next: ShoppingScope) => void
 }) {
+  const t = useMessages().shopping
   return (
     <Panel>
       <div className="flex flex-wrap gap-2">
@@ -281,7 +270,7 @@ function ScopeChips({
           active={scope === ALL_PROFILES}
           onClick={() => onChange(ALL_PROFILES)}
         >
-          {profiles.length === 2 ? 'Обидва профілі' : 'Усі профілі'}
+          {profiles.length === 2 ? t.both : t.all}
         </Chip>
         {profiles.map((profile) => (
           <Chip
@@ -293,15 +282,13 @@ function ScopeChips({
           </Chip>
         ))}
       </div>
-      <Meta>
-        Охоплення лишається на цьому пристрої. Позначки «куплено» спільні для
-        сім’ї — їх видно на всіх телефонах.
-      </Meta>
+      <Meta>{t.scopeHint}</Meta>
     </Panel>
   )
 }
 
 function Progress({ bought, total }: { bought: number; total: number }) {
+  const t = useMessages().shopping
   const percent = total ? Math.round((bought / total) * 100) : 0
   return (
     <div
@@ -309,7 +296,7 @@ function Progress({ bought, total }: { bought: number; total: number }) {
       aria-valuemin={0}
       aria-valuemax={total}
       aria-valuenow={bought}
-      aria-label={`Куплено ${bought} з ${total}`}
+      aria-label={t.progress(bought, total)}
       className="h-2 w-full overflow-hidden rounded-full bg-app"
     >
       <div
@@ -346,11 +333,11 @@ function Sections({
         ))
         return flat ? (
           <section key={category.id}>
-            <SectionLabel>{category.label}</SectionLabel>
+            <SectionLabel>{categoryLabel(category)}</SectionLabel>
             {rows}
           </section>
         ) : (
-          <Panel key={category.id} title={category.label}>
+          <Panel key={category.id} title={categoryLabel(category)}>
             {rows}
           </Panel>
         )
@@ -368,13 +355,14 @@ function ItemRow({
   checked: boolean
   onToggle: () => void
 }) {
+  const t = useMessages().shopping
   const qty = amountText(item)
   return (
     <button
       type="button"
       aria-pressed={checked}
       aria-label={
-        item.name + (qty ? ', ' + qty : '') + (checked ? ' — куплено' : '')
+        item.name + (qty ? ', ' + qty : '') + (checked ? t.boughtMark : '')
       }
       onClick={onToggle}
       className="group flex w-full cursor-pointer items-baseline gap-3 border-0 border-b border-line bg-transparent px-0 py-2.5 text-left text-content last:border-b-0"

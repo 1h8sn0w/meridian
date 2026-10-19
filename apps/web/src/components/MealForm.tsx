@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import {
-  DEFAULT_PORTION,
-  MEAL_TYPES,
-  MEAL_TYPE_LABELS,
-  PORTION_LETTERS,
-} from '@meridian/core'
+import { DEFAULT_PORTION, MEAL_TYPES, PORTION_LETTERS } from '@meridian/core'
 import type { Meal, MealType, PortionLetter } from '@meridian/core'
 import { useMealUsage } from '../lib/data/queries'
 import { deleteMeal, insertMeal, updateMeal } from '../lib/data/mutations'
@@ -13,6 +8,7 @@ import { nutritionDraft, validateMeal } from '../lib/forms'
 import type { MealDraft, NutritionDraft } from '../lib/forms'
 import { ingredientsToText, portionsToText } from '../lib/meal-text'
 import { Button, Field, SelectField, TextField, Warn } from './ui'
+import { useMessages } from '../lib/i18n/use-messages'
 
 function draftOf(meal: Meal | null): MealDraft {
   return {
@@ -37,6 +33,8 @@ export function MealForm({
   onDone: () => void
 }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.mealForm
   const [draft, setDraft] = useState<MealDraft>(() => draftOf(meal))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -83,15 +81,10 @@ export function MealForm({
   const remove = async () => {
     if (!meal) return
     if (usedInPlans > 0) {
-      setError(
-        'Страва стоїть у ' +
-          usedInPlans +
-          ' слот(ах) плану. Спершу замініть її або перегенеруйте тиждень — ' +
-          'інакше в плані лишиться порожній слот.',
-      )
+      setError(t.inPlans(usedInPlans))
       return
     }
-    if (!window.confirm('Видалити страву «' + meal.name + '»?')) return
+    if (!window.confirm(t.deleteConfirm(meal.name))) return
     setBusy(true)
     try {
       await deleteMeal(db, meal.id)
@@ -106,24 +99,24 @@ export function MealForm({
   return (
     <section className="mb-3.5 glass rounded-3xl px-5 py-4">
       <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
-        {meal ? 'Редагувати страву' : 'Нова страва'}
+        {meal ? t.edit : t.create}
       </h2>
 
       <Field
-        label="Назва"
+        label={t.name}
         value={draft.name}
-        placeholder="Гречка з куркою та овочами"
+        placeholder={t.namePlaceholder}
         onChange={(e) => patch({ name: e.target.value })}
       />
 
       <SelectField
-        label="Тип слота"
+        label={t.type}
         value={draft.type}
         onChange={(e) => patch({ type: e.target.value as MealType })}
       >
         {MEAL_TYPES.map((type) => (
           <option key={type} value={type}>
-            {MEAL_TYPE_LABELS[type]}
+            {messages.common.mealType[type]}
           </option>
         ))}
       </SelectField>
@@ -138,28 +131,28 @@ export function MealForm({
       ))}
 
       <TextField
-        label="Інгредієнти"
-        hint="По одному в рядку; кількість — після « — »."
+        label={t.ingredients}
+        hint={t.ingredientsHint}
         rows={4}
-        placeholder={'гречка — 80 г\nкуряче філе — 150 г\nовочі на вибір'}
+        placeholder={t.ingredientsPlaceholder}
         value={draft.ingredients}
         onChange={(e) => patch({ ingredients: e.target.value })}
       />
 
       <TextField
-        label="Готова порція Ж/Ч"
-        hint="Дослівно з плану; складник — до « — ». Порожньо — секції не буде."
+        label={t.portions}
+        hint={t.portionsHint}
         rows={2}
-        placeholder={'Ж - 130 г; Ч - 200 г\nГарнір — Ж - 100 г; Ч - 150 г'}
+        placeholder={t.portionsPlaceholder}
         value={draft.portions}
         onChange={(e) => patch({ portions: e.target.value })}
       />
 
       <Field
-        label="Джерело (план дієтолога)"
-        hint="Напр. «Тиждень 2» — за ним генератор міксує тиждень."
+        label={t.source}
+        hint={t.sourceHint}
         value={draft.source}
-        placeholder="Тиждень 2"
+        placeholder={t.sourcePlaceholder}
         onChange={(e) => patch({ source: e.target.value })}
       />
 
@@ -170,14 +163,14 @@ export function MealForm({
           checked={draft.gerd}
           onChange={(e) => patch({ gerd: e.target.checked })}
         />
-        ГЕРХ — страва з плану з урахуванням ГЕРХ
+        {t.gerd}
       </label>
 
       <TextField
-        label="Помилки в джерелі"
-        hint="По одній на рядок, без правильного значення. З'ясували й виправили поле — зітріть рядок."
+        label={t.issues}
+        hint={t.issuesHint}
         rows={3}
-        placeholder="У день 1 рис 70 г, у день 2 — 100 г"
+        placeholder={t.issuesPlaceholder}
         value={draft.sourceIssues}
         onChange={(e) => patch({ sourceIssues: e.target.value })}
       />
@@ -186,10 +179,10 @@ export function MealForm({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          Зберегти
+          {t.save}
         </Button>
         <Button disabled={busy} onClick={onDone}>
-          Скасувати
+          {t.cancel}
         </Button>
         <span className="flex-1" />
         {meal ? (
@@ -199,7 +192,7 @@ export function MealForm({
             onClick={() => void remove()}
             className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Видалити
+            {t.delete}
           </button>
         ) : null}
       </div>
@@ -216,24 +209,18 @@ function PortionFields({
   value: NutritionDraft
   onChange: (part: Partial<NutritionDraft>) => void
 }) {
+  const t = useMessages().mealForm
   return (
     <fieldset className="m-0 mb-1 border-0 p-0">
       <legend className="mb-1 p-0 text-sm font-semibold text-content">
-        Порція {letter}
+        {t.portion(letter)}
         {letter === DEFAULT_PORTION ? (
-          <span className="font-normal text-muted">
-            {' '}
-            · і профілі без порції
-          </span>
+          <span className="font-normal text-muted">{t.defaultPortion}</span>
         ) : null}
       </legend>
       <Field
-        label="Калорійність, ккал"
-        hint={
-          'Порожньо — генератор не братиме страву для профілів порції ' +
-          letter +
-          ': коридор дня рахується числами.'
-        }
+        label={t.calories}
+        hint={t.caloriesHint(letter)}
         type="number"
         min={0}
         step={1}
@@ -243,7 +230,7 @@ function PortionFields({
       />
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label="Білки, г"
+          label={t.protein}
           type="number"
           min={0}
           step="0.1"
@@ -252,7 +239,7 @@ function PortionFields({
           onChange={(e) => onChange({ protein: e.target.value })}
         />
         <Field
-          label="Жири, г"
+          label={t.fat}
           type="number"
           min={0}
           step="0.1"
@@ -261,7 +248,7 @@ function PortionFields({
           onChange={(e) => onChange({ fat: e.target.value })}
         />
         <Field
-          label="Вуглеводи, г"
+          label={t.carbs}
           type="number"
           min={0}
           step="0.1"

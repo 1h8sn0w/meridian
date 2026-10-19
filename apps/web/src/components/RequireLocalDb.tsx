@@ -3,20 +3,23 @@ import { useAuth } from '../lib/auth'
 import { useSyncState } from '../lib/powersync/provider'
 import { AppShell } from './AppShell'
 import { Button, ErrorText, Hint, Panel } from './ui'
+import { useMessages } from '../lib/i18n/use-messages'
+import type { Messages } from '../lib/i18n/uk'
 
 export function RequireLocalDb({
-  title,
+  screen,
   children,
 }: {
-  title: string
+  screen: keyof Messages['titles']
   children: (familyId: string) => ReactNode
 }) {
   const { familyId } = useAuth()
   const { db } = useSyncState()
+  const t = useMessages()
 
   if (!familyId || !db) {
     return (
-      <AppShell title={title}>
+      <AppShell title={t.titles[screen]}>
         <Panel>
           <LocalDbPending />
         </Panel>
@@ -29,8 +32,9 @@ export function RequireLocalDb({
 
 export function LocalDbPending() {
   const { failure } = useSyncState()
+  const t = useMessages()
 
-  if (!failure) return <Hint>Готуємо локальну базу…</Hint>
+  if (!failure) return <Hint>{t.gate.localDbPending}</Hint>
 
   return (
     <>
@@ -38,7 +42,7 @@ export function LocalDbPending() {
       {failure.retryable ? (
         <div className="mt-3.5">
           <Button onClick={() => window.location.reload()}>
-            Спробувати ще раз
+            {t.common.retry}
           </Button>
         </div>
       ) : null}

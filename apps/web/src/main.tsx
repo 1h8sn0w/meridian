@@ -8,6 +8,7 @@ import { Sky, applySky, markClassicScrollbar } from './components/Sky'
 import { DEFAULT_MEAL_WINDOWS } from './lib/day-clock'
 import { MealWindowsProvider } from './lib/meal-windows'
 import { minutesOf } from './lib/use-now'
+import { applyLocale } from './lib/i18n/locale'
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
 import './styles.css'
@@ -29,10 +30,11 @@ const env = readPublicEnv()
 
 applySky(minutesOf(new Date()), DEFAULT_MEAL_WINDOWS)
 markClassicScrollbar()
+applyLocale()
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch((error: unknown) => {
-    console.warn('Не вдалося зареєструвати service worker:', error)
+    console.warn('Service worker registration failed:', error)
   })
 }
 

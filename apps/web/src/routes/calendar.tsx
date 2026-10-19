@@ -10,6 +10,8 @@ export const Route = createFileRoute('/calendar')({
 
 function Calendar() {
   return (
-    <RequireLocalDb title="Календар">{() => <CalendarScreen />}</RequireLocalDb>
+    <RequireLocalDb screen="calendar">
+      {() => <CalendarScreen />}
+    </RequireLocalDb>
   )
 }

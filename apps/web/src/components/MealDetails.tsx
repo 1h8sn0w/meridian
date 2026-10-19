@@ -8,6 +8,7 @@ import {
 } from '../lib/meal-text'
 import { WarningCircle } from '@phosphor-icons/react'
 import { SectionLabel, Tag } from './ui'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function MealMarks({
   meal,
@@ -16,11 +17,12 @@ export function MealMarks({
   meal: Meal
   block?: boolean
 }) {
+  const t = useMessages().details
   const issues = meal.sourceIssues.length
   if (!meal.gerd && !issues) return null
   const marks = (
     <>
-      {meal.gerd ? <Tag>ГЕРХ</Tag> : null}
+      {meal.gerd ? <Tag>{t.gerd}</Tag> : null}
       {meal.gerd && issues ? ' ' : null}
       {issues ? (
         <Tag tone="warn">
@@ -28,7 +30,7 @@ export function MealMarks({
             weight="bold"
             size={12}
             role="img"
-            aria-label="У джерелі є розбіжність"
+            aria-label={t.sourceIssue}
           />
         </Tag>
       ) : null}
@@ -38,13 +40,14 @@ export function MealMarks({
 }
 
 export function SourceIssues({ meal }: { meal: Meal }) {
+  const t = useMessages().details
   if (!meal.sourceIssues.length) return null
   return (
     <div className="mt-4 flex gap-2 rounded-2xl bg-warning-soft px-3.5 py-2.5 text-sm leading-normal text-warning">
       <WarningCircle aria-hidden size={18} className="mt-px flex-none" />
       <div>
-        <span className="font-medium">Помилка в джерелі.</span> У плані
-        дієтолога тут розбіжність, значення занесено як є:
+        <span className="font-medium">{t.sourceError}</span>
+        {t.sourceErrorText}
         <ul className="mb-0 mt-1 list-disc pl-5">
           {meal.sourceIssues.map((issue, index) => (
             <li key={index}>{issue}</li>
@@ -75,21 +78,22 @@ export function MealDetails({
   portion: PortionLetter | null
   hideEmpty?: boolean
 }) {
+  const t = useMessages().details
   return (
     <>
       {hasMacros(meal) ? (
         <div className="mt-4 flex gap-2">
-          <Macro label="Білки" value={meal.protein} />
-          <Macro label="Жири" value={meal.fat} />
-          <Macro label="Вуглеводи" value={meal.carbs} />
+          <Macro label={t.protein} value={meal.protein} />
+          <Macro label={t.fat} value={meal.fat} />
+          <Macro label={t.carbs} value={meal.carbs} />
         </div>
       ) : hideEmpty ? null : (
-        <p className="mb-0 mt-2 text-sm text-muted">БЖВ не вказано.</p>
+        <p className="mb-0 mt-2 text-sm text-muted">{t.noMacros}</p>
       )}
 
       {meal.ingredients.length ? (
         <>
-          <SectionLabel>Інгредієнти</SectionLabel>
+          <SectionLabel>{t.ingredients}</SectionLabel>
           <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed marker:text-accent">
             {meal.ingredients.map((item, index) => (
               <li key={index} className="my-px">
@@ -99,13 +103,14 @@ export function MealDetails({
           </ul>
         </>
       ) : hideEmpty ? null : (
-        <p className="mb-0 mt-2 text-sm text-muted">Інгредієнти не вказані.</p>
+        <p className="mb-0 mt-2 text-sm text-muted">{t.noIngredients}</p>
       )}
 
       {meal.portions.length ? (
         <>
           <SectionLabel>
-            Готова порція{portion ? ' · ' + portion : ''}
+            {t.portion}
+            {portion ? ' · ' + portion : ''}
           </SectionLabel>
           <ul className="mb-0 mt-1 list-disc pl-5 text-sm leading-relaxed marker:text-accent">
             {meal.portions.map((entry, index) => {

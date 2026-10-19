@@ -3,8 +3,9 @@
 Доменної логіки тут немає: генератор, калорії й провенанс живуть у
 [`packages/core`](../../../../packages/core/README.md). Тут те, що належить
 пристрою й браузеру. Підтеки мають свої README:
-[`data`](data/README.md) (читання й записи бази) і
-[`powersync`](powersync/README.md) (синхронізація).
+[`data`](data/README.md) (читання й записи бази),
+[`powersync`](powersync/README.md) (синхронізація) і
+[`i18n`](i18n/README.md) (мова інтерфейсу, словники).
 
 | Модуль | Що |
 |--------|-----|
@@ -19,7 +20,7 @@
 | `pdf-text.ts` | Текстовий шар PDF через pdf.js |
 | `active-profile.ts`, `shopping-scope.ts`, `device-choice.ts` | Вибір, що належить пристрою, а не сім'ї |
 | `forms.ts` | Чернетки й валідація форм (MER-103) |
-| `format.ts`, `messages.ts`, `meal-text.ts` | Підписи, помилки українською, інгредієнти й порції ↔ текст форми |
+| `format.ts`, `messages.ts`, `meal-text.ts` | Дати й числа мовою інтерфейсу, помилки, інгредієнти й порції ↔ текст форми |
 | `calendar-search.ts`, `meals-search.ts` | Стан «Календаря» й фільтри «Страв» в адресі |
 | `shopping-share.ts` | Список покупок текстом (MER-85) |
 | `scroll-catch-up.ts` | Догнати прокрутку, яку роутер не встиг відновити (MER-86) |
@@ -126,8 +127,8 @@ WebView Capacitor), `detectSessionInUrl: false` — OAuth і посилань н
 - **Валідація одна — `mealHoursProblems`**: її показує форма біля поля, нею ж
   `mealHoursFromRow` відкидає битий рядок (тоді діють стандартні вікна, а
   екран показує попередження). Ті самі межі тримають CHECK-и бази.
-- `MealWindow` не має підпису: назва прийому — `MEAL_TYPE_LABELS` ядра, другий
-  примірник розійшовся б із першим.
+- `MealWindow` не має підпису: назва прийому — `common.mealType` словника
+  ([`i18n`](i18n/README.md)), а не поле вікна.
 - **`useMealWindows` працює й без бази**: поза `MealWindowsProvider` або до
   відкриття локальної бази (екран входу) — стандартні вікна.
 
