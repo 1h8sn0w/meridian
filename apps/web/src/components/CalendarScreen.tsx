@@ -73,7 +73,7 @@ export function CalendarScreen() {
       <Problems of={problems} />
 
       {!profile ? (
-        <Panel title={t.profileFirst}>
+        <Panel title={messages.common.profileFirst}>
           <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : (
@@ -116,7 +116,7 @@ export function CalendarScreen() {
               {atToday ? null : (
                 <div className="mt-3">
                   <Button block onClick={() => setView({})}>
-                    {t.today}
+                    {messages.titles.today}
                   </Button>
                 </div>
               )}
@@ -127,7 +127,7 @@ export function CalendarScreen() {
             <Panel>
               <Hint>{t.empty}</Hint>
               <Link to="/week" className="block no-underline">
-                <Button block>{t.openWeek}</Button>
+                <Button block>{messages.common.openWeekScreen}</Button>
               </Link>
             </Panel>
           ) : null}
@@ -249,7 +249,9 @@ function DaySection({
     <Panel>
       <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
         {formatDayTitle(date)}{' '}
-        {date === todayKey ? <Tag tone="accent">{t.todayTag}</Tag> : null}
+        {date === todayKey ? (
+          <Tag tone="accent">{messages.common.todayTag}</Tag>
+        ) : null}
       </h2>
 
       <Problems of={problems} />
@@ -278,7 +280,9 @@ function DaySection({
                       {slotView.meal.name}
                     </RecipeLink>
                   ) : (
-                    <span className="text-warning">{t.mealRemoved}</span>
+                    <span className="text-warning">
+                      {messages.common.mealRemoved}
+                    </span>
                   )}
                 </span>
               </span>

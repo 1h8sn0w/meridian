@@ -174,14 +174,14 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       ) : null}
 
       {isLoading ? null : !profiles.length ? (
-        <Panel title={t.profileFirst}>
+        <Panel title={messages.common.profileFirst}>
           <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : !weeks.length ? (
         <Panel>
           <Hint>{t.noPlan}</Hint>
           <Link to="/week" className="block no-underline">
-            <Button block>{t.openWeek}</Button>
+            <Button block>{messages.common.openWeekScreen}</Button>
           </Link>
         </Panel>
       ) : (

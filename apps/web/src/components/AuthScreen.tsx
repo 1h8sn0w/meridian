@@ -19,7 +19,8 @@ type Mode = 'sign-in' | 'sign-up'
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
-  const t = useMessages().auth
+  const messages = useMessages()
+  const t = messages.auth
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -87,7 +88,7 @@ export function AuthScreen() {
           <div className="mt-3.5">
             <Button type="submit" variant="primary" block disabled={busy}>
               {busy
-                ? t.busy
+                ? messages.gate.loading
                 : mode === 'sign-in'
                   ? t.submitSignIn
                   : t.submitSignUp}

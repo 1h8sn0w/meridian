@@ -29,7 +29,7 @@ export function FirstSteps({
       ),
     },
     {
-      title: t.firstSteps.meals,
+      title: t.titles.meals,
       text: !mealCount
         ? t.firstSteps.mealsEmpty
         : shortage.length
@@ -51,7 +51,7 @@ export function FirstSteps({
       ),
     },
     {
-      title: t.firstSteps.week,
+      title: t.titles.week,
       text: t.firstSteps.weekText,
       done: false,
       action: (

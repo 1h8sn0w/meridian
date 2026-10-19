@@ -50,7 +50,7 @@ export function SwapDialog({
   const day: DayView | undefined =
     dayIndex >= 0 ? view.days.at(dayIndex) : undefined
   const plan = toWeekPlan(view, ownerPortion)
-  const title = t.title
+  const title = messages.today.swap
 
   if (!day) {
     return (
@@ -228,7 +228,7 @@ export function SwapDialog({
 
       <div className="mt-3">
         <Button block onClick={onClose}>
-          {t.cancel}
+          {messages.common.cancel}
         </Button>
       </div>
     </Sheet>

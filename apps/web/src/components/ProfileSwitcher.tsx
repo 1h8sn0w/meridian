@@ -58,7 +58,7 @@ export function ProfileSwitcher({
 
       <button
         type="button"
-        title={t.profileSwitcher.profiles}
+        title={t.profiles.title}
         aria-label={t.profileSwitcher.manage}
         onClick={onManage}
         className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center self-center rounded-full border-0 bg-transparent p-0 text-muted transition duration-500 ease-spring hover:rotate-45 hover:text-content active:scale-90"

@@ -150,7 +150,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
       <Problems of={problems} />
 
       {!profile ? (
-        <Panel title={t.profileFirst}>
+        <Panel title={messages.common.profileFirst}>
           <Hint>{t.profileFirstHint}</Hint>
         </Panel>
       ) : (
@@ -176,7 +176,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
             <Link to="/shopping" className="mt-2 block no-underline">
               <Button block>
                 <ShoppingCart aria-hidden size={18} />
-                {t.shopping}
+                {messages.titles.shopping}
               </Button>
             </Link>
           ) : null}
@@ -250,7 +250,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
                   {t.confirm}
                 </Button>
                 <Button block onClick={close}>
-                  {t.cancel}
+                  {messages.common.cancel}
                 </Button>
               </div>
             </>
@@ -369,7 +369,9 @@ function DayCard({
       <div className="mb-2 flex items-center justify-between gap-2.5">
         <div className="text-base font-semibold tracking-tight">
           {formatDayTitle(day.date)}{' '}
-          {day.isToday ? <Tag tone="accent">{t.today}</Tag> : null}
+          {day.isToday ? (
+            <Tag tone="accent">{messages.common.todayTag}</Tag>
+          ) : null}
         </div>
         <div
           className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-xs font-medium tabular-nums ${
@@ -407,7 +409,9 @@ function DayCard({
                   </RecipeLink>
                 </>
               ) : (
-                <span className="text-warning">{t.mealRemoved}</span>
+                <span className="text-warning">
+                  {messages.common.mealRemoved}
+                </span>
               )}
             </span>
           </span>

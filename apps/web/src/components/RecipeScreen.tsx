@@ -203,7 +203,7 @@ function Chips({
   const chips: Array<{ value: string; label: string }> = [
     ...(calories ? [{ value: calories, label: t.calories(portion) }] : []),
     ...(recipe?.prepTime != null
-      ? [{ value: t.minutes(recipe.prepTime), label: t.prep }]
+      ? [{ value: messages.common.minutes(recipe.prepTime), label: t.prep }]
       : []),
     ...(recipe?.servings != null
       ? [
@@ -320,7 +320,8 @@ function RecipeForm({
   onDone: () => void
 }) {
   const db = usePowerSync()
-  const t = useMessages().recipe
+  const messages = useMessages()
+  const t = messages.recipe
   const [draft, setDraft] = useState<RecipeDraft>(() => ({
     steps: recipe ? recipe.steps.join('\n') : '',
     prepTime: fieldText(recipe?.prepTime),
@@ -414,10 +415,10 @@ function RecipeForm({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          {t.save}
+          {messages.common.save}
         </Button>
         <Button disabled={busy} onClick={onDone}>
-          {t.cancel}
+          {messages.common.cancel}
         </Button>
       </div>
     </>

@@ -81,7 +81,8 @@ export function PdfImportPanel({
   onDone: () => void
 }) {
   const db = usePowerSync()
-  const t = useMessages().pdf
+  const messages = useMessages()
+  const t = messages.pdf
   const { supabase } = useAuth()
   const pool = useMeals()
 
@@ -244,7 +245,7 @@ export function PdfImportPanel({
 
   if (!cards || !stats) {
     return (
-      <Panel title={t.title}>
+      <Panel title={messages.meals.importPdf}>
         <Hint>{t.hint}</Hint>
 
         <input
@@ -279,7 +280,7 @@ export function PdfImportPanel({
             >
               {t.recognize}
             </Button>
-            <Button onClick={close}>{t.cancel}</Button>
+            <Button onClick={close}>{messages.common.cancel}</Button>
           </div>
         </div>
       </Panel>
@@ -342,7 +343,7 @@ export function PdfImportPanel({
           {t.another}
         </Button>
         <Button disabled={busy} onClick={close}>
-          {t.close}
+          {messages.common.close}
         </Button>
       </div>
     </Panel>

@@ -179,10 +179,10 @@ export function MealForm({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          {t.save}
+          {messages.common.save}
         </Button>
         <Button disabled={busy} onClick={onDone}>
-          {t.cancel}
+          {messages.common.cancel}
         </Button>
         <span className="flex-1" />
         {meal ? (
@@ -192,7 +192,7 @@ export function MealForm({
             onClick={() => void remove()}
             className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {t.delete}
+            {messages.common.delete}
           </button>
         ) : null}
       </div>
@@ -209,7 +209,9 @@ function PortionFields({
   value: NutritionDraft
   onChange: (part: Partial<NutritionDraft>) => void
 }) {
-  const t = useMessages().mealForm
+  const messages = useMessages()
+  const t = messages.mealForm
+  const macro = messages.common.macroFields
   return (
     <fieldset className="m-0 mb-1 border-0 p-0">
       <legend className="mb-1 p-0 text-sm font-semibold text-content">
@@ -230,7 +232,7 @@ function PortionFields({
       />
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label={t.protein}
+          label={macro.protein}
           type="number"
           min={0}
           step="0.1"
@@ -239,7 +241,7 @@ function PortionFields({
           onChange={(e) => onChange({ protein: e.target.value })}
         />
         <Field
-          label={t.fat}
+          label={macro.fat}
           type="number"
           min={0}
           step="0.1"
@@ -248,7 +250,7 @@ function PortionFields({
           onChange={(e) => onChange({ fat: e.target.value })}
         />
         <Field
-          label={t.carbs}
+          label={macro.carbs}
           type="number"
           min={0}
           step="0.1"

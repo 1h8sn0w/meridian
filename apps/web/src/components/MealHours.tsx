@@ -115,10 +115,10 @@ export function MealHoursPanel({ familyId }: { familyId: string }) {
           disabled={busy || !valid}
           onClick={() => void save(draft)}
         >
-          {t.mealHours.save}
+          {t.common.save}
         </Button>
         <Button disabled={busy} onClick={() => setDraft(null)}>
-          {t.mealHours.cancel}
+          {t.common.cancel}
         </Button>
       </div>
       {sameMealHours(draft, DEFAULT_MEAL_HOURS) ? null : (

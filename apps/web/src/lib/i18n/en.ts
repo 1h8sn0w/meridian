@@ -24,6 +24,19 @@ export const en: Messages = {
   common: {
     close: 'Close',
     retry: 'Try again',
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    minutes: (n) => n + ' min',
+    todayTag: 'today',
+    profileFirst: 'Profile first',
+    mealRemoved: 'meal removed from the pool',
+    openWeekScreen: 'Open the “Week” screen',
+    macroFields: {
+      protein: 'Protein, g',
+      fat: 'Fat, g',
+      carbs: 'Carbs, g',
+    },
     mealType: MEAL_TYPE,
     kcalUnit: 'kcal',
     kcal: (value) => value + ' kcal',
@@ -51,7 +64,6 @@ export const en: Messages = {
   },
   profileSwitcher: {
     manage: 'Manage profiles',
-    profiles: 'Profiles',
     summary: (name, target, corridor) =>
       name + ' · ' + target + ' ± ' + corridor + ' kcal/day',
   },
@@ -107,7 +119,6 @@ export const en: Messages = {
     profileText:
       'Calorie target, range and portion from the dietitian’s plan — the generator builds the week around them.',
     createProfile: 'Create profile',
-    meals: 'Meals',
     mealsEmpty: 'Starter set, import from the dietitian’s PDF, or by hand.',
     mealsShort: (count, need, have) =>
       'The pool has ' +
@@ -119,7 +130,6 @@ export const en: Messages = {
       '.',
     mealsCount: (count) => 'The pool has ' + meals(count) + '.',
     openMeals: 'Open “Meals”',
-    week: 'Week',
     weekText:
       'The generator builds a week from the pool, and the current meal shows up here.',
     openWeek: 'Open “Week”',
@@ -138,8 +148,6 @@ export const en: Messages = {
     start: 'Start',
     end: 'End',
     hint: 'The times are shared by the whole family: every device sees them, and reminders follow them. The snack sits between lunch and dinner.',
-    save: 'Save',
-    cancel: 'Cancel',
     reset: 'Reset to defaults',
     timeRange: 'Time from 00:00 to 24:00 in 15-minute steps.',
     startBeforeEnd: 'The start must be before the end.',
@@ -157,7 +165,6 @@ export const en: Messages = {
     title: 'Reminders',
     enable: 'Remind me before meals',
     lead: 'Lead time',
-    minutes: (n) => n + ' min',
     today: 'Today: ',
     hint: 'Reminders are sent by the page itself, so they arrive while the app is open: the app has no push server. On iPhone, notifications only work in the installed app (“Add to Home Screen”).',
     test: 'Send a test notification',
@@ -184,7 +191,6 @@ export const en: Messages = {
     email: 'Email',
     password: 'Password',
     passwordHint: 'At least 6 characters.',
-    busy: 'One moment…',
     submitSignIn: 'Sign in',
     submitSignUp: 'Sign up',
     confirmSent: (address) =>
@@ -339,7 +345,6 @@ export const en: Messages = {
     skipped: (n) => 'Not moved (' + n + ')',
     applying: 'Moving…',
     apply: 'Move',
-    cancel: 'Cancel',
     hint: 'V1 data lives in the browser storage, so only the browser itself can get it out. Open V1 at the same address you use it on, run the contents of {script} in the console, and pick the saved file here. Importing the same file again duplicates nothing.',
   },
   errors: {
@@ -410,13 +415,11 @@ export const en: Messages = {
     target: (target, corridor) =>
       'Target ' + target + ' ± ' + corridor + ' kcal/day',
     sevenDays: 'A plan for 7 days',
-    profileFirst: 'Profile first',
     profileFirstHint:
       'The generator takes the calorie target and range from the profile. Create one on the “Today” screen.',
     generating: 'Building the week…',
     regenerate: 'Regenerate the week',
     generate: 'Generate the week',
-    shopping: 'Shopping list',
     addMeals: 'Add meals',
     noPlan:
       'No plan yet. Press the button — the generator builds a week from the meal pool by the dietitian’s rules: slot type, calorie range, no repeats and a mix of plans.',
@@ -430,7 +433,6 @@ export const en: Messages = {
       plural(n, 'manual swap', 'manual swaps') +
       ' for today and the following days. The generator builds the week anew, and manual swaps are not kept.',
     confirm: 'Regenerate',
-    cancel: 'Cancel',
     summary: (count, total, average, target, corridor) =>
       'Total for ' +
       days(count) +
@@ -467,38 +469,30 @@ export const en: Messages = {
     snackOff:
       'The snack was turned off in the profile after generation, and the plan still has it — regenerate the week.',
     outsidePlan: 'Today is outside this plan — regenerate the week.',
-    today: 'today',
     unknownCalories: 'calories unknown',
     incompleteShort: ' · incomplete',
     outside: ' · outside the range',
-    mealRemoved: 'meal removed from the pool',
     swap: (type) => 'Swap meal: ' + MEAL_TYPE[type],
   },
   calendar: {
     weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
     planned: (n) => days(n) + ' planned',
     history: 'History and plans',
-    profileFirst: 'Profile first',
     profileFirstHint:
       'The calendar shows the profile’s plan. Create one on the “Today” screen.',
     previous: 'Previous week',
     next: 'Next week',
-    today: 'Today',
     empty:
       'The history is empty — no week has been generated yet. Generate the first one on the “Week” screen, and its days will show up here.',
-    openWeek: 'Open the “Week” screen',
     shared: (owner) =>
       'This is the calendar of the shared plan of profile “' + owner + '”.',
     noPlanLabel: ', no plan',
-    todayTag: 'today',
     noPlan: 'There is no plan for this day.',
     noPlanFuture:
       ' A new week is generated on the “Week” screen and starts with today.',
-    mealRemoved: 'meal removed from the pool',
     past: 'A past day — fixed history, view only.',
   },
   swap: {
-    title: 'Swap meal',
     noDay: 'The plan has no such day — regenerate the week.',
     pastTitle: 'Past day',
     past: 'This day is already over — history does not change. Swaps are only available for today and future days.',
@@ -524,7 +518,6 @@ export const en: Messages = {
     day: 'day → ',
     noneValid:
       'No swap keeps the week valid — every candidate breaks the range, the no-repeat rule or the mix of plans.',
-    cancel: 'Cancel',
   },
   shopping: {
     category: {
@@ -543,12 +536,10 @@ export const en: Messages = {
       'The browser gave neither a “Share” menu nor clipboard access.',
     bought: (bought, total) => bought + ' of ' + total + ' bought',
     fromWeek: 'From the current week',
-    profileFirst: 'Profile first',
     profileFirstHint:
       'The list is built from the profile’s plan. Create one on the “Today” screen.',
     noPlan:
       'There is no week plan yet. Generate it on the “Week” screen — the list is built from the meals’ ingredients, with nothing made up.',
-    openWeek: 'Open the “Week” screen',
     plans: (n) => ' · plans: ' + n,
     missing: (n) =>
       slots(n) +
@@ -578,7 +569,6 @@ export const en: Messages = {
     imageFailed: 'Could not read the image.',
     noCanvas: 'The browser gave no canvas to shrink the photo.',
     calories: (portion) => 'calories · ' + portion,
-    minutes: (n) => n + ' min',
     prep: 'to cook',
     servings: (n) => plural(n, 'serving', 'servings'),
     stayAwake: 'Keep the screen on',
@@ -597,8 +587,6 @@ export const en: Messages = {
     photoChosen: ' · chosen',
     photoOptional: ' · optional',
     removePhoto: 'Remove photo',
-    save: 'Save',
-    cancel: 'Cancel',
   },
   meals: {
     clearConfirm:
@@ -662,9 +650,6 @@ export const en: Messages = {
     issuesHint:
       'One per line, without the correct value. Once it is cleared up and the field is fixed, delete the line.',
     issuesPlaceholder: 'Day 1 has 70 g of rice, day 2 has 100 g',
-    save: 'Save',
-    cancel: 'Cancel',
-    delete: 'Delete',
     portion: (letter) => 'Portion ' + letter,
     defaultPortion: ' · and profiles without a portion',
     calories: 'Calories, kcal',
@@ -672,9 +657,6 @@ export const en: Messages = {
       'Empty — the generator will not use the meal for portion ' +
       letter +
       ' profiles: the day’s range is counted in numbers.',
-    protein: 'Protein, g',
-    fat: 'Fat, g',
-    carbs: 'Carbs, g',
   },
   profiles: {
     lastOne: 'The last profile cannot be deleted.',
@@ -705,15 +687,9 @@ export const en: Messages = {
     snack: 'Snack',
     snackDaily: 'daily',
     snackNone: 'no snack',
-    protein: 'Protein, g',
-    fat: 'Fat, g',
-    carbs: 'Carbs, g',
     pool: 'Meal pool',
     wholePool: 'The whole shared pool',
     emptyPool: 'The pool is empty — add meals on the “Meals” screen.',
-    save: 'Save',
-    cancel: 'Cancel',
-    delete: 'Delete',
   },
   pdf: {
     known: 'This meal is already in the pool — not imported by default.',
@@ -733,12 +709,10 @@ export const en: Messages = {
     archiveFailed: (detail) =>
       'The meals were added, but the plan text was not saved to the import archive — that needs a network. ' +
       detail,
-    title: 'Import from the dietitian’s PDF plan',
     hint: 'We recognise only what is literally in the file: names, meal type, ingredients, week number, calories where given. Whatever the PDF lacks stays empty. You check and confirm everything before it goes into the pool.',
     paste: 'Or paste text copied from the PDF',
     pastePlaceholder: 'День 1\nСніданок: …',
     recognize: 'Recognise text',
-    cancel: 'Cancel',
     reviewTitle: 'Check before adding',
     stats: (found, repeats, dups, weeks, dayCount) =>
       'Meals recognised: ' +
@@ -756,7 +730,6 @@ export const en: Messages = {
     adding: 'Adding…',
     addChosen: (n) => 'Add selected to the pool (' + n + ')',
     another: 'Another file',
-    close: 'Close',
     day: (n) => ' · Day ' + n,
     repeat: ' — repeat',
     inPool: ' · already in the pool',

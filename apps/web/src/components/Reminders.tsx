@@ -151,7 +151,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
         >
           {LEAD_OPTIONS.map((minutes) => (
             <option key={minutes} value={minutes}>
-              {t.reminders.minutes(minutes)}
+              {t.common.minutes(minutes)}
             </option>
           ))}
         </SelectField>

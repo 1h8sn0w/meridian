@@ -258,7 +258,7 @@ export function ProfilesSheet({
 
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label={t.protein}
+          label={messages.common.macroFields.protein}
           type="number"
           min={0}
           step="0.1"
@@ -267,7 +267,7 @@ export function ProfilesSheet({
           onChange={(e) => patch({ goalProtein: e.target.value })}
         />
         <Field
-          label={t.fat}
+          label={messages.common.macroFields.fat}
           type="number"
           min={0}
           step="0.1"
@@ -276,7 +276,7 @@ export function ProfilesSheet({
           onChange={(e) => patch({ goalFat: e.target.value })}
         />
         <Field
-          label={t.carbs}
+          label={messages.common.macroFields.carbs}
           type="number"
           min={0}
           step="0.1"
@@ -341,11 +341,11 @@ export function ProfilesSheet({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          {t.save}
+          {messages.common.save}
         </Button>
         {profiles.length ? (
           <Button disabled={busy} onClick={() => setDraft(null)}>
-            {t.cancel}
+            {messages.common.cancel}
           </Button>
         ) : null}
         <span className="flex-1" />
@@ -356,7 +356,7 @@ export function ProfilesSheet({
             onClick={() => void remove()}
             className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {t.delete}
+            {messages.common.delete}
           </button>
         ) : null}
       </div>

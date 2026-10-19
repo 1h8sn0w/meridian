@@ -137,7 +137,7 @@ export function ImportV1Panel() {
               {busy ? t.applying : t.apply}
             </Button>
             <Button disabled={busy} onClick={reset}>
-              {t.cancel}
+              {messages.common.cancel}
             </Button>
           </div>
         </>
