@@ -6,7 +6,7 @@ export const Route = createFileRoute('/')({ component: Today })
 
 function Today() {
   return (
-    <RequireLocalDb title="Сьогодні">
+    <RequireLocalDb screen="today">
       {(familyId) => <TodayScreen familyId={familyId} />}
     </RequireLocalDb>
   )

@@ -18,6 +18,7 @@ import type {
   WeekPlan,
 } from '@meridian/core'
 import type { MealWindow } from '../day-clock'
+import { messages } from '../i18n/locale.ts'
 
 export type AppProfile = Profile & { color: string }
 
@@ -89,9 +90,7 @@ export function antiRepeatDaysFromRow(row: Row): number | null {
     value < 1 ||
     value > DEFAULTS.days
   )
-    throw new Error(
-      "Антиповтор сім'ї збережено з помилкою: " + String(value) + '.',
-    )
+    throw new Error(messages().antiRepeat.savedBroken(String(value)))
   return value
 }
 

@@ -6,7 +6,7 @@ export const Route = createFileRoute('/week')({ component: Week })
 
 function Week() {
   return (
-    <RequireLocalDb title="Тиждень">
+    <RequireLocalDb screen="week">
       {(familyId) => <WeekScreen familyId={familyId} />}
     </RequireLocalDb>
   )

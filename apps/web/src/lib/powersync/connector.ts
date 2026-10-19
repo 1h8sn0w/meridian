@@ -116,7 +116,7 @@ export function createConnector(
         const code = fatalCode(error)
         if (code === null) throw error
         console.error(
-          '[meridian] зміну не прийнято сервером, відкидаємо:',
+          '[meridian] change rejected by the server, dropping:',
           lastEntry,
           error,
         )

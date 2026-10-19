@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
-  MEAL_TYPE_LABELS,
   formatCalories,
   formatMealCalories,
   mealsForPortion,
@@ -17,6 +16,7 @@ import { mealMatches } from '../lib/meals-search'
 import { Check, Heart, Prohibit } from '@phosphor-icons/react'
 import { MealSearch, SearchFound, notFoundText } from './MealSearch'
 import { Button, Empty, Sheet, Tag, Warn } from './ui'
+import { useMessages } from '../lib/i18n/use-messages'
 
 const SEARCH_MIN_CANDIDATES = 6
 
@@ -40,6 +40,9 @@ export function SwapDialog({
   onClose: () => void
 }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.swap
+  const unit = messages.common.kcalUnit
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -47,23 +50,20 @@ export function SwapDialog({
   const day: DayView | undefined =
     dayIndex >= 0 ? view.days.at(dayIndex) : undefined
   const plan = toWeekPlan(view, ownerPortion)
-  const title = 'Замінити страву'
+  const title = messages.today.swap
 
   if (!day) {
     return (
       <Sheet title={title} onClose={onClose}>
-        <Warn>У плані немає такого дня — перегенеруйте тиждень.</Warn>
+        <Warn>{t.noDay}</Warn>
       </Sheet>
     )
   }
 
   if (day.isPast) {
     return (
-      <Sheet title="Минулий день" onClose={onClose}>
-        <Warn>
-          Це вже прожитий день — історія незмінна. Заміна доступна лише для
-          сьогодні й майбутніх днів.
-        </Warn>
+      <Sheet title={t.pastTitle} onClose={onClose}>
+        <Warn>{t.past}</Warn>
       </Sheet>
     )
   }
@@ -71,10 +71,7 @@ export function SwapDialog({
   if (!plan) {
     return (
       <Sheet title={title} onClose={onClose}>
-        <Warn>
-          У плані є слоти, страву яких видалено з пулу. Поки їх не стало, заміна
-          рахувала б коридор дня за неповними даними — перегенеруйте тиждень.
-        </Warn>
+        <Warn>{t.incomplete}</Warn>
       </Sheet>
     )
   }
@@ -117,7 +114,7 @@ export function SwapDialog({
     }
     const slotId = day.byType[slot]?.id
     if (!slotId) {
-      setFailure('Слот дня не знайдено — перегенеруйте тиждень.')
+      setFailure(t.noSlot)
       setBusy(false)
       return
     }
@@ -137,15 +134,16 @@ export function SwapDialog({
 
   return (
     <Sheet
-      title={MEAL_TYPE_LABELS[slot] + ' · ' + formatDayTitle(day.date)}
+      title={messages.common.mealType[slot] + ' · ' + formatDayTitle(day.date)}
       onClose={onClose}
     >
       <p className="mb-3 mt-0 text-sm leading-relaxed text-muted">
-        Зараз: «{result.current.name}»
-        {formatMealCalories(result.current)
-          ? ' — ' + formatMealCalories(result.current)
-          : ''}
-        . Ціль {result.target} ± {result.corridor} ккал/день.
+        {t.current(
+          result.current.name,
+          formatMealCalories(result.current, unit),
+          result.target,
+          result.corridor,
+        )}
       </p>
 
       {searchable ? <MealSearch value={query} onChange={setQuery} /> : null}
@@ -160,10 +158,7 @@ export function SwapDialog({
       </div>
 
       {result.candidates.length === 0 ? (
-        <Empty>
-          Немає інших страв типу «{MEAL_TYPE_LABELS[slot]}» у пулі. Додайте їх
-          на екрані «Страви».
-        </Empty>
+        <Empty>{t.noCandidates(slot)}</Empty>
       ) : null}
 
       {shown.map((candidate) => (
@@ -180,13 +175,13 @@ export function SwapDialog({
               {candidate.favorite ? (
                 <Tag tone="accent">
                   <Heart aria-hidden size={12} weight="fill" />
-                  улюблене
+                  {t.favorite}
                 </Tag>
               ) : null}
               {candidate.disliked ? (
                 <Tag tone="warn">
                   <Prohibit aria-hidden size={12} weight="bold" />
-                  не подобається
+                  {t.disliked}
                 </Tag>
               ) : null}
               {candidate.reasons.map((reason) => (
@@ -194,7 +189,7 @@ export function SwapDialog({
               ))}
             </span>
             <span className="mt-1 block font-mono text-xs tabular-nums text-muted">
-              {formatMealCalories(candidate.meal)}
+              {formatMealCalories(candidate.meal, unit)}
               {candidate.meal.source ? ' · ' + candidate.meal.source : ''}
             </span>
           </span>
@@ -205,10 +200,11 @@ export function SwapDialog({
                 : 'bg-warning-soft text-warning'
             }`}
           >
-            день →{' '}
+            {t.day}
             {formatCalories(
               candidate.dayCalories,
               otherApprox || candidate.meal.caloriesApprox,
+              unit,
             )}
             {candidate.withinCorridor ? (
               <Check
@@ -224,8 +220,7 @@ export function SwapDialog({
 
       {result.candidates.length && !result.candidates.some((c) => c.valid) ? (
         <p className="mb-0 mt-2 text-sm leading-normal text-muted">
-          Жодна заміна не лишає тиждень валідним — усі кандидати порушують
-          коридор, антиповтор або мікс планів.
+          {t.noneValid}
         </p>
       ) : null}
 
@@ -233,7 +228,7 @@ export function SwapDialog({
 
       <div className="mt-3">
         <Button block onClick={onClose}>
-          Скасувати
+          {messages.common.cancel}
         </Button>
       </div>
     </Sheet>

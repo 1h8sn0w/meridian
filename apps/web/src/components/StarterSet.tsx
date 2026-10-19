@@ -19,7 +19,7 @@ import {
   starterStatus,
 } from '../lib/starter-set'
 import type { SeedSteps, StarterFetch } from '../lib/starter-set'
-import { plural } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 import { Button, ErrorText, Hint, InfoText } from './ui'
 
 function seedSteps(
@@ -68,6 +68,7 @@ export function StarterOffer({
   meals: ReadonlyArray<Meal>
 }) {
   const db = usePowerSync()
+  const t = useMessages().starter
   const { hasSynced } = useStatus()
   const { supabase } = useAuth()
   const [set, setSet] = useState<StarterFetch | null>(null)
@@ -127,7 +128,7 @@ export function StarterOffer({
       })
     } catch (cause) {
       setFailure({
-        text: 'Не вдалося додати стартовий набір.',
+        text: t.failed,
         detail: String(cause),
       })
     } finally {
@@ -141,28 +142,14 @@ export function StarterOffer({
         <>
           <Button block disabled={busy} onClick={() => void add()}>
             <Package aria-hidden size={18} />
-            Додати стартовий набір
+            {t.add}
           </Button>
-          <Hint>
-            {meals.length
-              ? 'Страви з планів дієтолога, яких у пулі немає: ' +
-                missing.length +
-                '. Наявні страви не зміняться.'
-              : 'Страви з планів дієтолога, які адміністратор поклав на сервер.'}
-          </Hint>
+          <Hint>{meals.length ? t.missing(missing.length) : t.offer}</Hint>
         </>
       ) : null}
       {failure ? <ErrorText failure={failure} /> : null}
       {added !== null && !missing.length ? (
-        <InfoText>
-          {added
-            ? 'Додано ' +
-              added +
-              ' ' +
-              plural(added, 'страву', 'страви', 'страв') +
-              '.'
-            : 'Усі страви набору вже в пулі.'}
-        </InfoText>
+        <InfoText>{added ? t.added(added) : t.allThere}</InfoText>
       ) : null}
     </div>
   )

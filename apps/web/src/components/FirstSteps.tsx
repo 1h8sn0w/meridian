@@ -1,8 +1,7 @@
 import { Link } from '@tanstack/react-router'
-import { MEAL_TYPE_LABELS } from '@meridian/core'
 import type { PoolShortage } from '@meridian/core'
 import { CheckCircle } from '@phosphor-icons/react'
-import { plural } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 import { Button, Panel } from './ui'
 
 export function FirstSteps({
@@ -16,46 +15,49 @@ export function FirstSteps({
   shortage: ReadonlyArray<PoolShortage>
   onCreateProfile: () => void
 }) {
+  const t = useMessages()
   const need = shortage[0]?.need ?? 0
   const steps = [
     {
-      title: 'Профіль',
-      text: hasProfile
-        ? 'Створено.'
-        : 'Ціль калорійності, коридор і порція з плану дієтолога — під них генератор збирає тиждень.',
+      title: t.firstSteps.profile,
+      text: hasProfile ? t.firstSteps.profileDone : t.firstSteps.profileText,
       done: hasProfile,
       action: (
         <Button block variant="primary" onClick={onCreateProfile}>
-          Створити профіль
+          {t.firstSteps.createProfile}
         </Button>
       ),
     },
     {
-      title: 'Страви',
+      title: t.titles.meals,
       text: !mealCount
-        ? 'Стартовий набір, імпорт із PDF дієтолога або вручну.'
+        ? t.firstSteps.mealsEmpty
         : shortage.length
-          ? `У пулі ${mealCount} ${plural(mealCount, 'страва', 'страви', 'страв')}, але на тиждень замало: потрібно щонайменше ${need} ${plural(need, 'страва', 'страви', 'страв')} з калорійністю кожного типу. Зараз — ${shortage
-              .map(({ type, have }) => MEAL_TYPE_LABELS[type] + ': ' + have)
-              .join(', ')}.`
-          : `У пулі ${mealCount} ${plural(mealCount, 'страва', 'страви', 'страв')}.`,
+          ? t.firstSteps.mealsShort(
+              mealCount,
+              need,
+              shortage
+                .map(({ type, have }) => t.common.mealType[type] + ': ' + have)
+                .join(', '),
+            )
+          : t.firstSteps.mealsCount(mealCount),
       done: mealCount > 0 && shortage.length === 0,
       action: (
         <Link to="/meals" className="block no-underline">
           <Button block variant="primary">
-            Відкрити «Страви»
+            {t.firstSteps.openMeals}
           </Button>
         </Link>
       ),
     },
     {
-      title: 'Тиждень',
-      text: 'Генератор збере тиждень із пулу, і тут з’явиться страва поточного прийому.',
+      title: t.titles.week,
+      text: t.firstSteps.weekText,
       done: false,
       action: (
         <Link to="/week" className="block no-underline">
           <Button block variant="primary">
-            Відкрити «Тиждень»
+            {t.firstSteps.openWeek}
           </Button>
         </Link>
       ),
@@ -64,7 +66,7 @@ export function FirstSteps({
   const current = steps.findIndex((step) => !step.done)
 
   return (
-    <Panel title="Перші кроки">
+    <Panel title={t.firstSteps.title}>
       <ol className="m-0 list-none p-0">
         {steps.map((step, i) => (
           <li
@@ -95,7 +97,7 @@ export function FirstSteps({
               <h3 className="m-0 text-base font-semibold tracking-tight">
                 {step.title}
                 {step.done ? (
-                  <span className="sr-only"> — зроблено</span>
+                  <span className="sr-only">{t.firstSteps.done}</span>
                 ) : null}
               </h3>
               <p className="mb-0 mt-0.5 text-sm leading-relaxed text-muted">

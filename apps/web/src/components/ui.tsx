@@ -9,6 +9,7 @@ import type {
 } from 'react'
 import { WarningCircle, X } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function ScreenHeader({
   title,
@@ -326,6 +327,7 @@ export function Sheet({
   children: ReactNode | ((close: () => void) => ReactNode)
 }) {
   const sheet = useRef<HTMLDialogElement>(null)
+  const t = useMessages()
 
   useEffect(() => {
     sheet.current?.showModal()
@@ -352,7 +354,7 @@ export function Sheet({
       <div className="glass m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-3xl px-5 py-4 motion-safe:animate-sheet">
         <div className="mb-2 flex items-center justify-between gap-2.5">
           <h2 className="m-0 text-lg font-semibold tracking-tight">{title}</h2>
-          <IconButton label="Закрити" onClick={close}>
+          <IconButton label={t.common.close} onClick={close}>
             <X size={16} weight="bold" />
           </IconButton>
         </div>

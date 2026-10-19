@@ -1,6 +1,4 @@
 import { useId } from 'react'
-import { MEAL_TYPE_LABELS } from '@meridian/core'
-
 import {
   CENTER,
   CLOCK_SIZE,
@@ -17,6 +15,7 @@ import {
   windowMiddle,
 } from '../lib/day-clock'
 import { useMealWindows } from '../lib/meal-windows'
+import { useMessages } from '../lib/i18n/use-messages'
 
 const WINDOW_GAP_MINUTES = 6
 const TICK_OUTER = RING_RADIUS - RING_WIDTH / 2 - 5
@@ -30,15 +29,19 @@ export function DayClock({
   full?: boolean
 }) {
   const ids = useId()
+  const t = useMessages()
   const { windows } = useMealWindows()
   const active = slotAt(minutes, windows)
   const night = phaseAt(minutes, windows) === 'night'
 
   const sentence = active.type
-    ? `Зараз ${formatMinute(minutes)} — час ${active.window.genitive}.`
-    : `Зараз ${formatMinute(minutes)} — нічний час.` +
+    ? t.clock.nowMeal(formatMinute(minutes), active.type)
+    : t.clock.nowNight(formatMinute(minutes)) +
       (active.next
-        ? ` ${MEAL_TYPE_LABELS[active.next.type]} о ${formatMinute(active.next.startMinute)}.`
+        ? t.clock.nextMeal(
+            active.next.type,
+            formatMinute(active.next.startMinute),
+          )
         : '')
 
   return (
@@ -178,7 +181,7 @@ export function DayClock({
                   textAnchor="middle"
                   dominantBaseline="middle"
                 >
-                  {MEAL_TYPE_LABELS[w.type]}
+                  {t.common.mealType[w.type]}
                 </text>
               )
             })
@@ -232,7 +235,7 @@ export function DayClock({
               y={CENTER + 18}
               textAnchor="middle"
             >
-              {active.type ? MEAL_TYPE_LABELS[active.type] : 'Ніч'}
+              {active.type ? t.common.mealType[active.type] : t.clock.night}
             </text>
             <text
               className="fill-muted text-xs"
@@ -241,11 +244,12 @@ export function DayClock({
               textAnchor="middle"
             >
               {active.type
-                ? 'до ' + formatMinute(active.window.endMinute)
+                ? t.clock.until(formatMinute(active.window.endMinute))
                 : active.next
-                  ? MEAL_TYPE_LABELS[active.next.type].toLowerCase() +
-                    ' о ' +
-                    formatMinute(active.next.startMinute)
+                  ? t.clock.nextShort(
+                      active.next.type,
+                      formatMinute(active.next.startMinute),
+                    )
                   : ''}
             </text>
           </>

@@ -5,6 +5,7 @@ import {
   numberFromField,
 } from '@meridian/core'
 import type { Meal, MealType, Nutrition, PortionLetter } from '@meridian/core'
+import { messages } from './i18n/locale.ts'
 import { ingredientsFromText, portionsFromText } from './meal-text.ts'
 import type { AppProfile } from './data/model.ts'
 import type { MealInput, ProfileInput, RecipeInput } from './data/mutations.ts'
@@ -24,12 +25,8 @@ export function linesFromText(text: string): Array<string> {
 
 function fieldError(raw: string, label: string): string | null {
   const value = numberFromField(raw)
-  if (raw.trim() && value === null) {
-    return 'Поле «' + label + '» має бути числом або лишитись порожнім.'
-  }
-  if (value !== null && value < 0) {
-    return 'Поле «' + label + "» має бути невід'ємним."
-  }
+  if (raw.trim() && value === null) return messages().forms.notNumber(label)
+  if (value !== null && value < 0) return messages().forms.negative(label)
   return null
 }
 
@@ -48,13 +45,6 @@ export function nutritionDraft(
     }
   }
   return { Ч: draftOf('Ч'), Ж: draftOf('Ж') }
-}
-
-const NUTRITION_LABELS: Readonly<Record<keyof Nutrition, string>> = {
-  calories: 'Калорійність',
-  protein: 'Білки',
-  fat: 'Жири',
-  carbs: 'Вуглеводи',
 }
 
 function nutritionFromDraft(draft: NutritionDraft): Nutrition {
@@ -79,16 +69,17 @@ export type MealDraft = {
 }
 
 export function validateMeal(draft: MealDraft): Checked<MealInput> {
+  const t = messages().forms
   const name = draft.name.trim()
-  if (!name) return { error: "Назва страви обов'язкова." }
+  if (!name) return { error: t.nameRequired }
   if (!MEAL_TYPES.includes(draft.type)) {
-    return { error: 'Оберіть тип слота.' }
+    return { error: t.typeRequired }
   }
   for (const letter of PORTION_LETTERS) {
-    for (const [field, label] of Object.entries(NUTRITION_LABELS)) {
+    for (const [field, label] of Object.entries(t.nutrition)) {
       const error = fieldError(
         draft.nutrition[letter][field as keyof Nutrition],
-        label + ' · порція ' + letter,
+        t.portionField(label, letter),
       )
       if (error) return { error }
     }
@@ -129,33 +120,29 @@ export function validateProfile(
   draft: ProfileDraft,
   profiles: ReadonlyArray<AppProfile>,
 ): Checked<ProfileInput> {
+  const t = messages().forms
   const name = draft.name.trim()
-  if (!name) return { error: "Ім'я профілю обов'язкове." }
+  if (!name) return { error: t.profileNameRequired }
 
   const targetCalories = numberFromField(draft.targetCalories)
   if (targetCalories === null || targetCalories <= 0) {
-    return { error: 'Цільова калорійність дня має бути додатним числом.' }
+    return { error: t.targetPositive }
   }
 
   const corridor = numberFromField(draft.corridor)
   if (corridor === null || corridor < 0) {
-    return { error: "Коридор калорійності має бути невід'ємним числом." }
+    return { error: t.corridorNonNegative }
   }
 
   const shared = draft.sharedPlanWith.trim()
   if (shared) {
     if (shared === draft.id) {
-      return { error: 'Профіль не може ділити план сам із собою.' }
+      return { error: t.sharedSelf }
     }
     const owner = profiles.find((p) => p.id === shared)
-    if (!owner) return { error: 'Профіль для спільного плану не знайдено.' }
+    if (!owner) return { error: t.sharedMissing }
     if (owner.sharedPlanWith) {
-      return {
-        error:
-          'Профіль «' +
-          owner.name +
-          '» сам користується спільним планом — оберіть профіль-власник.',
-      }
+      return { error: t.sharedFollower(owner.name) }
     }
     const dependants = draft.id
       ? profiles.filter(
@@ -164,20 +151,18 @@ export function validateProfile(
       : []
     if (dependants.length) {
       return {
-        error:
-          'Профіль «' +
-          name +
-          '» уже є власником спільного плану для: ' +
-          dependants.map((p) => '«' + p.name + '»').join(', ') +
-          ". Спершу від'єднайте їх.",
+        error: t.sharedOwner(
+          name,
+          dependants.map((p) => '«' + p.name + '»').join(', '),
+        ),
       }
     }
   }
 
   for (const [raw, label] of [
-    [draft.goalProtein, 'Ціль: білки'],
-    [draft.goalFat, 'Ціль: жири'],
-    [draft.goalCarbs, 'Ціль: вуглеводи'],
+    [draft.goalProtein, t.goalProtein],
+    [draft.goalFat, t.goalFat],
+    [draft.goalCarbs, t.goalCarbs],
   ] as const) {
     const error = fieldError(raw, label)
     if (error) return { error }
@@ -213,15 +198,16 @@ function roundedField(text: string): number | null {
 }
 
 export function validateRecipe(draft: RecipeDraft): Checked<RecipeInput> {
-  const prepTimeError = fieldError(draft.prepTime, 'Час приготування')
+  const t = messages().forms
+  const prepTimeError = fieldError(draft.prepTime, t.prepTime)
   if (prepTimeError) return { error: prepTimeError }
   const prepTime = roundedField(draft.prepTime)
   const servings = roundedField(draft.servings)
   if (draft.servings.trim() && servings === null) {
-    return { error: '«Порції» мають бути числом або лишитись порожніми.' }
+    return { error: t.servingsNumber }
   }
   if (servings !== null && servings <= 0) {
-    return { error: '«Порції» мають бути додатним числом.' }
+    return { error: t.servingsPositive }
   }
   return {
     input: {
@@ -247,25 +233,16 @@ export type PlanEntryDraft = {
 export function validatePlanEntry(
   draft: PlanEntryDraft,
 ): Checked<{ meal: MealInput; recipe: RecipeInput | null }> {
+  const t = messages().forms
   const name = draft.name.trim()
-  if (!name) return { error: "Назва страви обов'язкова." }
-  if (draft.calories.trim() === '') {
-    return {
-      error:
-        'Впишіть калорійність — у PDF її немає, а без неї страва не потрапить у пул.',
-    }
-  }
+  if (!name) return { error: t.nameRequired }
+  if (draft.calories.trim() === '') return { error: t.caloriesMissing }
   const calories = numberFromField(draft.calories)
-  if (calories === null) {
-    return {
-      error: 'Калорійність має бути числом — приберіть із поля все, крім цифр.',
-    }
-  }
-  if (calories < 0)
-    return { error: "Калорійність має бути невід'ємним числом." }
+  if (calories === null) return { error: t.caloriesNumber }
+  if (calories < 0) return { error: t.caloriesNonNegative }
   const servings = numberFromField(draft.servings)
   if (draft.servings.trim() !== '' && (servings === null || servings < 1)) {
-    return { error: 'Порції — ціле число від 1 або порожньо.' }
+    return { error: t.servingsWhole }
   }
   const steps = linesFromText(draft.steps)
   return {

@@ -39,7 +39,7 @@ const AuthContext = createContext<AuthValue | null>(null)
 
 export function useAuth(): AuthValue {
   const value = useContext(AuthContext)
-  if (!value) throw new Error('useAuth поза AuthProvider')
+  if (!value) throw new Error('useAuth outside AuthProvider')
   return value
 }
 

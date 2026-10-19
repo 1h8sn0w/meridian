@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
-import { MEAL_TYPE_LABELS, formatMealCalories, portionOf } from '@meridian/core'
+import { formatMealCalories, portionOf } from '@meridian/core'
 import type { Meal, PortionLetter, Recipe } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import { useMeals, useProfiles, useRecipe } from '../lib/data/queries'
 import { saveRecipe } from '../lib/data/mutations'
 import { fieldText, validateRecipe } from '../lib/forms'
 import type { RecipeDraft } from '../lib/forms'
-import { plural } from '../lib/format'
+import { messages as currentMessages } from '../lib/i18n/locale'
+import { useMessages } from '../lib/i18n/use-messages'
 import { canKeepScreenAwake, keepScreenAwake } from '../lib/wake-lock'
 import { AppShell } from './AppShell'
 import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
@@ -32,6 +33,8 @@ export function RecipeScreen({
   mealId: string
   familyId: string
 }) {
+  const messages = useMessages()
+  const t = messages.recipe
   const profilesRead = useProfiles()
   const { profile } = useActiveProfile(profilesRead.data)
   const mealsRead = useMeals(profile?.portion)
@@ -48,15 +51,11 @@ export function RecipeScreen({
 
   if (!meal) {
     return (
-      <AppShell title="Рецепт">
+      <AppShell title={messages.titles.recipe}>
         <Back />
         <Problems of={problems} />
         <Panel>
-          <Hint>
-            {mealsRead.isLoading
-              ? 'Читаємо пул страв…'
-              : 'Страви більше немає в пулі — її видалили тут або на іншому пристрої.'}
-          </Hint>
+          <Hint>{mealsRead.isLoading ? t.readingMeals : t.gone}</Hint>
         </Panel>
       </AppShell>
     )
@@ -66,7 +65,8 @@ export function RecipeScreen({
     <AppShell
       title={meal.name}
       subtitle={
-        MEAL_TYPE_LABELS[meal.type] + (meal.source ? ' · ' + meal.source : '')
+        messages.common.mealType[meal.type] +
+        (meal.source ? ' · ' + meal.source : '')
       }
     >
       <Back />
@@ -88,7 +88,7 @@ export function RecipeScreen({
 
       <Panel>
         {recipeRead.isLoading ? (
-          <Hint>Читаємо рецепт…</Hint>
+          <Hint>{t.reading}</Hint>
         ) : editing ? (
           <RecipeForm
             mealId={mealId}
@@ -105,14 +105,10 @@ export function RecipeScreen({
                 ) : (
                   <Plus aria-hidden size={18} weight="bold" />
                 )}
-                {recipe ? 'Змінити рецепт' : 'Додати рецепт'}
+                {recipe ? t.edit : t.add}
               </Button>
             </div>
-            <Hint>
-              Кроки, час і фото можна додати й змінити тут — дослівно з плану
-              дієтолога або свої. Склад і калорійність редагуються на екрані
-              «Страви».
-            </Hint>
+            <Hint>{t.hint}</Hint>
           </>
         )}
       </Panel>
@@ -121,6 +117,7 @@ export function RecipeScreen({
 }
 
 function Back() {
+  const t = useMessages().recipe
   const router = useRouter()
   const [from] = useState(() => {
     const { state } = router.latestLocation
@@ -144,24 +141,25 @@ function Back() {
         }}
       >
         <CaretLeft aria-hidden size={14} weight="bold" />
-        Назад
+        {t.back}
       </a>
     )
   }
   return (
     <Link to="/meals" className={look}>
       <CaretLeft aria-hidden size={14} weight="bold" />
-      До страв
+      {t.toMeals}
     </Link>
   )
 }
 
 function Photo({ meal, photo }: { meal: Meal; photo: string | null }) {
+  const t = useMessages().recipe
   if (!photo) return null
   return (
     <img
       src={photo}
-      alt={'Фото: ' + meal.name}
+      alt={t.photoAlt(meal.name)}
       className="mb-3 block max-h-72 w-full rounded-2xl object-cover motion-safe:animate-fade"
     />
   )
@@ -174,7 +172,7 @@ async function shrink(file: File): Promise<string> {
       const element = new Image()
       element.onload = () => resolve(element)
       element.onerror = () =>
-        reject(new Error('Не вдалося прочитати зображення.'))
+        reject(new Error(currentMessages().recipe.imageFailed))
       element.src = url
     })
     const scale = Math.min(1, 800 / Math.max(image.width, image.height))
@@ -182,7 +180,7 @@ async function shrink(file: File): Promise<string> {
     canvas.width = Math.max(1, Math.round(image.width * scale))
     canvas.height = Math.max(1, Math.round(image.height * scale))
     const context = canvas.getContext('2d')
-    if (!context) throw new Error('Браузер не дав полотна для стиснення фото.')
+    if (!context) throw new Error(currentMessages().recipe.noCanvas)
     context.drawImage(image, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/jpeg', 0.8)
   } finally {
@@ -199,19 +197,19 @@ function Chips({
   recipe: Recipe | null
   portion: PortionLetter
 }) {
-  const calories = formatMealCalories(meal)
+  const messages = useMessages()
+  const t = messages.recipe
+  const calories = formatMealCalories(meal, messages.common.kcalUnit)
   const chips: Array<{ value: string; label: string }> = [
-    ...(calories
-      ? [{ value: calories, label: 'калорійність · ' + portion }]
-      : []),
+    ...(calories ? [{ value: calories, label: t.calories(portion) }] : []),
     ...(recipe?.prepTime != null
-      ? [{ value: recipe.prepTime + ' хв', label: 'готувати' }]
+      ? [{ value: messages.common.minutes(recipe.prepTime), label: t.prep }]
       : []),
     ...(recipe?.servings != null
       ? [
           {
             value: String(recipe.servings),
-            label: plural(recipe.servings, 'порція', 'порції', 'порцій'),
+            label: t.servings(recipe.servings),
           },
         ]
       : []),
@@ -235,6 +233,7 @@ function Chips({
 }
 
 function StayAwake() {
+  const t = useMessages().recipe
   const [on, setOn] = useState(false)
   const [refused, setRefused] = useState(false)
 
@@ -257,14 +256,9 @@ function StayAwake() {
         }}
       >
         <Sun aria-hidden size={14} weight={on ? 'fill' : 'regular'} />
-        Не гасити екран
+        {t.stayAwake}
       </Chip>
-      {refused ? (
-        <Warn>
-          Браузер не дав тримати екран увімкненим — можливо, через режим
-          енергозбереження.
-        </Warn>
-      ) : null}
+      {refused ? <Warn>{t.awakeRefused}</Warn> : null}
     </div>
   )
 }
@@ -276,6 +270,7 @@ function Steps({
   steps: ReadonlyArray<string>
   servings: number | null
 }) {
+  const t = useMessages().recipe
   const [done, setDone] = useState<ReadonlySet<number>>(new Set())
   if (!steps.length) return null
   const toggle = (index: number) =>
@@ -287,17 +282,10 @@ function Steps({
   return (
     <>
       <SectionLabel>
-        Приготування
-        {servings === null
-          ? ''
-          : ' · на ' +
-            servings +
-            ' ' +
-            plural(servings, 'порцію', 'порції', 'порцій')}
+        {t.cooking}
+        {servings === null ? '' : t.forServings(servings)}
       </SectionLabel>
-      <p className="m-0 text-xs text-muted">
-        Натисніть на крок, щоб відмітити його зробленим.
-      </p>
+      <p className="m-0 text-xs text-muted">{t.tapStep}</p>
       <ol className="mb-0 mt-1 list-decimal pl-5 text-sm leading-relaxed marker:font-mono marker:text-accent">
         {steps.map((step, index) => (
           <li key={index} className="my-px">
@@ -332,6 +320,8 @@ function RecipeForm({
   onDone: () => void
 }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.recipe
   const [draft, setDraft] = useState<RecipeDraft>(() => ({
     steps: recipe ? recipe.steps.join('\n') : '',
     prepTime: fieldText(recipe?.prepTime),
@@ -374,17 +364,17 @@ function RecipeForm({
   return (
     <>
       <TextField
-        label="Кроки приготування"
-        hint="По одному в рядку. Порожньо — секції не буде."
+        label={t.steps}
+        hint={t.stepsHint}
         rows={5}
-        placeholder={'Відварити гречку 15 хв.\nОбсмажити філе до золотистого.'}
+        placeholder={t.stepsPlaceholder}
         value={draft.steps}
         onChange={(e) => patch({ steps: e.target.value })}
       />
 
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label="Час приготування, хв"
+          label={t.prepTime}
           type="number"
           min={0}
           step={1}
@@ -393,7 +383,7 @@ function RecipeForm({
           onChange={(e) => patch({ prepTime: e.target.value })}
         />
         <Field
-          label="Порції"
+          label={t.servingsField}
           type="number"
           min={1}
           step={1}
@@ -404,7 +394,8 @@ function RecipeForm({
       </div>
 
       <label className="block text-sm text-muted">
-        Фото{draft.photo ? ' · обрано' : " · необов'язково"}
+        {t.photo}
+        {draft.photo ? t.photoChosen : t.photoOptional}
         <input
           type="file"
           accept="image/*"
@@ -414,7 +405,9 @@ function RecipeForm({
       </label>
       {draft.photo ? (
         <div className="mt-1.5">
-          <Button onClick={() => patch({ photo: null })}>Прибрати фото</Button>
+          <Button onClick={() => patch({ photo: null })}>
+            {t.removePhoto}
+          </Button>
         </div>
       ) : null}
 
@@ -422,10 +415,10 @@ function RecipeForm({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          Зберегти
+          {messages.common.save}
         </Button>
         <Button disabled={busy} onClick={onDone}>
-          Скасувати
+          {messages.common.cancel}
         </Button>
       </div>
     </>

@@ -10,7 +10,7 @@ export const Route = createFileRoute('/meals')({
 
 function Meals() {
   return (
-    <RequireLocalDb title="Страви">
+    <RequireLocalDb screen="meals">
       {(familyId) => <MealsScreen familyId={familyId} />}
     </RequireLocalDb>
   )

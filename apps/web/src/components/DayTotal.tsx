@@ -1,6 +1,6 @@
 import { dayInCorridor, formatDayCalories } from '@meridian/core'
 import type { DayCalories } from '@meridian/core'
-import { plural } from '../lib/format'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function DayTotal({
   calories,
@@ -9,13 +9,10 @@ export function DayTotal({
   calories: DayCalories
   plan: { target: number; corridor: number } | null
 }) {
-  const total = formatDayCalories(calories)
+  const t = useMessages()
+  const total = formatDayCalories(calories, t.common.kcalUnit)
   if (!total) {
-    return (
-      <p className="mb-0 mt-3 text-sm text-muted">
-        Калорійність дня невідома — у страв цього дня немає цифр.
-      </p>
-    )
+    return <p className="mb-0 mt-3 text-sm text-muted">{t.dayTotal.unknown}</p>
   }
   const within =
     plan !== null && dayInCorridor(calories, plan.target, plan.corridor)
@@ -27,16 +24,13 @@ export function DayTotal({
         : 'bg-warning-soft text-warning'
   return (
     <p className={`mb-0 mt-3 rounded-2xl px-3.5 py-2.5 text-sm ${tone}`}>
-      Разом за день: {total}
-      {plan ? ` · ціль ${plan.target} ± ${plan.corridor} ккал` : ''}
+      {t.dayTotal.total(total)}
+      {plan ? t.dayTotal.target(plan.target, plan.corridor) : ''}
       {calories.unknown > 0
-        ? ' · сума неповна: без цифр ' +
-          calories.unknown +
-          ' ' +
-          plural(calories.unknown, 'слот', 'слоти', 'слотів')
+        ? t.dayTotal.incomplete(calories.unknown)
         : within || !plan
           ? ''
-          : ' · поза коридором'}
+          : t.dayTotal.outside}
     </p>
   )
 }

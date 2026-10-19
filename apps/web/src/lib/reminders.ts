@@ -1,4 +1,4 @@
-import { MEAL_TYPE_LABELS } from '@meridian/core'
+import { getLocale, messages } from './i18n/locale.ts'
 import type { MealType } from '@meridian/core'
 
 import { formatMinute } from './day-clock.ts'
@@ -62,13 +62,10 @@ export function reminderMessage(
   meal: string | null,
 ): ReminderMessage {
   const lead = item.startMinute - item.fireMinute
+  const t = messages().reminders
   return {
-    title:
-      MEAL_TYPE_LABELS[item.type] +
-      (lead ? ' за ' + lead + ' хв' : ' починається') +
-      ' · о ' +
-      formatMinute(item.startMinute),
-    body: meal ?? 'На цей прийом плану немає — згенеруйте тиждень.',
+    title: t.notificationTitle(item.type, lead, formatMinute(item.startMinute)),
+    body: meal ?? t.noPlan,
     tag: 'meridian-' + dateKey + '-' + item.type,
   }
 }
@@ -132,7 +129,7 @@ export async function askPermission(): Promise<NotificationState> {
   try {
     return await Notification.requestPermission()
   } catch (error) {
-    console.warn('Не вдалося запитати дозвіл на сповіщення:', error)
+    console.warn('Notification permission request failed:', error)
     return Notification.permission
   }
 }
@@ -146,14 +143,18 @@ function controllingWorker(): boolean {
 }
 
 const OPTIONS = {
-  lang: 'uk',
   icon: '/icons/icon-192.png',
   badge: '/icons/icon-192.png',
 }
 
 export async function showReminder(message: ReminderMessage): Promise<void> {
   if (notificationState() !== 'granted') return
-  const options = { ...OPTIONS, body: message.body, tag: message.tag }
+  const options = {
+    ...OPTIONS,
+    lang: getLocale(),
+    body: message.body,
+    tag: message.tag,
+  }
 
   if (controllingWorker()) {
     try {
@@ -161,14 +162,17 @@ export async function showReminder(message: ReminderMessage): Promise<void> {
       await registration.showNotification(message.title, options)
       return
     } catch (error) {
-      console.warn('Воркер не показав сповіщення, показуємо напряму:', error)
+      console.warn(
+        'Service worker did not show the notification, showing directly:',
+        error,
+      )
     }
   }
 
   try {
     direct.push(new Notification(message.title, options))
   } catch (error) {
-    console.warn('Не вдалося показати сповіщення:', error)
+    console.warn('Showing the notification failed:', error)
   }
 }
 
@@ -180,6 +184,6 @@ export async function closeReminders(): Promise<void> {
     const shown = await registration.getNotifications()
     shown.forEach((notification) => notification.close())
   } catch (error) {
-    console.warn('Не вдалося прибрати сповіщення:', error)
+    console.warn('Closing notifications failed:', error)
   }
 }

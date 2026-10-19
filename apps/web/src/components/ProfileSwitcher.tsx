@@ -1,6 +1,7 @@
 import { GearSix } from '@phosphor-icons/react'
 import { Avatar } from './ui'
 import type { AppProfile } from '../lib/data/model'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function ProfileSwitcher({
   profiles,
@@ -13,6 +14,7 @@ export function ProfileSwitcher({
   onSelect: (id: string) => void
   onManage: () => void
 }) {
+  const t = useMessages()
   return (
     <div className="glass mb-4 flex gap-1 rounded-full p-1.5">
       {profiles.map((profile) => {
@@ -22,7 +24,11 @@ export function ProfileSwitcher({
             key={profile.id}
             type="button"
             aria-pressed={active}
-            title={`${profile.name} · ${profile.targetCalories} ± ${profile.corridor} ккал/день`}
+            title={t.profileSwitcher.summary(
+              profile.name,
+              profile.targetCalories,
+              profile.corridor,
+            )}
             onClick={() => onSelect(profile.id)}
             className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-full border-0 py-1 pl-1 pr-3 text-left transition duration-300 ease-spring active:scale-97 ${
               active
@@ -43,7 +49,7 @@ export function ProfileSwitcher({
                   active ? 'text-accent' : 'text-muted'
                 }`}
               >
-                {profile.targetCalories} ккал
+                {t.common.kcal(profile.targetCalories)}
               </span>
             </span>
           </button>
@@ -52,8 +58,8 @@ export function ProfileSwitcher({
 
       <button
         type="button"
-        title="Профілі"
-        aria-label="Керувати профілями"
+        title={t.profiles.title}
+        aria-label={t.profileSwitcher.manage}
         onClick={onManage}
         className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center self-center rounded-full border-0 bg-transparent p-0 text-muted transition duration-500 ease-spring hover:rotate-45 hover:text-content active:scale-90"
       >

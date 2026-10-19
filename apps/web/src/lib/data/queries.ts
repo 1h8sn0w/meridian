@@ -26,6 +26,7 @@ import {
 import type { AppProfile, CalendarDayView, WeekView } from './model'
 import { LATEST_PLAN_ORDER, NO_DATE, inList, placeholders } from './sql'
 import { errorText } from '../messages'
+import { messages } from '../i18n/locale'
 import { mealHoursFromRow } from '../day-clock'
 import type { MealHours } from '../day-clock'
 
@@ -55,7 +56,9 @@ function withQueryError(
   problems: Array<string>,
   error: Error | undefined,
 ): Array<string> {
-  return error ? problems.concat('Запит до бази: ' + error.message) : problems
+  return error
+    ? problems.concat(messages().common.queryProblem(error.message))
+    : problems
 }
 
 function useRead<TItem, TOut>(

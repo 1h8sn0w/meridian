@@ -13,14 +13,15 @@ import {
   UsersThree,
 } from '@phosphor-icons/react'
 import { catchUpScroll } from '../lib/scroll-catch-up'
+import { useMessages } from '../lib/i18n/use-messages'
 import { ScreenHeader } from './ui'
 
 const TABS = [
-  { to: '/', label: 'Сьогодні', icon: SunHorizon },
-  { to: '/week', label: 'Тиждень', icon: Rows },
-  { to: '/calendar', label: 'Календар', icon: CalendarDots },
-  { to: '/meals', label: 'Страви', icon: CookingPot },
-  { to: '/family', label: 'Сім’я', icon: UsersThree },
+  { to: '/', title: 'today', icon: SunHorizon },
+  { to: '/week', title: 'week', icon: Rows },
+  { to: '/calendar', title: 'calendar', icon: CalendarDots },
+  { to: '/meals', title: 'meals', icon: CookingPot },
+  { to: '/family', title: 'family', icon: UsersThree },
 ] as const
 
 export function AppShell({
@@ -33,6 +34,7 @@ export function AppShell({
   children: ReactNode
 }) {
   useScrollCatchUp()
+  const t = useMessages()
   const path = useLocation({ select: (location) => location.pathname })
 
   return (
@@ -68,7 +70,9 @@ export function AppShell({
                   weight={isActive ? 'fill' : 'regular'}
                   className="relative"
                 />
-                <span className="relative leading-none">{tab.label}</span>
+                <span className="relative leading-none">
+                  {t.titles[tab.title]}
+                </span>
               </>
             )}
           </Link>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MEAL_TYPE_LABELS, dateKey, formatMealCalories } from '@meridian/core'
+import { dateKey, formatMealCalories } from '@meridian/core'
 import type { MealType } from '@meridian/core'
 import { useSyncState } from '../lib/powersync/provider'
 import { useActiveProfile } from '../lib/active-profile'
@@ -27,11 +27,13 @@ import {
 } from '../lib/reminders'
 import type { NotificationState, ReminderSettings } from '../lib/reminders'
 import { Button, ErrorText, Hint, Meta, Panel, SelectField } from './ui'
+import { messages } from '../lib/i18n/locale'
+import { useMessages } from '../lib/i18n/use-messages'
 
 function mealLabel(week: WeekView | null, slot: MealType): string | null {
   const meal = week?.days.find((day) => day.isToday)?.byType[slot]?.meal
   if (!meal) return null
-  const calories = formatMealCalories(meal)
+  const calories = formatMealCalories(meal, messages().common.kcalUnit)
   return calories ? meal.name + ' · ' + calories : meal.name
 }
 
@@ -74,25 +76,20 @@ function ReminderTicker() {
   return null
 }
 
-const PERMISSION_TEXT: Record<Exclude<NotificationState, 'granted'>, string> = {
-  denied:
-    'Сповіщення заблоковані для цього сайту — дозвольте їх у налаштуваннях браузера.',
-  default: 'Дозвіл на сповіщення не надано.',
-  unsupported: 'Цей браузер не підтримує сповіщень.',
-}
+type Refusal = Exclude<NotificationState, 'granted'>
 
 export function RemindersPanel({ week }: { week: WeekView | null }) {
+  const t = useMessages()
   const [settings, setSettings] = useState<ReminderSettings>(DEFAULT_SETTINGS)
   const [permission, setPermission] = useState<NotificationState>('default')
-  const [error, setError] = useState<string | null>(null)
+  const [refusal, setRefusal] = useState<Refusal | null>(null)
   const windows = windowsInPlan(useMealWindows().windows, week)
 
   useEffect(() => {
     setSettings(readSettings())
     const state = notificationState()
     setPermission(state)
-    if (state === 'denied' || state === 'unsupported')
-      setError(PERMISSION_TEXT[state])
+    if (state === 'denied' || state === 'unsupported') setRefusal(state)
   }, [])
 
   const save = (next: ReminderSettings) => {
@@ -105,16 +102,16 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
     if (!on) {
       save({ ...settings, enabled: false })
       void closeReminders()
-      setError(null)
+      setRefusal(null)
       return
     }
     const state = await askPermission()
     setPermission(state)
     if (state !== 'granted') {
-      setError(PERMISSION_TEXT[state])
+      setRefusal(state)
       return
     }
-    setError(null)
+    setRefusal(null)
     save({ ...settings, enabled: true })
   }
 
@@ -132,7 +129,7 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
   const on = settings.enabled && permission === 'granted'
 
   return (
-    <Panel title="Нагадування">
+    <Panel title={t.reminders.title}>
       <label className="flex items-center gap-2 text-sm text-content">
         <input
           type="checkbox"
@@ -141,12 +138,12 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
           disabled={permission === 'unsupported'}
           onChange={(event) => void toggle(event.target.checked)}
         />
-        Нагадувати перед прийомами
+        {t.reminders.enable}
       </label>
 
       <div className="mt-2.5">
         <SelectField
-          label="Випередження"
+          label={t.reminders.lead}
           value={String(settings.leadMinutes)}
           onChange={(event) =>
             save({ ...settings, leadMinutes: Number(event.target.value) })
@@ -154,36 +151,34 @@ export function RemindersPanel({ week }: { week: WeekView | null }) {
         >
           {LEAD_OPTIONS.map((minutes) => (
             <option key={minutes} value={minutes}>
-              {minutes} хв
+              {t.common.minutes(minutes)}
             </option>
           ))}
         </SelectField>
       </div>
 
       <Hint>
-        Сьогодні:{' '}
+        {t.reminders.today}
         {reminderSchedule(settings.leadMinutes, windows)
           .map(
             (item) =>
-              MEAL_TYPE_LABELS[item.type] +
+              t.common.mealType[item.type] +
               ' — ' +
               formatMinute(item.fireMinute),
           )
           .join(' · ')}
       </Hint>
 
-      {error ? <ErrorText failure={{ text: error }} /> : null}
+      {refusal ? (
+        <ErrorText failure={{ text: t.reminders.permission[refusal] }} />
+      ) : null}
 
-      <Meta>
-        Нагадування шле сама сторінка, тож вони приходять, поки застосунок
-        відкритий: сервера пушів у застосунку немає. На iPhone сповіщення
-        працюють лише у встановленому застосунку («Додати на екран «Додому»»).
-      </Meta>
+      <Meta>{t.reminders.hint}</Meta>
 
       {on ? (
         <div className="mt-2.5">
           <Button block onClick={test}>
-            Надіслати тестове сповіщення
+            {t.reminders.test}
           </Button>
         </div>
       ) : null}

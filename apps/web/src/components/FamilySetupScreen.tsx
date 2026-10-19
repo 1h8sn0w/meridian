@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import type { Failure } from '../lib/messages'
+import { useMessages } from '../lib/i18n/use-messages'
 import {
   AuthShell,
   Button,
@@ -13,6 +14,8 @@ import {
 
 export function FamilySetupScreen() {
   const { email, createFamily, joinFamily, signOut } = useAuth()
+  const messages = useMessages()
+  const t = messages.familySetup
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState<'create' | 'join' | null>(null)
@@ -30,15 +33,9 @@ export function FamilySetupScreen() {
   }
 
   return (
-    <AuthShell
-      title="Сім’я"
-      subtitle={`Ви увійшли як ${email ?? 'невідомий акаунт'}`}
-    >
-      <Panel title="Створити сім’ю">
-        <Hint>
-          Раціон, пул страв і список покупок будуть спільні для всіх, кого ви
-          сюди запросите.
-        </Hint>
+    <AuthShell title={messages.titles.family} subtitle={t.signedInAs(email)}>
+      <Panel title={t.create}>
+        <Hint>{t.createHint}</Hint>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -46,7 +43,7 @@ export function FamilySetupScreen() {
           }}
         >
           <Field
-            label="Назва сім’ї"
+            label={t.name}
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -58,17 +55,14 @@ export function FamilySetupScreen() {
               block
               disabled={busy !== null}
             >
-              {busy === 'create' ? 'Створюємо…' : 'Створити'}
+              {busy === 'create' ? t.creating : t.submitCreate}
             </Button>
           </div>
         </form>
       </Panel>
 
-      <Panel title="Приєднатися за кодом">
-        <Hint>
-          Код дає той, хто вже в сім’ї — на своєму екрані сім’ї. Дефіси, пробіли
-          й регістр значення не мають.
-        </Hint>
+      <Panel title={t.join}>
+        <Hint>{t.joinHint}</Hint>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -76,7 +70,7 @@ export function FamilySetupScreen() {
           }}
         >
           <Field
-            label="Код запрошення"
+            label={t.code}
             placeholder="A1B2-C3D4-E5F6"
             required
             autoComplete="off"
@@ -88,7 +82,7 @@ export function FamilySetupScreen() {
           />
           <div className="mt-3.5">
             <Button type="submit" block disabled={busy !== null}>
-              {busy === 'join' ? 'Приєднуємось…' : 'Приєднатися'}
+              {busy === 'join' ? t.joining : t.submitJoin}
             </Button>
           </div>
         </form>
@@ -97,7 +91,9 @@ export function FamilySetupScreen() {
       {failure ? <ErrorText failure={failure} /> : null}
 
       <p className="mt-4 text-center">
-        <LinkButton onClick={() => void signOut()}>Вийти</LinkButton>
+        <LinkButton onClick={() => void signOut()}>
+          {messages.auth.signOut}
+        </LinkButton>
       </p>
     </AuthShell>
   )

@@ -1,6 +1,7 @@
 import { parseStarterSet, starterMealId } from '@meridian/core'
 import type { StarterMeal } from '@meridian/core'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { messages } from './i18n/locale.ts'
 import { rpcFailure } from './messages.ts'
 import type { Failure, Outcome } from './messages.ts'
 
@@ -29,7 +30,7 @@ async function loadStarterMeals(
       ok: false,
       broken: true,
       failure: {
-        text: 'Стартовий набір на сервері некоректний — страви не додано.',
+        text: messages().starter.broken,
         detail: parsed.error,
       },
     }

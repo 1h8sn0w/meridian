@@ -1,10 +1,5 @@
 import { useState } from 'react'
-import {
-  MEAL_TYPE_LABELS,
-  dateKey,
-  formatMealCalories,
-  poolShortageFor,
-} from '@meridian/core'
+import { dateKey, formatMealCalories, poolShortageFor } from '@meridian/core'
 import type { MealType, PortionLetter, TastePrefs } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import {
@@ -35,16 +30,18 @@ import { RemindersPanel } from './Reminders'
 import { SwapDialog } from './SwapDialog'
 import { ArrowsLeftRight, Heart, Prohibit } from '@phosphor-icons/react'
 import { Button, Hint, Panel, Problems, Tag } from './ui'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function TasteMark({
   value,
 }: {
   value: 'favorite' | 'disliked' | null
 }) {
+  const t = useMessages()
   if (!value) return null
   return value === 'favorite' ? (
     <Tag tone="accent">
-      <Heart weight="fill" size={12} role="img" aria-label="Улюблене" />
+      <Heart weight="fill" size={12} role="img" aria-label={t.taste.favorite} />
     </Tag>
   ) : (
     <Tag tone="warn">
@@ -52,7 +49,7 @@ export function TasteMark({
         weight="bold"
         size={12}
         role="img"
-        aria-label="Не подобається"
+        aria-label={t.taste.disliked}
       />
     </Tag>
   )
@@ -60,6 +57,7 @@ export function TasteMark({
 
 export function TodayScreen({ familyId }: { familyId: string }) {
   const now = useNow()
+  const t = useMessages()
   const minutes = minutesOf(now)
   const todayKey = dateKey(now)
 
@@ -92,7 +90,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   ]
 
   return (
-    <AppShell title="Сьогодні" subtitle={formatToday(now)}>
+    <AppShell title={t.titles.today} subtitle={formatToday(now)}>
       <Problems of={problems} />
 
       {profilesRead.data.length ? (
@@ -178,9 +176,10 @@ function CurrentMeal({
   prefs: TastePrefs
   onSwap: (dayIndex: number, slot: MealType) => void
 }) {
+  const t = useMessages()
   const heading = (
     <h2 className="mb-2 mt-0 text-lg font-semibold tracking-tight">
-      Поточна страва
+      {t.today.current}
       {showProfileName ? (
         <span className="text-accent"> · {profileName}</span>
       ) : null}
@@ -203,7 +202,7 @@ function CurrentMeal({
     return (
       <Panel>
         {heading}
-        <Hint>Часових вікон прийомів немає — годинник дня порожній.</Hint>
+        <Hint>{t.today.noWindows}</Hint>
       </Panel>
     )
   }
@@ -214,27 +213,23 @@ function CurrentMeal({
         {heading}
         <Hint>
           {todayIndex === -1
-            ? 'Сьогодні поза періодом збереженого плану — перегенеруйте тиждень.'
+            ? t.today.outsidePlan
             : slotView
-              ? 'Страву цього слота видалено з пулу — перегенеруйте тиждень.'
-              : 'Наступний прийом уже поза періодом плану — перегенеруйте тиждень.'}
+              ? t.today.mealRemoved
+              : t.today.nextOutsidePlan}
         </Hint>
       </Panel>
     )
   }
 
   const label = active.type
-    ? 'Зараз: ' +
-      MEAL_TYPE_LABELS[active.type] +
-      ' (до ' +
-      formatMinute(active.window.endMinute) +
-      ')'
+    ? t.today.now(active.type, formatMinute(active.window.endMinute))
     : active.next
-      ? 'Далі: ' +
-        MEAL_TYPE_LABELS[active.next.type] +
-        ' о ' +
-        formatMinute(active.next.startMinute) +
-        (dayOffset ? ' (завтра)' : '')
+      ? t.today.next(
+          active.next.type,
+          formatMinute(active.next.startMinute),
+          dayOffset > 0,
+        )
       : ''
 
   return (
@@ -256,7 +251,7 @@ function CurrentMeal({
           ) : null}
         </div>
         <div className="whitespace-nowrap font-mono text-lg font-semibold tabular-nums text-accent">
-          {formatMealCalories(meal)}
+          {formatMealCalories(meal, t.common.kcalUnit)}
         </div>
       </div>
 
@@ -278,7 +273,7 @@ function CurrentMeal({
         <div className="mt-4">
           <Button block onClick={() => onSwap(dayIndex, slot)}>
             <ArrowsLeftRight aria-hidden size={18} />
-            Замінити страву
+            {t.today.swap}
           </Button>
         </div>
       )}

@@ -3,14 +3,15 @@ import { usePowerSync } from '@powersync/react'
 import { DEFAULTS } from '@meridian/core'
 import { saveAntiRepeatDays } from '../lib/data/mutations'
 import { useAntiRepeatDays } from '../lib/data/queries'
-import { plural } from '../lib/format'
 import { errorText } from '../lib/messages'
+import { useMessages } from '../lib/i18n/use-messages'
 import { Meta, Panel, Problems, SelectField, Warn } from './ui'
 
 const DAY_CHOICES = Array.from({ length: DEFAULTS.days }, (_, i) => i + 1)
 
 export function AntiRepeatPanel({ familyId }: { familyId: string }) {
   const db = usePowerSync()
+  const t = useMessages()
   const read = useAntiRepeatDays()
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -28,23 +29,20 @@ export function AntiRepeatPanel({ familyId }: { familyId: string }) {
   }
 
   return (
-    <Panel title="Антиповтор">
+    <Panel title={t.antiRepeat.title}>
       <SelectField
-        label="Страва не частіше, ніж раз на"
+        label={t.antiRepeat.label}
         value={read.data}
         disabled={busy || read.isLoading}
         onChange={(event) => void save(Number(event.target.value))}
       >
         {DAY_CHOICES.map((n) => (
           <option key={n} value={n}>
-            {n + ' ' + plural(n, 'день', 'дні', 'днів')}
+            {t.common.days(n)}
           </option>
         ))}
       </SelectField>
-      <Meta>
-        Правило спільне для всієї сім&apos;ї. Діє з наступної генерації тижня й
-        заміни страви; вже складені плани не перераховуються.
-      </Meta>
+      <Meta>{t.antiRepeat.hint}</Meta>
       <Problems of={[read.problems]} />
       {failure ? <Warn>{failure}</Warn> : null}
     </Panel>

@@ -57,16 +57,17 @@ export function formatMacro(value: number | null | undefined): string {
 export function formatCalories(
   value: number | null | undefined,
   approx = false,
+  unit = 'ккал',
 ): string {
   if (!hasValue(value)) return ''
-  return (approx ? '≈' : '') + String(value) + ' ккал'
+  return (approx ? '≈' : '') + String(value) + ' ' + unit
 }
 
-export function formatMealCalories(meal: Meal): string {
-  return formatCalories(meal.calories, meal.caloriesApprox)
+export function formatMealCalories(meal: Meal, unit?: string): string {
+  return formatCalories(meal.calories, meal.caloriesApprox, unit)
 }
 
-export function formatPortionCalories(meal: Meal): string {
+export function formatPortionCalories(meal: Meal, unit?: string): string {
   return PORTION_LETTERS.filter((letter) =>
     hasValue(meal.nutrition[letter].calories),
   )
@@ -74,14 +75,18 @@ export function formatPortionCalories(meal: Meal): string {
       (letter) =>
         letter +
         ' ' +
-        formatCalories(meal.nutrition[letter].calories, meal.caloriesApprox),
+        formatCalories(
+          meal.nutrition[letter].calories,
+          meal.caloriesApprox,
+          unit,
+        ),
     )
     .join(' · ')
 }
 
-export function formatDayCalories(day: DayCalories): string {
+export function formatDayCalories(day: DayCalories, unit?: string): string {
   if (day.unknown > 0 && day.total === 0) return ''
-  return formatCalories(day.total, day.approx)
+  return formatCalories(day.total, day.approx, unit)
 }
 
 export function dayCalories(

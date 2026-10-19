@@ -1,11 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import {
-  MEAL_TYPES,
-  MEAL_TYPE_LABELS,
-  parsePlanText,
-  planEntryKey,
-} from '@meridian/core'
+import { MEAL_TYPES, parsePlanText, planEntryKey } from '@meridian/core'
 import type { MealType, PlanEntry, PlanParse } from '@meridian/core'
 import { useAuth } from '../lib/auth'
 import { useMeals } from '../lib/data/queries'
@@ -16,7 +11,8 @@ import { fieldText, validatePlanEntry } from '../lib/forms'
 import type { PlanEntryDraft } from '../lib/forms'
 import { ingredientsToText, portionsToText } from '../lib/meal-text'
 import { errorText } from '../lib/messages'
-import { plural } from '../lib/format'
+import { messages as currentMessages } from '../lib/i18n/locale'
+import { useMessages } from '../lib/i18n/use-messages'
 import {
   Button,
   Empty,
@@ -71,9 +67,7 @@ function cardsOf(
       error: null,
       flags: [
         ...entry.flags.map((flag) => flag.message),
-        ...(known
-          ? ['Така страва вже є в пулі — типово не імпортується.']
-          : []),
+        ...(known ? [currentMessages().pdf.known] : []),
       ],
     }
   })
@@ -87,6 +81,8 @@ export function PdfImportPanel({
   onDone: () => void
 }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.pdf
   const { supabase } = useAuth()
   const pool = useMeals()
 
@@ -124,26 +120,26 @@ export function PdfImportPanel({
     const token = ++latestRun.current
     const stale = () => token !== latestRun.current
     setProblem(null)
-    setStatus('Читаю «' + file.name + '»…')
+    setStatus(t.reading(file.name))
     try {
       const text = await extractPdfText(
         await file.arrayBuffer(),
         (page, total) => {
           if (!stale()) {
-            setStatus('Витягаю текст: сторінка ' + page + ' з ' + total + '…')
+            setStatus(t.page(page, total))
           }
         },
         stale,
       )
       if (stale()) return
       if (!text || !text.replace(/\s+/g, '')) {
-        throw new Error('У файлі не знайдено тексту (можливо, це скан).')
+        throw new Error(t.noText)
       }
       review(text, file.name)
     } catch (error) {
       if (stale()) return
       setStatus(null)
-      setProblem('Не вдалося прочитати PDF: ' + errorText(error))
+      setProblem(t.readFailed(errorText(error)))
     }
   }
 
@@ -194,9 +190,7 @@ export function PdfImportPanel({
             outcomes.set(index, {
               added: true,
               checked: false,
-              error:
-                'Страву додано, але кроки й порційність не збереглися: ' +
-                errorText(error),
+              error: t.recipeFailed(errorText(error)),
             })
           }
         }
@@ -214,18 +208,8 @@ export function PdfImportPanel({
         }) ?? null,
     )
     setStatus(
-      (added
-        ? 'Додано до пулу: ' +
-          added +
-          ' ' +
-          plural(added, 'страва', 'страви', 'страв') +
-          '. '
-        : '') +
-        (failed
-          ? 'Не додано: ' + failed + ' — див. позначки в картках.'
-          : added
-            ? 'Готово.'
-            : 'Нічого не вибрано.'),
+      (added ? t.added(added) : '') +
+        (failed ? t.failed(failed) : added ? t.done : t.nothing),
     )
 
     if (added) await archive()
@@ -237,16 +221,12 @@ export function PdfImportPanel({
     if (!source || archived || archiveInFlight.current) return
     archiveInFlight.current = true
     try {
-      if (!supabase) throw new Error('Сервер Supabase не налаштований.')
+      if (!supabase) throw new Error(t.noSupabase)
       await archivePlanSource(supabase, familyId, source.fileName, source.text)
       setArchived(true)
       setProblem(null)
     } catch (error) {
-      setProblem(
-        'Страви додано, але текст плану не збережено в архів імпортів — для ' +
-          'цього потрібна мережа. ' +
-          errorText(error),
-      )
+      setProblem(t.archiveFailed(errorText(error)))
     } finally {
       archiveInFlight.current = false
     }
@@ -265,13 +245,8 @@ export function PdfImportPanel({
 
   if (!cards || !stats) {
     return (
-      <Panel title="Імпорт із PDF-плану дієтолога">
-        <Hint>
-          Розпізнаємо лише те, що буквально є у файлі: назви, тип прийому,
-          інгредієнти, номер тижня, калорійність — де вказана. Чого в PDF немає,
-          те лишиться порожнім. Перед додаванням у пул усе перевіряєте й
-          підтверджуєте ви.
-        </Hint>
+      <Panel title={messages.meals.importPdf}>
+        <Hint>{t.hint}</Hint>
 
         <input
           type="file"
@@ -289,10 +264,10 @@ export function PdfImportPanel({
 
         <div className="mt-3">
           <TextField
-            label="Або вставте текст, скопійований із PDF"
+            label={t.paste}
             rows={6}
             value={paste}
-            placeholder={'День 1\nСніданок: …'}
+            placeholder={t.pastePlaceholder}
             onChange={(event) => setPaste(event.target.value)}
           />
           <div className="flex gap-2">
@@ -303,9 +278,9 @@ export function PdfImportPanel({
                 review(paste, null)
               }}
             >
-              Розпізнати текст
+              {t.recognize}
             </Button>
-            <Button onClick={close}>Скасувати</Button>
+            <Button onClick={close}>{messages.common.cancel}</Button>
           </div>
         </div>
       </Panel>
@@ -315,30 +290,22 @@ export function PdfImportPanel({
   const pending = cards.filter((card) => !card.added && card.checked).length
 
   return (
-    <Panel title="Перевірка перед додаванням">
+    <Panel title={t.reviewTitle}>
       <Hint>
-        Розпізнано страв: {stats.meals}
-        {stats.repeats ? ' · повторів між днями: ' + stats.repeats : ''}
-        {stats.dups ? ' · дублікатів назв: ' + stats.dups : ''}
-        {stats.weeks ? ' · тижнів: ' + stats.weeks : ''}
-        {stats.days ? ' · днів: ' + stats.days : ''}. Повтори («Той самий…») до
-        пулу не додаються — окрема страва вже є вище. Сумнівні місця мають
-        позначки, сирий текст плану — під кожною карткою.
+        {t.stats(
+          stats.meals,
+          stats.repeats,
+          stats.dups,
+          stats.weeks,
+          stats.days,
+        )}
       </Hint>
 
       {pool.problems.map((issue) => (
-        <Warn key={issue}>
-          Не вдалося прочитати пул страв, тож нічого не позначено наперед —
-          перевірте кожну картку самі. {issue}
-        </Warn>
+        <Warn key={issue}>{t.poolUnread(issue)}</Warn>
       ))}
 
-      {cards.length === 0 ? (
-        <Empty>
-          У тексті не розпізнано жодної страви. Перевірте, що це план із рядками
-          «Сніданок: …», «Обід: …».
-        </Empty>
-      ) : null}
+      {cards.length === 0 ? <Empty>{t.none}</Empty> : null}
 
       {cards.map((card, index) => (
         <ReviewCard
@@ -362,7 +329,7 @@ export function PdfImportPanel({
               void archive().finally(() => setBusy(false))
             }}
           >
-            Зберегти текст плану в архів
+            {t.archive}
           </Button>
         ) : null}
         <Button
@@ -370,13 +337,13 @@ export function PdfImportPanel({
           disabled={busy || pending === 0}
           onClick={() => void confirm()}
         >
-          {busy ? 'Додаємо…' : 'Додати вибрані до пулу (' + pending + ')'}
+          {busy ? t.adding : t.addChosen(pending)}
         </Button>
         <Button disabled={busy} onClick={restart}>
-          Інший файл
+          {t.another}
         </Button>
         <Button disabled={busy} onClick={close}>
-          Закрити
+          {messages.common.close}
         </Button>
       </div>
     </Panel>
@@ -394,14 +361,18 @@ function ReviewCard({
   onCheck: (checked: boolean) => void
   onPatch: (part: Partial<PlanEntryDraft>) => void
 }) {
+  const messages = useMessages()
+  const t = messages.pdf
+  const mealType = messages.common.mealType
   const { draft, entry } = card
 
   if (entry.kind === 'repeat') {
     return (
       <div className="mb-2.5 rounded-2xl border border-line px-3 py-2.5 opacity-70">
         <p className="m-0 text-sm text-muted">
-          {MEAL_TYPE_LABELS[entry.type]}
-          {entry.day ? ' · День ' + entry.day : ''} — повтор
+          {mealType[entry.type]}
+          {entry.day ? t.day(entry.day) : ''}
+          {t.repeat}
           {entry.name ? ': ' + entry.name : ''}
         </p>
         <RawText entry={entry} />
@@ -423,40 +394,40 @@ function ReviewCard({
           onChange={(event) => onCheck(event.target.checked)}
         />
         <span className="text-muted">
-          {MEAL_TYPE_LABELS[entry.type]}
-          {entry.day ? ' · День ' + entry.day : ''}
-          {card.added ? ' · уже в пулі' : ''}
+          {mealType[entry.type]}
+          {entry.day ? t.day(entry.day) : ''}
+          {card.added ? t.inPool : ''}
         </span>
       </label>
 
       <Field
-        label="Назва"
+        label={t.name}
         disabled={busy}
         value={draft.name}
         onChange={(event) => onPatch({ name: event.target.value })}
       />
       <SelectField
-        label="Тип слота"
+        label={t.type}
         disabled={busy}
         value={draft.type}
         onChange={(event) => onPatch({ type: event.target.value as MealType })}
       >
         {MEAL_TYPES.map((type) => (
           <option key={type} value={type}>
-            {MEAL_TYPE_LABELS[type]}
+            {mealType[type]}
           </option>
         ))}
       </SelectField>
       <Field
-        label="Калорійність, ккал"
+        label={t.calories}
         disabled={busy}
         inputMode="numeric"
-        placeholder="немає в PDF"
+        placeholder={t.caloriesPlaceholder}
         value={draft.calories}
         onChange={(event) => onPatch({ calories: event.target.value })}
       />
       <Field
-        label="Порції"
+        label={t.servings}
         disabled={busy}
         inputMode="numeric"
         placeholder="—"
@@ -464,27 +435,27 @@ function ReviewCard({
         onChange={(event) => onPatch({ servings: event.target.value })}
       />
       <Field
-        label="Джерело (план дієтолога)"
+        label={t.source}
         disabled={busy}
         value={draft.source}
         onChange={(event) => onPatch({ source: event.target.value })}
       />
       <TextField
-        label="Інгредієнти (по одному в рядку)"
+        label={t.ingredients}
         disabled={busy}
         rows={Math.min(6, Math.max(2, entry.ingredients.length))}
         value={draft.ingredients}
         onChange={(event) => onPatch({ ingredients: event.target.value })}
       />
       <TextField
-        label="Готова порція Ж/Ч (складник — до « — »)"
+        label={t.portions}
         disabled={busy}
         rows={Math.min(4, Math.max(2, entry.portions.length))}
         value={draft.portions}
         onChange={(event) => onPatch({ portions: event.target.value })}
       />
       <TextField
-        label="Кроки/нотатки з плану (по одному в рядку)"
+        label={t.steps}
         disabled={busy}
         rows={Math.min(4, Math.max(2, entry.steps.length))}
         value={draft.steps}
@@ -509,11 +480,10 @@ function ReviewCard({
 }
 
 function RawText({ entry }: { entry: PlanEntry }) {
+  const t = useMessages().pdf
   return (
     <details className="mt-2">
-      <summary className="cursor-pointer text-xs text-muted">
-        Сирий текст із плану
-      </summary>
+      <summary className="cursor-pointer text-xs text-muted">{t.raw}</summary>
       <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-line bg-app px-2.5 py-2 font-mono text-xs text-subtle">
         {entry.raw.join('\n')}
       </pre>

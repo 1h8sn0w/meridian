@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { usePowerSync } from '@powersync/react'
-import { DEFAULTS, MEAL_TYPE_LABELS, formatMealCalories } from '@meridian/core'
+import { DEFAULTS, formatMealCalories } from '@meridian/core'
 import type { Meal, PortionLetter } from '@meridian/core'
 import { DEFAULT_PROFILE_COLOR, PROFILE_COLORS } from '../lib/active-profile'
 import {
@@ -13,6 +13,7 @@ import { fieldText, validateProfile } from '../lib/forms'
 import type { ProfileDraft } from '../lib/forms'
 import type { AppProfile } from '../lib/data/model'
 import { Plus } from '@phosphor-icons/react'
+import { useMessages } from '../lib/i18n/use-messages'
 import {
   Avatar,
   Button,
@@ -70,6 +71,8 @@ export function ProfilesSheet({
   onClose: () => void
 }) {
   const db = usePowerSync()
+  const messages = useMessages()
+  const t = messages.profiles
   const [draft, setDraft] = useState<ProfileDraft | null>(
     profiles.length ? null : draftOf(null),
   )
@@ -103,17 +106,11 @@ export function ProfilesSheet({
   const remove = async () => {
     if (!draft?.id) return
     if (profiles.length === 1) {
-      setError('Не можна видалити останній профіль.')
+      setError(t.lastOne)
       return
     }
     const profile = profiles.find((p) => p.id === draft.id)
-    if (
-      !window.confirm(
-        'Видалити профіль «' +
-          (profile?.name ?? '') +
-          '»? Його тиждень і календар теж зникнуть.',
-      )
-    ) {
+    if (!window.confirm(t.deleteConfirm(profile?.name ?? ''))) {
       return
     }
     setBusy(true)
@@ -129,7 +126,7 @@ export function ProfilesSheet({
 
   if (!draft) {
     return (
-      <Sheet title="Профілі" onClose={onClose}>
+      <Sheet title={t.title} onClose={onClose}>
         <ul className="m-0 list-none p-0">
           {profiles.map((profile) => (
             <li
@@ -143,17 +140,15 @@ export function ProfilesSheet({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm">{profile.name}</span>
                 <span className="mt-0.5 block text-xs text-muted">
-                  {profile.targetCalories} ± {profile.corridor} ккал
-                  {profile.portion ? ' · порція ' + profile.portion : ''}
-                  {profile.sharedPlanWith ? ' · спільний план' : ''}
-                  {profile.sharedPlanWith || profile.withSnack
-                    ? ''
-                    : ' · без перекусу'}
-                  {profile.mealIds ? ' · пул: ' + profile.mealIds.length : ''}
+                  {t.corridor(profile.targetCalories, profile.corridor)}
+                  {profile.portion ? t.portion(profile.portion) : ''}
+                  {profile.sharedPlanWith ? t.shared : ''}
+                  {profile.sharedPlanWith || profile.withSnack ? '' : t.noSnack}
+                  {profile.mealIds ? t.poolSize(profile.mealIds.length) : ''}
                 </span>
               </span>
               <LinkButton onClick={() => setDraft(draftOf(profile))}>
-                Змінити
+                {t.change}
               </LinkButton>
             </li>
           ))}
@@ -166,7 +161,7 @@ export function ProfilesSheet({
             onClick={() => setDraft(draftOf(null))}
           >
             <Plus aria-hidden size={18} weight="bold" />
-            Додати профіль
+            {t.add}
           </Button>
         </div>
       </Sheet>
@@ -176,20 +171,17 @@ export function ProfilesSheet({
   const owners = profiles.filter((p) => p.id !== draft.id && !p.sharedPlanWith)
 
   return (
-    <Sheet
-      title={draft.id ? 'Редагувати профіль' : 'Новий профіль'}
-      onClose={onClose}
-    >
+    <Sheet title={draft.id ? t.edit : t.create} onClose={onClose}>
       <Field
-        label="Ім’я"
+        label={t.name}
         value={draft.name}
-        placeholder="Мій профіль"
+        placeholder={t.namePlaceholder}
         onChange={(e) => patch({ name: e.target.value })}
       />
 
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label="Ціль, ккал/день"
+          label={t.target}
           type="number"
           min={1}
           step={10}
@@ -197,7 +189,7 @@ export function ProfilesSheet({
           onChange={(e) => patch({ targetCalories: e.target.value })}
         />
         <Field
-          label="Коридор, ±ккал"
+          label={t.corridorField}
           type="number"
           min={0}
           step={10}
@@ -207,13 +199,13 @@ export function ProfilesSheet({
       </div>
 
       <div className="mb-2.5">
-        <span className="block text-sm font-medium text-muted">Колір</span>
+        <span className="block text-sm font-medium text-muted">{t.color}</span>
         <div className="mb-0.5 mt-1 flex gap-3">
           {PROFILE_COLORS.map((color) => (
             <button
               key={color}
               type="button"
-              aria-label={'Колір ' + color}
+              aria-label={t.colorOption(color)}
               aria-pressed={draft.color === color}
               onClick={() => patch({ color })}
               style={{ '--swatch-color': color } as CSSProperties}
@@ -228,47 +220,45 @@ export function ProfilesSheet({
       </div>
 
       <SelectField
-        label="Порція з плану дієтолога"
+        label={t.portionField}
         value={draft.portion}
         onChange={(e) =>
           patch({ portion: e.target.value as '' | PortionLetter })
         }
       >
-        <option value="">— не задано</option>
+        <option value="">{t.noPortion}</option>
         <option value="Ж">Ж</option>
         <option value="Ч">Ч</option>
       </SelectField>
 
       <SelectField
-        label="Спільний план із профілем"
+        label={t.sharedWith}
         value={draft.sharedPlanWith}
         onChange={(e) => patch({ sharedPlanWith: e.target.value })}
       >
-        <option value="">— власний план</option>
+        <option value="">{t.ownPlan}</option>
         {owners.map((owner) => (
           <option key={owner.id} value={owner.id}>
             {owner.name}
           </option>
         ))}
       </SelectField>
-      <Hint>
-        Пов’язані профілі їдять ті самі страви — план у них один, власників.
-      </Hint>
+      <Hint>{t.sharedHint}</Hint>
 
       {draft.sharedPlanWith ? null : (
         <SelectField
-          label="Перекус"
+          label={t.snack}
           value={draft.withSnack ? 'daily' : 'none'}
           onChange={(e) => patch({ withSnack: e.target.value === 'daily' })}
         >
-          <option value="daily">щодня</option>
-          <option value="none">без перекусу</option>
+          <option value="daily">{t.snackDaily}</option>
+          <option value="none">{t.snackNone}</option>
         </SelectField>
       )}
 
       <div className="flex gap-2 [&>*]:flex-1">
         <Field
-          label="Білки, г"
+          label={messages.common.macroFields.protein}
           type="number"
           min={0}
           step="0.1"
@@ -277,7 +267,7 @@ export function ProfilesSheet({
           onChange={(e) => patch({ goalProtein: e.target.value })}
         />
         <Field
-          label="Жири, г"
+          label={messages.common.macroFields.fat}
           type="number"
           min={0}
           step="0.1"
@@ -286,7 +276,7 @@ export function ProfilesSheet({
           onChange={(e) => patch({ goalFat: e.target.value })}
         />
         <Field
-          label="Вуглеводи, г"
+          label={messages.common.macroFields.carbs}
           type="number"
           min={0}
           step="0.1"
@@ -297,7 +287,7 @@ export function ProfilesSheet({
       </div>
 
       <div className="mb-2.5">
-        <span className="block text-sm font-medium text-muted">Пул страв</span>
+        <span className="block text-sm font-medium text-muted">{t.pool}</span>
         <label className="mt-1 flex items-center gap-2 text-sm text-content">
           <input
             type="checkbox"
@@ -309,13 +299,11 @@ export function ProfilesSheet({
               })
             }
           />
-          Увесь спільний пул
+          {t.wholePool}
         </label>
         {draft.mealIds !== null ? (
           <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border border-line px-2.5 py-1">
-            {meals.length === 0 ? (
-              <Hint>Пул порожній — додайте страви на екрані «Страви».</Hint>
-            ) : null}
+            {meals.length === 0 ? <Hint>{t.emptyPool}</Hint> : null}
             {meals.map((meal) => {
               const on = draft.mealIds?.includes(meal.id) ?? false
               return (
@@ -338,9 +326,9 @@ export function ProfilesSheet({
                     }
                   />
                   <span className="min-w-0 flex-1">{meal.name}</span>
-                  <Tag>{MEAL_TYPE_LABELS[meal.type]}</Tag>
+                  <Tag>{messages.common.mealType[meal.type]}</Tag>
                   <span className="whitespace-nowrap text-xs text-muted">
-                    {formatMealCalories(meal)}
+                    {formatMealCalories(meal, messages.common.kcalUnit)}
                   </span>
                 </label>
               )
@@ -353,11 +341,11 @@ export function ProfilesSheet({
 
       <div className="mt-3.5 flex gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void save()}>
-          Зберегти
+          {messages.common.save}
         </Button>
         {profiles.length ? (
           <Button disabled={busy} onClick={() => setDraft(null)}>
-            Скасувати
+            {messages.common.cancel}
           </Button>
         ) : null}
         <span className="flex-1" />
@@ -368,7 +356,7 @@ export function ProfilesSheet({
             onClick={() => void remove()}
             className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Видалити
+            {messages.common.delete}
           </button>
         ) : null}
       </div>

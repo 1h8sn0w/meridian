@@ -1,5 +1,6 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react'
-import { plural } from '../lib/format'
+import { messages } from '../lib/i18n/locale'
+import { useMessages } from '../lib/i18n/use-messages'
 
 export function MealSearch({
   value,
@@ -8,6 +9,7 @@ export function MealSearch({
   value: string
   onChange: (value: string) => void
 }) {
+  const t = useMessages()
   return (
     <div className="relative mb-3">
       <MagnifyingGlass
@@ -22,8 +24,8 @@ export function MealSearch({
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur()
         }}
-        aria-label="Пошук страв"
-        placeholder="Назва або інгредієнт"
+        aria-label={t.search.label}
+        placeholder={t.search.placeholder}
         enterKeyHint="search"
         autoComplete="off"
         spellCheck={false}
@@ -32,8 +34,8 @@ export function MealSearch({
       {value ? (
         <button
           type="button"
-          aria-label="Очистити пошук"
-          title="Очистити пошук"
+          aria-label={t.search.clear}
+          title={t.search.clear}
           onClick={() => onChange('')}
           className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted transition-transform duration-300 ease-spring hover:text-content active:scale-90 motion-safe:animate-fade"
         >
@@ -45,13 +47,10 @@ export function MealSearch({
 }
 
 export function SearchFound({ count }: { count: number }) {
-  return (
-    <p className="m-0 mb-2 text-xs text-muted">
-      {'Знайдено ' + count + ' ' + plural(count, 'страву', 'страви', 'страв')}
-    </p>
-  )
+  const t = useMessages()
+  return <p className="m-0 mb-2 text-xs text-muted">{t.search.found(count)}</p>
 }
 
 export function notFoundText(query: string): string {
-  return 'Немає страв, де в назві чи інгредієнтах є «' + query.trim() + '»'
+  return messages().search.notFound(query.trim())
 }
