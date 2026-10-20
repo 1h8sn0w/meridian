@@ -1,7 +1,6 @@
 export {
   DEFAULT_PORTION,
   MEAL_TYPES,
-  MEAL_TYPE_LABELS,
   NO_NUTRITION,
   PORTION_LETTERS,
 } from './types.ts'
@@ -22,6 +21,7 @@ export type {
   TastePrefs,
   WeekParams,
   WeekPlan,
+  WeekWarning,
 } from './types.ts'
 
 export {
@@ -47,15 +47,11 @@ export {
   portionOf,
 } from './profile.ts'
 
-export {
-  DEFAULTS,
-  generateWeek,
-  poolShortageFor,
-  poolShortageMessage,
-} from './generator.ts'
-export type { PoolShortage } from './generator.ts'
+export { DEFAULTS, generateWeek, poolShortageFor } from './generator.ts'
+export type { GenerateFailure, PoolShortage } from './generator.ts'
 
 export { replaceSlot, suggestReplacements } from './replace.ts'
+export type { SlotFailure, SwapReason } from './replace.ts'
 
 export {
   addDays,

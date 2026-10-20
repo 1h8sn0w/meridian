@@ -86,7 +86,7 @@ export function SwapDialog({
   if (!result.ok) {
     return (
       <Sheet title={title} onClose={onClose}>
-        <Warn>{result.error}</Warn>
+        <Warn>{t.failure(result.error)}</Warn>
       </Sheet>
     )
   }
@@ -108,7 +108,7 @@ export function SwapDialog({
     setFailure(null)
     const next = replaceSlot(plan, dayIndex, slot, meal)
     if (!next.ok) {
-      setFailure(next.error)
+      setFailure(t.failure(next.error))
       setBusy(false)
       return
     }
@@ -185,7 +185,7 @@ export function SwapDialog({
                 </Tag>
               ) : null}
               {candidate.reasons.map((reason) => (
-                <Tag key={reason}>{reason}</Tag>
+                <Tag key={reason}>{t.reason[reason]}</Tag>
               ))}
             </span>
             <span className="mt-1 block font-mono text-xs tabular-nums text-muted">

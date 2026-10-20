@@ -1,4 +1,4 @@
-import type { MealType } from '@meridian/core'
+import type { MealType, PoolShortage } from '@meridian/core'
 import type { Messages } from './uk.ts'
 
 const RULES = new Intl.PluralRules('en-GB')
@@ -19,6 +19,23 @@ const meal = (type: MealType) => MEAL_TYPE[type].toLowerCase()
 const days = (n: number) => n + ' ' + plural(n, 'day', 'days')
 const meals = (n: number) => n + ' ' + plural(n, 'meal', 'meals')
 const slots = (n: number) => n + ' ' + plural(n, 'slot', 'slots')
+
+const poolShortage = (
+  shortage: ReadonlyArray<PoolShortage>,
+  antiRepeatDays: number,
+) =>
+  'Not enough meals in the pool. The rule “at most once every ' +
+  days(antiRepeatDays) +
+  '” needs at least ' +
+  meals(antiRepeatDays) +
+  ' of each type, and now there are: ' +
+  shortage
+    .map(
+      ({ type, have, need }) =>
+        MEAL_TYPE[type] + ' — ' + have + ' (needed ≥ ' + need + ')',
+    )
+    .join('; ') +
+  '. Add meals on the “Meals” screen or lower the no-repeat setting on the “Today” screen.'
 
 export const en: Messages = {
   common: {
@@ -473,6 +490,55 @@ export const en: Messages = {
     incompleteShort: ' · incomplete',
     outside: ' · outside the range',
     swap: (type) => 'Swap meal: ' + MEAL_TYPE[type],
+    poolShortage,
+    failure: (failure) => {
+      switch (failure.code) {
+        case 'invalidTarget':
+          return 'The daily calorie target must be a positive number.'
+        case 'poolShortage':
+          return poolShortage(failure.shortage, failure.antiRepeatDays)
+        case 'noFit':
+          return (
+            'Could not build a week for ' +
+            failure.target +
+            ' kcal/day even with a ±' +
+            failure.corridor +
+            ' kcal range. Change the target or add meals to the pool.'
+          )
+        case 'emptyPool':
+          return 'The meal pool is empty — add meals on the “Meals” screen.'
+      }
+    },
+    warning: (warning) => {
+      switch (warning.code) {
+        case 'caloriesUnknown':
+          return (
+            'Meals without calories for portion ' +
+            warning.portion +
+            ': ' +
+            warning.count +
+            '. They were left out of the selection — the day’s range counts only known figures.'
+          )
+        case 'corridorWidened':
+          return (
+            'Could not stay within ±' +
+            warning.corridor +
+            ' kcal — the range was widened to ±' +
+            warning.used +
+            ' kcal.'
+          )
+        case 'mixBlockedByDislikes':
+          return '“Disliked” marks narrowed the pool — a mix of plans became impossible.'
+        case 'mixImpossible':
+          return 'The pool does not allow a mix of plans — one plan covers every meal.'
+        case 'mixFailed':
+          return 'Could not combine different plans — the week is built from meals of one source.'
+        case 'mixFailedCorridorWidened':
+          return 'The range was widened to ±' + warning.used + ' kcal.'
+        case 'dislikedKept':
+          return 'The week cannot be built without meals marked “disliked” — they stayed in the plan. Remove the mark or add meals to the pool.'
+      }
+    },
   },
   calendar: {
     weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
@@ -518,6 +584,38 @@ export const en: Messages = {
     day: 'day → ',
     noneValid:
       'No swap keeps the week valid — every candidate breaks the range, the no-repeat rule or the mix of plans.',
+    reason: {
+      dayIncomplete: 'day calories incomplete',
+      outsideCorridor: 'outside the range',
+      repeatSoon: 'repeats nearby',
+      breaksMix: 'breaks the mix of plans',
+    },
+    failure: (failure) => {
+      switch (failure.code) {
+        case 'noDay':
+          return 'The plan has no day ' + failure.day + '.'
+        case 'unknownSlot':
+          return 'Unknown slot type: “' + failure.slot + '”.'
+        case 'noSlot':
+          return (
+            'Day ' +
+            failure.day +
+            ' has no “' +
+            MEAL_TYPE[failure.slot] +
+            '” slot.'
+          )
+        case 'typeMismatch':
+          return (
+            'The meal “' +
+            failure.meal +
+            '” is a ' +
+            meal(failure.mealType) +
+            ', and the slot is “' +
+            MEAL_TYPE[failure.slot] +
+            '”.'
+          )
+      }
+    },
   },
   shopping: {
     category: {

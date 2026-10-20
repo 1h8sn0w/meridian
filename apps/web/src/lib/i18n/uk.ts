@@ -1,4 +1,11 @@
-import type { MealType } from '@meridian/core'
+import type {
+  GenerateFailure,
+  MealType,
+  PoolShortage,
+  SlotFailure,
+  SwapReason,
+  WeekWarning,
+} from '@meridian/core'
 
 const RULES = new Intl.PluralRules('uk-UA')
 
@@ -26,6 +33,23 @@ const meals = (n: number) => n + ' ' + plural(n, 'страва', 'страви',
 const mealsAccusative = (n: number) =>
   n + ' ' + plural(n, 'страву', 'страви', 'страв')
 const slots = (n: number) => n + ' ' + plural(n, 'слот', 'слоти', 'слотів')
+
+const poolShortage = (
+  shortage: ReadonlyArray<PoolShortage>,
+  antiRepeatDays: number,
+) =>
+  'Недостатньо страв у пулі. Правило «не частіше, ніж раз на ' +
+  antiRepeatDays +
+  ' дн.» вимагає щонайменше ' +
+  antiRepeatDays +
+  ' страв кожного типу, а зараз: ' +
+  shortage
+    .map(
+      ({ type, have, need }) =>
+        MEAL_TYPE[type] + ' — ' + have + ' (потрібно ≥ ' + need + ')',
+    )
+    .join('; ') +
+  '. Додайте страви на екрані «Страви» або зменшіть антиповтор на екрані «Сьогодні».'
 
 export const uk = {
   common: {
@@ -488,6 +512,58 @@ export const uk = {
     incompleteShort: ' · сума неповна',
     outside: ' · поза коридором',
     swap: (type: MealType) => 'Замінити страву: ' + MEAL_TYPE[type],
+    poolShortage,
+    failure: (failure: GenerateFailure): string => {
+      switch (failure.code) {
+        case 'invalidTarget':
+          return 'Цільова калорійність дня має бути додатним числом.'
+        case 'poolShortage':
+          return poolShortage(failure.shortage, failure.antiRepeatDays)
+        case 'noFit':
+          return (
+            'Не вдалося зібрати тиждень під ' +
+            failure.target +
+            ' ккал/день навіть із коридором ±' +
+            failure.corridor +
+            ' ккал. Змініть ціль або поповніть пул страв.'
+          )
+        case 'emptyPool':
+          return 'Пул страв порожній — додайте страви на екрані «Страви».'
+      }
+    },
+    warning: (warning: WeekWarning): string => {
+      switch (warning.code) {
+        case 'caloriesUnknown':
+          return (
+            'Страв без калорійності для порції ' +
+            warning.portion +
+            ': ' +
+            warning.count +
+            '. Вони не брали участі в доборі — коридор дня рахується лише за відомими цифрами.'
+          )
+        case 'corridorWidened':
+          return (
+            'Не вдалося втриматись у ±' +
+            warning.corridor +
+            ' ккал — коридор розширено до ±' +
+            warning.used +
+            ' ккал.'
+          )
+        case 'mixBlockedByDislikes':
+          return 'Позначки «не подобається» звузили пул — мікс планів став неможливим.'
+        case 'mixImpossible':
+          return 'Пул не дозволяє мікс планів — усі страви покриває один план.'
+        case 'mixFailed':
+          return 'Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела.'
+        case 'mixFailedCorridorWidened':
+          return 'Коридор розширено до ±' + warning.used + ' ккал.'
+        case 'dislikedKept':
+          return (
+            'Без страв із позначкою «не подобається» тиждень не збирається — ' +
+            'вони лишились у плані. Приберіть позначку або поповніть пул.'
+          )
+      }
+    },
   },
   calendar: {
     weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'],
@@ -538,6 +614,38 @@ export const uk = {
     day: 'день → ',
     noneValid:
       'Жодна заміна не лишає тиждень валідним — усі кандидати порушують коридор, антиповтор або мікс планів.',
+    reason: {
+      dayIncomplete: 'калорійність дня неповна',
+      outsideCorridor: 'поза коридором',
+      repeatSoon: 'повтор поруч',
+      breaksMix: 'ламає мікс планів',
+    } satisfies Record<SwapReason, string>,
+    failure: (failure: SlotFailure): string => {
+      switch (failure.code) {
+        case 'noDay':
+          return 'У плані немає дня №' + failure.day + '.'
+        case 'unknownSlot':
+          return 'Невідомий тип слота: «' + failure.slot + '».'
+        case 'noSlot':
+          return (
+            'У дні №' +
+            failure.day +
+            ' немає слота «' +
+            MEAL_TYPE[failure.slot] +
+            '».'
+          )
+        case 'typeMismatch':
+          return (
+            'Страва «' +
+            failure.meal +
+            '» — це ' +
+            MEAL_TYPE[failure.mealType].toLowerCase() +
+            ', а слот — «' +
+            MEAL_TYPE[failure.slot] +
+            '».'
+          )
+      }
+    },
   },
   shopping: {
     category: {

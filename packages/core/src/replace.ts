@@ -1,7 +1,7 @@
 import { dayCalories, hasValue } from './provenance.ts'
 import { plansCovering, poolPlans, weekSources } from './plans.ts'
 import { DEFAULTS } from './generator.ts'
-import { MEAL_TYPES, MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+import { MEAL_TYPES, NO_PREFS } from './types.ts'
 import type {
   Meal,
   MealType,
@@ -12,6 +12,15 @@ import type {
   WeekPlan,
 } from './types.ts'
 
+export type SwapReason =
+  'dayIncomplete' | 'outsideCorridor' | 'repeatSoon' | 'breaksMix'
+
+export type SlotFailure =
+  | { code: 'noDay'; day: number }
+  | { code: 'unknownSlot'; slot: string }
+  | { code: 'noSlot'; day: number; slot: MealType }
+  | { code: 'typeMismatch'; meal: string; mealType: MealType; slot: MealType }
+
 type ReplacementCandidate = {
   meal: PlannedMeal
   dayCalories: number
@@ -21,7 +30,7 @@ type ReplacementCandidate = {
   favorite: boolean
   disliked: boolean
   valid: boolean
-  reasons: Array<string>
+  reasons: Array<SwapReason>
 }
 
 type Replacements = {
@@ -32,19 +41,26 @@ type Replacements = {
   candidates: Array<ReplacementCandidate>
 }
 
-function noSlot(
+function findSlot(
+  plan: WeekPlan,
   dayIndex: number,
   slotType: MealType,
-): { ok: false; error: string } {
-  return {
-    ok: false,
-    error:
-      'У дні №' +
-      (dayIndex + 1) +
-      ' немає слота «' +
-      MEAL_TYPE_LABELS[slotType] +
-      '».',
+): Result<{ day: PlanDay; current: Meal }, SlotFailure> {
+  const day = plan.days[dayIndex]
+  if (!Number.isInteger(dayIndex) || !day) {
+    return { ok: false, error: { code: 'noDay', day: dayIndex + 1 } }
   }
+  if (!MEAL_TYPES.includes(slotType)) {
+    return { ok: false, error: { code: 'unknownSlot', slot: slotType } }
+  }
+  const current = day.meals[slotType]
+  if (!current) {
+    return {
+      ok: false,
+      error: { code: 'noSlot', day: dayIndex + 1, slot: slotType },
+    }
+  }
+  return { ok: true, day, current }
 }
 
 export function suggestReplacements(
@@ -53,16 +69,10 @@ export function suggestReplacements(
   dayIndex: number,
   slotType: MealType,
   prefs: TastePrefs = NO_PREFS,
-): Result<Replacements> {
-  const day = plan.days[dayIndex]
-  if (!Number.isInteger(dayIndex) || !day) {
-    return { ok: false, error: 'У плані немає дня №' + (dayIndex + 1) + '.' }
-  }
-  if (!MEAL_TYPES.includes(slotType)) {
-    return { ok: false, error: 'Невідомий тип слота: «' + slotType + '».' }
-  }
-  const current = day.meals[slotType]
-  if (!current) return noSlot(dayIndex, slotType)
+): Result<Replacements, SlotFailure> {
+  const found = findSlot(plan, dayIndex, slotType)
+  if (!found.ok) return found
+  const { day, current } = found
   const target = plan.params.targetCalories
   const corridor = Number.isFinite(plan.usedCorridor)
     ? plan.usedCorridor
@@ -118,11 +128,11 @@ export function suggestReplacements(
       const mixOk =
         !mixRequired ||
         plansCovering(fixedWeekMeals.concat([meal]), universe).size === 0
-      const reasons: Array<string> = []
-      if (!dayComparable) reasons.push('калорійність дня неповна')
-      else if (!withinCorridor) reasons.push('поза коридором')
-      if (repeatSoon) reasons.push('повтор поруч')
-      if (!mixOk) reasons.push('ламає мікс планів')
+      const reasons: Array<SwapReason> = []
+      if (!dayComparable) reasons.push('dayIncomplete')
+      else if (!withinCorridor) reasons.push('outsideCorridor')
+      if (repeatSoon) reasons.push('repeatSoon')
+      if (!mixOk) reasons.push('breaksMix')
       return {
         meal,
         dayCalories: forecast,
@@ -153,30 +163,22 @@ export function replaceSlot(
   dayIndex: number,
   slotType: MealType,
   meal: Meal,
-): Result<{ plan: WeekPlan }> {
-  const day = plan.days[dayIndex]
-  if (!Number.isInteger(dayIndex) || !day) {
-    return { ok: false, error: 'У плані немає дня №' + (dayIndex + 1) + '.' }
-  }
-  if (!MEAL_TYPES.includes(slotType)) {
-    return { ok: false, error: 'Невідомий тип слота: «' + slotType + '».' }
-  }
-  if (!day.meals[slotType]) return noSlot(dayIndex, slotType)
+): Result<{ plan: WeekPlan }, SlotFailure> {
+  const found = findSlot(plan, dayIndex, slotType)
+  if (!found.ok) return found
   if (meal.type !== slotType) {
     return {
       ok: false,
-      error:
-        'Страва «' +
-        meal.name +
-        '» — це ' +
-        MEAL_TYPE_LABELS[meal.type].toLowerCase() +
-        ', а слот — «' +
-        MEAL_TYPE_LABELS[slotType] +
-        '».',
+      error: {
+        code: 'typeMismatch',
+        meal: meal.name,
+        mealType: meal.type,
+        slot: slotType,
+      },
     }
   }
 
-  const meals = { ...day.meals, [slotType]: meal }
+  const meals = { ...found.day.meals, [slotType]: meal }
   const nextDay: PlanDay = { meals, calories: dayCalories(meals) }
   const days = plan.days.map((d, i) => (i === dayIndex ? nextDay : d))
 

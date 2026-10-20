@@ -13,7 +13,7 @@ function plan(pool: Array<Meal>, targetCalories = 2050): WeekPlan {
     corridor: 100,
     random: seeded(101),
   })
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
   return result
 }
 
@@ -21,7 +21,7 @@ test('кандидати — лише страви того ж слота, бе�
   const pool = mixedPool()
   const week = plan(pool)
   const result = suggestReplacements(pool, week, 2, 'lunch')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
 
   assert.equal(result.current.id, week.days[2]?.meals.lunch?.id)
   assert.ok(result.candidates.length > 0)
@@ -43,13 +43,13 @@ test('MER-28: порушення названі поіменно, а канди�
   )
   const week = plan(pool)
   const result = suggestReplacements(pool, week, 3, 'lunch')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
 
   const huge = result.candidates.find((c) => c.meal.id === 'lunch-huge')
   assert.ok(huge, 'кандидата не знайдено')
   assert.equal(huge.withinCorridor, false)
   assert.equal(huge.valid, false)
-  assert.ok(huge.reasons.includes('поза коридором'))
+  assert.ok(huge.reasons.includes('outsideCorridor'))
 })
 
 test('MER-28: повтор у сусідньому дні позначається, а не мовчки дозволяється', () => {
@@ -58,19 +58,19 @@ test('MER-28: повтор у сусідньому дні позначаєтьс
   const neighbourId = week.days[2]?.meals.lunch?.id as string
 
   const result = suggestReplacements(pool, week, 3, 'lunch')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
   const neighbour = result.candidates.find((c) => c.meal.id === neighbourId)
   assert.ok(neighbour, 'сусідній обід мав бути серед кандидатів')
   assert.equal(neighbour.repeatSoon, true)
   assert.equal(neighbour.valid, false)
-  assert.ok(neighbour.reasons.includes('повтор поруч'))
+  assert.ok(neighbour.reasons.includes('repeatSoon'))
 })
 
 test('валідні кандидати стоять першими', () => {
   const pool = mixedPool()
   const week = plan(pool)
   const result = suggestReplacements(pool, week, 4, 'dinner')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
 
   const validity = result.candidates.map((c) => c.valid)
   const firstInvalid = validity.indexOf(false)
@@ -111,7 +111,7 @@ test('страву без калорійності в кандидати не п
   pool.push(meal({ id: 'no-kcal', type: 'dinner', calories: null }))
   const week = plan(pool)
   const result = suggestReplacements(pool, week, 1, 'dinner')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
   assert.ok(!result.candidates.some((c) => c.meal.id === 'no-kcal'))
 })
 
@@ -126,13 +126,13 @@ test('сусідній слот без калорійності — коридо
     calories: null,
   })
   const result = suggestReplacements(pool, week, 1, 'lunch')
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
   assert.ok(result.candidates.length > 0)
   for (const candidate of result.candidates) {
     assert.equal(candidate.withinCorridor, false)
     assert.equal(candidate.valid, false)
-    assert.ok(candidate.reasons.includes('калорійність дня неповна'))
-    assert.ok(!candidate.reasons.includes('поза коридором'))
+    assert.ok(candidate.reasons.includes('dayIncomplete'))
+    assert.ok(!candidate.reasons.includes('outsideCorridor'))
   }
 })
 
@@ -142,7 +142,7 @@ test('неіснуючий день і невідомий слот — зроз�
 
   const noDay = suggestReplacements(pool, week, 42, 'lunch')
   assert.equal(noDay.ok, false)
-  assert.match(noDay.error, /немає дня №43/)
+  assert.deepEqual(noDay.error, { code: 'noDay', day: 43 })
 
   const noSlot = suggestReplacements(
     pool,
@@ -151,7 +151,7 @@ test('неіснуючий день і невідомий слот — зроз�
     'brunch' as unknown as 'lunch',
   )
   assert.equal(noSlot.ok, false)
-  assert.match(noSlot.error, /Невідомий тип слота/)
+  assert.deepEqual(noSlot.error, { code: 'unknownSlot', slot: 'brunch' })
 })
 
 test('слота, якого в дні немає, ні запропонувати, ні замінити не можна', () => {
@@ -160,16 +160,16 @@ test('слота, якого в дні немає, ні запропонуват
     profile: profile({ id: 'p', targetCalories: 1750, withSnack: false }),
     random: seeded(101),
   })
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
   const snack = pool.find((m) => m.type === 'snack') as Meal
 
   const suggest = suggestReplacements(pool, result, 0, 'snack')
   assert.equal(suggest.ok, false)
-  assert.match(suggest.error, /немає слота «Перекус»/)
+  assert.deepEqual(suggest.error, { code: 'noSlot', day: 1, slot: 'snack' })
 
   const replace = replaceSlot(result, 0, 'snack', snack)
   assert.equal(replace.ok, false)
-  assert.match(replace.error, /немає слота «Перекус»/)
+  assert.deepEqual(replace.error, { code: 'noSlot', day: 1, slot: 'snack' })
 })
 
 test('заміна повертає новий план і не чіпає вхідний', () => {
@@ -181,7 +181,7 @@ test('заміна повертає новий план і не чіпає вх�
     (m) => m.type === 'lunch' && m.id !== week.days[1]?.meals.lunch?.id,
   ) as Meal
   const result = replaceSlot(week, 1, 'lunch', target)
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
 
   assert.equal(result.plan.days[1]?.meals.lunch?.id, target.id)
   assert.deepEqual(week, before, 'вхідний план мутовано')
@@ -200,7 +200,7 @@ test('калорійність дня після заміни перерахов
   ) as Meal
 
   const result = replaceSlot(week, 2, 'snack', target)
-  assert.ok(result.ok, result.ok ? '' : result.error)
+  assert.ok(result.ok, result.ok ? '' : JSON.stringify(result.error))
 
   const day = result.plan.days[2]
   assert.ok(day)
@@ -234,11 +234,11 @@ test('набір джерел після заміни перераховуєть
 
   const odd = one('lunch', 'l2', 'Тиждень 2')
   const patched = replaceSlot(week, 0, 'lunch', odd)
-  assert.ok(patched.ok, patched.ok ? '' : patched.error)
+  assert.ok(patched.ok, patched.ok ? '' : JSON.stringify(patched.error))
   assert.deepEqual(patched.plan.sources, ['Тиждень 1', 'Тиждень 2'])
 
   const reverted = replaceSlot(patched.plan, 0, 'lunch', meals.lunch)
-  assert.ok(reverted.ok, reverted.ok ? '' : reverted.error)
+  assert.ok(reverted.ok, reverted.ok ? '' : JSON.stringify(reverted.error))
   assert.deepEqual(reverted.plan.sources, ['Тиждень 1'])
 })
 
@@ -249,5 +249,10 @@ test('страва чужого типу в слот не стає', () => {
 
   const result = replaceSlot(week, 0, 'lunch', dinner)
   assert.equal(result.ok, false)
-  assert.match(result.error, /це вечеря, а слот — «Обід»/)
+  assert.deepEqual(result.error, {
+    code: 'typeMismatch',
+    meal: dinner.name,
+    mealType: 'dinner',
+    slot: 'lunch',
+  })
 })

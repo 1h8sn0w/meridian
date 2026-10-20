@@ -7,7 +7,7 @@ import {
   weekSources,
 } from './plans.ts'
 import { generationPool, mealTypesFor, portionOf } from './profile.ts'
-import { MEAL_TYPE_LABELS, NO_PREFS } from './types.ts'
+import { NO_PREFS } from './types.ts'
 import type {
   DayMeals,
   Meal,
@@ -19,6 +19,7 @@ import type {
   TastePrefs,
   WeekParams,
   WeekPlan,
+  WeekWarning,
 } from './types.ts'
 
 export const DEFAULTS: Readonly<WeekParams> = {
@@ -50,7 +51,17 @@ type GenerateOptions = {
   random?: Random
 }
 
-export type GenerateResult = Result<WeekPlan>
+export type GenerateFailure =
+  | { code: 'invalidTarget' }
+  | {
+      code: 'poolShortage'
+      antiRepeatDays: number
+      shortage: Array<PoolShortage>
+    }
+  | { code: 'noFit'; target: number; corridor: number }
+  | { code: 'emptyPool' }
+
+export type GenerateResult = Result<WeekPlan, GenerateFailure>
 
 type ByType = ReadonlyArray<{ type: MealType; meals: Array<PlannedMeal> }>
 
@@ -216,26 +227,6 @@ export function poolShortageFor(
   )
 }
 
-export function poolShortageMessage(
-  shortage: ReadonlyArray<PoolShortage>,
-  antiRepeatDays: number,
-): string {
-  return (
-    'Недостатньо страв у пулі. Правило «не частіше, ніж раз на ' +
-    antiRepeatDays +
-    ' дн.» вимагає щонайменше ' +
-    antiRepeatDays +
-    ' страв кожного типу, а зараз: ' +
-    shortage
-      .map(
-        ({ type, have, need }) =>
-          MEAL_TYPE_LABELS[type] + ' — ' + have + ' (потрібно ≥ ' + need + ')',
-      )
-      .join('; ') +
-    '. Додайте страви на екрані «Страви» або зменшіть антиповтор на екрані «Сьогодні».'
-  )
-}
-
 export function generateWeek(
   pool: ReadonlyArray<Meal>,
   options: GenerateOptions = {},
@@ -249,10 +240,7 @@ export function generateWeek(
       DEFAULTS.targetCalories,
   )
   if (!Number.isFinite(target) || target <= 0) {
-    return {
-      ok: false,
-      error: 'Цільова калорійність дня має бути додатним числом.',
-    }
+    return { ok: false, error: { code: 'invalidTarget' } }
   }
 
   const rawDays = Math.floor(Number(options.days ?? DEFAULTS.days))
@@ -304,15 +292,13 @@ export function generateWeek(
 
   const mixPossibleFull = mixPossibleIn(planned)
 
-  const poolWarnings: Array<string> = []
+  const poolWarnings: Array<WeekWarning> = []
   if (withoutCalories > 0) {
-    poolWarnings.push(
-      'Страв без калорійності для порції ' +
-        portionOf(profile) +
-        ': ' +
-        withoutCalories +
-        '. Вони не брали участі в доборі — коридор дня рахується лише за відомими цифрами.',
-    )
+    poolWarnings.push({
+      code: 'caloriesUnknown',
+      portion: portionOf(profile),
+      count: withoutCalories,
+    })
   }
 
   const corridorLevels: Array<number> = []
@@ -328,7 +314,7 @@ export function generateWeek(
     if (shortage.length) {
       return {
         ok: false,
-        error: poolShortageMessage(shortage, antiRepeatDays),
+        error: { code: 'poolShortage', antiRepeatDays, shortage },
       }
     }
 
@@ -338,7 +324,7 @@ export function generateWeek(
     const finish = (
       planDays: Array<PlanDay>,
       usedCorridor: number,
-      warnings: Array<string>,
+      warnings: Array<WeekWarning>,
     ): GenerateResult => ({
       ok: true,
       days: planDays,
@@ -370,47 +356,33 @@ export function generateWeek(
           if (!fallback) fallback = { days: planDays, usedCorridor: c }
           continue
         }
-        const warnings: Array<string> = []
+        const warnings: Array<WeekWarning> = []
         if (c > corridor) {
-          warnings.push(
-            'Не вдалося втриматись у ±' +
-              corridor +
-              ' ккал — коридор розширено до ±' +
-              c +
-              ' ккал.',
-          )
+          warnings.push({ code: 'corridorWidened', corridor, used: c })
         }
         if (!mixPossible) {
-          warnings.push(
-            mixPossibleFull
-              ? 'Позначки «не подобається» звузили пул — мікс планів став неможливим.'
-              : 'Пул не дозволяє мікс планів — усі страви покриває один план.',
-          )
+          warnings.push({
+            code: mixPossibleFull ? 'mixBlockedByDislikes' : 'mixImpossible',
+          })
         }
         return finish(planDays, c, warnings)
       }
     }
 
     if (fallback) {
-      const warnings = [
-        'Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела.',
-      ]
+      const warnings: Array<WeekWarning> = [{ code: 'mixFailed' }]
       if (fallback.usedCorridor > corridor) {
-        warnings.push(
-          'Коридор розширено до ±' + fallback.usedCorridor + ' ккал.',
-        )
+        warnings.push({
+          code: 'mixFailedCorridorWidened',
+          used: fallback.usedCorridor,
+        })
       }
       return finish(fallback.days, fallback.usedCorridor, warnings)
     }
 
     return {
       ok: false,
-      error:
-        'Не вдалося зібрати тиждень під ' +
-        target +
-        ' ккал/день навіть із коридором ±' +
-        maxCorridorTried +
-        ' ккал. Змініть ціль або поповніть пул страв.',
+      error: { code: 'noFit', target, corridor: maxCorridorTried },
     }
   }
 
@@ -426,10 +398,7 @@ export function generateWeek(
   }
   attempts.push(planned)
 
-  let last: GenerateResult = {
-    ok: false,
-    error: 'Пул страв порожній — додайте страви на екрані «Страви».',
-  }
+  let last: GenerateResult = { ok: false, error: { code: 'emptyPool' } }
   for (const list of attempts) {
     last = buildFrom(list)
     if (!last.ok) continue
@@ -437,10 +406,7 @@ export function generateWeek(
       prefs.disliked.size &&
       allWeekMeals(last.days).some((meal) => prefs.disliked.has(meal.id))
     ) {
-      last.warnings = last.warnings.concat(
-        'Без страв із позначкою «не подобається» тиждень не збирається — ' +
-          'вони лишились у плані. Приберіть позначку або поповніть пул.',
-      )
+      last.warnings = last.warnings.concat({ code: 'dislikedKept' })
     }
     return last
   }
