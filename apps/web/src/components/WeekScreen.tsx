@@ -11,7 +11,6 @@ import {
   generateWeek,
   poolForProfile,
   poolShortageFor,
-  poolShortageMessage,
   portionOf,
   precedingMealIds,
   precedingWindow,
@@ -110,7 +109,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
         precedingDays: precedingMealIds(preceding, todayKey, windowSize),
       })
       if (!result.ok) {
-        setError(result.error)
+        setError(t.failure(result.error))
         return
       }
       await saveWeek(db, familyId, {
@@ -183,7 +182,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
           {shortage.length ? (
             <>
-              <Warn>{poolShortageMessage(shortage, antiRepeatDays)}</Warn>
+              <Warn>{t.poolShortage(shortage, antiRepeatDays)}</Warn>
               <Link to="/meals" className="mt-2 block no-underline">
                 <Button block>
                   <CookingPot aria-hidden size={18} />
@@ -326,7 +325,7 @@ function PlanSummary({
       <Meta>{t.generated(formatMoment(view.generatedAt))}</Meta>
 
       {view.warnings.map((warning) => (
-        <Warn key={warning}>{warning}</Warn>
+        <Warn key={warning.code}>{t.warning(warning)}</Warn>
       ))}
 
       {view.missing > 0 ? <Warn>{t.missing(view.missing)}</Warn> : null}

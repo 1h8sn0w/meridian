@@ -7,13 +7,6 @@ export const MEAL_TYPES: ReadonlyArray<MealType> = [
   'snack',
 ]
 
-export const MEAL_TYPE_LABELS: Readonly<Record<MealType, string>> = {
-  breakfast: 'Сніданок',
-  lunch: 'Обід',
-  dinner: 'Вечеря',
-  snack: 'Перекус',
-}
-
 export type Ingredient =
   string | { name: string; amount?: number; unit?: string }
 
@@ -122,8 +115,17 @@ export type WeekPlan = {
   sources: Array<string>
   mixed: boolean
   mixPossible: boolean
-  warnings: Array<string>
+  warnings: Array<WeekWarning>
 }
 
-type Err = { ok: false; error: string }
-export type Result<T> = ({ ok: true } & T) | Err
+export type WeekWarning =
+  | { code: 'caloriesUnknown'; portion: PortionLetter; count: number }
+  | { code: 'corridorWidened'; corridor: number; used: number }
+  | { code: 'mixBlockedByDislikes' }
+  | { code: 'mixImpossible' }
+  | { code: 'mixFailed' }
+  | { code: 'mixFailedCorridorWidened'; used: number }
+  | { code: 'dislikedKept' }
+
+type Err<TError> = { ok: false; error: TError }
+export type Result<T, TError = string> = ({ ok: true } & T) | Err<TError>

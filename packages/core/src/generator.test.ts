@@ -6,7 +6,6 @@ import {
   generateWeek,
   poolShortage,
   poolShortageFor,
-  poolShortageMessage,
 } from './generator.ts'
 import { mealTypesFor } from './profile.ts'
 import { MEAL_TYPES } from './types.ts'
@@ -24,7 +23,9 @@ import {
 } from './test-support.ts'
 
 function expectOk(result: GenerateResult): WeekPlan {
-  if (!result.ok) throw new Error('генератор відмовив: ' + result.error)
+  if (!result.ok) {
+    throw new Error('генератор відмовив: ' + JSON.stringify(result.error))
+  }
   return result
 }
 
@@ -180,12 +181,10 @@ test('MER-30: спільний десерт «Тиждень 1–2» сам мі
   )
   assert.equal(result.mixPossible, false)
   assert.equal(result.mixed, false)
-  assert.ok(
-    result.warnings.includes(
-      'Пул не дозволяє мікс планів — усі страви покриває один план.',
-    ),
-    'мала бути чесна причина, а не тихий «ok»: ' +
-      JSON.stringify(result.warnings),
+  assert.deepEqual(
+    result.warnings,
+    [{ code: 'mixImpossible' }],
+    'мала бути чесна причина, а не тихий «ok»',
   )
   assert.deepEqual(
     result.sources,
@@ -231,12 +230,7 @@ test('MER-30: single-source — це релаксація з окремим по
     'єдина страва «Тиждень 2» ніколи не влазить у коридор — тиждень чесний, але не зміксований',
   )
   assert.equal(result.usedCorridor, 0)
-  assert.ok(
-    result.warnings.includes(
-      'Не вдалося поєднати різні плани — тиждень зібрано зі страв одного джерела.',
-    ),
-    JSON.stringify(result.warnings),
-  )
+  assert.deepEqual(result.warnings, [{ code: 'mixFailed' }])
   assert.ok(
     !weekMealIds(result).flat().includes('unreachable'),
     'страва поза коридором не мала потрапити в тиждень',
@@ -267,12 +261,9 @@ test('коридор послаблюється лише за потреби —
     50,
     'калорійності пулу кратні 10, тож рівно 2055 недосяжне, а найближче — на кроці 50',
   )
-  assert.ok(
-    result.warnings.includes(
-      'Не вдалося втриматись у ±0 ккал — коридор розширено до ±50 ккал.',
-    ),
-    JSON.stringify(result.warnings),
-  )
+  assert.deepEqual(result.warnings, [
+    { code: 'corridorWidened', corridor: 0, used: 50 },
+  ])
   assert.deepEqual(weekViolations(result), [])
 })
 
@@ -319,12 +310,9 @@ test('страва без калорійності не потрапляє в т
     generateWeek(pool, { targetCalories: 2050, random: seeded(17) }),
   )
   assert.ok(!weekMealIds(result).flat().includes('no-kcal'))
-  assert.ok(
-    result.warnings.some((w) =>
-      w.startsWith('Страв без калорійності для порції Ч: 1.'),
-    ),
-    JSON.stringify(result.warnings),
-  )
+  assert.deepEqual(result.warnings, [
+    { code: 'caloriesUnknown', portion: 'Ч', count: 1 },
+  ])
   for (const day of result.days) assert.equal(day.calories.unknown, 0)
 })
 
@@ -380,12 +368,7 @@ test('MER-18: якщо без небажаної не збирається — �
     }),
   )
   assert.ok(weekMealIds(result).flat().includes('lunch-0'))
-  assert.ok(
-    result.warnings.some((w) =>
-      w.startsWith('Без страв із позначкою «не подобається»'),
-    ),
-    JSON.stringify(result.warnings),
-  )
+  assert.deepEqual(result.warnings.at(-1), { code: 'dislikedKept' })
 })
 
 test('MER-18: улюблені частіше потрапляють у тиждень, але не витісняють решту', () => {
@@ -519,18 +502,15 @@ test('MER-79: страва без цифри порції Ж для профіл
     generateWeek(pool, { profile: woman, random: seeded(5) }),
   )
   assert.ok(!weekMealIds(result).flat().includes('only-ch'))
-  assert.ok(
-    result.warnings.some((w) =>
-      w.startsWith('Страв без калорійності для порції Ж: 1.'),
-    ),
-    JSON.stringify(result.warnings),
-  )
+  assert.deepEqual(result.warnings, [
+    { code: 'caloriesUnknown', portion: 'Ж', count: 1 },
+  ])
 })
 
 test('порожній пул — відмова, а не порожній тиждень', () => {
   const result = generateWeek([], { random: seeded(37) })
   assert.equal(result.ok, false)
-  assert.match(result.error, /Недостатньо страв у пулі/)
+  assert.equal(result.error.code, 'poolShortage')
 })
 
 test('пул, якого не вистачає на вікно антиповтору — відмова з переліком', () => {
@@ -543,21 +523,24 @@ test('пул, якого не вистачає на вікно антиповт�
     random: seeded(41),
   })
   assert.equal(result.ok, false)
-  const error = result.error
-  assert.match(error, /Недостатньо страв у пулі/)
-  assert.match(error, /Вечеря — 1 \(потрібно ≥ 3\)/)
+  assert.deepEqual(result.error, {
+    code: 'poolShortage',
+    antiRepeatDays: 3,
+    shortage: [{ type: 'dinner', have: 1, need: 3 }],
+  })
 })
 
-test('екран показує до генерації дослівно ту саму нестачу, якою генератор відмовить', () => {
+test('екран показує до генерації ту саму нестачу, якою генератор відмовить', () => {
   const pool = mixedPool().filter(
     (m) => m.type !== 'dinner' || m.id === 'dinner-0',
   )
   const result = generateWeek(pool, { antiRepeatDays: 3, random: seeded(41) })
   assert.equal(result.ok, false)
-  assert.equal(
-    result.error,
-    poolShortageMessage(poolShortage(pool, 3, MEAL_TYPES), 3),
-  )
+  assert.deepEqual(result.error, {
+    code: 'poolShortage',
+    antiRepeatDays: 3,
+    shortage: poolShortage(pool, 3, MEAL_TYPES),
+  })
 })
 
 test('MER-116: антиповтор 1 збирає тиждень із пулу, якого не вистачає для 3', () => {
@@ -570,14 +553,15 @@ test('MER-116: антиповтор 1 збирає тиждень із пулу,
     random: seeded(43),
   })
   assert.equal(strict.ok, false)
-  assert.match(strict.error, /зменшіть антиповтор на екрані «Сьогодні»/)
+  assert.equal(strict.error.code, 'poolShortage')
 
-  const relaxed = generateWeek(pool, {
-    targetCalories: 2050,
-    antiRepeatDays: 1,
-    random: seeded(43),
-  })
-  assert.ok(relaxed.ok, relaxed.ok ? '' : relaxed.error)
+  const relaxed = expectOk(
+    generateWeek(pool, {
+      targetCalories: 2050,
+      antiRepeatDays: 1,
+      random: seeded(43),
+    }),
+  )
   assert.equal(relaxed.params.antiRepeatDays, 1)
   assert.ok(relaxed.days.every((day) => day.meals.dinner?.id === 'dinner-0'))
 })
@@ -618,13 +602,17 @@ test('недосяжна ціль — відмова з названою меж�
     random: seeded(43),
   })
   assert.equal(result.ok, false)
-  assert.match(result.error, /навіть із коридором ±500 ккал/)
+  assert.deepEqual(result.error, {
+    code: 'noFit',
+    target: 5000,
+    corridor: 500,
+  })
 })
 
 test('недодатна ціль — відмова до будь-якого пошуку', () => {
   const result = generateWeek(mixedPool(), { targetCalories: 0 })
   assert.equal(result.ok, false)
-  assert.match(result.error, /додатним числом/)
+  assert.deepEqual(result.error, { code: 'invalidTarget' })
 })
 
 test('типові параметри — ті, що обіцяє документація', () => {
@@ -676,7 +664,11 @@ test('порожній пул перекусів не валить генера�
     random: seeded(1),
   })
   assert.equal(withSnack.ok, false)
-  assert.match(withSnack.error, /Перекус — 0/)
+  assert.deepEqual(withSnack.error, {
+    code: 'poolShortage',
+    antiRepeatDays: 3,
+    shortage: [{ type: 'snack', have: 0, need: 3 }],
+  })
 })
 
 test('нестача пулу профілю без перекусу перекусів не рахує', () => {

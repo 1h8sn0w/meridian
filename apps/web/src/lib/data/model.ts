@@ -16,6 +16,7 @@ import type {
   Row,
   WeekParams,
   WeekPlan,
+  WeekWarning,
 } from '@meridian/core'
 import type { MealWindow } from '../day-clock'
 import { messages } from '../i18n/locale.ts'
@@ -47,6 +48,26 @@ export type DayView = {
   isToday: boolean
 }
 
+const WEEK_WARNING_CODES: Record<WeekWarning['code'], true> = {
+  caloriesUnknown: true,
+  corridorWidened: true,
+  mixBlockedByDislikes: true,
+  mixImpossible: true,
+  mixFailed: true,
+  mixFailedCorridorWidened: true,
+  dislikedKept: true,
+}
+
+function isWeekWarning(value: unknown): value is WeekWarning {
+  if (typeof value !== 'object' || value === null || !('code' in value)) {
+    return false
+  }
+  return (
+    typeof value.code === 'string' &&
+    Object.hasOwn(WEEK_WARNING_CODES, value.code)
+  )
+}
+
 export type WeekView = {
   id: string
   profileId: string
@@ -55,7 +76,7 @@ export type WeekView = {
   params: WeekParams
   usedCorridor: number
   sources: Array<string>
-  warnings: Array<string>
+  warnings: Array<WeekWarning>
   days: Array<DayView>
   missing: number
 }
@@ -70,15 +91,23 @@ function int(row: Row, column: string): number {
   return Number.isFinite(value) ? value : 0
 }
 
-function jsonStrings(row: Row, column: string): Array<string> {
+function jsonArray(row: Row, column: string): Array<unknown> {
   const value = row[column]
   if (typeof value !== 'string' || !value) return []
   try {
     const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.map(String) : []
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
+}
+
+function jsonStrings(row: Row, column: string): Array<string> {
+  return jsonArray(row, column).map(String)
+}
+
+function planWarnings(row: Row): Array<WeekWarning> {
+  return jsonArray(row, 'warnings').filter(isWeekWarning)
 }
 
 export function antiRepeatDaysFromRow(row: Row): number | null {
@@ -189,7 +218,7 @@ export function buildWeekView(
     },
     usedCorridor: int(planRow, 'used_corridor'),
     sources: jsonStrings(planRow, 'sources'),
-    warnings: jsonStrings(planRow, 'warnings'),
+    warnings: planWarnings(planRow),
     days,
     missing: folded.missing,
   }
