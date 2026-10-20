@@ -76,11 +76,11 @@ const SLOT_FAILURES: ReadonlyArray<[SlotFailure, string]> = [
   [
     {
       code: 'typeMismatch',
-      meal: 'Страва 1',
+      meal: 'Omelette',
       mealType: 'dinner',
       slot: 'lunch',
     },
-    'Страва «Страва 1» — це вечеря, а слот — «Обід».',
+    'Страва «Omelette» — це вечеря, а слот — «Обід».',
   ],
 ]
 
@@ -115,9 +115,7 @@ test('англійський словник має текст без кирил�
   const texts = [
     ...WARNINGS.map(([warning]) => en.week.warning(warning)),
     ...GENERATE_FAILURES.map(([failure]) => en.week.failure(failure)),
-    ...SLOT_FAILURES.filter(([failure]) => failure.code !== 'typeMismatch').map(
-      ([failure]) => en.swap.failure(failure),
-    ),
+    ...SLOT_FAILURES.map(([failure]) => en.swap.failure(failure)),
     ...REASONS.map(([reason]) => en.swap.reason[reason]),
   ]
   for (const text of texts) {

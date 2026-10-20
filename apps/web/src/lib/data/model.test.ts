@@ -161,7 +161,7 @@ test('день без перекусу стає днем плану для за�
   )
 })
 
-test('попередження тижня читаються кодами, старі тексти лишаються як є, невідоме відкидається', () => {
+test('попередження тижня читаються кодами, старі тексти й невідомі коди відкидаються', () => {
   const stored = [
     { code: 'corridorWidened', corridor: 100, used: 150 },
     'Пул не дозволяє мікс планів — усі страви покриває один план.',
@@ -176,6 +176,6 @@ test('попередження тижня читаються кодами, ст�
     MEALS,
     '2026-09-01',
   )
-  assert.deepEqual(week.warnings, stored.slice(0, 2))
+  assert.deepEqual(week.warnings, stored.slice(0, 1))
   assert.deepEqual(toWeekPlan(week, null)?.warnings, stored.slice(0, 1))
 })

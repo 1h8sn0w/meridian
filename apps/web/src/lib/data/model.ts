@@ -48,8 +48,6 @@ export type DayView = {
   isToday: boolean
 }
 
-export type PlanWarning = WeekWarning | string
-
 const WEEK_WARNING_CODES: Record<WeekWarning['code'], true> = {
   caloriesUnknown: true,
   corridorWidened: true,
@@ -78,7 +76,7 @@ export type WeekView = {
   params: WeekParams
   usedCorridor: number
   sources: Array<string>
-  warnings: Array<PlanWarning>
+  warnings: Array<WeekWarning>
   days: Array<DayView>
   missing: number
 }
@@ -108,11 +106,8 @@ function jsonStrings(row: Row, column: string): Array<string> {
   return jsonArray(row, column).map(String)
 }
 
-function planWarnings(row: Row): Array<PlanWarning> {
-  return jsonArray(row, 'warnings').filter(
-    (item): item is PlanWarning =>
-      typeof item === 'string' || isWeekWarning(item),
-  )
+function planWarnings(row: Row): Array<WeekWarning> {
+  return jsonArray(row, 'warnings').filter(isWeekWarning)
 }
 
 export function antiRepeatDaysFromRow(row: Row): number | null {
@@ -296,6 +291,6 @@ export function toWeekPlan(
     sources: view.sources,
     mixed: false,
     mixPossible: false,
-    warnings: view.warnings.filter(isWeekWarning),
+    warnings: view.warnings,
   }
 }

@@ -325,9 +325,7 @@ function PlanSummary({
       <Meta>{t.generated(formatMoment(view.generatedAt))}</Meta>
 
       {view.warnings.map((warning) => (
-        <Warn key={JSON.stringify(warning)}>
-          {typeof warning === 'string' ? warning : t.warning(warning)}
-        </Warn>
+        <Warn key={warning.code}>{t.warning(warning)}</Warn>
       ))}
 
       {view.missing > 0 ? <Warn>{t.missing(view.missing)}</Warn> : null}
