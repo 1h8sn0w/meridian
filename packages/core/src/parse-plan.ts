@@ -9,7 +9,7 @@ const SLOT_TYPES: Readonly<Record<string, MealType>> = {
 
 type PlanEntryKind = 'meal' | 'repeat' | 'dup'
 
-export type PlanFlag = 'repeat' | 'dessert-split' | 'dup' | 'no-kcal'
+export type PlanFlag = 'dessert-split' | 'dup' | 'no-kcal'
 
 export type PlanEntry = {
   kind: PlanEntryKind
@@ -160,7 +160,6 @@ export function parsePlanText(text: string): PlanParse {
         close()
         component = null
         entry = make(type, rest, 'repeat', line)
-        entry.flags.push('repeat')
         continue
       }
 

@@ -95,7 +95,6 @@ const REASONS: ReadonlyArray<[SwapReason, string]> = [
 ]
 
 const PLAN_FLAGS: ReadonlyArray<[PlanFlag, string]> = [
-  ['repeat', 'Повтор страви попереднього дня — окрема страва вже є вище.'],
   ['dessert-split', 'Назву відділено від опису порції — перевірте.'],
   ['dup', 'Дублікат назви — така страва вже є вище.'],
   ['no-kcal', 'У PDF немає калорійності — впишіть вручну, щоб додати в пул.'],
