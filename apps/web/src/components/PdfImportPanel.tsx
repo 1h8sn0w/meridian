@@ -361,9 +361,6 @@ function ReviewCard({
   const t = messages.pdf
   const mealType = messages.common.mealType
   const { draft, entry } = card
-  const flags = entry.flags.filter(
-    (flag) => flag !== 'no-kcal' || !draft.calories.trim(),
-  )
 
   if (entry.kind === 'repeat') {
     return (
@@ -463,9 +460,9 @@ function ReviewCard({
 
       {card.error ? <Warn>{card.error}</Warn> : null}
 
-      {flags.length || card.known ? (
+      {entry.flags.length || card.known ? (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {flags.map((flag) => (
+          {entry.flags.map((flag) => (
             <Tag key={flag} tone="warn">
               {t.flag[flag]}
             </Tag>
