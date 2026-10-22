@@ -791,6 +791,15 @@ export const en: Messages = {
   },
   pdf: {
     known: 'This meal is already in the pool — not imported by default.',
+    flag: {
+      repeat:
+        'Repeats a meal from the previous day — the meal itself is already above.',
+      'dessert-split':
+        'Name split off from the portion description — check it.',
+      dup: 'Duplicate name — this meal is already above.',
+      'no-kcal':
+        'No calories in the PDF — enter them by hand to add the meal to the pool.',
+    },
     reading: (name) => 'Reading “' + name + '”…',
     page: (page, total) =>
       'Extracting text: page ' + page + ' of ' + total + '…',

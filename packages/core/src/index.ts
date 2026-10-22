@@ -88,7 +88,7 @@ export { hasRecipe, parseStarterSet } from './starter-set.ts'
 export type { StarterMeal, StarterRecipe, StarterSet } from './starter-set.ts'
 
 export { parsePlanText, planEntryKey } from './parse-plan.ts'
-export type { PlanEntry, PlanParse } from './parse-plan.ts'
+export type { PlanEntry, PlanFlag, PlanParse } from './parse-plan.ts'
 
 export { migrateV1 } from './migrate-v1.ts'
 export type {

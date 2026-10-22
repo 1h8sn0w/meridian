@@ -11,7 +11,6 @@ import { fieldText, validatePlanEntry } from '../lib/forms'
 import type { PlanEntryDraft } from '../lib/forms'
 import { ingredientsToText, portionsToText } from '../lib/meal-text'
 import { errorText } from '../lib/messages'
-import { messages as currentMessages } from '../lib/i18n/locale'
 import { useMessages } from '../lib/i18n/use-messages'
 import {
   Button,
@@ -32,7 +31,7 @@ type Card = {
   checked: boolean
   added: boolean
   error: string | null
-  flags: Array<string>
+  known: boolean
 }
 
 type Source = { fileName: string | null; text: string }
@@ -65,10 +64,7 @@ function cardsOf(
       checked: poolKnown && entry.kind === 'meal' && !known,
       added: false,
       error: null,
-      flags: [
-        ...entry.flags.map((flag) => flag.message),
-        ...(known ? [currentMessages().pdf.known] : []),
-      ],
+      known,
     }
   })
 }
@@ -464,13 +460,14 @@ function ReviewCard({
 
       {card.error ? <Warn>{card.error}</Warn> : null}
 
-      {card.flags.length ? (
+      {entry.flags.length || card.known ? (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {card.flags.map((flag) => (
+          {entry.flags.map((flag) => (
             <Tag key={flag} tone="warn">
-              {flag}
+              {t.flag[flag]}
             </Tag>
           ))}
+          {card.known ? <Tag tone="warn">{t.known}</Tag> : null}
         </div>
       ) : null}
 

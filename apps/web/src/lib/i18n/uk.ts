@@ -1,6 +1,7 @@
 import type {
   GenerateFailure,
   MealType,
+  PlanFlag,
   PoolShortage,
   SlotFailure,
   SwapReason,
@@ -822,6 +823,12 @@ export const uk = {
   },
   pdf: {
     known: 'Така страва вже є в пулі — типово не імпортується.',
+    flag: {
+      repeat: 'Повтор страви попереднього дня — окрема страва вже є вище.',
+      'dessert-split': 'Назву відділено від опису порції — перевірте.',
+      dup: 'Дублікат назви — така страва вже є вище.',
+      'no-kcal': 'У PDF немає калорійності — впишіть вручну, щоб додати в пул.',
+    } satisfies Record<PlanFlag, string>,
     reading: (name: string) => 'Читаю «' + name + '»…',
     page: (page: number, total: number) =>
       'Витягаю текст: сторінка ' + page + ' з ' + total + '…',
