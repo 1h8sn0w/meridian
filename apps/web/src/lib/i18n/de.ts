@@ -36,7 +36,7 @@ const poolShortage = (
   shortage: ReadonlyArray<PoolShortage>,
   antiRepeatDays: number,
 ) =>
-  'Zu wenige Gerichte im Pool. Die Regel „höchstens einmal in ' +
+  'Zu wenige Gerichte im Pool. Die Regel „höchstens einmal alle ' +
   days(antiRepeatDays) +
   '“ braucht mindestens ' +
   meals(antiRepeatDays) +
@@ -98,7 +98,7 @@ export const de: Messages = {
   },
   antiRepeat: {
     title: 'Keine Wiederholungen',
-    label: 'Ein Gericht höchstens einmal in',
+    label: 'Ein Gericht höchstens einmal alle',
     hint: 'Die Regel gilt für die ganze Familie. Sie wirkt ab der nächsten Wochenplanung und dem nächsten Tausch; bestehende Pläne werden nicht neu berechnet.',
     savedBroken: (value) =>
       'Die Wiederholungssperre der Familie wurde fehlerhaft gespeichert: ' +
@@ -155,14 +155,14 @@ export const de: Messages = {
     mealsEmpty:
       'Startset, Import aus dem PDF der Ernährungsberatung oder von Hand.',
     mealsShort: (count, need, have) =>
-      'Im Pool sind ' +
-      meals(count) +
-      ', für eine Woche reicht das nicht: nötig sind mindestens ' +
+      'Gerichte im Pool: ' +
+      count +
+      ' — für eine Woche reicht das nicht: nötig sind mindestens ' +
       meals(need) +
       ' mit Kalorien je Art. Derzeit: ' +
       have +
       '.',
-    mealsCount: (count) => 'Im Pool sind ' + meals(count) + '.',
+    mealsCount: (count) => 'Gerichte im Pool: ' + count + '.',
     openMeals: '„Gerichte“ öffnen',
     weekText:
       'Der Generator plant eine Woche aus dem Pool, und die aktuelle Mahlzeit erscheint hier.',

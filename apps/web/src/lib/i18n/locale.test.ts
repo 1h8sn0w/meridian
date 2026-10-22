@@ -49,6 +49,14 @@ test('множини pl: 1 dzień, 2 dni, 5 dni, 12 dni, 22 dni; 22 dania, ал�
   ])
 })
 
+test('pl після «co najmniej» бере родовий відмінок: 2 dań, а не 2 dania', () => {
+  assert.match(
+    pl.week.poolShortage([{ type: 'lunch', have: 0, need: 2 }], 2),
+    /raz na 2 dni” wymaga co najmniej 2 dań każdego rodzaju/,
+  )
+  assert.match(pl.firstSteps.mealsShort(3, 1, ''), /co najmniej 1 dania /)
+})
+
 test('множини de: одна форма лише для 1', () => {
   assert.deepEqual([1, 2, 21].map(de.common.days), [
     '1 Tag',

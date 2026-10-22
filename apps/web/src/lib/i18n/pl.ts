@@ -31,6 +31,7 @@ const MEAL_TYPE_OF: Record<MealType, string> = {
 
 const days = (n: number) => n + ' ' + plural(n, 'dzień', 'dni', 'dni')
 const meals = (n: number) => n + ' ' + plural(n, 'danie', 'dania', 'dań')
+const mealsOf = (n: number) => n + ' ' + plural(n, 'dania', 'dań', 'dań')
 const slots = (n: number) => n + ' ' + plural(n, 'slot', 'sloty', 'slotów')
 
 const poolShortage = (
@@ -40,7 +41,7 @@ const poolShortage = (
   'Za mało dań w puli. Reguła „nie częściej niż raz na ' +
   days(antiRepeatDays) +
   '” wymaga co najmniej ' +
-  meals(antiRepeatDays) +
+  mealsOf(antiRepeatDays) +
   ' każdego rodzaju, a teraz jest: ' +
   shortage
     .map(
@@ -151,14 +152,14 @@ export const pl: Messages = {
     createProfile: 'Utwórz profil',
     mealsEmpty: 'Zestaw startowy, import z PDF dietetyka albo ręcznie.',
     mealsShort: (count, need, have) =>
-      'W puli jest ' +
-      meals(count) +
-      ', ale na tydzień to za mało: potrzeba co najmniej ' +
-      meals(need) +
+      'Dań w puli: ' +
+      count +
+      ' — na tydzień to za mało: potrzeba co najmniej ' +
+      mealsOf(need) +
       ' z kaloriami każdego rodzaju. Teraz: ' +
       have +
       '.',
-    mealsCount: (count) => 'W puli jest ' + meals(count) + '.',
+    mealsCount: (count) => 'Dań w puli: ' + count + '.',
     openMeals: 'Otwórz „Dania”',
     weekText:
       'Generator układa tydzień z puli, a bieżący posiłek pojawi się tutaj.',
@@ -195,7 +196,7 @@ export const pl: Messages = {
   reminders: {
     title: 'Przypomnienia',
     enable: 'Przypominaj przed posiłkami',
-    lead: 'Z wyprzedzeniem',
+    lead: 'Wyprzedzenie',
     today: 'Dziś: ',
     hint: 'Przypomnienia wysyła sama strona, więc docierają, dopóki aplikacja jest otwarta: aplikacja nie ma serwera push. Na iPhonie powiadomienia działają tylko w zainstalowanej aplikacji („Do ekranu początkowego”).',
     test: 'Wyślij powiadomienie testowe',
