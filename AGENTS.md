@@ -56,7 +56,7 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 | `apps/web/src/lib` | Вхід, годинник дня, нагадування, стартовий набір, PDF-текст | [`README.md`](apps/web/src/lib/README.md) |
 | `apps/web/src/lib/data` | Читання й записи локальної бази; карта «фіча → екран → таблиця» | [`README.md`](apps/web/src/lib/data/README.md) |
 | `apps/web/src/lib/powersync` | Синхронізація на пристрої: схема, конектор, `enqueue` | [`README.md`](apps/web/src/lib/powersync/README.md) |
-| `apps/web/src/lib/i18n` | Мова інтерфейсу: словники `uk`/`en`, вибір мови, `Intl` | [`README.md`](apps/web/src/lib/i18n/README.md) |
+| `apps/web/src/lib/i18n` | Мова інтерфейсу: словники `uk`/`en`/`pl`/`de`, вибір мови, `Intl` | [`README.md`](apps/web/src/lib/i18n/README.md) |
 | `apps/web/src/routes` | Тонкі маршрути TanStack; `routeTree.gen.ts` генерується й комітиться | `apps/web/README.md` |
 | `packages/core` | Домен чистим TS: генератор, заміна, провенанс, покупки, стартовий набір, виведені id | [`README.md`](packages/core/README.md) |
 | `packages/db` | SQL-міграції Postgres, `migrate.sh`, RLS, модель сім'ї | [`README.md`](packages/db/README.md) |
