@@ -134,7 +134,7 @@ test('кожен переклад має текст без кирилиці дл
       ...GENERATE_FAILURES.map(([failure]) => t.week.failure(failure)),
       ...SLOT_FAILURES.map(([failure]) => t.swap.failure(failure)),
       ...REASONS.map(([reason]) => t.swap.reason[reason]),
-      ...PLAN_FLAGS.map(([flag]) => t.pdf.flag[flag]),
+      ...Object.values(t.pdf.flag),
     ]
     for (const text of texts) {
       assert.ok(text.trim(), 'порожній текст')

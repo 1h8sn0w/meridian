@@ -36,9 +36,10 @@
 - **Коди ядра — у текст лише через словник.** Генератор, заміна й розбір
   PDF віддають коди (`GenerateFailure`, `WeekWarning`, `SlotFailure`,
   `SwapReason`, `PlanFlag`); текст — `week.failure`, `week.warning`,
-  `week.poolShortage`, `swap.failure`, `swap.reason`, `pdf.flag`. `switch` за `code` з типом повернення
-  `string`: новий код у ядрі без гілки в кожному словнику валить
-  `typecheck`. Українські тексти дослівно ті, що були в ядрі, —
+  `week.poolShortage`, `swap.failure`, `swap.reason`, `pdf.flag`. Повідомлення
+  — `switch` за `code` з типом повернення `string`, мапа кодів — `satisfies
+  Record<…, string>` в `uk`: новий код у ядрі без тексту валить `typecheck`
+  (в `uk` — гілка чи ключ, у перекладах — тип `Messages`). Українські тексти дослівно ті, що були в ядрі, —
   `core-messages.test.ts`.
 - **У стані тримати ключ, а не текст**, якщо його видно довго (відмова в
   дозволі на сповіщення — `Refusal`), інакше після перемикання лишиться стара
