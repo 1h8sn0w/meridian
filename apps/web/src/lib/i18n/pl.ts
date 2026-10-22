@@ -805,6 +805,12 @@ export const pl: Messages = {
   },
   pdf: {
     known: 'To danie jest już w puli — domyślnie nie jest importowane.',
+    flag: {
+      'dessert-split': 'Nazwę oddzielono od opisu porcji — sprawdź.',
+      dup: 'Powtórzona nazwa — to danie jest już wyżej.',
+      'no-kcal':
+        'W PDF nie ma kaloryczności — wpisz ją ręcznie, aby dodać danie do puli.',
+    },
     reading: (name) => 'Czytamy „' + name + '”…',
     page: (page, total) =>
       'Wyodrębniamy tekst: strona ' + page + ' z ' + total + '…',

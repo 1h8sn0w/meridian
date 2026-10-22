@@ -830,6 +830,13 @@ export const de: Messages = {
   },
   pdf: {
     known: 'Dieses Gericht ist schon im Pool — standardmäßig nicht importiert.',
+    flag: {
+      'dessert-split':
+        'Name von der Portionsbeschreibung getrennt — bitte prüfen.',
+      dup: 'Doppelter Name — dieses Gericht steht schon oben.',
+      'no-kcal':
+        'Im PDF stehen keine Kalorien — trag sie von Hand ein, um das Gericht in den Pool aufzunehmen.',
+    },
     reading: (name) => '„' + name + '“ wird gelesen…',
     page: (page, total) =>
       'Text wird extrahiert: Seite ' + page + ' von ' + total + '…',

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type {
   GenerateFailure,
+  PlanFlag,
   SlotFailure,
   SwapReason,
   WeekWarning,
@@ -93,6 +94,12 @@ const REASONS: ReadonlyArray<[SwapReason, string]> = [
   ['breaksMix', 'ламає мікс планів'],
 ]
 
+const PLAN_FLAGS: ReadonlyArray<[PlanFlag, string]> = [
+  ['dessert-split', 'Назву відділено від опису порції — перевірте.'],
+  ['dup', 'Дублікат назви — така страва вже є вище.'],
+  ['no-kcal', 'У PDF немає калорійності — впишіть вручну, щоб додати в пул.'],
+]
+
 const CYRILLIC_EXCEPT_PORTION = /[А-ЕЗ-ЦШ-ЯЄІЇҐа-яєіїґ]/u
 
 test('попередження тижня українською — дослівно ті самі тексти, що до кодів', () => {
@@ -113,6 +120,12 @@ test('відмови генератора й заміни українською
   }
 })
 
+test('позначки розбору PDF українською — дослівно ті самі тексти, що були в ядрі', () => {
+  for (const [flag, text] of PLAN_FLAGS) {
+    assert.equal(uk.pdf.flag[flag], text)
+  }
+})
+
 test('кожен переклад має текст без кирилиці для кожного коду ядра', () => {
   for (const t of [en, pl, de]) {
     const texts = [
@@ -120,6 +133,7 @@ test('кожен переклад має текст без кирилиці дл
       ...GENERATE_FAILURES.map(([failure]) => t.week.failure(failure)),
       ...SLOT_FAILURES.map(([failure]) => t.swap.failure(failure)),
       ...REASONS.map(([reason]) => t.swap.reason[reason]),
+      ...Object.values(t.pdf.flag),
     ]
     for (const text of texts) {
       assert.ok(text.trim(), 'порожній текст')

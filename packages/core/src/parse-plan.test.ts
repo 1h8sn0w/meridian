@@ -111,7 +111,7 @@ test('калорійність — лише де написана, решта п
   const unknown = meals.filter((m) => m.calories === null)
   assert.equal(unknown.length, 6)
   for (const m of unknown) {
-    assert.ok(m.flags.some((f) => f.code === 'no-kcal'))
+    assert.ok(m.flags.includes('no-kcal'))
   }
 })
 
@@ -179,7 +179,7 @@ test('повтори й дублікати позначено, сирий тек
   const dup = parsed.entries.find((e) => e.kind === 'dup')
   assert.ok(dup)
   assert.equal(dup.name, 'Сирок «Волошкове поле»')
-  assert.ok(dup.flags.some((f) => f.code === 'dup'))
+  assert.ok(dup.flags.includes('dup'))
 })
 
 test('порожній і несхожий текст не вигадують страв', () => {

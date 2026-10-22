@@ -9,7 +9,7 @@ const SLOT_TYPES: Readonly<Record<string, MealType>> = {
 
 type PlanEntryKind = 'meal' | 'repeat' | 'dup'
 
-type PlanFlag = { code: string; message: string }
+export type PlanFlag = 'dessert-split' | 'dup' | 'no-kcal'
 
 export type PlanEntry = {
   kind: PlanEntryKind
@@ -160,10 +160,6 @@ export function parsePlanText(text: string): PlanParse {
         close()
         component = null
         entry = make(type, rest, 'repeat', line)
-        entry.flags.push({
-          code: 'repeat',
-          message: 'Повтор страви попереднього дня — окрема страва вже є вище.',
-        })
         continue
       }
 
@@ -184,10 +180,7 @@ export function parsePlanText(text: string): PlanParse {
         const kcal = /(\d+(?:[.,]\d+)?)\s*ккал/i.exec(rest)
         if (kcal) entry.calories = Number(group(kcal, 1).replace(',', '.'))
         if (cut < rest.length) {
-          entry.flags.push({
-            code: 'dessert-split',
-            message: 'Назву відділено від опису порції — перевірте.',
-          })
+          entry.flags.push('dessert-split')
         }
         continue
       }
@@ -238,10 +231,7 @@ export function parsePlanText(text: string): PlanParse {
     const key = planEntryKey(e.name, e.type)
     if (seen.has(key)) {
       e.kind = 'dup'
-      e.flags.push({
-        code: 'dup',
-        message: 'Дублікат назви — така страва вже є вище.',
-      })
+      e.flags.push('dup')
     } else {
       seen.add(key)
     }
@@ -249,10 +239,7 @@ export function parsePlanText(text: string): PlanParse {
 
   for (const e of entries) {
     if (e.kind === 'meal' && e.calories === null) {
-      e.flags.push({
-        code: 'no-kcal',
-        message: 'У PDF немає калорійності — впишіть вручну, щоб додати в пул.',
-      })
+      e.flags.push('no-kcal')
     }
   }
 
