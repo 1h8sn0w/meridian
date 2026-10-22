@@ -1,19 +1,28 @@
+import { de } from './de.ts'
 import { en } from './en.ts'
+import { pl } from './pl.ts'
 import { uk } from './uk.ts'
 import type { Messages } from './uk.ts'
 
-export const LOCALES = ['uk', 'en'] as const
+export const LOCALES = ['uk', 'en', 'pl', 'de'] as const
 
 export type Locale = (typeof LOCALES)[number]
 
 export const LOCALE_NAMES: Record<Locale, string> = {
   uk: 'Українська',
   en: 'English',
+  pl: 'Polski',
+  de: 'Deutsch',
 }
 
-const DICTIONARIES: Record<Locale, Messages> = { uk, en }
+const DICTIONARIES: Record<Locale, Messages> = { uk, en, pl, de }
 
-const INTL_TAGS: Record<Locale, string> = { uk: 'uk-UA', en: 'en-GB' }
+const INTL_TAGS: Record<Locale, string> = {
+  uk: 'uk-UA',
+  en: 'en-GB',
+  pl: 'pl-PL',
+  de: 'de-DE',
+}
 
 const ALIASES: Partial<Record<string, Locale>> = { ru: 'uk' }
 

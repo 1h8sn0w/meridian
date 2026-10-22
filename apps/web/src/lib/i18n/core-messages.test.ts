@@ -6,7 +6,9 @@ import type {
   SwapReason,
   WeekWarning,
 } from '@meridian/core'
+import { de } from './de.ts'
 import { en } from './en.ts'
+import { pl } from './pl.ts'
 import { uk } from './uk.ts'
 
 const WARNINGS: ReadonlyArray<[WeekWarning, string]> = [
@@ -111,16 +113,18 @@ test('відмови генератора й заміни українською
   }
 })
 
-test('англійський словник має текст без кирилиці для кожного коду ядра', () => {
-  const texts = [
-    ...WARNINGS.map(([warning]) => en.week.warning(warning)),
-    ...GENERATE_FAILURES.map(([failure]) => en.week.failure(failure)),
-    ...SLOT_FAILURES.map(([failure]) => en.swap.failure(failure)),
-    ...REASONS.map(([reason]) => en.swap.reason[reason]),
-  ]
-  for (const text of texts) {
-    assert.ok(text.trim(), 'порожній текст')
-    assert.doesNotMatch(text, CYRILLIC_EXCEPT_PORTION, text)
+test('кожен переклад має текст без кирилиці для кожного коду ядра', () => {
+  for (const t of [en, pl, de]) {
+    const texts = [
+      ...WARNINGS.map(([warning]) => t.week.warning(warning)),
+      ...GENERATE_FAILURES.map(([failure]) => t.week.failure(failure)),
+      ...SLOT_FAILURES.map(([failure]) => t.swap.failure(failure)),
+      ...REASONS.map(([reason]) => t.swap.reason[reason]),
+    ]
+    for (const text of texts) {
+      assert.ok(text.trim(), 'порожній текст')
+      assert.doesNotMatch(text, CYRILLIC_EXCEPT_PORTION, text)
+    }
   }
 })
 
