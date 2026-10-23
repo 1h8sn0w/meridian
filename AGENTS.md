@@ -73,7 +73,7 @@ PowerSync фоном синхронізує його з Postgres; записи �
 (Postgres, GoTrue, PostgREST) за Caddy в одному `compose.yaml`. Сервера
 застосунку немає. Обґрунтування — [ADR 001](https://linear.app/meridian-ua/document/adr-001-arhitektura-meridian-v2-224108dca97d),
 таблиці — [ER-схема](https://linear.app/meridian-ua/document/v2-er-shema-bd-mer-44-mer-55-mer-45-9e855efdb7ab).
-V1 (один HTML на `main`) видалено з `staging` у MER-68 — шукати в історії git.
+V1 (прототип в одному HTML) видалено в MER-68 — шукати в історії git.
 
 **Модель даних** описують `packages/core/src/types.ts` і міграції
 `packages/db/migrations`, а не цей файл.

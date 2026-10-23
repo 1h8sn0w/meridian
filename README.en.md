@@ -5,10 +5,11 @@
 **A meal planner that assembles your week from your dietitian's approved plans.**
 
 [![CI](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml)
-![V2](https://img.shields.io/badge/V2-local--first%20·%20in%20progress-4f9dff)
+![V2](https://img.shields.io/badge/V2-local--first%20·%20PWA-4f9dff)
+![languages](https://img.shields.io/badge/languages-uk%20·%20en%20·%20pl%20·%20de-f5a524)
 ![license](https://img.shields.io/badge/license-MIT-46c98b)
 
-<img src="docs/preview.svg" width="360" alt="Meridian home screen — day clock and active meal">
+<img src="docs/screens/today.webp" width="320" alt="Today screen: day clock, the current meal window and its dish with calories, macros and ingredients">
 
 [Українською](README.md)
 
@@ -19,6 +20,16 @@
 Meridian turns a dietitian's PDF meal plans into a working app. It splits them into individual meals and assembles a new week on its own — keeping the dietitian's calorie targets and meal structure, but mixing dishes across several plans so the rotation doesn't get stale. The home screen answers one question: what to eat right now.
 
 Unlike general-purpose meal planners, it never invents food. Every meal comes from a plan your dietitian approved.
+
+<div align="center">
+
+<img src="docs/screens/week.webp" width="240" alt="Week screen: plan days with calories per meal and per day">
+<img src="docs/screens/recipe.webp" width="240" alt="Recipe screen: macros, ingredients, serving size and cooking steps">
+<img src="docs/screens/shopping.webp" width="240" alt="Shopping screen: the week's list grouped by aisle">
+
+Week · Recipe · Shopping. Screenshots come from a test account with made-up meals; the UI is shown in Ukrainian.
+
+</div>
 
 ## How the generator works
 
@@ -50,13 +61,15 @@ A starter set of meals is optional. It is a JSON file with meals from the dietit
 
 ## Where it stands
 
-V2 now covers what the prototype did: sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email), the screens — Today, Week, Calendar, Meals, Recipe, Shopping, Family — reading and writing the on-device database, week generation and manual swap ported into `packages/core` with tests, PDF plan import, meal reminders, PWA install and offline, and eight tables syncing across a family's devices. Still ahead: a store release of the mobile build — the wrapper and both native projects are in the repository, but nothing has been compiled on a device yet.
+V2 is the working version of Meridian. Sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email); the Today, Week, Calendar, Meals, Recipe, Shopping and Family screens, reading and writing the on-device database; week generation and manual swap in `packages/core`, with tests; PDF plan import; meal reminders; eight tables syncing across a family's devices. The interface is in Ukrainian, English, Polish and German, switched from the Family screen.
 
-V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity. It stays in git history, and on GitHub Pages until `staging` lands on `main`; the localStorage data it left behind is imported by V2 from the Family screen.
+The app ships as a PWA: it installs on a phone straight from the browser and works offline. There is no separate mobile build, and none is planned until an app store or native features are needed — the Capacitor shell stays in `apps/web` as groundwork.
+
+V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity; it now lives only in git history. The data V1 kept in the browser moves to V2: the [`tools/v1-export.js`](tools/README.md) script captures it on the V1 page, and Family → “Move data from V1” loads the file.
 
 ## Stack
 
-The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is a static Vite + TanStack Router SPA — there is no application server at all: Caddy serves the files and fills the browser’s three configuration values into `index.html` as it serves them. Capacitor wraps that same build for mobile. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
+The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is a static Vite + TanStack Router SPA — there is no application server at all: Caddy serves the files and fills the browser’s three configuration values into `index.html` as it serves them. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
 
 <details>
 <summary>Working on the styles</summary>
@@ -76,7 +89,7 @@ The repository is a pnpm workspace:
 | Path | What |
 |------|------|
 | `compose.yaml` | The self-host stack, whole: seven services, zero manual steps |
-| `apps/web` | Static Vite + TanStack Router app; Capacitor wraps this same build |
+| `apps/web` | Static Vite + TanStack Router app, PWA |
 | `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
 | `packages/db` | SQL migrations for Postgres and the script that applies them |
 | `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |
@@ -99,7 +112,7 @@ pnpm db:migrate
 
 ## Docs
 
-Every directory that made a real decision explains it in its own `README.md`, next to the code: [`infra/README.md`](infra/README.md) — self-host setup, secrets, the published image (the stack's own decisions are in [`infra/DECISIONS.md`](infra/DECISIONS.md)); [`packages/core/README.md`](packages/core/README.md) — the generator and domain rules; [`packages/db/README.md`](packages/db/README.md) — tables, RLS, replication; [`apps/web/README.md`](apps/web/README.md) — the app, PWA and the native shell. Domain terms are in [`GLOSSARY.md`](GLOSSARY.md) and context for AI agents in [`AGENTS.md`](AGENTS.md). Architecture decisions, research and the task board live in Linear, not in this repository.
+Every directory that made a real decision explains it in its own `README.md`, next to the code: [`infra/README.md`](infra/README.md) — self-host setup, secrets, the published image (the stack's own decisions are in [`infra/DECISIONS.md`](infra/DECISIONS.md)); [`packages/core/README.md`](packages/core/README.md) — the generator and domain rules; [`packages/db/README.md`](packages/db/README.md) — tables, RLS, replication; [`apps/web/README.md`](apps/web/README.md) — the app, PWA and the groundwork for a native shell. Domain terms are in [`GLOSSARY.md`](GLOSSARY.md) and context for AI agents in [`AGENTS.md`](AGENTS.md). Architecture decisions, research and the task board live in Linear, not in this repository.
 
 This file is a translation of the Ukrainian [`README.md`](README.md); change that one first.
 
