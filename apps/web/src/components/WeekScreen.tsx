@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
   addDays,
@@ -49,6 +48,7 @@ import {
 } from '@phosphor-icons/react'
 import {
   Button,
+  ButtonLink,
   Hint,
   IconButton,
   Meta,
@@ -172,23 +172,19 @@ export function WeekScreen({ familyId }: { familyId: string }) {
           </Button>
 
           {view ? (
-            <Link to="/shopping" className="mt-2 block no-underline">
-              <Button block>
-                <ShoppingCart aria-hidden size={18} />
-                {messages.titles.shopping}
-              </Button>
-            </Link>
+            <ButtonLink to="/shopping" block className="mt-2">
+              <ShoppingCart aria-hidden size={18} />
+              {messages.titles.shopping}
+            </ButtonLink>
           ) : null}
 
           {shortage.length ? (
             <>
               <Warn>{t.poolShortage(shortage, antiRepeatDays)}</Warn>
-              <Link to="/meals" className="mt-2 block no-underline">
-                <Button block>
-                  <CookingPot aria-hidden size={18} />
-                  {t.addMeals}
-                </Button>
-              </Link>
+              <ButtonLink to="/meals" block className="mt-2">
+                <CookingPot aria-hidden size={18} />
+                {t.addMeals}
+              </ButtonLink>
             </>
           ) : null}
           {error ? <Warn>{error}</Warn> : null}
