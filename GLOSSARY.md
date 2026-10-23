@@ -42,4 +42,4 @@ README тек.
 | М'яке видалення | Видалення рядком `deleted_at`, фізичного DELETE немає | `deleted_at` |
 | LWW | Last-write-wins на рівні рядка (слота) замість CRDT | записи через PostgREST |
 | Виведений id | UUIDv5 з природного ключа, щоб дві вставки стали одним рядком | `packages/core/src/sync-ids.ts` |
-| V1 / V2 | V1 — один HTML на `main` (GitHub Pages); V2 — local-first на `staging` | `migrate-v1.ts`, `tools/v1-export.js` |
+| V1 / V2 | V1 — прототип в одному HTML, видалений у MER-68 (лише історія git); V2 — local-first, поточна версія | `migrate-v1.ts`, `tools/v1-export.js` |
