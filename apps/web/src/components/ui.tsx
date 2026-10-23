@@ -1,12 +1,15 @@
 import { useEffect, useId, useRef } from 'react'
 import type {
+  AnchorHTMLAttributes,
   ButtonHTMLAttributes,
   CSSProperties,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react'
+import { createLink } from '@tanstack/react-router'
 import { WarningCircle, X } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
 import { useMessages } from '../lib/i18n/use-messages'
@@ -95,29 +98,52 @@ export function Field({
   )
 }
 
-export function Button({
-  variant = 'default',
-  block = false,
-  children,
-  ...button
-}: {
+type ButtonLook = {
   variant?: 'default' | 'primary'
   block?: boolean
-} & ButtonHTMLAttributes<HTMLButtonElement>) {
+}
+
+function buttonClass({ variant = 'default', block = false }: ButtonLook) {
   const look =
     variant === 'primary'
       ? 'border-transparent bg-accent-fill font-semibold text-button-ink shadow-accent'
       : 'border-line bg-surface-strong font-medium text-content'
+  return `inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm transition-transform duration-300 ease-spring hover:-translate-y-px active:translate-y-0 active:scale-97 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look} ${block ? 'w-full' : ''}`
+}
+
+export function Button({
+  variant,
+  block,
+  children,
+  ...button
+}: ButtonLook & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       {...button}
-      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm transition-transform duration-300 ease-spring hover:-translate-y-px active:translate-y-0 active:scale-97 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${look} ${block ? 'w-full' : ''}`}
+      className={buttonClass({ variant, block })}
     >
       {children}
     </button>
   )
 }
+
+function ButtonAnchor({
+  variant,
+  block,
+  className = '',
+  ...anchor
+}: ButtonLook &
+  AnchorHTMLAttributes<HTMLAnchorElement> & { ref?: Ref<HTMLAnchorElement> }) {
+  return (
+    <a
+      {...anchor}
+      className={`${buttonClass({ variant, block })} no-underline ${className}`}
+    />
+  )
+}
+
+export const ButtonLink = createLink(ButtonAnchor)
 
 export function LinkButton({
   children,

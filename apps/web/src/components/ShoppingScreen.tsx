@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
 import {
   SHOPPING_CATEGORIES,
@@ -32,6 +31,7 @@ import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import {
   Button,
+  ButtonLink,
   Chip,
   Empty,
   Hint,
@@ -180,9 +180,9 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       ) : !weeks.length ? (
         <Panel>
           <Hint>{t.noPlan}</Hint>
-          <Link to="/week" className="block no-underline">
-            <Button block>{messages.common.openWeekScreen}</Button>
-          </Link>
+          <ButtonLink to="/week" block>
+            {messages.common.openWeekScreen}
+          </ButtonLink>
         </Panel>
       ) : (
         <>
