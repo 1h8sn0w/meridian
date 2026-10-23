@@ -27,7 +27,7 @@ Unlike general-purpose meal planners, it never invents food. Every meal comes fr
 <img src="docs/screens/recipe.webp" width="240" alt="Recipe screen: macros, ingredients, serving size and cooking steps">
 <img src="docs/screens/shopping.webp" width="240" alt="Shopping screen: the week's list grouped by aisle">
 
-Week · Recipe · Shopping. Screenshots come from a test account with made-up meals; the UI is shown in Ukrainian.
+Screenshots come from a test account with made-up meals; the UI is shown in Ukrainian.
 
 </div>
 
