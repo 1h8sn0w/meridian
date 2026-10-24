@@ -36,6 +36,13 @@ const SyncStateContext = createContext<SyncState>({
   dismissRejected: () => undefined,
 })
 
+function openFailure(error: unknown): LocalDbFailure {
+  return localDbFailure(error, {
+    secure: window.isSecureContext,
+    origin: window.location.origin,
+  })
+}
+
 export function useSyncState(): SyncState {
   return useContext(SyncStateContext)
 }
@@ -55,28 +62,23 @@ export function SyncProvider({
   const [attempt, setAttempt] = useState(0)
   const [rejected, setRejected] = useState<ReadonlyArray<Rejection>>([])
 
-  useEffect(() => setRejected([]), [familyId])
-
-  useEffect(() => {
+  const [shownFamilyId, setShownFamilyId] = useState(familyId)
+  if (shownFamilyId !== familyId) {
+    setShownFamilyId(familyId)
     setFailure(null)
     setConnectFailure(null)
-    if (!familyId) {
-      setDb(null)
-      return
-    }
+    setRejected([])
+    if (!familyId) setDb(null)
+  }
 
-    const fail = (error: unknown) =>
-      setFailure(
-        localDbFailure(error, {
-          secure: window.isSecureContext,
-          origin: window.location.origin,
-        }),
-      )
+  const insecure = import.meta.env.MODE !== 'native' && !window.isSecureContext
+  const shownFailure =
+    familyId && insecure ? openFailure(new Error('insecure context')) : failure
 
-    if (import.meta.env.MODE !== 'native' && !window.isSecureContext) {
-      fail(new Error('insecure context'))
-      return
-    }
+  useEffect(() => {
+    if (!familyId || insecure) return
+
+    const fail = (error: unknown) => setFailure(openFailure(error))
 
     const superseded = new AbortController()
     const isSuperseded = () => superseded.signal.aborted
@@ -128,9 +130,13 @@ export function SyncProvider({
         disconnectPowerSync(),
       )
     }
-  }, [attempt, configured, env, familyId])
+  }, [attempt, configured, env, familyId, insecure])
 
-  const retryConnect = useCallback(() => setAttempt((n) => n + 1), [])
+  const retryConnect = useCallback(() => {
+    setFailure(null)
+    setConnectFailure(null)
+    setAttempt((n) => n + 1)
+  }, [])
   const dismissRejected = useCallback(() => setRejected([]), [])
 
   return (
@@ -138,7 +144,7 @@ export function SyncProvider({
       value={{
         configured,
         db,
-        failure,
+        failure: shownFailure,
         connectFailure,
         retryConnect,
         rejected,

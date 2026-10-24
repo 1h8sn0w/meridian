@@ -10,7 +10,6 @@ import { minutesOf, useNow } from '../lib/use-now'
 import { formatMinute } from '../lib/day-clock'
 import { useMealWindows } from '../lib/meal-windows'
 import {
-  DEFAULT_SETTINGS,
   LEAD_OPTIONS,
   askPermission,
   clearFired,
@@ -80,17 +79,14 @@ type Refusal = Exclude<NotificationState, 'granted'>
 
 export function RemindersPanel({ week }: { week: WeekView | null }) {
   const t = useMessages()
-  const [settings, setSettings] = useState<ReminderSettings>(DEFAULT_SETTINGS)
-  const [permission, setPermission] = useState<NotificationState>('default')
-  const [refusal, setRefusal] = useState<Refusal | null>(null)
-  const windows = windowsInPlan(useMealWindows().windows, week)
-
-  useEffect(() => {
-    setSettings(readSettings())
+  const [settings, setSettings] = useState<ReminderSettings>(readSettings)
+  const [permission, setPermission] =
+    useState<NotificationState>(notificationState)
+  const [refusal, setRefusal] = useState<Refusal | null>(() => {
     const state = notificationState()
-    setPermission(state)
-    if (state === 'denied' || state === 'unsupported') setRefusal(state)
-  }, [])
+    return state === 'denied' || state === 'unsupported' ? state : null
+  })
+  const windows = windowsInPlan(useMealWindows().windows, week)
 
   const save = (next: ReminderSettings) => {
     writeSettings(next)

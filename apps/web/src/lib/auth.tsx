@@ -58,6 +58,13 @@ export function AuthProvider({
   const [invite, setInvite] = useState<Invite | null>(null)
 
   const familyId = familyIdFromToken(session?.access_token)
+  const [shownFamilyId, setShownFamilyId] = useState(familyId)
+  if (shownFamilyId !== familyId) {
+    setShownFamilyId(familyId)
+    setFamily(null)
+    setMembers([])
+    setInvite(null)
+  }
 
   useEffect(() => {
     if (!configured) return
@@ -70,12 +77,7 @@ export function AuthProvider({
   }, [configured, env])
 
   useEffect(() => {
-    if (!configured || !familyId) {
-      setFamily(null)
-      setMembers([])
-      setInvite(null)
-      return
-    }
+    if (!configured || !familyId) return
     const stale = new AbortController()
     const supabase = getSupabase(env)
 

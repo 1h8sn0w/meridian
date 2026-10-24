@@ -187,6 +187,7 @@ demo- і seed-дані, README, коміти, PR, задачі й докумен
   а потрібен лише текстовий шар у браузері (MER-52).
 - **ESLint спільний:** правила — `eslint.config.base.mjs` у корені, `eslint.config.js`
   пакета лише розгортає базу й додає свій `ignores` (MER-71; `dist/` і
-  `eslint.config.js` база ігнорує сама). Prettier —
+  `eslint.config.js` база ігнорує сама). Хуки React перевіряє
+  `eslint-plugin-react-hooks`, набір `recommended` (MER-132). Prettier —
   `prettier.config.mjs` у корені (значення — зі стартера TanStack Start).
 - Один менеджер пакетів — pnpm (`pnpm-lock.yaml`).

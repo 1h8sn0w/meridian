@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -326,21 +326,21 @@ export function Sheet({
   onClose: () => void
   children: ReactNode | ((close: () => void) => ReactNode)
 }) {
-  const sheet = useRef<HTMLDialogElement>(null)
+  const [sheet, setSheet] = useState<HTMLDialogElement | null>(null)
   const t = useMessages()
 
   useEffect(() => {
-    sheet.current?.showModal()
-  }, [])
+    sheet?.showModal()
+  }, [sheet])
 
   const close = () => {
-    sheet.current?.close()
+    sheet?.close()
     onClose()
   }
 
   return (
     <dialog
-      ref={sheet}
+      ref={setSheet}
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault()
