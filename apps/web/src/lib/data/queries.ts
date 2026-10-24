@@ -69,14 +69,18 @@ function useRead<TItem, TOut>(
   deps: ReadonlyArray<unknown> = [],
 ): Read<TOut> {
   const { data, isLoading, error } = useQuery<Row>(sql, [...params])
-  return useMemo(() => {
-    const { items, problems } = mapRows(data, map)
-    return {
-      data: reduce(items),
-      isLoading,
-      problems: withQueryError(problems, error),
-    }
-  }, [data, error, isLoading, ...deps])
+  return useMemo(
+    () => {
+      const { items, problems } = mapRows(data, map)
+      return {
+        data: reduce(items),
+        isLoading,
+        problems: withQueryError(problems, error),
+      }
+    },
+    // eslint-disable-next-line react-hooks/use-memo, react-hooks/exhaustive-deps -- map і reduce залежать лише від рядка й deps (data/README.md, useRead)
+    [data, error, isLoading, ...deps],
+  )
 }
 
 const asList = <T>(items: Array<T>): Array<T> => items

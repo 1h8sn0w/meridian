@@ -17,6 +17,14 @@ type Invite = { code: string; expiresAt: string }
 type FamilyRow = { id: string; name: string }
 type MemberRow = { id: string; user_id: string; email: string | null }
 type InviteRow = { code: string; expires_at: string }
+type Roster = {
+  familyId: string
+  family: Family | null
+  members: Array<FamilyMember>
+  invite: Invite | null
+}
+
+const NO_MEMBERS: Array<FamilyMember> = []
 
 type AuthValue = {
   status: Status
@@ -53,11 +61,13 @@ export function AuthProvider({
   const configured = isPublicEnvReady(env)
   const [session, setSession] = useState<Session | null>(null)
   const [resolved, setResolved] = useState(false)
-  const [family, setFamily] = useState<Family | null>(null)
-  const [members, setMembers] = useState<Array<FamilyMember>>([])
-  const [invite, setInvite] = useState<Invite | null>(null)
+  const [roster, setRoster] = useState<Roster | null>(null)
 
   const familyId = familyIdFromToken(session?.access_token)
+  const current = roster?.familyId === familyId ? roster : null
+  const family = current?.family ?? null
+  const members = current?.members ?? NO_MEMBERS
+  const invite = current?.invite ?? null
 
   useEffect(() => {
     if (!configured) return
@@ -70,12 +80,7 @@ export function AuthProvider({
   }, [configured, env])
 
   useEffect(() => {
-    if (!configured || !familyId) {
-      setFamily(null)
-      setMembers([])
-      setInvite(null)
-      return
-    }
+    if (!configured || !familyId) return
     const stale = new AbortController()
     const supabase = getSupabase(env)
 
@@ -106,18 +111,19 @@ export function AuthProvider({
       if (stale.signal.aborted) return
 
       const row = familyRows.data?.[0]
-      setFamily(row ? { id: row.id, name: row.name } : null)
-      setMembers(
-        (memberRows.data ?? []).map((m) => ({
+      const pending = inviteRows.data?.[0]
+      setRoster({
+        familyId,
+        family: row ? { id: row.id, name: row.name } : null,
+        members: (memberRows.data ?? []).map((m) => ({
           id: m.id,
           userId: m.user_id,
           email: m.email,
         })),
-      )
-      const pending = inviteRows.data?.[0]
-      setInvite(
-        pending ? { code: pending.code, expiresAt: pending.expires_at } : null,
-      )
+        invite: pending
+          ? { code: pending.code, expiresAt: pending.expires_at }
+          : null,
+      })
     })()
 
     return () => stale.abort()
@@ -200,7 +206,9 @@ export function AuthProvider({
           .returns<InviteRow>()
         if (row.error) return { ok: false, failure: rpcFailure(row.error) }
         const fresh = { code: row.data.code, expiresAt: row.data.expires_at }
-        setInvite(fresh)
+        setRoster((known) =>
+          known?.familyId === familyId ? { ...known, invite: fresh } : known,
+        )
         return { ok: true, value: fresh }
       },
     }
