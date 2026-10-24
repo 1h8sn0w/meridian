@@ -36,22 +36,6 @@ const SyncStateContext = createContext<SyncState>({
   dismissRejected: () => undefined,
 })
 
-type Kept<T> = { key: string; value: T }
-
-const NO_REJECTIONS: ReadonlyArray<Rejection> = []
-
-function keptFor<T>(kept: Kept<T> | null, key: string | null): T | null {
-  return kept && kept.key === key ? kept.value : null
-}
-
-function runOf(familyId: string | null, attempt: number): string {
-  return `${familyId}#${attempt}`
-}
-
-function isInsecure(): boolean {
-  return import.meta.env.MODE !== 'native' && !window.isSecureContext
-}
-
 function openFailure(error: unknown): LocalDbFailure {
   return localDbFailure(error, {
     secure: window.isSecureContext,
@@ -72,30 +56,29 @@ export function SyncProvider({
 }) {
   const { familyId } = useAuth()
   const configured = isSyncConfigured(env)
-  const [database, setDatabase] = useState<Kept<PowerSyncDatabase> | null>(null)
-  const [failed, setFailed] = useState<Kept<LocalDbFailure> | null>(null)
-  const [connectFailed, setConnectFailed] =
-    useState<Kept<Failure | null> | null>(null)
+  const [db, setDb] = useState<PowerSyncDatabase | null>(null)
+  const [failure, setFailure] = useState<LocalDbFailure | null>(null)
+  const [connectFailure, setConnectFailure] = useState<Failure | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [rejections, setRejections] = useState<Kept<
-    ReadonlyArray<Rejection>
-  > | null>(null)
+  const [rejected, setRejected] = useState<ReadonlyArray<Rejection>>([])
 
-  const run = runOf(familyId, attempt)
-  const db = keptFor(database, familyId)
-  const failure = !familyId
-    ? null
-    : isInsecure()
-      ? openFailure(new Error('insecure context'))
-      : keptFor(failed, run)
-  const connectFailure = keptFor(connectFailed, run)
-  const rejected = keptFor(rejections, familyId) ?? NO_REJECTIONS
+  const [shownFamilyId, setShownFamilyId] = useState(familyId)
+  if (shownFamilyId !== familyId) {
+    setShownFamilyId(familyId)
+    setFailure(null)
+    setConnectFailure(null)
+    setRejected([])
+    if (!familyId) setDb(null)
+  }
+
+  const insecure = import.meta.env.MODE !== 'native' && !window.isSecureContext
+  const shownFailure =
+    familyId && insecure ? openFailure(new Error('insecure context')) : failure
 
   useEffect(() => {
-    if (!familyId || isInsecure()) return
+    if (!familyId || insecure) return
 
-    const fail = (error: unknown) =>
-      setFailed({ key: run, value: openFailure(error) })
+    const fail = (error: unknown) => setFailure(openFailure(error))
 
     const superseded = new AbortController()
     const isSuperseded = () => superseded.signal.aborted
@@ -113,7 +96,7 @@ export function SyncProvider({
         return
       }
       if (isSuperseded()) return
-      setDatabase({ key: familyId, value: opened })
+      setDb(opened)
 
       const [{ connectPowerSync, disconnectPowerSync }, connectorModule] =
         modules
@@ -122,25 +105,19 @@ export function SyncProvider({
         getSupabase(env),
         env.powersyncUrl,
         (rejection) => {
-          if (!isSuperseded()) {
-            setRejections((kept) => ({
-              key: familyId,
-              value: [...(keptFor(kept, familyId) ?? []), rejection],
-            }))
-          }
+          if (!isSuperseded()) setRejected((list) => [...list, rejection])
         },
       )
       try {
         await connectPowerSync(connector)
       } catch (error) {
         if (!isSuperseded()) {
-          setConnectFailed({
-            key: run,
-            value: syncFailure(error, {
+          setConnectFailure(
+            syncFailure(error, {
               direction: 'connect',
               online: navigator.onLine,
             }),
-          })
+          )
         }
         return
       }
@@ -153,17 +130,21 @@ export function SyncProvider({
         disconnectPowerSync(),
       )
     }
-  }, [configured, env, familyId, run])
+  }, [attempt, configured, env, familyId, insecure])
 
-  const retryConnect = useCallback(() => setAttempt((n) => n + 1), [])
-  const dismissRejected = useCallback(() => setRejections(null), [])
+  const retryConnect = useCallback(() => {
+    setFailure(null)
+    setConnectFailure(null)
+    setAttempt((n) => n + 1)
+  }, [])
+  const dismissRejected = useCallback(() => setRejected([]), [])
 
   return (
     <SyncStateContext.Provider
       value={{
         configured,
         db,
-        failure,
+        failure: shownFailure,
         connectFailure,
         retryConnect,
         rejected,
