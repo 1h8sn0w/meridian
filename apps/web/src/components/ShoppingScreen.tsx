@@ -28,6 +28,7 @@ import {
   categoryLabel,
   shoppingListText,
 } from '../lib/shopping-share'
+import { shareOrCopy } from '../lib/share'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import {
@@ -139,21 +140,12 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const share = async () => {
     setError(null)
     setCopied(false)
-    const data = { title: messages.titles.shopping, text: shareText }
-    if ('canShare' in navigator && navigator.canShare(data)) {
-      try {
-        await navigator.share(data)
-        return
-      } catch (cause) {
-        if (cause instanceof DOMException && cause.name === 'AbortError') return
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(shareText)
-      setCopied(true)
-    } catch {
-      setError(t.shareFailed)
-    }
+    const outcome = await shareOrCopy({
+      title: messages.titles.shopping,
+      text: shareText,
+    })
+    if (outcome === 'copied') setCopied(true)
+    if (outcome === 'failed') setError(messages.common.shareFailed)
   }
 
   return (

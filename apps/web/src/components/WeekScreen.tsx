@@ -36,7 +36,9 @@ import type { DayView, WeekView } from '../lib/data/model'
 import { saveWeek } from '../lib/data/mutations'
 import { formatDayTitle, formatMoment } from '../lib/format'
 import { useMessages } from '../lib/i18n/use-messages'
+import { shareOrCopy } from '../lib/share'
 import { useNow } from '../lib/use-now'
+import { weekMenuText } from '../lib/week-share'
 import { AppShell } from './AppShell'
 import { RecipeLink } from './RecipeLink'
 import { SwapDialog } from './SwapDialog'
@@ -45,12 +47,14 @@ import {
   ArrowsClockwise,
   ArrowsLeftRight,
   CookingPot,
+  ShareNetwork,
   ShoppingCart,
 } from '@phosphor-icons/react'
 import {
   Button,
   Hint,
   IconButton,
+  InfoText,
   Meta,
   Panel,
   Problems,
@@ -92,6 +96,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
     slot: MealType
   } | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const sharedNote =
     profile && profile.sharedPlanWith ? t.sharedNote(owner?.name ?? '—') : null
@@ -100,6 +105,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
     if (!owner || !ownerId) return
     setBusy(true)
     setError(null)
+    setCopied(false)
     try {
       const result = generateWeek(mealsRead.data, {
         profile: owner,
@@ -126,6 +132,18 @@ export function WeekScreen({ familyId }: { familyId: string }) {
 
   const view = week.data
   const swapsAhead = view ? manualSwapsAhead(view) : 0
+  const menuText = view ? weekMenuText(view.days) : ''
+
+  const shareMenu = async () => {
+    setError(null)
+    setCopied(false)
+    const outcome = await shareOrCopy({
+      title: t.menuTitle,
+      text: menuText,
+    })
+    if (outcome === 'copied') setCopied(true)
+    if (outcome === 'failed') setError(messages.common.shareFailed)
+  }
   const shortage =
     mealsRead.isLoading || antiRepeat.isLoading || sharedNote
       ? []
@@ -178,6 +196,16 @@ export function WeekScreen({ familyId }: { familyId: string }) {
                 {messages.titles.shopping}
               </Button>
             </Link>
+          ) : null}
+
+          {menuText ? (
+            <div className="mt-2">
+              <Button block onClick={() => void shareMenu()}>
+                <ShareNetwork aria-hidden size={18} />
+                {t.shareMenu}
+              </Button>
+              {copied ? <InfoText>{t.menuCopied}</InfoText> : null}
+            </div>
           ) : null}
 
           {shortage.length ? (

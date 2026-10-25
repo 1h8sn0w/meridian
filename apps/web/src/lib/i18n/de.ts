@@ -61,6 +61,8 @@ export const de: Messages = {
     profileFirst: 'Zuerst ein Profil',
     mealRemoved: 'Gericht aus dem Pool entfernt',
     openWeekScreen: 'Bildschirm „Woche“ öffnen',
+    shareFailed:
+      'Der Browser bietet weder ein „Teilen“-Menü noch Zugriff auf die Zwischenablage.',
     macroFields: {
       protein: 'Eiweiß, g',
       fat: 'Fett, g',
@@ -466,6 +468,9 @@ export const de: Messages = {
     generating: 'Woche wird geplant…',
     regenerate: 'Woche neu planen',
     generate: 'Woche planen',
+    menuTitle: 'Speiseplan',
+    shareMenu: 'Speiseplan teilen',
+    menuCopied: 'Der Speiseplan ist kopiert — füge ihn in einen Messenger ein.',
     addMeals: 'Gerichte hinzufügen',
     noPlan:
       'Noch kein Plan. Drück den Knopf — der Generator plant eine Woche aus dem Gerichte-Pool nach den Regeln der Ernährungsberatung: Art des Slots, Kalorienbereich, keine Wiederholungen und ein Mix der Pläne.',
@@ -665,8 +670,6 @@ export const de: Messages = {
       other: 'Sonstiges',
     },
     noQty: 'Ohne genaue Menge',
-    shareFailed:
-      'Der Browser bietet weder ein „Teilen“-Menü noch Zugriff auf die Zwischenablage.',
     bought: (bought, total) => bought + ' von ' + total + ' gekauft',
     fromWeek: 'Aus der aktuellen Woche',
     profileFirstHint:
