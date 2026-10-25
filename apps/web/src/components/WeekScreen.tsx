@@ -144,6 +144,7 @@ export function WeekScreen({ familyId }: { familyId: string }) {
     if (outcome === 'copied') setCopied(true)
     if (outcome === 'failed') setError(messages.common.shareFailed)
   }
+
   const shortage =
     mealsRead.isLoading || antiRepeat.isLoading || sharedNote
       ? []

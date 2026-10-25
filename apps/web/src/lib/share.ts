@@ -20,8 +20,8 @@ export async function shareOrCopy(
       }
     }
   }
+  if (!target.clipboard) return 'failed'
   try {
-    if (!target.clipboard) return 'failed'
     await target.clipboard.writeText(data.text)
     return 'copied'
   } catch {
