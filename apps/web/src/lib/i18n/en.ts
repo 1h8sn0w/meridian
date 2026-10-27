@@ -127,6 +127,7 @@ export const en: Messages = {
       at +
       (tomorrow ? ' (tomorrow)' : ''),
     swap: 'Swap meal',
+    later: (tomorrow) => (tomorrow ? 'Later tomorrow' : 'Later today'),
   },
   firstSteps: {
     title: 'First steps',
