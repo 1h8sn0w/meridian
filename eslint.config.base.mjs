@@ -1,6 +1,7 @@
 //  @ts-check
 
 import { tanstackConfig } from '@tanstack/eslint-config'
+import reactHooks from 'eslint-plugin-react-hooks'
 import {
   isCommentFree,
   isDirective,
@@ -34,6 +35,7 @@ export const noComments = {
 
 export default [
   ...tanstackConfig,
+  reactHooks.configs.flat.recommended,
   {
     linterOptions: { reportUnusedDisableDirectives: 'error' },
     plugins: { meridian: { rules: { 'no-comments': noComments } } },
