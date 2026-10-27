@@ -1,8 +1,7 @@
-import { Link } from '@tanstack/react-router'
 import type { PoolShortage } from '@meridian/core'
 import { CheckCircle } from '@phosphor-icons/react'
 import { useMessages } from '../lib/i18n/use-messages'
-import { Button, Panel } from './ui'
+import { Button, ButtonLink, Panel } from './ui'
 
 export function FirstSteps({
   hasProfile,
@@ -43,11 +42,9 @@ export function FirstSteps({
           : t.firstSteps.mealsCount(mealCount),
       done: mealCount > 0 && shortage.length === 0,
       action: (
-        <Link to="/meals" className="block no-underline">
-          <Button block variant="primary">
-            {t.firstSteps.openMeals}
-          </Button>
-        </Link>
+        <ButtonLink to="/meals" block variant="primary">
+          {t.firstSteps.openMeals}
+        </ButtonLink>
       ),
     },
     {
@@ -55,11 +52,9 @@ export function FirstSteps({
       text: t.firstSteps.weekText,
       done: false,
       action: (
-        <Link to="/week" className="block no-underline">
-          <Button block variant="primary">
-            {t.firstSteps.openWeek}
-          </Button>
-        </Link>
+        <ButtonLink to="/week" block variant="primary">
+          {t.firstSteps.openWeek}
+        </ButtonLink>
       ),
     },
   ]

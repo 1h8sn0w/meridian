@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   addDays,
   dateKey,
@@ -23,7 +23,16 @@ import { AppShell } from './AppShell'
 import { DayTotal } from './DayTotal'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
-import { Button, Hint, IconButton, Meta, Panel, Problems, Tag } from './ui'
+import {
+  Button,
+  ButtonLink,
+  Hint,
+  IconButton,
+  Meta,
+  Panel,
+  Problems,
+  Tag,
+} from './ui'
 
 export function CalendarScreen() {
   const messages = useMessages()
@@ -126,9 +135,9 @@ export function CalendarScreen() {
           {plannedRead.data === 0 && !plannedRead.isLoading ? (
             <Panel>
               <Hint>{t.empty}</Hint>
-              <Link to="/week" className="block no-underline">
-                <Button block>{messages.common.openWeekScreen}</Button>
-              </Link>
+              <ButtonLink to="/week" block>
+                {messages.common.openWeekScreen}
+              </ButtonLink>
             </Panel>
           ) : null}
 
