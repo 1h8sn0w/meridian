@@ -49,6 +49,8 @@ export const en: Messages = {
     profileFirst: 'Profile first',
     mealRemoved: 'meal removed from the pool',
     openWeekScreen: 'Open the “Week” screen',
+    shareFailed:
+      'The browser gave neither a “Share” menu nor clipboard access.',
     macroFields: {
       protein: 'Protein, g',
       fat: 'Fat, g',
@@ -437,6 +439,9 @@ export const en: Messages = {
     generating: 'Building the week…',
     regenerate: 'Regenerate the week',
     generate: 'Generate the week',
+    menuTitle: 'Menu',
+    shareMenu: 'Share the menu',
+    menuCopied: 'The menu is copied — paste it into a messenger.',
     addMeals: 'Add meals',
     noPlan:
       'No plan yet. Press the button — the generator builds a week from the meal pool by the dietitian’s rules: slot type, calorie range, no repeats and a mix of plans.',
@@ -630,8 +635,6 @@ export const en: Messages = {
       other: 'Other',
     },
     noQty: 'No exact quantity',
-    shareFailed:
-      'The browser gave neither a “Share” menu nor clipboard access.',
     bought: (bought, total) => bought + ' of ' + total + ' bought',
     fromWeek: 'From the current week',
     profileFirstHint:

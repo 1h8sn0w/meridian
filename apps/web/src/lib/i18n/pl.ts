@@ -63,6 +63,8 @@ export const pl: Messages = {
     profileFirst: 'Najpierw profil',
     mealRemoved: 'danie usunięte z puli',
     openWeekScreen: 'Otwórz ekran „Tydzień”',
+    shareFailed:
+      'Przeglądarka nie dała ani menu „Udostępnij”, ani dostępu do schowka.',
     macroFields: {
       protein: 'Białko, g',
       fat: 'Tłuszcz, g',
@@ -456,6 +458,9 @@ export const pl: Messages = {
     generating: 'Układamy tydzień…',
     regenerate: 'Wygeneruj tydzień ponownie',
     generate: 'Wygeneruj tydzień',
+    menuTitle: 'Jadłospis',
+    shareMenu: 'Udostępnij jadłospis',
+    menuCopied: 'Jadłospis skopiowany — wklej go w komunikatorze.',
     addMeals: 'Dodaj dania',
     noPlan:
       'Planu jeszcze nie ma. Naciśnij przycisk — generator ułoży tydzień z puli dań według zasad dietetyka: rodzaj slotu, zakres kalorii, bez powtórek i z mieszanką planów.',
@@ -647,8 +652,6 @@ export const pl: Messages = {
       other: 'Inne',
     },
     noQty: 'Bez dokładnej ilości',
-    shareFailed:
-      'Przeglądarka nie dała ani menu „Udostępnij”, ani dostępu do schowka.',
     bought: (bought, total) => 'Kupiono ' + bought + ' z ' + total,
     fromWeek: 'Z bieżącego tygodnia',
     profileFirstHint:
