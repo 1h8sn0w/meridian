@@ -10,6 +10,7 @@ import {
   phaseAt,
   sameMealHours,
   slotAt,
+  windowsAfter,
 } from './day-clock.ts'
 import type { MealHours } from './day-clock.ts'
 
@@ -150,4 +151,22 @@ test('рядок налаштувань: порожній — стандартн
       ),
     /не раніше за кінець сніданку/,
   )
+})
+
+test('далі — вікна, що починаються пізніше за показане, у порядку доби', () => {
+  const types = (type: Parameters<typeof windowsAfter>[1]) =>
+    windowsAfter(DEFAULT_MEAL_WINDOWS, type).map((w) => w.type)
+  assert.deepEqual(types('breakfast'), ['lunch', 'snack', 'dinner'])
+  assert.deepEqual(types('lunch'), ['snack', 'dinner'])
+  assert.deepEqual(types('snack'), ['dinner'])
+  assert.deepEqual(types('dinner'), [])
+})
+
+test('далі — лише серед переданих вікон; показаного вікна немає — нічого', () => {
+  const withoutSnack = DEFAULT_MEAL_WINDOWS.filter((w) => w.type !== 'snack')
+  assert.deepEqual(
+    windowsAfter(withoutSnack, 'lunch').map((w) => w.type),
+    ['dinner'],
+  )
+  assert.deepEqual(windowsAfter(withoutSnack, 'snack'), [])
 })

@@ -11,10 +11,11 @@ import {
   useWeek,
 } from '../lib/data/queries'
 import { windowsInPlan } from '../lib/data/model'
-import type { WeekView } from '../lib/data/model'
+import type { DayView, WeekView } from '../lib/data/model'
 import { formatToday } from '../lib/format'
 import { minutesOf, useNow } from '../lib/use-now'
-import { formatMinute, slotAt } from '../lib/day-clock'
+import { formatMinute, slotAt, windowsAfter } from '../lib/day-clock'
+import type { MealWindow } from '../lib/day-clock'
 import { useMealWindows } from '../lib/meal-windows'
 import { AntiRepeatPanel } from './AntiRepeat'
 import { AppShell } from './AppShell'
@@ -187,7 +188,8 @@ function CurrentMeal({
   )
 
   const { windows } = useMealWindows()
-  const active = slotAt(minutes, windowsInPlan(windows, week))
+  const planned = windowsInPlan(windows, week)
+  const active = slotAt(minutes, planned)
   const slot: MealType | null = active.type ?? active.next?.type ?? null
   const dayOffset =
     !active.type && active.next && active.next.startMinute <= minutes ? 1 : 0
@@ -233,50 +235,109 @@ function CurrentMeal({
       : ''
 
   return (
-    <Panel>
-      {heading}
-      <p className="m-0">
-        <Tag tone="accent">{label}</Tag>
-      </p>
+    <>
+      <Panel>
+        {heading}
+        <p className="m-0">
+          <Tag tone="accent">{label}</Tag>
+        </p>
 
-      <div className="flex items-end justify-between gap-3 border-b border-line pb-4 pt-3">
-        <div className="min-w-0 flex-auto">
-          <div className="text-xl font-semibold leading-snug tracking-tight">
-            <RecipeLink mealId={meal.id}>{meal.name}</RecipeLink>{' '}
-            <TasteMark value={prefOf(prefs, meal.id)} />{' '}
-            <MealMarks meal={meal} />
+        <div className="flex items-end justify-between gap-3 border-b border-line pb-4 pt-3">
+          <div className="min-w-0 flex-auto">
+            <div className="text-xl font-semibold leading-snug tracking-tight">
+              <RecipeLink mealId={meal.id}>{meal.name}</RecipeLink>{' '}
+              <TasteMark value={prefOf(prefs, meal.id)} />{' '}
+              <MealMarks meal={meal} />
+            </div>
+            {meal.source ? (
+              <div className="mt-1 text-xs text-muted">{meal.source}</div>
+            ) : null}
           </div>
-          {meal.source ? (
-            <div className="mt-1 text-xs text-muted">{meal.source}</div>
-          ) : null}
+          <div className="whitespace-nowrap font-mono text-lg font-semibold tabular-nums text-accent">
+            {formatMealCalories(meal, t.common.kcalUnit)}
+          </div>
         </div>
-        <div className="whitespace-nowrap font-mono text-lg font-semibold tabular-nums text-accent">
-          {formatMealCalories(meal, t.common.kcalUnit)}
-        </div>
-      </div>
 
-      <MealDetails meal={meal} portion={portion} />
+        <MealDetails meal={meal} portion={portion} />
 
-      <DayTotal
-        calories={day.calories}
-        plan={
-          ownerCorridorApplies
-            ? {
-                target: week.params.targetCalories,
-                corridor: week.usedCorridor,
-              }
-            : null
-        }
+        <DayTotal
+          calories={day.calories}
+          plan={
+            ownerCorridorApplies
+              ? {
+                  target: week.params.targetCalories,
+                  corridor: week.usedCorridor,
+                }
+              : null
+          }
+        />
+
+        {day.isPast ? null : (
+          <div className="mt-4">
+            <Button block onClick={() => onSwap(dayIndex, slot)}>
+              <ArrowsLeftRight aria-hidden size={18} />
+              {t.today.swap}
+            </Button>
+          </div>
+        )}
+      </Panel>
+
+      <LaterToday
+        day={day}
+        windows={windowsAfter(planned, slot)}
+        tomorrow={dayOffset > 0}
       />
+    </>
+  )
+}
 
-      {day.isPast ? null : (
-        <div className="mt-4">
-          <Button block onClick={() => onSwap(dayIndex, slot)}>
-            <ArrowsLeftRight aria-hidden size={18} />
-            {t.today.swap}
-          </Button>
+function LaterToday({
+  day,
+  windows,
+  tomorrow,
+}: {
+  day: DayView
+  windows: ReadonlyArray<MealWindow>
+  tomorrow: boolean
+}) {
+  const t = useMessages()
+  const later = windows.flatMap((window) => {
+    const slotView = day.byType[window.type]
+    return slotView ? [{ window, slotView }] : []
+  })
+  if (!later.length) return null
+
+  return (
+    <Panel title={t.today.later(tomorrow)}>
+      {later.map(({ window, slotView }) => (
+        <div
+          key={slotView.id}
+          className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 last:pb-0"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted">
+              {t.common.mealType[window.type]} ·{' '}
+              <span className="font-mono tabular-nums">
+                {formatMinute(window.startMinute)}
+              </span>
+            </span>
+            <span className="block text-sm font-medium leading-snug">
+              {slotView.meal ? (
+                <RecipeLink mealId={slotView.mealId}>
+                  {slotView.meal.name}
+                </RecipeLink>
+              ) : (
+                <span className="text-warning">{t.common.mealRemoved}</span>
+              )}
+            </span>
+          </span>
+          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
+            {slotView.meal
+              ? formatMealCalories(slotView.meal, t.common.kcalUnit)
+              : ''}
+          </span>
         </div>
-      )}
+      ))}
     </Panel>
   )
 }

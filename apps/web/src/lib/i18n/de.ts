@@ -145,6 +145,7 @@ export const de: Messages = {
       at +
       (tomorrow ? ' (morgen)' : ''),
     swap: 'Gericht tauschen',
+    later: (tomorrow) => (tomorrow ? 'Später morgen' : 'Später heute'),
   },
   firstSteps: {
     title: 'Erste Schritte',

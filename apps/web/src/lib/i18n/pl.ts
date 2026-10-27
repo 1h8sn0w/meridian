@@ -143,6 +143,7 @@ export const pl: Messages = {
       at +
       (tomorrow ? ' (jutro)' : ''),
     swap: 'Zamień danie',
+    later: (tomorrow) => (tomorrow ? 'Później jutro' : 'Później dziś'),
   },
   firstSteps: {
     title: 'Pierwsze kroki',

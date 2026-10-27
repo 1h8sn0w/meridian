@@ -141,6 +141,8 @@ export const uk = {
     next: (type: MealType, at: string, tomorrow: boolean) =>
       'Далі: ' + MEAL_TYPE[type] + ' о ' + at + (tomorrow ? ' (завтра)' : ''),
     swap: 'Замінити страву',
+    later: (tomorrow: boolean): string =>
+      tomorrow ? 'Далі завтра' : 'Далі сьогодні',
   },
   firstSteps: {
     title: 'Перші кроки',

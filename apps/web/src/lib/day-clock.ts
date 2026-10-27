@@ -162,6 +162,17 @@ export function slotAt(
   return { type: null, window: null, next: best ? best.window : null }
 }
 
+export function windowsAfter(
+  windows: ReadonlyArray<MealWindow>,
+  type: MealType,
+): Array<MealWindow> {
+  const shown = windows.find((w) => w.type === type)
+  if (!shown) return []
+  return windows
+    .filter((w) => w.startMinute > shown.startMinute)
+    .sort((a, b) => a.startMinute - b.startMinute)
+}
+
 type SkyPhase = 'dawn' | 'noon' | 'golden' | 'dusk' | 'night'
 
 const PHASE_OF: Record<MealType, SkyPhase> = {
