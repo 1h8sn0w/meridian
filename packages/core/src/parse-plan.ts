@@ -1,4 +1,4 @@
-import type { Ingredient, MealType, Portion } from './types.ts'
+import type { Ingredient, MealType, Portion, PortionLetter } from './types.ts'
 
 const SLOT_TYPES: Readonly<Record<string, MealType>> = {
   сніданок: 'breakfast',
@@ -11,6 +11,8 @@ type PlanEntryKind = 'meal' | 'repeat' | 'dup'
 
 export type PlanFlag = 'dessert-split' | 'dup' | 'no-kcal'
 
+type PortionCalories = Record<PortionLetter, number | null>
+
 export type PlanEntry = {
   kind: PlanEntryKind
   type: MealType
@@ -18,7 +20,7 @@ export type PlanEntry = {
   day: number | null
   week: number | null
   source: string
-  calories: number | null
+  calories: PortionCalories
   ingredients: Array<Ingredient>
   steps: Array<string>
   servings: number | null
@@ -75,6 +77,26 @@ function group(m: RegExpExecArray, index: number): string {
   return m[index] ?? ''
 }
 
+const portionKcal = (label: string) =>
+  new RegExp(
+    `(?:^|[\\s|:;,])(?:${label})\\s*[:–—-]\\s*[~≈]?\\s*(\\d+(?:[.,]\\d+)?)\\s*ккал(?!\\s*/)`,
+  )
+
+const PORTION_KCAL: ReadonlyArray<[PortionLetter, RegExp]> = [
+  ['Ж', portionKcal('Жінка|Ж')],
+  ['Ч', portionKcal('Чоловік|Ч')],
+]
+
+function portionCalories(line: string): Partial<PortionCalories> | null {
+  if (/^(Всього|Разом)/i.test(line)) return null
+  const found: Partial<PortionCalories> = {}
+  for (const [letter, re] of PORTION_KCAL) {
+    const m = re.exec(line)
+    if (m) found[letter] = Number(group(m, 1).replace(',', '.'))
+  }
+  return Object.keys(found).length ? found : null
+}
+
 function splitIngredients(body: string): Array<string> {
   const parts = body.includes(';') ? body.split(';') : body.split(/\s\+\s/)
   return parts.map((s) => s.trim()).filter((s) => s.length > 0)
@@ -108,6 +130,7 @@ export function parsePlanText(text: string): PlanParse {
   let day: number | null = null
   let entry: PlanEntry | null = null
   let component: string | null = null
+  let portionKcalSeen = false
 
   const close = () => {
     if (entry) entries.push(entry)
@@ -118,21 +141,24 @@ export function parsePlanText(text: string): PlanParse {
     name: string,
     kind: PlanEntryKind,
     rawFirst: string,
-  ): PlanEntry => ({
-    kind,
-    type,
-    name,
-    day,
-    week,
-    source: week ? 'Тиждень ' + week : '',
-    calories: null,
-    ingredients: [],
-    steps: [],
-    servings: null,
-    portions: [],
-    raw: [rawFirst],
-    flags: [],
-  })
+  ): PlanEntry => {
+    portionKcalSeen = false
+    return {
+      kind,
+      type,
+      name,
+      day,
+      week,
+      source: week ? 'Тиждень ' + week : '',
+      calories: { Ж: null, Ч: null },
+      ingredients: [],
+      steps: [],
+      servings: null,
+      portions: [],
+      raw: [rawFirst],
+      flags: [],
+    }
+  }
 
   for (const line of lines) {
     let m = /^ТИЖДЕНЬ\s+(\d+)/i.exec(line)
@@ -178,7 +204,7 @@ export function parsePlanText(text: string): PlanParse {
           line,
         )
         const kcal = /(\d+(?:[.,]\d+)?)\s*ккал/i.exec(rest)
-        if (kcal) entry.calories = Number(group(kcal, 1).replace(',', '.'))
+        if (kcal) entry.calories.Ч = Number(group(kcal, 1).replace(',', '.'))
         if (cut < rest.length) {
           entry.flags.push('dessert-split')
         }
@@ -189,7 +215,7 @@ export function parsePlanText(text: string): PlanParse {
       close()
       component = null
       entry = make(type, parsed.name, 'meal', line)
-      if (parsed.calories !== null) entry.calories = parsed.calories
+      entry.calories.Ч = parsed.calories
       continue
     }
 
@@ -220,6 +246,12 @@ export function parsePlanText(text: string): PlanParse {
     }
 
     if (current.kind !== 'meal') continue
+    const byPortion = portionKcalSeen ? null : portionCalories(line)
+    if (byPortion) {
+      portionKcalSeen = true
+      current.calories = { ...current.calories, ...byPortion }
+      continue
+    }
     if (/\.\s*$/.test(line)) current.steps.push(line)
     else component = line
   }
@@ -238,7 +270,7 @@ export function parsePlanText(text: string): PlanParse {
   }
 
   for (const e of entries) {
-    if (e.kind === 'meal' && e.calories === null) {
+    if (e.kind === 'meal' && e.calories.Ж === null && e.calories.Ч === null) {
       e.flags.push('no-kcal')
     }
   }

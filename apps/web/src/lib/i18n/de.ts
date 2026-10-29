@@ -338,10 +338,15 @@ export const de: Messages = {
     servingsNumber: '„Portionen“ muss eine Zahl oder leer sein.',
     servingsPositive: '„Portionen“ muss eine positive Zahl sein.',
     caloriesMissing:
-      'Gib die Kalorien ein — das PDF enthält keine, und ohne sie kommt das Gericht nicht in den Pool.',
-    caloriesNumber:
-      'Die Kalorien müssen eine Zahl sein — entferne alles außer Ziffern aus dem Feld.',
-    caloriesNonNegative: 'Die Kalorien müssen eine nicht negative Zahl sein.',
+      'Gib die Kalorien mindestens einer Portion ein — das PDF enthält keine, und ohne sie kommt das Gericht nicht in den Pool.',
+    caloriesNumber: (letter) =>
+      'Die Kalorien der Portion ' +
+      letter +
+      ' müssen eine Zahl sein — entferne alles außer Ziffern aus dem Feld.',
+    caloriesNonNegative: (letter) =>
+      'Die Kalorien der Portion ' +
+      letter +
+      ' müssen eine nicht negative Zahl sein.',
     servingsWhole: 'Portionen: eine ganze Zahl ab 1 oder leer.',
   },
   sync: {
@@ -884,7 +889,7 @@ export const de: Messages = {
     inPool: ' · schon im Pool',
     name: 'Name',
     type: 'Art des Slots',
-    calories: 'Kalorien, kcal',
+    calories: (letter) => 'kcal, Portion ' + letter,
     caloriesPlaceholder: 'nicht im PDF',
     servings: 'Portionen',
     source: 'Quelle (Plan der Ernährungsberatung)',

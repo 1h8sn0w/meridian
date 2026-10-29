@@ -1,6 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import { MEAL_TYPES, parsePlanText, planEntryKey } from '@meridian/core'
+import {
+  MEAL_TYPES,
+  PORTION_LETTERS,
+  parsePlanText,
+  planEntryKey,
+} from '@meridian/core'
 import type { MealType, PlanEntry, PlanParse } from '@meridian/core'
 import { useAuth } from '../lib/auth'
 import { useMeals } from '../lib/data/queries'
@@ -40,7 +45,10 @@ function draftOf(entry: PlanEntry): PlanEntryDraft {
   return {
     name: entry.name,
     type: entry.type,
-    calories: fieldText(entry.calories),
+    calories: {
+      Ж: fieldText(entry.calories.Ж),
+      Ч: fieldText(entry.calories.Ч),
+    },
     servings: fieldText(entry.servings),
     source: entry.source,
     ingredients: ingredientsToText(entry.ingredients),
@@ -414,14 +422,23 @@ function ReviewCard({
           </option>
         ))}
       </SelectField>
-      <Field
-        label={t.calories}
-        disabled={busy}
-        inputMode="numeric"
-        placeholder={t.caloriesPlaceholder}
-        value={draft.calories}
-        onChange={(event) => onPatch({ calories: event.target.value })}
-      />
+      <div className="grid grid-cols-2 gap-x-3">
+        {PORTION_LETTERS.map((letter) => (
+          <Field
+            key={letter}
+            label={t.calories(letter)}
+            disabled={busy}
+            inputMode="numeric"
+            placeholder={t.caloriesPlaceholder}
+            value={draft.calories[letter]}
+            onChange={(event) =>
+              onPatch({
+                calories: { ...draft.calories, [letter]: event.target.value },
+              })
+            }
+          />
+        ))}
+      </div>
       <Field
         label={t.servings}
         disabled={busy}

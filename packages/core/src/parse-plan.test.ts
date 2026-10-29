@@ -107,8 +107,10 @@ test('джерело страви — номер тижня із заголов�
 })
 
 test('калорійність — лише де написана, решта порожня й позначена', () => {
-  assert.equal(byName('банановий хліб').calories, 185)
-  const unknown = meals.filter((m) => m.calories === null)
+  assert.deepEqual(byName('банановий хліб').calories, { Ж: null, Ч: 185 })
+  const unknown = meals.filter(
+    (m) => m.calories.Ж === null && m.calories.Ч === null,
+  )
   assert.equal(unknown.length, 6)
   for (const m of unknown) {
     assert.ok(m.flags.includes('no-kcal'))
@@ -118,8 +120,101 @@ test('калорійність — лише де написана, решта п
 test('inline «N ккал» вирізається з назви (MER-41)', () => {
   const one = parsePlanText('День 1\nСніданок: Омлет — 500 ккал\nВечеря: Риба')
   assert.equal(at(one.entries, 0).name, 'Омлет')
-  assert.equal(at(one.entries, 0).calories, 500)
-  assert.equal(at(one.entries, 1).calories, null)
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: null, Ч: 500 })
+  assert.deepEqual(at(one.entries, 1).calories, { Ж: null, Ч: null })
+})
+
+test('рядок «Жінка: N ккал | … | Чоловік: N ккал» заповнює обидві порції, а жири «Ж N г» — ні', () => {
+  const one = parsePlanText(
+    [
+      'День 1',
+      'Сніданок: Каша з яблуком',
+      'На 2-х (сухе/сире): 120 г вівсянки; 2 яблука',
+      'Готова порція: Ж - 180 г; Ч - 280 г',
+      'Жінка: 410 ккал | Б 12,5 г | Ж 9,8 г | В 66,1 г | Чоловік: 640 ккал | Б 19,5 г | Ж 15,3 г | В 103,2 г',
+    ].join('\n'),
+  )
+  const meal = at(one.entries, 0)
+  assert.deepEqual(meal.calories, { Ж: 410, Ч: 640 })
+  assert.equal(meal.steps.length, 0)
+  assert.ok(!meal.flags.includes('no-kcal'))
+})
+
+test('рядок «Калорійність …: Ж - ~N ккал Ч - ~N ккал» береться, денний підсумок після нього — ні', () => {
+  const one = parsePlanText(
+    [
+      'День 1',
+      'Вечеря: Риба з овочами',
+      'На 2-х: 400 г риби; 300 г овочів',
+      'Готова порція: Ж - 200 г; Ч - 300 г',
+      'Калорійність вечері: Ж - ~520 ккал Ч -',
+      '~810 ккал',
+      'Всього за день: Ж - ~1650 ккал Ч - ~2500 ккал',
+    ].join('\n'),
+  )
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: 520, Ч: 810 })
+})
+
+test('підсумок дня без рядка порцій не стає калорійністю страви', () => {
+  const one = parsePlanText(
+    [
+      'День 1',
+      'Вечеря: Риба з овочами',
+      'Разом за день: Ж - ~1650 ккал Ч - ~2500 ккал',
+    ].join('\n'),
+  )
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: null, Ч: null })
+})
+
+test('добова ціль «Жінка: N ккал/добу» калорійністю страви не стає', () => {
+  const one = parsePlanText(
+    [
+      'День 1',
+      'Обід: Суп',
+      'Жінка: 1600 ккал/добу. Чоловік: 2600 ккал/добу.',
+    ].join('\n'),
+  )
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: null, Ч: null })
+})
+
+test('рядок порцій має перевагу над «N ккал» у заголовку, але лише для порцій, які називає', () => {
+  const both = parsePlanText(
+    [
+      'День 1',
+      'Обід: Суп — 500 ккал',
+      'Жінка: 380 ккал | Чоловік: 590 ккал',
+    ].join('\n'),
+  )
+  assert.deepEqual(at(both.entries, 0).calories, { Ж: 380, Ч: 590 })
+  const onlyW = parsePlanText(
+    ['День 1', 'Обід: Суп — 500 ккал', 'Жінка: 380 ккал'].join('\n'),
+  )
+  assert.deepEqual(at(onlyW.entries, 0).calories, { Ж: 380, Ч: 500 })
+})
+
+test('у страви береться лише перший рядок порцій', () => {
+  const one = parsePlanText(
+    [
+      'День 1',
+      'Обід: Суп',
+      'Жінка: 380 ккал | Чоловік: 590 ккал',
+      'Жінка: 999 ккал | Чоловік: 999 ккал',
+    ].join('\n'),
+  )
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: 380, Ч: 590 })
+})
+
+test('рядок порцій у повторі («Той самий…») нічого не заповнює', () => {
+  const one = parsePlanText(
+    [
+      'День 2',
+      'Обід',
+      'Той самий, що в день 1.',
+      'Жінка: 380 ккал | Чоловік: 590 ккал',
+    ].join('\n'),
+  )
+  assert.equal(at(one.entries, 0).kind, 'repeat')
+  assert.deepEqual(at(one.entries, 0).calories, { Ж: null, Ч: null })
 })
 
 test('інгредієнти «На 2-х» дослівно, перенос рядка склеєно', () => {

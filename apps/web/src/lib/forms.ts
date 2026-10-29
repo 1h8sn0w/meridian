@@ -222,7 +222,7 @@ export function validateRecipe(draft: RecipeDraft): Checked<RecipeInput> {
 export type PlanEntryDraft = {
   name: string
   type: MealType
-  calories: string
+  calories: Record<PortionLetter, string>
   servings: string
   source: string
   ingredients: string
@@ -236,10 +236,17 @@ export function validatePlanEntry(
   const t = messages().forms
   const name = draft.name.trim()
   if (!name) return { error: t.nameRequired }
-  if (draft.calories.trim() === '') return { error: t.caloriesMissing }
-  const calories = numberFromField(draft.calories)
-  if (calories === null) return { error: t.caloriesNumber }
-  if (calories < 0) return { error: t.caloriesNonNegative }
+  const calories: Record<PortionLetter, number | null> = { Ж: null, Ч: null }
+  for (const letter of PORTION_LETTERS) {
+    if (draft.calories[letter].trim() === '') continue
+    const value = numberFromField(draft.calories[letter])
+    if (value === null) return { error: t.caloriesNumber(letter) }
+    if (value < 0) return { error: t.caloriesNonNegative(letter) }
+    calories[letter] = Math.round(value)
+  }
+  if (calories.Ж === null && calories.Ч === null) {
+    return { error: t.caloriesMissing }
+  }
   const servings = numberFromField(draft.servings)
   if (draft.servings.trim() !== '' && (servings === null || servings < 1)) {
     return { error: t.servingsWhole }
@@ -251,8 +258,8 @@ export function validatePlanEntry(
         name,
         type: draft.type,
         nutrition: {
-          Ч: { ...NO_NUTRITION, calories: Math.round(calories) },
-          Ж: { ...NO_NUTRITION },
+          Ч: { ...NO_NUTRITION, calories: calories.Ч },
+          Ж: { ...NO_NUTRITION, calories: calories.Ж },
         },
         ingredients: ingredientsFromText(draft.ingredients),
         source: draft.source.trim(),

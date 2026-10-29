@@ -55,7 +55,7 @@ const RECIPE: RecipeDraft = {
 const ENTRY: PlanEntryDraft = {
   name: 'Омлет',
   type: 'breakfast',
-  calories: '320',
+  calories: { Ж: '', Ч: '320' },
   servings: '',
   source: 'План 1',
   ingredients: '',
@@ -264,12 +264,18 @@ test('межі рецепта — ті самі, що CHECK-и схеми: ча�
 
 test('страва з PDF без калорійності в пул не йде: нуль був би вигаданим числом', () => {
   assert.match(
-    error(validatePlanEntry({ ...ENTRY, calories: ' ' })),
+    error(validatePlanEntry({ ...ENTRY, calories: { Ж: '', Ч: ' ' } })),
     /Впишіть калорійність/,
   )
   assert.match(
-    error(validatePlanEntry({ ...ENTRY, calories: '320 ккал' })),
-    /має бути числом/,
+    error(
+      validatePlanEntry({ ...ENTRY, calories: { Ж: '410', Ч: '320 ккал' } }),
+    ),
+    /порції Ч має бути числом/,
+  )
+  assert.match(
+    error(validatePlanEntry({ ...ENTRY, calories: { Ж: '-5', Ч: '320' } })),
+    /порції Ж має бути невід'ємним/,
   )
   assert.match(error(validatePlanEntry({ ...ENTRY, servings: '0' })), /Порції/)
 })
@@ -285,6 +291,19 @@ test('страва з PDF не отримує БЖВ і ГЕРХ: «Ж»/«Ч» 
   assert.equal(meal.nutrition.Ж.calories, null)
   assert.equal(meal.gerd, false)
   assert.equal(recipe, null)
+})
+
+test('страва з PDF пише калорійність кожної заповненої порції, порожня лишається порожньою', () => {
+  const both = input(
+    validatePlanEntry({ ...ENTRY, calories: { Ж: '410,4', Ч: '640' } }),
+  )
+  assert.equal(both.meal.nutrition.Ж.calories, 410)
+  assert.equal(both.meal.nutrition.Ч.calories, 640)
+  const onlyW = input(
+    validatePlanEntry({ ...ENTRY, calories: { Ж: '410', Ч: '' } }),
+  )
+  assert.equal(onlyW.meal.nutrition.Ж.calories, 410)
+  assert.equal(onlyW.meal.nutrition.Ч.calories, null)
 })
 
 test('рецепт із PDF пишеться, лише коли є кроки чи порції, і без часу приготування', () => {
