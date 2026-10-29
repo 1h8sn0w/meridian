@@ -21,7 +21,7 @@ WORKDIR /build
 COPY infra/caddy-build/main.go .
 RUN apk add --no-cache libcap \
     && go mod init meridian/caddy \
-    && go get github.com/caddyserver/caddy/v2@v2.11.7 golang.org/x/net@v0.61.0 \
+    && go get github.com/caddyserver/caddy/v2@v2.11.7 golang.org/x/net@v0.61.0 github.com/go-jose/go-jose/v4@v4.1.6 \
     && go mod tidy \
     && go build -trimpath -tags nobadger,nomysql,nopgx -ldflags '-s -w' -o /out/caddy . \
     && setcap cap_net_bind_service=+ep /out/caddy
