@@ -318,10 +318,13 @@ export const en: Messages = {
     servingsNumber: '“Servings” must be a number or empty.',
     servingsPositive: '“Servings” must be a positive number.',
     caloriesMissing:
-      'Enter the calories — the PDF has none, and without them the meal does not get into the pool.',
-    caloriesNumber:
-      'Calories must be a number — remove everything but digits from the field.',
-    caloriesNonNegative: 'Calories must be a non-negative number.',
+      'Enter the calories of at least one portion — the PDF has none, and without them the meal does not get into the pool.',
+    caloriesNumber: (letter) =>
+      'Calories of portion ' +
+      letter +
+      ' must be a number — remove everything but digits from the field.',
+    caloriesNonNegative: (letter) =>
+      'Calories of portion ' + letter + ' must be a non-negative number.',
     servingsWhole: 'Servings: a whole number from 1, or empty.',
   },
   sync: {
@@ -844,7 +847,7 @@ export const en: Messages = {
     inPool: ' · already in the pool',
     name: 'Name',
     type: 'Slot type',
-    calories: 'Calories, kcal',
+    calories: (letter) => 'Kcal, portion ' + letter,
     caloriesPlaceholder: 'not in the PDF',
     servings: 'Servings',
     source: 'Source (dietitian’s plan)',

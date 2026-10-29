@@ -335,10 +335,13 @@ export const pl: Messages = {
     servingsNumber: '„Porcje” muszą być liczbą albo pozostać puste.',
     servingsPositive: '„Porcje” muszą być liczbą dodatnią.',
     caloriesMissing:
-      'Wpisz kalorie — w PDF ich nie ma, a bez nich danie nie trafi do puli.',
-    caloriesNumber:
-      'Kalorie muszą być liczbą — usuń z pola wszystko poza cyframi.',
-    caloriesNonNegative: 'Kalorie muszą być liczbą nieujemną.',
+      'Wpisz kalorie co najmniej jednej porcji — w PDF ich nie ma, a bez nich danie nie trafi do puli.',
+    caloriesNumber: (letter) =>
+      'Kalorie porcji ' +
+      letter +
+      ' muszą być liczbą — usuń z pola wszystko poza cyframi.',
+    caloriesNonNegative: (letter) =>
+      'Kalorie porcji ' + letter + ' muszą być liczbą nieujemną.',
     servingsWhole: 'Porcje: liczba całkowita od 1 albo puste.',
   },
   sync: {
@@ -856,7 +859,7 @@ export const pl: Messages = {
     inPool: ' · już w puli',
     name: 'Nazwa',
     type: 'Rodzaj slotu',
-    calories: 'Kalorie, kcal',
+    calories: (letter) => 'Kcal, porcja ' + letter,
     caloriesPlaceholder: 'brak w PDF',
     servings: 'Porcje',
     source: 'Źródło (plan dietetyka)',
