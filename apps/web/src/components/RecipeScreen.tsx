@@ -128,7 +128,6 @@ export function RecipeScreen({
 
 function ShareRecipe({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
   const messages = useMessages()
-  const t = messages.recipe
   const [outcome, setOutcome] = useState<'copied' | 'failed' | null>(null)
   const text = recipeText(meal, recipe)
   if (!text) return null
@@ -143,9 +142,11 @@ function ShareRecipe({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
     <div className="mb-3">
       <Button block onClick={() => void share()}>
         <ShareNetwork aria-hidden size={18} />
-        {t.share}
+        {messages.recipe.share}
       </Button>
-      {outcome === 'copied' ? <InfoText>{t.copied}</InfoText> : null}
+      {outcome === 'copied' ? (
+        <InfoText>{messages.recipe.copied}</InfoText>
+      ) : null}
       {outcome === 'failed' ? <Warn>{messages.common.shareFailed}</Warn> : null}
     </div>
   )
