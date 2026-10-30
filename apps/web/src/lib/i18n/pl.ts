@@ -669,13 +669,22 @@ export const pl: Messages = {
       ' — usunięto je z puli, więc ich składników nie ma na liście.',
     share: 'Udostępnij to, czego nie kupiono',
     copied: 'Lista skopiowana — wklej ją w komunikatorze.',
+    period: {
+      all: 'Cały plan',
+      fromToday: 'Od dziś',
+      threeDays: 'Na 3 dni',
+    },
+    periodGroup: 'Okres listy',
+    scopeGroup: 'Profile listy',
+    periodEmpty:
+      'W tym okresie nie ma dni planu — plan już minął albo jeszcze się nie zaczął. Wybierz inny okres.',
     noIngredients: 'Dania z tego tygodnia nie mają składników.',
     noQtyHint:
       'Plan dietetyka nie podaje tu ilości — aplikacja ich nie wymyśla.',
     both: 'Oba profile',
     all: 'Wszystkie profile',
     scopeHint:
-      'Zakres zostaje na tym urządzeniu. Oznaczenia „kupione” są wspólne dla rodziny — widzi je każdy telefon.',
+      'Wybór zostaje na tym urządzeniu. Oznaczenia „kupione” są wspólne dla rodziny — widzi je każdy telefon.',
     progress: (bought, total) => 'Kupiono ' + bought + ' z ' + total,
     boughtMark: ' — kupione',
   },

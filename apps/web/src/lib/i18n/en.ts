@@ -651,13 +651,22 @@ export const en: Messages = {
       ' without a meal — it was removed from the pool, so its ingredients are not in the list.',
     share: 'Share what is not bought',
     copied: 'The list is copied — paste it into a messenger.',
+    period: {
+      all: 'Whole plan',
+      fromToday: 'From today',
+      threeDays: 'Next 3 days',
+    },
+    periodGroup: 'List period',
+    scopeGroup: 'List profiles',
+    periodEmpty:
+      'The plan has no days in this period — it is over or has not started yet. Pick another period.',
     noIngredients: 'The meals of this week have no ingredients.',
     noQtyHint:
       'The dietitian’s plan has no quantities for these — the app does not make them up.',
     both: 'Both profiles',
     all: 'All profiles',
     scopeHint:
-      'The scope stays on this device. “Bought” marks are shared by the family — every phone sees them.',
+      'The choice stays on this device. “Bought” marks are shared by the family — every phone sees them.',
     progress: (bought, total) => 'Bought ' + bought + ' of ' + total,
     boughtMark: ' — bought',
   },
