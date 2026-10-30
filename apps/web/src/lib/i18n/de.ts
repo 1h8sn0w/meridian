@@ -706,6 +706,8 @@ export const de: Messages = {
     add: 'Rezept hinzufügen',
     hint: 'Schritte, Zeit und ein Foto lassen sich hier hinzufügen und ändern — wörtlich aus dem Plan der Ernährungsberatung oder deine eigenen. Zutaten und Kalorien werden auf dem Bildschirm „Gerichte“ bearbeitet.',
     back: 'Zurück',
+    share: 'Rezept teilen',
+    copied: 'Das Rezept ist kopiert — füge es in einen Messenger ein.',
     toMeals: 'Zu den Gerichten',
     photoAlt: (name) => 'Foto: ' + name,
     imageFailed: 'Das Bild konnte nicht gelesen werden.',

@@ -687,6 +687,8 @@ export const pl: Messages = {
     add: 'Dodaj przepis',
     hint: 'Kroki, czas i zdjęcie można tu dodać i zmienić — dosłownie z planu dietetyka albo własne. Składniki i kalorie edytuje się na ekranie „Dania”.',
     back: 'Wstecz',
+    share: 'Udostępnij przepis',
+    copied: 'Przepis skopiowany — wklej go w komunikatorze.',
     toMeals: 'Do dań',
     photoAlt: (name) => 'Zdjęcie: ' + name,
     imageFailed: 'Nie udało się odczytać obrazu.',
