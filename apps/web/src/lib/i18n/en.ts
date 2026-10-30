@@ -657,9 +657,9 @@ export const en: Messages = {
       threeDays: 'Next 3 days',
     },
     periodGroup: 'List period',
-    scopeGroup: 'List profiles',
+    scopeGroup: 'Profiles in the list',
     periodEmpty:
-      'The plan has no days in this period — it is over or has not started yet. Pick another period.',
+      'The plan has no days in this period — it is over or has not started yet. Pick “Whole plan”.',
     noIngredients: 'The meals of this week have no ingredients.',
     noQtyHint:
       'The dietitian’s plan has no quantities for these — the app does not make them up.',

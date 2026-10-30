@@ -173,7 +173,8 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
           profiles={profiles}
           scope={scope}
           onScope={setScope}
-          period={weeksRead.data.length ? period : null}
+          period={period}
+          showPeriod={weeksRead.data.length > 0}
           onPeriod={setPeriod}
         />
       ) : null}
@@ -256,19 +257,21 @@ function ListFilters({
   scope,
   onScope,
   period,
+  showPeriod,
   onPeriod,
 }: {
   profiles: ReadonlyArray<AppProfile>
   scope: ShoppingScope
   onScope: (next: ShoppingScope) => void
-  period: ShoppingPeriod | null
+  period: ShoppingPeriod
+  showPeriod: boolean
   onPeriod: (next: ShoppingPeriod) => void
 }) {
   const t = useMessages().shopping
   return (
     <Panel>
       <div className="flex flex-col gap-3">
-        {period ? (
+        {showPeriod ? (
           <div
             role="group"
             aria-label={t.periodGroup}

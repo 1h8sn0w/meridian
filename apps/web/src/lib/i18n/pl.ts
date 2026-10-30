@@ -677,7 +677,7 @@ export const pl: Messages = {
     periodGroup: 'Okres listy',
     scopeGroup: 'Profile listy',
     periodEmpty:
-      'W tym okresie nie ma dni planu — plan już minął albo jeszcze się nie zaczął. Wybierz inny okres.',
+      'W tym okresie nie ma dni planu — plan już minął albo jeszcze się nie zaczął. Wybierz „Cały plan”.',
     noIngredients: 'Dania z tego tygodnia nie mają składników.',
     noQtyHint:
       'Plan dietetyka nie podaje tu ilości — aplikacja ich nie wymyśla.',

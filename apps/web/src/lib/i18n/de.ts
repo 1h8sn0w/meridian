@@ -696,7 +696,7 @@ export const de: Messages = {
     periodGroup: 'Zeitraum der Liste',
     scopeGroup: 'Profile der Liste',
     periodEmpty:
-      'In diesem Zeitraum hat der Plan keine Tage — er ist vorbei oder hat noch nicht begonnen. Wähle einen anderen Zeitraum.',
+      'In diesem Zeitraum hat der Plan keine Tage — er ist vorbei oder hat noch nicht begonnen. Wähle „Ganzer Plan“.',
     noIngredients: 'Die Gerichte dieser Woche haben keine Zutaten.',
     noQtyHint:
       'Der Plan der Ernährungsberatung nennt hierfür keine Mengen — die App erfindet keine.',
