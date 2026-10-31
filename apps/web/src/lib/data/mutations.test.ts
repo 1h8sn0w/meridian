@@ -224,15 +224,16 @@ test('уже видалений рядок не отримує нової поз
   assert.equal(deleted().gone, at)
 })
 
+const MEAL_TABLE =
+  'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
+  ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
+  ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w INTEGER,' +
+  ' protein_w REAL, fat_w REAL, carbs_w REAL, ingredients TEXT,' +
+  ' source TEXT, portions TEXT, gerd INTEGER, source_issues TEXT,' +
+  ' deleted_at TEXT)'
+
 test('MER-79: страва зберігає й оновлює цифри порцій Ж і Ч окремо', async () => {
-  const { sqlite, db } = sqliteDb(
-    'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
-      ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
-      ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w INTEGER,' +
-      ' protein_w REAL, fat_w REAL,' +
-      ' carbs_w REAL, ingredients TEXT, source TEXT, portions TEXT,' +
-      ' gerd INTEGER, source_issues TEXT, deleted_at TEXT)',
-  )
+  const { sqlite, db } = sqliteDb(MEAL_TABLE)
   const input: MealInput = {
     name: 'Гречка',
     type: 'lunch',
@@ -268,14 +269,7 @@ test('MER-79: страва зберігає й оновлює цифри пор�
 })
 
 test('MER-141: правка калорій знімає лише «≈» калорій, правка БЖВ — лише «≈» БЖВ', async () => {
-  const { sqlite, db } = sqliteDb(
-    'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
-      ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
-      ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w INTEGER,' +
-      ' protein_w REAL, fat_w REAL, carbs_w REAL, ingredients TEXT,' +
-      ' source TEXT, portions TEXT, gerd INTEGER, source_issues TEXT,' +
-      ' deleted_at TEXT)',
-  )
+  const { sqlite, db } = sqliteDb(MEAL_TABLE)
   const input: MealInput = {
     name: 'Коктейль',
     type: 'snack',

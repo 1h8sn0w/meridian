@@ -1,4 +1,4 @@
-import { hasMacros, hasValue } from '@meridian/core'
+import { MACRO_FIELDS, hasMacros, hasValue } from '@meridian/core'
 import type { Meal, PortionLetter } from '@meridian/core'
 import { grams } from '../lib/format'
 import {
@@ -91,17 +91,14 @@ export function MealDetails({
     <>
       {hasMacros(meal) ? (
         <div className="mt-4 flex gap-2">
-          <Macro
-            label={t.protein}
-            value={meal.protein}
-            approx={meal.macrosApprox}
-          />
-          <Macro label={t.fat} value={meal.fat} approx={meal.macrosApprox} />
-          <Macro
-            label={t.carbs}
-            value={meal.carbs}
-            approx={meal.macrosApprox}
-          />
+          {MACRO_FIELDS.map((field) => (
+            <Macro
+              key={field}
+              label={t[field]}
+              value={meal[field]}
+              approx={meal.macrosApprox}
+            />
+          ))}
         </div>
       ) : hideEmpty ? null : (
         <p className="mb-0 mt-2 text-sm text-muted">{t.noMacros}</p>

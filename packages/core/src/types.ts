@@ -25,6 +25,8 @@ export type Nutrition = {
   carbs: number | null
 }
 
+export const MACRO_FIELDS = ['protein', 'fat', 'carbs'] as const
+
 export const NO_NUTRITION: Readonly<Nutrition> = {
   calories: null,
   protein: null,

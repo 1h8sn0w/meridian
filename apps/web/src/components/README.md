@@ -21,7 +21,7 @@
 | `Sky` | Фаза неба на `<html>` і колір системної смуги |
 | `DayTotal` | Підсумок калорійності дня |
 | `FirstSteps` | «Профіль → страви → тиждень», дія в першого незробленого |
-| `MealDetails` | БЖВ, інгредієнти, порції; `MealMarks`, `SourceIssues` |
+| `MealDetails` | БЖВ («≈» — `macrosApprox`), інгредієнти, порції; `MealMarks`, `SourceIssues` |
 | `MealForm` | Ручний ввід і правка страви |
 | `MealSearch` | Поле пошуку страв для «Страв» і `SwapDialog` |
 | `SwapDialog` | Ручна заміна страви в слоті |

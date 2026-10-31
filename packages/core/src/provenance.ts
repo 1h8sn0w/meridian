@@ -1,4 +1,4 @@
-import { MEAL_TYPES, PORTION_LETTERS } from './types.ts'
+import { MACRO_FIELDS, MEAL_TYPES, PORTION_LETTERS } from './types.ts'
 import type { DayCalories, Meal, MealType, Nutrition } from './types.ts'
 
 export function hasValue(value: unknown): boolean {
@@ -47,10 +47,8 @@ export function requiredNumber(value: unknown, what: string): number {
 export function hasMacros(
   meal: Pick<Meal, 'protein' | 'fat' | 'carbs'>,
 ): boolean {
-  return hasValue(meal.protein) || hasValue(meal.fat) || hasValue(meal.carbs)
+  return MACRO_FIELDS.some((field) => hasValue(meal[field]))
 }
-
-const MACRO_FIELDS = ['protein', 'fat', 'carbs'] as const
 
 export function nutritionChanges(
   before: Meal['nutrition'],
