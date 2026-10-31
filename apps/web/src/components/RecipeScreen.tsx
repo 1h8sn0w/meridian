@@ -10,15 +10,24 @@ import { fieldText, validateRecipe } from '../lib/forms'
 import type { RecipeDraft } from '../lib/forms'
 import { messages as currentMessages } from '../lib/i18n/locale'
 import { useMessages } from '../lib/i18n/use-messages'
+import { recipeText } from '../lib/recipe-share'
+import { shareOrCopy } from '../lib/share'
 import { canKeepScreenAwake, keepScreenAwake } from '../lib/wake-lock'
 import { AppShell } from './AppShell'
 import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
-import { CaretLeft, PencilSimple, Plus, Sun } from '@phosphor-icons/react'
+import {
+  CaretLeft,
+  PencilSimple,
+  Plus,
+  ShareNetwork,
+  Sun,
+} from '@phosphor-icons/react'
 import {
   Button,
   Chip,
   Field,
   Hint,
+  InfoText,
   Panel,
   Problems,
   SectionLabel,
@@ -98,6 +107,7 @@ export function RecipeScreen({
           />
         ) : (
           <>
+            <ShareRecipe meal={meal} recipe={recipe} />
             <div className="mb-3">
               <Button block onClick={() => setEditing(true)}>
                 {recipe ? (
@@ -113,6 +123,32 @@ export function RecipeScreen({
         )}
       </Panel>
     </AppShell>
+  )
+}
+
+function ShareRecipe({ meal, recipe }: { meal: Meal; recipe: Recipe | null }) {
+  const messages = useMessages()
+  const [outcome, setOutcome] = useState<'copied' | 'failed' | null>(null)
+  const text = recipeText(meal, recipe)
+  if (!text) return null
+
+  const share = async () => {
+    setOutcome(null)
+    const result = await shareOrCopy({ title: meal.name, text })
+    if (result === 'copied' || result === 'failed') setOutcome(result)
+  }
+
+  return (
+    <div className="mb-3">
+      <Button block onClick={() => void share()}>
+        <ShareNetwork aria-hidden size={18} />
+        {messages.recipe.share}
+      </Button>
+      {outcome === 'copied' ? (
+        <InfoText>{messages.recipe.copied}</InfoText>
+      ) : null}
+      {outcome === 'failed' ? <Warn>{messages.common.shareFailed}</Warn> : null}
+    </div>
   )
 }
 

@@ -669,6 +669,8 @@ export const en: Messages = {
     add: 'Add recipe',
     hint: 'Steps, time and a photo can be added and changed here — word for word from the dietitian’s plan or your own. Ingredients and calories are edited on the “Meals” screen.',
     back: 'Back',
+    share: 'Share recipe',
+    copied: 'The recipe is copied — paste it into a messenger.',
     toMeals: 'To meals',
     photoAlt: (name) => 'Photo: ' + name,
     imageFailed: 'Could not read the image.',
