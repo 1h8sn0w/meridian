@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
   SHOPPING_CATEGORIES,
-  addDays,
   aggregate,
   dateKey,
   planFingerprint,
@@ -13,12 +12,18 @@ import { useActiveProfile } from '../lib/active-profile'
 import { ALL_PROFILES, useShoppingScope } from '../lib/shopping-scope'
 import type { ShoppingScope } from '../lib/shopping-scope'
 import {
+  SHOPPING_PERIODS,
+  inShoppingPeriod,
+  useShoppingPeriod,
+} from '../lib/shopping-period'
+import type { ShoppingPeriod } from '../lib/shopping-period'
+import {
   useMeals,
   useOwnerWeeks,
   useProfiles,
   useShoppingChecks,
 } from '../lib/data/queries'
-import type { AppProfile } from '../lib/data/model'
+import type { AppProfile, DayView } from '../lib/data/model'
 import { clearStaleChecks, setShoppingCheck } from '../lib/data/mutations'
 import { formatWeekRange } from '../lib/format'
 import { useMessages } from '../lib/i18n/use-messages'
@@ -56,6 +61,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const profiles = profilesRead.data
   useActiveProfile(profiles)
   const { scope, setScope } = useShoppingScope(profiles)
+  const { period, setPeriod } = useShoppingPeriod()
 
   const allOwners = [...new Set(profiles.map(planOwnerId))]
   const weeksRead = useOwnerWeeks(allOwners, mealsRead.data, todayKey)
@@ -92,14 +98,17 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     scopeOwners.includes(week.profileId),
   )
 
+  const days = weeks.flatMap((week) =>
+    week.days.filter((day) => inShoppingPeriod(day.date, period, todayKey)),
+  )
+  const range = rangeOf(days)
+
   const slotMeals: Array<Meal> = []
   let missing = 0
-  for (const week of weeks) {
-    missing += week.missing
-    for (const day of week.days) {
-      for (const slot of day.slots) {
-        if (slot.meal) slotMeals.push(slot.meal)
-      }
+  for (const day of days) {
+    for (const slot of day.slots) {
+      if (slot.meal) slotMeals.push(slot.meal)
+      else missing += 1
     }
   }
 
@@ -130,7 +139,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   }
 
   const shareText = shoppingListText({
-    range: weekRangeOf(weeks),
+    range,
     withQty,
     noQty,
     checks: checksRead.data,
@@ -152,17 +161,22 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     <AppShell
       title={messages.titles.shopping}
       subtitle={
-        items.length
-          ? t.bought(bought, items.length)
-          : weekRangeOf(weeks) || t.fromWeek
+        items.length ? t.bought(bought, items.length) : range || t.fromWeek
       }
     >
       <Problems of={problems} />
 
       {error ? <Warn>{error}</Warn> : null}
 
-      {profiles.length > 1 ? (
-        <ScopeChips profiles={profiles} scope={scope} onChange={setScope} />
+      {profiles.length > 1 || weeksRead.data.length ? (
+        <ListFilters
+          profiles={profiles}
+          scope={scope}
+          onScope={setScope}
+          period={period}
+          showPeriod={weeksRead.data.length > 0}
+          onPeriod={setPeriod}
+        />
       ) : null}
 
       {isLoading ? null : !profiles.length ? (
@@ -176,12 +190,16 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
             {messages.common.openWeekScreen}
           </ButtonLink>
         </Panel>
+      ) : !days.length ? (
+        <Panel>
+          <Empty>{t.periodEmpty}</Empty>
+        </Panel>
       ) : (
         <>
           <Panel>
             <Progress bought={bought} total={items.length} />
             <Meta>
-              {weekRangeOf(weeks)}
+              {range}
               {weeks.length > 1 ? t.plans(weeks.length) : ''}
             </Meta>
             {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
@@ -227,52 +245,72 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   )
 }
 
-function weekRangeOf(
-  weeks: ReadonlyArray<{ startDate: string; params: { days: number } }>,
-): string {
-  let from = ''
-  let to = ''
-  try {
-    for (const week of weeks) {
-      if (!week.startDate || week.params.days < 1) continue
-      const end = addDays(week.startDate, week.params.days - 1)
-      if (!from || week.startDate < from) from = week.startDate
-      if (!to || end > to) to = end
-    }
-  } catch {
-    return ''
-  }
+function rangeOf(days: ReadonlyArray<DayView>): string {
+  const dates = days.map((day) => day.date).sort()
+  const from = dates[0]
+  const to = dates[dates.length - 1]
   return from && to ? formatWeekRange(from, to) : ''
 }
 
-function ScopeChips({
+function ListFilters({
   profiles,
   scope,
-  onChange,
+  onScope,
+  period,
+  showPeriod,
+  onPeriod,
 }: {
   profiles: ReadonlyArray<AppProfile>
   scope: ShoppingScope
-  onChange: (next: ShoppingScope) => void
+  onScope: (next: ShoppingScope) => void
+  period: ShoppingPeriod
+  showPeriod: boolean
+  onPeriod: (next: ShoppingPeriod) => void
 }) {
   const t = useMessages().shopping
   return (
     <Panel>
-      <div className="flex flex-wrap gap-2">
-        <Chip
-          active={scope === ALL_PROFILES}
-          onClick={() => onChange(ALL_PROFILES)}
-        >
-          {profiles.length === 2 ? t.both : t.all}
-        </Chip>
-        {profiles.map((profile) => (
-          <Chip
-            key={profile.id}
-            active={scope === profile.id}
-            onClick={() => onChange(profile.id)}
+      <div className="flex flex-col gap-3">
+        {showPeriod ? (
+          <div
+            role="group"
+            aria-label={t.periodGroup}
+            className="flex flex-wrap gap-2"
           >
-            {profile.name}
-          </Chip>
-        ))}
+            {SHOPPING_PERIODS.map((option) => (
+              <Chip
+                key={option}
+                active={period === option}
+                onClick={() => onPeriod(option)}
+              >
+                {t.period[option]}
+              </Chip>
+            ))}
+          </div>
+        ) : null}
+        {profiles.length > 1 ? (
+          <div
+            role="group"
+            aria-label={t.scopeGroup}
+            className="flex flex-wrap gap-2"
+          >
+            <Chip
+              active={scope === ALL_PROFILES}
+              onClick={() => onScope(ALL_PROFILES)}
+            >
+              {profiles.length === 2 ? t.both : t.all}
+            </Chip>
+            {profiles.map((profile) => (
+              <Chip
+                key={profile.id}
+                active={scope === profile.id}
+                onClick={() => onScope(profile.id)}
+              >
+                {profile.name}
+              </Chip>
+            ))}
+          </div>
+        ) : null}
       </div>
       <Meta>{t.scopeHint}</Meta>
     </Panel>

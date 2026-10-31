@@ -7,6 +7,7 @@ import type {
   SwapReason,
   WeekWarning,
 } from '@meridian/core'
+import type { ShoppingPeriod } from '../shopping-period.ts'
 
 const RULES = new Intl.PluralRules('uk-UA')
 
@@ -684,13 +685,22 @@ export const uk = {
       ' без страви — її видалено з пулу, тож її інгредієнтів у списку немає.',
     share: 'Поділитися некупленим',
     copied: 'Список скопійовано — вставте його в месенджер.',
+    period: {
+      all: 'Увесь план',
+      fromToday: 'З сьогодні',
+      threeDays: 'На 3 дні',
+    } satisfies Record<ShoppingPeriod, string>,
+    periodGroup: 'Період списку',
+    scopeGroup: 'Профілі списку',
+    periodEmpty:
+      'Днів плану в цьому періоді немає — план уже минув або ще не почався. Оберіть «Увесь план».',
     noIngredients: 'У стравах цього тижня немає інгредієнтів.',
     noQtyHint:
       'У плані дієтолога цих кількостей немає — застосунок їх не вигадує.',
     both: 'Обидва профілі',
     all: 'Усі профілі',
     scopeHint:
-      'Охоплення лишається на цьому пристрої. Позначки «куплено» спільні для сім’ї — їх видно на всіх телефонах.',
+      'Вибір лишається на цьому пристрої. Позначки «куплено» спільні для сім’ї — їх видно на всіх телефонах.',
     progress: (bought: number, total: number) =>
       'Куплено ' + bought + ' з ' + total,
     boughtMark: ' — куплено',

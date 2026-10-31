@@ -688,6 +688,15 @@ export const de: Messages = {
       ' ohne Gericht — es wurde aus dem Pool entfernt, seine Zutaten fehlen in der Liste.',
     share: 'Nicht Gekauftes teilen',
     copied: 'Die Liste ist kopiert — füge sie in einen Messenger ein.',
+    period: {
+      all: 'Ganzer Plan',
+      fromToday: 'Ab heute',
+      threeDays: '3 Tage',
+    },
+    periodGroup: 'Zeitraum der Liste',
+    scopeGroup: 'Profile der Liste',
+    periodEmpty:
+      'In diesem Zeitraum hat der Plan keine Tage — er ist vorbei oder hat noch nicht begonnen. Wähle „Ganzer Plan“.',
     noIngredients: 'Die Gerichte dieser Woche haben keine Zutaten.',
     noQtyHint:
       'Der Plan der Ernährungsberatung nennt hierfür keine Mengen — die App erfindet keine.',

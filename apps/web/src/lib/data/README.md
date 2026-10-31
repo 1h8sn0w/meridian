@@ -2,7 +2,7 @@
 
 Екрани читають реактивними запитами до локального SQLite (`queries.ts`) і
 пишуть через `mutations.ts`; жодна дія не чекає мережі. Окремого кешу
-(TanStack Query) свідомо немає: реактивний запит і є кешем. Як записи
+(TanStack Query) немає: реактивний запит і є кешем. Як записи
 доїжджають до сервера — у
 [`../powersync/README.md`](../powersync/README.md).
 
@@ -33,8 +33,8 @@
 | Антиповтор | `TodayScreen` → `AntiRepeatPanel`; `WeekScreen`, `SwapDialog` | `useAntiRepeatDays` | `saveAntiRepeatDays` | `family_settings` | `generator.ts`, `replace.ts` |
 | Імпорт V1 | `ImportV1Panel` | — | `importV1` | усі синхронні | `migrate-v1.ts` |
 
-Охоплення списку покупок (`lib/shopping-scope.ts`) і активний профіль
-(`lib/active-profile.ts`) — стан пристрою в `localStorage`, не в базі (рішення
+Охоплення й період покупок (`lib/shopping-scope.ts`, `lib/shopping-period.ts`)
+і активний профіль (`lib/active-profile.ts`) — стан пристрою (`localStorage`,
 MER-55).
 
 ## Правила записів
