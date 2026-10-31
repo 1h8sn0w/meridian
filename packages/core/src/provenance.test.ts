@@ -11,6 +11,7 @@ import {
   hasMacros,
   hasValue,
   numberFromField,
+  nutritionChanges,
   optionalNumber,
   requiredNumber,
   toNumber,
@@ -184,5 +185,24 @@ test('день у коридорі — лише з повною сумою й н
   assert.equal(
     dayInCorridor({ total: 1800, unknown: 1, approx: false }, 1800, 100),
     false,
+  )
+})
+
+test('MER-141: правка калорій і правка БЖВ розрізняються — кожна знімає лише свою «≈»', () => {
+  const before = {
+    Ч: { calories: 300, protein: 23.5, fat: null, carbs: null },
+    Ж: { calories: null, protein: null, fat: null, carbs: null },
+  }
+  assert.deepEqual(nutritionChanges(before, structuredClone(before)), {
+    calories: false,
+    macros: false,
+  })
+  assert.deepEqual(
+    nutritionChanges(before, { ...before, Ч: { ...before.Ч, calories: 320 } }),
+    { calories: true, macros: false },
+  )
+  assert.deepEqual(
+    nutritionChanges(before, { ...before, Ж: { ...before.Ж, fat: 4 } }),
+    { calories: false, macros: true },
   )
 })

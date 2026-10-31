@@ -1,5 +1,6 @@
 export {
   DEFAULT_PORTION,
+  MACRO_FIELDS,
   MEAL_TYPES,
   NO_NUTRITION,
   PORTION_LETTERS,
@@ -35,6 +36,7 @@ export {
   hasMacros,
   hasValue,
   numberFromField,
+  nutritionChanges,
 } from './provenance.ts'
 
 export { weekSources } from './plans.ts'

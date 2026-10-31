@@ -1,4 +1,4 @@
-import { hasMacros, hasValue } from '@meridian/core'
+import { MACRO_FIELDS, hasMacros, hasValue } from '@meridian/core'
 import type { Meal, PortionLetter } from '@meridian/core'
 import { grams } from '../lib/format'
 import {
@@ -58,12 +58,20 @@ export function SourceIssues({ meal }: { meal: Meal }) {
   )
 }
 
-function Macro({ label, value }: { label: string; value: number | null }) {
+function Macro({
+  label,
+  value,
+  approx,
+}: {
+  label: string
+  value: number | null
+  approx: boolean
+}) {
   return (
     <div className="flex-1 rounded-2xl bg-app px-2 py-2.5 text-center">
       <div className="text-xs text-muted">{label}</div>
       <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
-        {hasValue(value) ? grams(value as number) : '—'}
+        {hasValue(value) ? (approx ? '≈' : '') + grams(value as number) : '—'}
       </div>
     </div>
   )
@@ -83,9 +91,14 @@ export function MealDetails({
     <>
       {hasMacros(meal) ? (
         <div className="mt-4 flex gap-2">
-          <Macro label={t.protein} value={meal.protein} />
-          <Macro label={t.fat} value={meal.fat} />
-          <Macro label={t.carbs} value={meal.carbs} />
+          {MACRO_FIELDS.map((field) => (
+            <Macro
+              key={field}
+              label={t[field]}
+              value={meal[field]}
+              approx={meal.macrosApprox}
+            />
+          ))}
         </div>
       ) : hideEmpty ? null : (
         <p className="mb-0 mt-2 text-sm text-muted">{t.noMacros}</p>

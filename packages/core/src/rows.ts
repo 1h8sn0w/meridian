@@ -117,6 +117,7 @@ export function mealFromRow(row: Row): Meal {
     type: mealType(requiredText(row, 'type', what), what),
     ...nutritionCh,
     caloriesApprox: bool(row, 'calories_approx'),
+    macrosApprox: bool(row, 'macros_approx'),
     nutrition: { Ч: nutritionCh, Ж: nutritionFromRow(row, '_w') },
     ingredients: jsonArray(row, 'ingredients', what)
       .map(ingredient)

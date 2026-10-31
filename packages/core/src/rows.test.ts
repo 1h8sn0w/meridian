@@ -107,6 +107,15 @@ test('boolean приїздить і як 1/0, і як true/false', () => {
   )
 })
 
+test('MER-141: «≈» БЖВ — свій прапорець, рядок без колонки — точні БЖВ', () => {
+  assert.equal(mealFromRow(mealRow).macrosApprox, false)
+  assert.equal(mealFromRow({ ...mealRow, macros_approx: 1 }).macrosApprox, true)
+  assert.equal(
+    mealFromRow({ ...mealRow, calories_approx: 1 }).macrosApprox,
+    false,
+  )
+})
+
 test('маркер ГЕРХ: 1/0 і true/false, а рядок без колонки — «не позначено»', () => {
   assert.equal(mealFromRow({ ...mealRow, gerd: 1 }).gerd, true)
   assert.equal(mealFromRow({ ...mealRow, gerd: true }).gerd, true)

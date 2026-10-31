@@ -35,6 +35,7 @@ export const testMeal = (
   type,
   calories,
   caloriesApprox: false,
+  macrosApprox: false,
   protein: null,
   fat: null,
   carbs: null,

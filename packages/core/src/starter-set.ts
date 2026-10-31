@@ -1,3 +1,4 @@
+import { hasMacros } from './provenance.ts'
 import {
   DEFAULT_PORTION,
   MEAL_TYPES,
@@ -51,6 +52,8 @@ const MEAL_FIELDS: Readonly<Record<number, ReadonlyArray<string>>> = {
   [STARTER_SET_VERSION]: [...COMMON_MEAL_FIELDS, 'nutrition'],
 }
 
+const OPTIONAL_MEAL_FIELDS = ['macrosApprox'] as const
+
 const RECIPE_FIELDS = ['steps', 'prepTime', 'servings'] as const
 
 const MAX_ERRORS = 30
@@ -74,12 +77,13 @@ function checkFields(
   fields: ReadonlyArray<string>,
   at: string,
   errors: Array<string>,
+  optional: ReadonlyArray<string> = [],
 ): void {
   for (const field of fields) {
     if (!(field in raw)) errors.push(at + ': немає поля «' + field + '».')
   }
   for (const field of Object.keys(raw)) {
-    if (!fields.includes(field)) {
+    if (!fields.includes(field) && !optional.includes(field)) {
       errors.push(at + ': невідоме поле «' + field + '».')
     }
   }
@@ -260,7 +264,13 @@ function checkMeal(
     'Страва #' +
     (index + 1) +
     (isText(raw.name) ? ' «' + raw.name.trim() + '»' : '')
-  checkFields(raw, MEAL_FIELDS[version] as ReadonlyArray<string>, at, errors)
+  checkFields(
+    raw,
+    MEAL_FIELDS[version] as ReadonlyArray<string>,
+    at,
+    errors,
+    OPTIONAL_MEAL_FIELDS,
+  )
 
   if (!isText(raw.key)) errors.push(at + ': key — непорожній рядок.')
   if (!isText(raw.name)) errors.push(at + ': name — непорожній рядок.')
@@ -278,6 +288,14 @@ function checkMeal(
     PORTION_LETTERS.every((letter) => nutrition[letter].calories === null)
   ) {
     errors.push(at + ': caloriesApprox: true без калорійності жодної порції.')
+  }
+  if (raw.macrosApprox !== undefined && typeof raw.macrosApprox !== 'boolean') {
+    errors.push(at + ': macrosApprox — true або false.')
+  } else if (
+    raw.macrosApprox &&
+    !PORTION_LETTERS.some((letter) => hasMacros(nutrition[letter]))
+  ) {
+    errors.push(at + ': macrosApprox: true без БЖВ жодної порції.')
   }
   if (typeof raw.gerd !== 'boolean') {
     errors.push(at + ': gerd — true або false.')
@@ -303,6 +321,7 @@ function checkMeal(
     type: raw.type as MealType,
     ...nutrition[DEFAULT_PORTION],
     caloriesApprox: raw.caloriesApprox === true,
+    macrosApprox: raw.macrosApprox === true,
     nutrition,
     ingredients: ingredients.filter((x): x is Ingredient => x !== null),
     portions: portions.filter((x): x is Portion => x !== null),

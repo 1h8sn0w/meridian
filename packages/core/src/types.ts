@@ -25,6 +25,8 @@ export type Nutrition = {
   carbs: number | null
 }
 
+export const MACRO_FIELDS = ['protein', 'fat', 'carbs'] as const
+
 export const NO_NUTRITION: Readonly<Nutrition> = {
   calories: null,
   protein: null,
@@ -43,6 +45,7 @@ export type Meal = {
   protein: number | null
   fat: number | null
   carbs: number | null
+  macrosApprox: boolean
   nutrition: Record<PortionLetter, Nutrition>
   ingredients: Array<Ingredient>
   source: string

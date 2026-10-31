@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { usePowerSync } from '@powersync/react'
-import { DEFAULT_PORTION, MEAL_TYPES, PORTION_LETTERS } from '@meridian/core'
+import {
+  DEFAULT_PORTION,
+  MEAL_TYPES,
+  PORTION_LETTERS,
+  nutritionChanges,
+} from '@meridian/core'
 import type { Meal, MealType, PortionLetter } from '@meridian/core'
 import { useMealUsage } from '../lib/data/queries'
 import { deleteMeal, insertMeal, updateMeal } from '../lib/data/mutations'
@@ -61,12 +66,12 @@ export function MealForm({
     setError(null)
     try {
       if (meal) {
-        const changed = PORTION_LETTERS.some(
-          (letter) =>
-            meal.nutrition[letter].calories !==
-            checked.input.nutrition[letter].calories,
+        await updateMeal(
+          db,
+          meal.id,
+          checked.input,
+          nutritionChanges(meal.nutrition, checked.input.nutrition),
         )
-        await updateMeal(db, meal.id, checked.input, changed)
       } else {
         await insertMeal(db, familyId, checked.input)
       }

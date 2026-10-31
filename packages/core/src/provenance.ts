@@ -1,5 +1,5 @@
-import { MEAL_TYPES, PORTION_LETTERS } from './types.ts'
-import type { DayCalories, Meal, MealType } from './types.ts'
+import { MACRO_FIELDS, MEAL_TYPES, PORTION_LETTERS } from './types.ts'
+import type { DayCalories, Meal, MealType, Nutrition } from './types.ts'
 
 export function hasValue(value: unknown): boolean {
   if (value === null || value === undefined) return false
@@ -47,7 +47,18 @@ export function requiredNumber(value: unknown, what: string): number {
 export function hasMacros(
   meal: Pick<Meal, 'protein' | 'fat' | 'carbs'>,
 ): boolean {
-  return hasValue(meal.protein) || hasValue(meal.fat) || hasValue(meal.carbs)
+  return MACRO_FIELDS.some((field) => hasValue(meal[field]))
+}
+
+export function nutritionChanges(
+  before: Meal['nutrition'],
+  after: Meal['nutrition'],
+): { calories: boolean; macros: boolean } {
+  const differs = (fields: ReadonlyArray<keyof Nutrition>) =>
+    PORTION_LETTERS.some((letter) =>
+      fields.some((field) => before[letter][field] !== after[letter][field]),
+    )
+  return { calories: differs(['calories']), macros: differs(MACRO_FIELDS) }
 }
 
 export function formatMacro(value: number | null | undefined): string {

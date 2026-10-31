@@ -140,6 +140,7 @@ function migrateMeal(raw: Record<string, unknown>, familyId: string): Meal {
     type: type as MealType,
     ...nutritionCh,
     caloriesApprox: raw.caloriesApprox === true,
+    macrosApprox: false,
     nutrition: { Ч: nutritionCh, Ж: { ...NO_NUTRITION } },
     ingredients: list(raw.ingredients)
       .map((entry) => ingredient(entry, 'страва «' + name + '»'))

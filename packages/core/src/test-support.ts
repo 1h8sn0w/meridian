@@ -28,6 +28,7 @@ type MealInput = {
   source?: string
   name?: string
   caloriesApprox?: boolean
+  macrosApprox?: boolean
   protein?: number | null
   fat?: number | null
   carbs?: number | null
@@ -46,6 +47,7 @@ export function meal(input: MealInput): Meal {
     type: input.type,
     ...nutritionCh,
     caloriesApprox: input.caloriesApprox ?? false,
+    macrosApprox: input.macrosApprox ?? false,
     nutrition: {
       Ч: nutritionCh,
       Ж: { ...NO_NUTRITION },
