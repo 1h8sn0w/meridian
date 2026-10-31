@@ -69,6 +69,7 @@ function mealValues(familyId: string, meal: Meal): Record<string, unknown> {
     protein: meal.protein,
     fat: meal.fat,
     carbs: meal.carbs,
+    macros_approx: flag(meal.macrosApprox),
     ingredients: json(meal.ingredients),
     source: meal.source,
     portions: json(meal.portions),

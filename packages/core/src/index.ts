@@ -35,6 +35,7 @@ export {
   hasMacros,
   hasValue,
   numberFromField,
+  nutritionChanges,
 } from './provenance.ts'
 
 export { weekSources } from './plans.ts'

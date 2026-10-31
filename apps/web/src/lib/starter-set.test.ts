@@ -180,8 +180,9 @@ function localDb() {
   return sqliteDb(
     'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
       ' type TEXT, calories REAL, calories_approx INTEGER, protein REAL,' +
-      ' fat REAL, carbs REAL, calories_w REAL, protein_w REAL, fat_w REAL,' +
-      ' carbs_w REAL, ingredients TEXT, source TEXT, portions TEXT,' +
+      ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w REAL,' +
+      ' protein_w REAL, fat_w REAL, carbs_w REAL, ingredients TEXT,' +
+      ' source TEXT, portions TEXT,' +
       ' gerd INTEGER, source_issues TEXT, deleted_at TEXT);' +
       'CREATE TABLE recipe (id TEXT PRIMARY KEY, family_id TEXT,' +
       ' meal_id TEXT, steps TEXT, prep_time INTEGER, servings INTEGER,' +
@@ -239,4 +240,19 @@ test('MER-79: засів пише цифри обох порцій, і стра�
     assert.ok(row)
     assert.deepEqual(mealFromRow({ ...row }).nutrition, meal.nutrition)
   }
+})
+
+test('MER-141: засів переносить «≈» калорій і БЖВ окремо', async () => {
+  const { sqlite, db } = localDb()
+  await seedStarterMeals(db, FAMILY, SET)
+  for (const meal of SET) {
+    const row = sqlite
+      .prepare('SELECT * FROM meal WHERE id = ?')
+      .get(starterMealId(FAMILY, meal.key))
+    assert.ok(row)
+    const read = mealFromRow({ ...row })
+    assert.equal(read.caloriesApprox, meal.caloriesApprox)
+    assert.equal(read.macrosApprox, meal.macrosApprox)
+  }
+  assert.ok(SET.some((meal) => meal.macrosApprox))
 })

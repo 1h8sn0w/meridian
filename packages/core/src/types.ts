@@ -43,6 +43,7 @@ export type Meal = {
   protein: number | null
   fat: number | null
   carbs: number | null
+  macrosApprox: boolean
   nutrition: Record<PortionLetter, Nutrition>
   ingredients: Array<Ingredient>
   source: string

@@ -54,6 +54,8 @@ test('приклад з репозиторію — валідний набір',
   assert.equal(breakfast.gerd, true)
   assert.deepEqual(breakfast.recipe?.steps.length, 2)
   assert.equal(lunch.caloriesApprox, true)
+  assert.equal(lunch.macrosApprox, true)
+  assert.equal(breakfast.macrosApprox, false)
   assert.deepEqual(lunch.sourceIssues, [
     'У складі сочевиця 60 г, у рецепті — 80 г',
   ])
@@ -180,6 +182,32 @@ test('межі — ті самі, що в схемі БД', () => {
     }),
   )
   assert.ok(approxW.ok, '«≈» з цифрою лише порції Ж — валідна оцінка')
+})
+
+test('MER-141: macrosApprox необов’язкове — без нього БЖВ точні, з ним має бути хоч одне з БЖВ', () => {
+  const plain = parseStarterSet(withMeal({}, 'macrosApprox'))
+  assert.ok(plain.ok, plain.ok ? '' : plain.error)
+  assert.equal(plain.set.meals[0]?.macrosApprox, false)
+
+  const approx = parseStarterSet(
+    withMeal({ ...withNutrition('Ж', { protein: 23.5 }), macrosApprox: true }),
+  )
+  assert.ok(approx.ok, approx.ok ? '' : approx.error)
+  assert.equal(approx.set.meals[0]?.macrosApprox, true)
+
+  assert.match(
+    errorOf(
+      withMeal({
+        ...withNutrition('Ч', { calories: 300 }),
+        macrosApprox: true,
+      }),
+    ),
+    /macrosApprox: true без БЖВ/,
+  )
+  assert.match(
+    errorOf(withMeal({ macrosApprox: 'так' })),
+    /macrosApprox — true або false/,
+  )
 })
 
 test('key повторюється — помилка: інакше дві страви злилися б в один рядок', () => {

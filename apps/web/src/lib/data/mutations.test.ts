@@ -1,7 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { MEAL_TYPES, mealFromRow, planSlotId } from '@meridian/core'
+import {
+  MEAL_TYPES,
+  NO_NUTRITION,
+  mealFromRow,
+  planSlotId,
+} from '@meridian/core'
 import type { MealType, PlanDay, WeekPlan } from '@meridian/core'
 import {
   clearStaleChecks,
@@ -223,7 +228,8 @@ test('MER-79: страва зберігає й оновлює цифри пор�
   const { sqlite, db } = sqliteDb(
     'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
       ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
-      ' fat REAL, carbs REAL, calories_w INTEGER, protein_w REAL, fat_w REAL,' +
+      ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w INTEGER,' +
+      ' protein_w REAL, fat_w REAL,' +
       ' carbs_w REAL, ingredients TEXT, source TEXT, portions TEXT,' +
       ' gerd INTEGER, source_issues TEXT, deleted_at TEXT)',
   )
@@ -251,7 +257,51 @@ test('MER-79: страва зберігає й оновлює цифри пор�
     Ч: input.nutrition.Ч,
     Ж: { ...input.nutrition.Ж, calories: 400 },
   }
-  await updateMeal(db, id, { ...input, nutrition }, true)
+  await updateMeal(
+    db,
+    id,
+    { ...input, nutrition },
+    { calories: true, macros: false },
+  )
   assert.deepEqual(read().nutrition, nutrition)
   assert.equal(read().caloriesApprox, false)
+})
+
+test('MER-141: правка калорій знімає лише «≈» калорій, правка БЖВ — лише «≈» БЖВ', async () => {
+  const { sqlite, db } = sqliteDb(
+    'CREATE TABLE meal (id TEXT PRIMARY KEY, family_id TEXT, name TEXT,' +
+      ' type TEXT, calories INTEGER, calories_approx INTEGER, protein REAL,' +
+      ' fat REAL, carbs REAL, macros_approx INTEGER, calories_w INTEGER,' +
+      ' protein_w REAL, fat_w REAL, carbs_w REAL, ingredients TEXT,' +
+      ' source TEXT, portions TEXT, gerd INTEGER, source_issues TEXT,' +
+      ' deleted_at TEXT)',
+  )
+  const input: MealInput = {
+    name: 'Коктейль',
+    type: 'snack',
+    nutrition: {
+      Ч: { calories: 300, protein: 23.5, fat: null, carbs: null },
+      Ж: { ...NO_NUTRITION },
+    },
+    ingredients: [],
+    source: '',
+    portions: [],
+    gerd: false,
+    sourceIssues: [],
+  }
+  const read = () =>
+    mealFromRow({ ...sqlite.prepare('SELECT * FROM meal').get() })
+
+  const id = await insertMeal(db, 'f1', input)
+  assert.equal(read().macrosApprox, false)
+
+  sqlite.prepare('UPDATE meal SET calories_approx = 1, macros_approx = 1').run()
+  await updateMeal(db, id, input, { calories: true, macros: false })
+  assert.equal(read().caloriesApprox, false)
+  assert.equal(read().macrosApprox, true)
+
+  sqlite.prepare('UPDATE meal SET calories_approx = 1').run()
+  await updateMeal(db, id, input, { calories: false, macros: true })
+  assert.equal(read().caloriesApprox, true)
+  assert.equal(read().macrosApprox, false)
 })

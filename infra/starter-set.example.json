@@ -33,9 +33,10 @@
       "name": "Суп із сочевиці",
       "type": "lunch",
       "caloriesApprox": true,
+      "macrosApprox": true,
       "nutrition": {
-        "Ж": { "calories": 330, "protein": null, "fat": null, "carbs": null },
-        "Ч": { "calories": 420, "protein": null, "fat": null, "carbs": null }
+        "Ж": { "calories": 330, "protein": 18, "fat": 6, "carbs": 48 },
+        "Ч": { "calories": 420, "protein": 23, "fat": 8, "carbs": 62 }
       },
       "ingredients": [
         { "name": "сочевиця", "amount": 60, "unit": "г" },

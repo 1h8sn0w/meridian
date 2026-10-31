@@ -106,6 +106,7 @@ export async function insertMeal(
     input.name,
     input.type,
     flag(false),
+    flag(false),
     ...nutritionValues(input.nutrition),
     JSON.stringify(input.ingredients),
     input.source,
@@ -114,7 +115,8 @@ export async function insertMeal(
     JSON.stringify(input.sourceIssues),
   ]
   await db.execute(
-    'INSERT INTO meal (id, family_id, name, type, calories_approx, ' +
+    'INSERT INTO meal (id, family_id, name, type, calories_approx,' +
+      ' macros_approx, ' +
       NUTRITION_COLUMNS.join(', ') +
       ', ingredients, source, portions, gerd, source_issues)' +
       ` VALUES (${placeholders(values.length)})`,
@@ -127,14 +129,15 @@ export async function updateMeal(
   db: Db,
   id: string,
   input: MealInput,
-  caloriesChanged: boolean,
+  changed: { calories: boolean; macros: boolean },
 ): Promise<void> {
   await db.execute(
     'UPDATE meal SET name = ?, type = ?, ' +
       NUTRITION_SET +
       ', ingredients = ?, source = ?, portions = ?, gerd = ?,' +
       ' source_issues = ?' +
-      (caloriesChanged ? ', calories_approx = 0' : '') +
+      (changed.calories ? ', calories_approx = 0' : '') +
+      (changed.macros ? ', macros_approx = 0' : '') +
       ' WHERE id = ?',
     [
       input.name,
@@ -202,6 +205,7 @@ export async function seedStarterMeals(
         meal.name,
         meal.type,
         flag(meal.caloriesApprox),
+        flag(meal.macrosApprox),
         ...nutritionValues(meal.nutrition),
         JSON.stringify(meal.ingredients),
         meal.source,
@@ -211,7 +215,8 @@ export async function seedStarterMeals(
       ]
       if (existing) {
         await tx.execute(
-          'UPDATE meal SET name = ?, type = ?, calories_approx = ?, ' +
+          'UPDATE meal SET name = ?, type = ?, calories_approx = ?,' +
+            ' macros_approx = ?, ' +
             NUTRITION_SET +
             ', ingredients = ?, source = ?, portions = ?, gerd = ?,' +
             ' source_issues = ?, deleted_at = NULL WHERE id = ?',
@@ -219,7 +224,7 @@ export async function seedStarterMeals(
         )
       } else {
         await tx.execute(
-          'INSERT INTO meal (name, type, calories_approx, ' +
+          'INSERT INTO meal (name, type, calories_approx, macros_approx, ' +
             NUTRITION_COLUMNS.join(', ') +
             ', ingredients, source, portions, gerd, source_issues,' +
             ' id, family_id)' +

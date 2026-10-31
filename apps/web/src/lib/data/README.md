@@ -75,9 +75,9 @@ MER-55).
 
 ### updateMeal, insertMeal
 
-Ручний ввід не ставить `calories_approx`. `updateMeal` знімає позначку лише
-коли змінилася цифра калорій будь-якої порції: правка назви не має видати
-оцінку за точну. Цифри обох порцій пишуться разом (`NUTRITION_COLUMNS`,
+Ручний ввід не ставить `calories_approx` і `macros_approx`. `updateMeal`
+знімає кожну позначку лише коли змінилася її цифра в будь-якій порції
+(`nutritionChanges`): правка назви не має видати оцінку за точну. Цифри обох порцій пишуться разом (`NUTRITION_COLUMNS`,
 `nutritionValues`) — і в `seedStarterMeals`.
 
 ### deleteMeal, clearMeals
