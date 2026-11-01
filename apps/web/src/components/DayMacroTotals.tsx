@@ -1,4 +1,4 @@
-import { MACRO_FIELDS, hasValue } from '@meridian/core'
+import { MACRO_FIELDS } from '@meridian/core'
 import type { DayMacros, MacroField, MacroSum, Profile } from '@meridian/core'
 import { grams } from '../lib/format'
 import { useMessages } from '../lib/i18n/use-messages'
@@ -54,19 +54,17 @@ function MacroCell({
 }) {
   const t = useMessages().dayMacros
   const known = sum.known > 0
-  const hasGoal = hasValue(goal) && (goal as number) > 0
-  const share = known && hasGoal ? Math.min(sum.total / (goal as number), 1) : 0
+  const target = goal !== null && goal > 0 ? goal : null
+  const share = known && target ? Math.min(sum.total / target, 1) : 0
   return (
     <div className="rounded-2xl bg-app px-2.5 py-2">
       <div className="text-xs text-muted">{label}</div>
       <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
         {known ? (sum.approx ? '≈' : '') + grams(sum.total) : '—'}
       </div>
-      {hasGoal ? (
+      {target ? (
         <>
-          <div className="text-xs text-muted">
-            {t.goal(grams(goal as number))}
-          </div>
+          <div className="text-xs text-muted">{t.goal(grams(target))}</div>
           <div
             aria-hidden
             className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-line"
