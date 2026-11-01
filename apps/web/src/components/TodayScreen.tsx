@@ -20,6 +20,8 @@ import { useMealWindows } from '../lib/meal-windows'
 import { AntiRepeatPanel } from './AntiRepeat'
 import { AppShell } from './AppShell'
 import { DayClock } from './DayClock'
+import { DayMacroTotals } from './DayMacroTotals'
+import type { MacroGoals } from './DayMacroTotals'
 import { DayTotal } from './DayTotal'
 import { FirstSteps } from './FirstSteps'
 import { MealDetails, MealMarks } from './MealDetails'
@@ -115,6 +117,7 @@ export function TodayScreen({ familyId }: { familyId: string }) {
           week={week.data}
           profileName={profile.name}
           portion={profile.portion}
+          goals={profile}
           ownerCorridorApplies={ownerCorridorApplies}
           showProfileName={profilesRead.data.length > 1}
           prefs={prefsRead.data}
@@ -163,6 +166,7 @@ function CurrentMeal({
   week,
   profileName,
   portion,
+  goals,
   ownerCorridorApplies,
   showProfileName,
   prefs,
@@ -172,6 +176,7 @@ function CurrentMeal({
   week: WeekView
   profileName: string
   portion: PortionLetter | null
+  goals: MacroGoals
   ownerCorridorApplies: boolean
   showProfileName: boolean
   prefs: TastePrefs
@@ -271,6 +276,7 @@ function CurrentMeal({
               : null
           }
         />
+        <DayMacroTotals macros={day.macros} goals={goals} />
 
         {day.isPast ? null : (
           <div className="mt-4">

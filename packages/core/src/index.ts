@@ -7,8 +7,11 @@ export {
 } from './types.ts'
 export type {
   DayCalories,
+  DayMacros,
   DayMeals,
   Ingredient,
+  MacroField,
+  MacroSum,
   Meal,
   MealPrefValue,
   MealType,
@@ -28,6 +31,7 @@ export type {
 export {
   dayCalories,
   dayInCorridor,
+  dayMacros,
   formatCalories,
   formatDayCalories,
   formatMacro,

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   dayCalories,
   dayInCorridor,
+  dayMacros,
   formatCalories,
   formatDayCalories,
   formatMacro,
@@ -205,4 +206,75 @@ test('MER-141: правка калорій і правка БЖВ розрізн
     nutritionChanges(before, { ...before, Ж: { ...before.Ж, fat: 4 } }),
     { calories: false, macros: true },
   )
+})
+
+test('БЖВ дня: повна сума кожного поля без пропусків і без «≈»', () => {
+  const day = {
+    breakfast: meal({
+      id: 'b',
+      type: 'breakfast',
+      protein: 20,
+      fat: 10,
+      carbs: 50,
+    }),
+    lunch: meal({ id: 'l', type: 'lunch', protein: 35, fat: 0, carbs: 60 }),
+    dinner: meal({ id: 'd', type: 'dinner', protein: 30, fat: 15, carbs: 40 }),
+    snack: meal({ id: 's', type: 'snack', protein: 5, fat: 5, carbs: 20 }),
+  }
+  assert.deepEqual(dayMacros(day), {
+    protein: { total: 90, known: 4, unknown: 0, approx: false },
+    fat: { total: 30, known: 4, unknown: 0, approx: false },
+    carbs: { total: 170, known: 4, unknown: 0, approx: false },
+  })
+})
+
+test('БЖВ дня: страва без цифри поля рахується окремо, а не нулем', () => {
+  const day = {
+    breakfast: meal({
+      id: 'b',
+      type: 'breakfast',
+      protein: 20,
+      fat: null,
+      carbs: 50,
+    }),
+    lunch: meal({ id: 'l', type: 'lunch' }),
+    dinner: meal({ id: 'd', type: 'dinner', protein: 30, fat: 15, carbs: 40 }),
+    snack: null,
+  }
+  assert.deepEqual(dayMacros(day), {
+    protein: { total: 50, known: 2, unknown: 2, approx: false },
+    fat: { total: 15, known: 1, unknown: 3, approx: false },
+    carbs: { total: 90, known: 2, unknown: 2, approx: false },
+  })
+})
+
+test('БЖВ дня: день без перекусу не має дірки на місці перекусу', () => {
+  const day = {
+    breakfast: meal({ id: 'b', type: 'breakfast', protein: 20 }),
+    lunch: meal({ id: 'l', type: 'lunch', protein: 35 }),
+    dinner: meal({ id: 'd', type: 'dinner', protein: 30 }),
+  }
+  assert.deepEqual(dayMacros(day).protein, {
+    total: 85,
+    known: 3,
+    unknown: 0,
+    approx: false,
+  })
+})
+
+test('БЖВ дня: «≈» лише в полі, куди ввійшла приблизна цифра', () => {
+  const day = {
+    breakfast: meal({
+      id: 'b',
+      type: 'breakfast',
+      protein: 23.5,
+      macrosApprox: true,
+    }),
+    lunch: meal({ id: 'l', type: 'lunch', protein: 30, fat: 12 }),
+  }
+  const sum = dayMacros(day)
+  assert.equal(sum.protein.approx, true)
+  assert.equal(sum.protein.total, 53.5)
+  assert.equal(sum.fat.approx, false)
+  assert.equal(sum.fat.known, 1)
 })

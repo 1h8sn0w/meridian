@@ -42,7 +42,7 @@ const ROWS: Array<Row> = [
 
 const PLAN: Row = { id: 'w', profile_id: 'p', start_date: '2026-09-01' }
 
-test('«Тиждень» і «Календар» дають ті самі слоти й калорії', () => {
+test('«Тиждень» і «Календар» дають ті самі слоти, калорії й БЖВ', () => {
   const week = buildWeekView(PLAN, ROWS, MEALS, '2026-09-02')
   const calendar = buildCalendarDays(ROWS, MEALS)
 
@@ -57,6 +57,7 @@ test('«Тиждень» і «Календар» дають ті самі сло
     assert.ok(same, `календар не знає день ${day.date}`)
     assert.deepEqual(same.slots, day.slots)
     assert.deepEqual(same.calories, day.calories)
+    assert.deepEqual(same.macros, day.macros)
   }
 })
 

@@ -122,6 +122,12 @@ export const pl: Messages = {
     incomplete: (n) => ' · niepełne: ' + slots(n) + ' bez liczb',
     outside: ' · poza zakresem',
   },
+  dayMacros: {
+    label: 'Makroskładniki dnia',
+    goal: (goal) => 'cel ' + goal,
+    incomplete:
+      'Suma makroskładników niepełna: części dań dnia brakuje tych liczb.',
+  },
   taste: {
     favorite: 'Ulubione',
     disliked: 'Nielubiane',

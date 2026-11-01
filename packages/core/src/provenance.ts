@@ -1,5 +1,13 @@
 import { MACRO_FIELDS, MEAL_TYPES, PORTION_LETTERS } from './types.ts'
-import type { DayCalories, Meal, MealType, Nutrition } from './types.ts'
+import type {
+  DayCalories,
+  DayMacros,
+  MacroField,
+  MacroSum,
+  Meal,
+  MealType,
+  Nutrition,
+} from './types.ts'
 
 export function hasValue(value: unknown): boolean {
   if (value === null || value === undefined) return false
@@ -117,6 +125,27 @@ export function dayCalories(
     if (meal.caloriesApprox) approx = true
   }
   return { total, unknown, approx }
+}
+
+export function dayMacros(
+  meals: Partial<Record<MealType, Meal | null | undefined>>,
+): DayMacros {
+  const sum = (field: MacroField): MacroSum => {
+    const out: MacroSum = { total: 0, known: 0, unknown: 0, approx: false }
+    for (const type of MEAL_TYPES) {
+      const meal = meals[type]
+      if (meal === undefined) continue
+      if (!meal || !hasValue(meal[field])) {
+        out.unknown += 1
+        continue
+      }
+      out.total += meal[field] as number
+      out.known += 1
+      if (meal.macrosApprox) out.approx = true
+    }
+    return out
+  }
+  return { protein: sum('protein'), fat: sum('fat'), carbs: sum('carbs') }
 }
 
 export function dayInCorridor(

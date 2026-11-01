@@ -125,6 +125,11 @@ export const uk = {
     incomplete: (n: number) => ' · сума неповна: без цифр ' + slots(n),
     outside: ' · поза коридором',
   },
+  dayMacros: {
+    label: 'БЖВ за день',
+    goal: (goal: string) => 'ціль ' + goal,
+    incomplete: 'Сума БЖВ неповна: у частини страв дня немає цих цифр.',
+  },
   taste: {
     favorite: 'Улюблене',
     disliked: 'Не подобається',
