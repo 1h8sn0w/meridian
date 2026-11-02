@@ -16,7 +16,7 @@ export function DayMacroTotals({
   goals,
 }: {
   macros: DayMacros
-  goals: MacroGoals | null
+  goals: MacroGoals
 }) {
   const messages = useMessages()
   const t = messages.dayMacros
@@ -32,7 +32,7 @@ export function DayMacroTotals({
             key={field}
             label={messages.details[field]}
             sum={macros[field]}
-            goal={goals?.[GOAL_OF[field]] ?? null}
+            goal={goals[GOAL_OF[field]]}
           />
         ))}
       </div>
@@ -55,7 +55,6 @@ function MacroCell({
   const t = useMessages().dayMacros
   const known = sum.known > 0
   const target = goal !== null && goal > 0 ? goal : null
-  const share = known && target ? Math.min(sum.total / target, 1) : 0
   return (
     <div className="rounded-2xl bg-app px-2.5 py-2">
       <div className="text-xs text-muted">{label}</div>
@@ -70,8 +69,10 @@ function MacroCell({
             className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-line"
           >
             <div
-              className="h-full w-full origin-left bg-accent-fill transition-transform duration-700 ease-out-expo"
-              style={{ transform: `scaleX(${share})` }}
+              className="h-full w-full origin-left bg-accent-fill duration-700 ease-out-expo motion-safe:transition-transform"
+              style={{
+                transform: `scaleX(${Math.min(sum.total / target, 1)})`,
+              }}
             />
           </div>
         </>
