@@ -48,7 +48,7 @@ import {
   SectionLabel,
   Warn,
 } from './ui'
-import { Check, ShareNetwork } from '@phosphor-icons/react'
+import { CaretDown, Check, ShareNetwork } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -114,7 +114,10 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
 
   const { withQty, noQty } = aggregate(slotMeals)
   const items = [...withQty, ...noQty]
-  const bought = items.filter((item) => checksRead.data.get(item.key)).length
+  const boughtItems = items.filter((item) => checksRead.data.get(item.key))
+  const toBuy = (list: ReadonlyArray<ShoppingItem>) =>
+    list.filter((item) => !checksRead.data.get(item.key))
+  const noQtyToBuy = toBuy(noQty)
 
   const problems = [
     mealsRead.problems,
@@ -161,7 +164,9 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     <AppShell
       title={messages.titles.shopping}
       subtitle={
-        items.length ? t.bought(bought, items.length) : range || t.fromWeek
+        items.length
+          ? t.bought(boughtItems.length, items.length)
+          : range || t.fromWeek
       }
     >
       <Problems of={problems} />
@@ -197,7 +202,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       ) : (
         <>
           <Panel>
-            <Progress bought={bought} total={items.length} />
+            <Progress bought={boughtItems.length} total={items.length} />
             <Meta>
               {range}
               {weeks.length > 1 ? t.plans(weeks.length) : ''}
@@ -221,20 +226,41 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
           ) : (
             <>
               <Sections
-                items={withQty}
-                checks={checksRead.data}
+                items={toBuy(withQty)}
+                checked={false}
                 onToggle={(item) => void toggle(item)}
               />
 
-              {noQty.length ? (
+              {noQtyToBuy.length ? (
                 <Panel title={t.noQty}>
                   <Hint>{t.noQtyHint}</Hint>
                   <Sections
-                    items={noQty}
-                    checks={checksRead.data}
+                    items={noQtyToBuy}
+                    checked={false}
                     onToggle={(item) => void toggle(item)}
                     flat
                   />
+                </Panel>
+              ) : null}
+
+              {boughtItems.length ? (
+                <Panel>
+                  <details className="group">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-lg font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
+                      {t.boughtBlock(boughtItems.length)}
+                      <CaretDown
+                        aria-hidden
+                        size={18}
+                        className="flex-none text-muted duration-300 ease-spring group-open:rotate-180 motion-safe:transition-transform"
+                      />
+                    </summary>
+                    <Sections
+                      items={boughtItems}
+                      checked
+                      onToggle={(item) => void toggle(item)}
+                      flat
+                    />
+                  </details>
                 </Panel>
               ) : null}
             </>
@@ -339,12 +365,12 @@ function Progress({ bought, total }: { bought: number; total: number }) {
 
 function Sections({
   items,
-  checks,
+  checked,
   onToggle,
   flat = false,
 }: {
   items: ReadonlyArray<ShoppingItem>
-  checks: ReadonlyMap<string, boolean>
+  checked: boolean
   onToggle: (item: ShoppingItem) => void
   flat?: boolean
 }) {
@@ -357,7 +383,7 @@ function Sections({
           <ItemRow
             key={item.key}
             item={item}
-            checked={checks.get(item.key) === true}
+            checked={checked}
             onToggle={() => onToggle(item)}
           />
         ))
@@ -405,12 +431,10 @@ function ItemRow({
             : 'border-line bg-app'
         }`}
       >
-        {checked ? (
-          <Check size={14} weight="bold" className="motion-safe:animate-pop" />
-        ) : null}
+        {checked ? <Check size={14} weight="bold" /> : null}
       </span>
       <span
-        className={`flex-1 text-sm transition-colors duration-300 ${checked ? 'text-muted line-through' : ''}`}
+        className={`flex-1 text-sm ${checked ? 'text-muted line-through' : ''}`}
       >
         {item.name}
       </span>

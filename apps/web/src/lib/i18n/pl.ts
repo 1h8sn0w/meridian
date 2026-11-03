@@ -687,6 +687,7 @@ export const pl: Messages = {
       'Wybór zostaje na tym urządzeniu. Oznaczenia „kupione” są wspólne dla rodziny — widzi je każdy telefon.',
     progress: (bought, total) => 'Kupiono ' + bought + ' z ' + total,
     boughtMark: ' — kupione',
+    boughtBlock: (n) => 'Kupione (' + n + ')',
   },
   recipe: {
     readingMeals: 'Czytamy pulę dań…',
