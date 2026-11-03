@@ -97,12 +97,7 @@ export type DayCalories = {
 
 export type MacroField = (typeof MACRO_FIELDS)[number]
 
-export type MacroSum = {
-  total: number
-  known: number
-  unknown: number
-  approx: boolean
-}
+export type MacroSum = DayCalories & { known: number }
 
 export type DayMacros = Record<MacroField, MacroSum>
 
