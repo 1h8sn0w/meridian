@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tag: [staging, latest]
+        tag: [staging]
     steps:
       - uses: docker/scout-action@v1
         with:
@@ -30,6 +30,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: staging
 
       - uses: pnpm/action-setup@v6
 
