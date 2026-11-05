@@ -95,6 +95,12 @@ export type DayCalories = {
   approx: boolean
 }
 
+export type MacroField = (typeof MACRO_FIELDS)[number]
+
+export type MacroSum = DayCalories & { known: number }
+
+export type DayMacros = Record<MacroField, MacroSum>
+
 export type DayMeals<TMeal extends Meal = Meal> = Partial<
   Record<MealType, TMeal>
 >

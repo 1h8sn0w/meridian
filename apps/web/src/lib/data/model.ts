@@ -2,11 +2,13 @@ import {
   DEFAULTS,
   MEAL_TYPES,
   dayCalories,
+  dayMacros,
   mealForPortion,
   profileFromRow,
 } from '@meridian/core'
 import type {
   DayCalories,
+  DayMacros,
   DayMeals,
   Meal,
   MealType,
@@ -44,6 +46,7 @@ export type DayView = {
   slots: Array<SlotView>
   byType: Partial<Record<MealType, SlotView>>
   calories: DayCalories
+  macros: DayMacros
   isPast: boolean
   isToday: boolean
 }
@@ -136,6 +139,7 @@ type FoldedDay = {
   byType: Partial<Record<MealType, SlotView>>
   slots: Array<SlotView>
   calories: DayCalories
+  macros: DayMacros
 }
 
 function foldSlotRows(
@@ -176,13 +180,14 @@ function foldSlotRows(
     const slots = SLOT_ORDER.map((type) => byType[type]).filter(
       (view): view is SlotView => view !== undefined,
     )
-    const forCalories: Partial<Record<MealType, Meal | null>> = {}
-    for (const view of slots) forCalories[view.slot] = view.meal
+    const dayMeals: Partial<Record<MealType, Meal | null>> = {}
+    for (const view of slots) dayMeals[view.slot] = view.meal
     days.set(date, {
       dayIndex,
       byType,
       slots,
-      calories: dayCalories(forCalories),
+      calories: dayCalories(dayMeals),
+      macros: dayMacros(dayMeals),
     })
   }
   return { days, missing }
@@ -257,6 +262,7 @@ export type CalendarDayView = {
   date: string
   slots: Array<SlotView>
   calories: DayCalories
+  macros: DayMacros
 }
 
 export function buildCalendarDays(
@@ -264,9 +270,11 @@ export function buildCalendarDays(
   meals: ReadonlyMap<string, Meal>,
 ): Map<string, CalendarDayView> {
   const out = new Map<string, CalendarDayView>()
-  for (const [date, { slots, calories }] of foldSlotRows(slotRows, meals)
-    .days) {
-    out.set(date, { date, slots, calories })
+  for (const [date, { slots, calories, macros }] of foldSlotRows(
+    slotRows,
+    meals,
+  ).days) {
+    out.set(date, { date, slots, calories, macros })
   }
   return out
 }

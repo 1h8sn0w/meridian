@@ -20,6 +20,8 @@ import { useMessages } from '../lib/i18n/use-messages'
 import { useNow } from '../lib/use-now'
 import type { CalendarSearch } from '../lib/calendar-search'
 import { AppShell } from './AppShell'
+import { DayMacroTotals } from './DayMacroTotals'
+import type { MacroGoals } from './DayMacroTotals'
 import { DayTotal } from './DayTotal'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { RecipeLink } from './RecipeLink'
@@ -148,6 +150,7 @@ export function CalendarScreen() {
               date={selected}
               todayKey={todayKey}
               meals={mealsRead.data}
+              goals={profile}
               ownerCorridorApplies={ownerCorridorApplies}
             />
           ) : null}
@@ -239,12 +242,14 @@ function DaySection({
   date,
   todayKey,
   meals,
+  goals,
   ownerCorridorApplies,
 }: {
   ownerId: string | null
   date: string
   todayKey: string
   meals: ReadonlyArray<Meal>
+  goals: MacroGoals
   ownerCorridorApplies: boolean
 }) {
   const daysRead = useCalendarDays(ownerId, date, date, meals)
@@ -307,6 +312,7 @@ function DaySection({
             calories={day.calories}
             plan={ownerCorridorApplies ? planRead.data : null}
           />
+          <DayMacroTotals macros={day.macros} goals={goals} />
 
           {todayKey && date < todayKey ? <Meta>{t.past}</Meta> : null}
         </>

@@ -109,6 +109,12 @@ export const en: Messages = {
     incomplete: (n) => ' · incomplete: ' + slots(n) + ' without numbers',
     outside: ' · outside the range',
   },
+  dayMacros: {
+    label: 'Macros for the day',
+    goal: (goal) => 'target ' + goal,
+    incomplete:
+      'Macro totals are incomplete: some meals of the day lack these numbers.',
+  },
   taste: {
     favorite: 'Favourite',
     disliked: 'Disliked',

@@ -124,6 +124,12 @@ export const de: Messages = {
     incomplete: (n) => ' · unvollständig: ' + slots(n) + ' ohne Zahlen',
     outside: ' · außerhalb des Bereichs',
   },
+  dayMacros: {
+    label: 'Makros des Tages',
+    goal: (goal) => 'Ziel ' + goal,
+    incomplete:
+      'Makrosummen unvollständig: einigen Gerichten des Tages fehlen diese Zahlen.',
+  },
   taste: {
     favorite: 'Lieblingsgericht',
     disliked: 'Mag ich nicht',

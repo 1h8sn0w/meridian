@@ -1,5 +1,13 @@
 import { MACRO_FIELDS, MEAL_TYPES, PORTION_LETTERS } from './types.ts'
-import type { DayCalories, Meal, MealType, Nutrition } from './types.ts'
+import type {
+  DayCalories,
+  DayMacros,
+  MacroField,
+  MacroSum,
+  Meal,
+  MealType,
+  Nutrition,
+} from './types.ts'
 
 export function hasValue(value: unknown): boolean {
   if (value === null || value === undefined) return false
@@ -100,23 +108,36 @@ export function formatDayCalories(day: DayCalories, unit?: string): string {
   return formatCalories(day.total, day.approx, unit)
 }
 
-export function dayCalories(
-  meals: Partial<Record<MealType, Meal | null | undefined>>,
-): DayCalories {
-  let total = 0
-  let unknown = 0
-  let approx = false
+type DayMealsOrHoles = Partial<Record<MealType, Meal | null | undefined>>
+
+function daySum(
+  meals: DayMealsOrHoles,
+  field: keyof Nutrition,
+  approxFlag: 'caloriesApprox' | 'macrosApprox',
+): MacroSum {
+  const sum: MacroSum = { total: 0, known: 0, unknown: 0, approx: false }
   for (const type of MEAL_TYPES) {
     const meal = meals[type]
     if (meal === undefined) continue
-    if (!meal || !hasValue(meal.calories)) {
-      unknown += 1
+    if (!meal || !hasValue(meal[field])) {
+      sum.unknown += 1
       continue
     }
-    total += meal.calories as number
-    if (meal.caloriesApprox) approx = true
+    sum.total += meal[field] as number
+    sum.known += 1
+    if (meal[approxFlag]) sum.approx = true
   }
+  return sum
+}
+
+export function dayCalories(meals: DayMealsOrHoles): DayCalories {
+  const { total, unknown, approx } = daySum(meals, 'calories', 'caloriesApprox')
   return { total, unknown, approx }
+}
+
+export function dayMacros(meals: DayMealsOrHoles): DayMacros {
+  const sum = (field: MacroField) => daySum(meals, field, 'macrosApprox')
+  return { protein: sum('protein'), fat: sum('fat'), carbs: sum('carbs') }
 }
 
 export function dayInCorridor(
