@@ -6,6 +6,13 @@
 
 {$APP_URL:http://localhost} {
 	encode zstd gzip
+	root * /srv
+
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
 
 	handle_path /auth/v1/* {
 		reverse_proxy auth:9999
@@ -21,9 +28,14 @@
 		}
 	}
 
+	handle /env.js {
+		templates {
+			mime text/javascript application/javascript
+		}
+		file_server
+	}
+
 	handle {
-		root * /srv
-		templates
 		try_files {path} /index.html
 		file_server
 	}

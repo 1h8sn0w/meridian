@@ -63,6 +63,8 @@ const html = () =>
   new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } })
 const json = () =>
   new Response('{}', { headers: { 'content-type': 'application/json' } })
+const script = () =>
+  new Response('', { headers: { 'content-type': 'text/javascript' } })
 
 test('API на тому самому походженні воркер не чіпає: /auth/v1, /rest/v1, /sync', async () => {
   const request = worker(json)
@@ -104,6 +106,18 @@ test('навігація будь-якої адреси кладе HTML під �
 
 test('навігація, що повернула не HTML, у кеш оболонки не потрапляє', async () => {
   const result = await worker(json)('/rest/v1/meal', { mode: 'navigate' })
+  assert.equal(result.handled, true)
+  assert.deepEqual(result.stored, [])
+})
+
+test('публічний конфіг іде з мережі й кладеться під свій ключ', async () => {
+  const result = await worker(script)('/env.js')
+  assert.equal(result.handled, true)
+  assert.deepEqual(result.stored, ['/env.js'])
+})
+
+test('публічний конфіг, що повернувся не скриптом, у кеш не потрапляє', async () => {
+  const result = await worker(html)('/env.js')
   assert.equal(result.handled, true)
   assert.deepEqual(result.stored, [])
 })
