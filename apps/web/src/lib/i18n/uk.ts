@@ -709,6 +709,7 @@ export const uk = {
     progress: (bought: number, total: number) =>
       'Куплено ' + bought + ' з ' + total,
     boughtMark: ' — куплено',
+    boughtBlock: (n: number) => 'Куплено (' + n + ')',
   },
   recipe: {
     readingMeals: 'Читаємо пул страв…',

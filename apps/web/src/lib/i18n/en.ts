@@ -675,6 +675,7 @@ export const en: Messages = {
       'The choice stays on this device. “Bought” marks are shared by the family — every phone sees them.',
     progress: (bought, total) => 'Bought ' + bought + ' of ' + total,
     boughtMark: ' — bought',
+    boughtBlock: (n) => 'Bought (' + n + ')',
   },
   recipe: {
     readingMeals: 'Reading the meal pool…',

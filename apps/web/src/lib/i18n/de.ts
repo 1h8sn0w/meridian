@@ -712,6 +712,7 @@ export const de: Messages = {
       'Die Auswahl bleibt auf diesem Gerät. Die Markierungen „gekauft“ teilt die Familie — jedes Handy sieht sie.',
     progress: (bought, total) => bought + ' von ' + total + ' gekauft',
     boughtMark: ' — gekauft',
+    boughtBlock: (n) => 'Gekauft (' + n + ')',
   },
   recipe: {
     readingMeals: 'Gerichte-Pool wird gelesen…',
