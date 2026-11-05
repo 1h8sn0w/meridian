@@ -30,12 +30,14 @@
 
 	handle /env.js {
 		templates {
-			mime text/javascript application/javascript
+			mime text/javascript
 		}
 		file_server
 	}
 
 	handle {
+		@not_hashed not path /assets/*
+		header @not_hashed Cache-Control no-cache
 		try_files {path} /index.html
 		file_server
 	}
