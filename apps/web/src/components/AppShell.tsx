@@ -51,7 +51,7 @@ export function AppShell({
             key={tab.to}
             to={tab.to}
             search={tab.to === path ? true : undefined}
-            className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline transition-transform duration-300 ease-spring active:scale-90"
+            className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-90"
             activeProps={{ className: 'font-semibold text-accent' }}
             inactiveProps={{ className: 'font-medium text-muted' }}
             activeOptions={{ exact: tab.to === '/' }}

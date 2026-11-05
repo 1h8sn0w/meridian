@@ -209,7 +209,7 @@ export function ProfilesSheet({
               aria-pressed={draft.color === color}
               onClick={() => patch({ color })}
               style={{ '--swatch-color': color } as CSSProperties}
-              className={`h-8 w-8 cursor-pointer rounded-full border-0 bg-swatch p-0 transition-transform duration-300 ease-spring hover:scale-110 active:scale-90 ${
+              className={`h-8 w-8 cursor-pointer rounded-full border-0 bg-swatch p-0 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:hover:scale-110 motion-safe:active:scale-90 ${
                 draft.color === color
                   ? 'scale-110 outline-2 outline-offset-2 outline-swatch'
                   : ''
@@ -354,7 +354,7 @@ export function ProfilesSheet({
             type="button"
             disabled={busy}
             onClick={() => void remove()}
-            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {messages.common.delete}
           </button>

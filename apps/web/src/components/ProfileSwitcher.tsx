@@ -30,7 +30,7 @@ export function ProfileSwitcher({
               profile.corridor,
             )}
             onClick={() => onSelect(profile.id)}
-            className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-full border-0 py-1 pl-1 pr-3 text-left transition duration-300 ease-spring active:scale-97 ${
+            className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-full border-0 py-1 pl-1 pr-3 text-left transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-97 ${
               active
                 ? 'bg-accent-soft text-content'
                 : 'bg-transparent text-muted'
@@ -61,7 +61,7 @@ export function ProfileSwitcher({
         title={t.profiles.title}
         aria-label={t.profileSwitcher.manage}
         onClick={onManage}
-        className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center self-center rounded-full border-0 bg-transparent p-0 text-muted transition duration-500 ease-spring hover:rotate-45 hover:text-content active:scale-90"
+        className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center self-center rounded-full border-0 bg-transparent p-0 text-muted transition-colors duration-500 hover:text-content motion-safe:transition motion-safe:ease-spring motion-safe:hover:rotate-45 motion-safe:active:scale-90"
       >
         <GearSix aria-hidden size={20} />
       </button>

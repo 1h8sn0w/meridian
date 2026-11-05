@@ -58,7 +58,8 @@
 - **Рух лише осмислений і лише `motion-safe:`**: поява сходинкою (`stagger`),
   відгук на натиск, View Transitions між екранами. Анімуються `transform` і
   `opacity`; винятки — поява дуг годинника (`stroke-dashoffset`) і скло шапки
-  за прокруткою. Не `transition-all`.
+  за прокруткою. Не `transition-all`. `transition-colors` — не рух, без
+  `motion-safe:`; стереже `motion-classes.test.ts`.
 - Рантаймові значення (колір профілю, ширина прогресу) — через CSS-змінні чи
   `style`, а не arbitrary value; прогрес — `scale`, не ширина.
 - На телефоні тип прийому стоїть над назвою страви, а не колонкою.
