@@ -16,13 +16,7 @@
       href="/icons/icon-192.png"
     />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <script>
-      window.__MERIDIAN_ENV__ = {
-        supabaseUrl: '{{env "PUBLIC_SUPABASE_URL" | js}}',
-        supabaseAnonKey: '{{env "PUBLIC_SUPABASE_ANON_KEY" | js}}',
-        powersyncUrl: '{{env "PUBLIC_POWERSYNC_URL" | js}}',
-      }
-    </script>
+    <script src="/env.js"></script>
   </head>
   <body class="font-sans text-content">
     <div id="root"></div>

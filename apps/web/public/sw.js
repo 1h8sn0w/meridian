@@ -2,9 +2,11 @@ const CACHE_PREFIX = 'meridian-v2-shell-'
 const CACHE_NAME = CACHE_PREFIX + 'v1'
 
 const SHELL_HTML = '/'
+const ENV_SCRIPT = '/env.js'
 
 const SHELL = [
   SHELL_HTML,
+  ENV_SCRIPT,
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -51,7 +53,12 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstShell(event))
+    event.respondWith(networkFirst(event, SHELL_HTML, isHtml))
+    return
+  }
+
+  if (url.pathname === ENV_SCRIPT) {
+    event.respondWith(networkFirst(event, ENV_SCRIPT, isJavaScript))
     return
   }
 
@@ -60,15 +67,15 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
-async function networkFirstShell(event) {
+async function networkFirst(event, key, isExpected) {
   try {
     const response = await fetch(event.request)
-    if (response.ok && isHtml(response)) {
-      cacheInBackground(event, SHELL_HTML, response.clone())
+    if (response.ok && isExpected(response)) {
+      cacheInBackground(event, key, response.clone())
     }
     return response
   } catch (error) {
-    const cached = await caches.match(SHELL_HTML)
+    const cached = await caches.match(key)
     if (cached) return cached
     throw error
   }
@@ -116,6 +123,10 @@ function cacheInBackground(event, key, response) {
 
 function isHtml(response) {
   return (response.headers.get('content-type') ?? '').includes('text/html')
+}
+
+function isJavaScript(response) {
+  return (response.headers.get('content-type') ?? '').includes('javascript')
 }
 
 function isCacheableAsset(url) {
