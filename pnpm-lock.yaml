@@ -2238,8 +2238,8 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  zod@4.6.1:
-    resolution: {integrity: sha512-341aRWQsve0rvronKNTqZpjmzdbUDlFuzHaI/XLg/Ej82qffDJRRfBTCuv7+9q/rMjB6LSLyEBnW4InJeMtt/Q==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 ignoredOptionalDependencies:
   - '@napi-rs/canvas'
@@ -2919,7 +2919,7 @@ snapshots:
       jiti: 2.7.0
       magic-string: 0.30.21
       prettier: 3.9.6
-      zod: 4.6.1
+      zod: 4.6.7
     transitivePeerDependencies:
       - supports-color
 
@@ -2933,7 +2933,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.3(supports-color@7.2.0)
       chokidar: 5.0.0
       unplugin: 3.3.0(esbuild@0.28.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
-      zod: 4.6.1
+      zod: 4.6.7
     optionalDependencies:
       '@tanstack/react-router': 1.170.35(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       vite: 8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)
@@ -3389,8 +3389,8 @@ snapshots:
       '@babel/parser': 7.29.8
       eslint: 10.8.0(jiti@2.7.0)(supports-color@7.2.0)
       hermes-parser: 0.25.1
-      zod: 4.6.1
-      zod-validation-error: 4.0.2(zod@4.6.1)
+      zod: 4.6.7
+      zod-validation-error: 4.0.2(zod@4.6.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -4180,8 +4180,8 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@4.6.1):
+  zod-validation-error@4.0.2(zod@4.6.7):
     dependencies:
-      zod: 4.6.1
+      zod: 4.6.7
 
-  zod@4.6.1: {}
+  zod@4.6.7: {}
