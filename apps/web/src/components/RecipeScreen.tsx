@@ -161,7 +161,7 @@ function Back() {
   })
   const leaving = useRef(false)
   const look =
-    'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline transition-transform duration-300 ease-spring hover:-translate-x-0.5'
+    'inline-flex items-center gap-1 text-sm font-medium text-accent no-underline motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:hover:-translate-x-0.5'
 
   if (from) {
     return (

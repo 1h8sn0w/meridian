@@ -356,7 +356,7 @@ function Progress({ bought, total }: { bought: number; total: number }) {
       className="h-2 w-full overflow-hidden rounded-full bg-app"
     >
       <div
-        className="h-full w-full origin-left bg-accent-fill transition-transform duration-700 ease-out-expo"
+        className="h-full w-full origin-left bg-accent-fill motion-safe:transition-transform motion-safe:duration-700 motion-safe:ease-out-expo"
         style={{ transform: `scaleX(${percent / 100})` }}
       />
     </div>
@@ -425,7 +425,7 @@ function ItemRow({
     >
       <span
         aria-hidden
-        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition duration-300 ease-spring group-active:scale-90 ${
+        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:group-active:scale-90 ${
           checked
             ? 'border-transparent bg-accent-fill text-button-ink'
             : 'border-line bg-app'

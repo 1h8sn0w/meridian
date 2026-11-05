@@ -313,7 +313,7 @@ export function MealsScreen({ familyId }: { familyId: string }) {
             <button
               type="button"
               onClick={() => void clearAll()}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-97"
             >
               <Trash aria-hidden size={16} />
               {t.clearAll}
@@ -354,7 +354,7 @@ function TasteButton({
       aria-pressed={on}
       aria-label={title}
       onClick={onClick}
-      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border p-0 transition duration-300 ease-spring active:scale-90 ${look}`}
+      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border p-0 transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-90 ${look}`}
     >
       <Glyph
         aria-hidden

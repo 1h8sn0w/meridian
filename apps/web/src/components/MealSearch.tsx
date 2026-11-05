@@ -37,7 +37,7 @@ export function MealSearch({
           aria-label={t.search.clear}
           title={t.search.clear}
           onClick={() => onChange('')}
-          className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted transition-transform duration-300 ease-spring hover:text-content active:scale-90 motion-safe:animate-fade"
+          className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted hover:text-content motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-90 motion-safe:animate-fade"
         >
           <X aria-hidden size={16} weight="bold" />
         </button>

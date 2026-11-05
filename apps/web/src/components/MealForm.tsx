@@ -195,7 +195,7 @@ export function MealForm({
             type="button"
             disabled={busy}
             onClick={() => void remove()}
-            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning transition-transform duration-300 ease-spring active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full border border-warning bg-transparent px-5 py-3 text-sm font-medium text-warning motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-97 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {messages.common.delete}
           </button>
