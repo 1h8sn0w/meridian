@@ -3,7 +3,6 @@ import {
   addDays,
   dateKey,
   formatDayCalories,
-  formatMealCalories,
   startOfWeek,
 } from '@meridian/core'
 import type { Meal } from '@meridian/core'
@@ -24,7 +23,7 @@ import { DayMacroTotals } from './DayMacroTotals'
 import type { MacroGoals } from './DayMacroTotals'
 import { DayTotal } from './DayTotal'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
-import { RecipeLink } from './RecipeLink'
+import { SlotRow } from './SlotRow'
 import {
   Button,
   ButtonLink,
@@ -280,32 +279,7 @@ function DaySection({
       ) : (
         <>
           {day.slots.map((slotView) => (
-            <div
-              key={slotView.id}
-              className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs text-muted">
-                  {messages.common.mealType[slotView.slot]}
-                </span>
-                <span className="block text-sm font-medium leading-snug">
-                  {slotView.meal ? (
-                    <RecipeLink mealId={slotView.mealId}>
-                      {slotView.meal.name}
-                    </RecipeLink>
-                  ) : (
-                    <span className="text-warning">
-                      {messages.common.mealRemoved}
-                    </span>
-                  )}
-                </span>
-              </span>
-              <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
-                {slotView.meal
-                  ? formatMealCalories(slotView.meal, messages.common.kcalUnit)
-                  : ''}
-              </span>
-            </div>
+            <SlotRow key={slotView.id} slotView={slotView} />
           ))}
 
           <DayTotal
