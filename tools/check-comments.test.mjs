@@ -87,7 +87,9 @@ test('ESLint-правило пропускає ті самі директиви,
     .map((message) => message.line)
   assert.deepEqual(lines, [2, 4])
   assert.deepEqual(
-    linter.verify('// c', config, { filename: 'apps/web/android/a.js' }),
+    linter.verify('// c', config, {
+      filename: 'packages/db/migrations/0007_x.js',
+    }),
     [],
   )
 })
@@ -107,8 +109,6 @@ test('храповик перевіряє будь-який файл репоз�
   }
   for (const file of [
     'packages/db/migrations/0007_x.sql',
-    'apps/web/android/a.xml',
-    'apps/web/ios/App/a.swift',
     'apps/web/src/routeTree.gen.ts',
     '.github/ISSUE_TEMPLATE/bug.yml',
   ]) {

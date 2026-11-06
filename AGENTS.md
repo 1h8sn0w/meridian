@@ -51,7 +51,7 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 
 | Тека | Що там | Читати |
 |------|--------|--------|
-| `apps/web` | Статичний SPA: Vite + TanStack Router, PWA, Capacitor. Стилі, публічний конфіг, збірка | [`README.md`](apps/web/README.md) |
+| `apps/web` | Статичний SPA: Vite + TanStack Router, PWA. Стилі, публічний конфіг, збірка | [`README.md`](apps/web/README.md) |
 | `apps/web/src/components` | Екрани, UI-кіт `ui.tsx`, дизайн «Сонячна дуга» | [`README.md`](apps/web/src/components/README.md) |
 | `apps/web/src/lib` | Вхід, годинник дня, нагадування, стартовий набір, PDF-текст | [`README.md`](apps/web/src/lib/README.md) |
 | `apps/web/src/lib/data` | Читання й записи локальної бази; карта «фіча → екран → таблиця» | [`README.md`](apps/web/src/lib/data/README.md) |
@@ -65,7 +65,6 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 | `infra/powersync` | Серверні правила синхронізації | [`README.md`](infra/powersync/README.md) |
 | `tools` | `v1-export.js`, `check-comments.mjs` | [`README.md`](tools/README.md) |
 | `.github/workflows` | `ci.yml`, `docker-publish.yml`, `image-scan.yml` | `infra/DECISIONS.md` |
-| `apps/web/android`, `apps/web/ios` | Згенеровано Capacitor; не чіпати | — |
 
 **Стек V2 (local-first).** Джерело істини для інтерфейсу — SQLite на пристрої;
 PowerSync фоном синхронізує його з Postgres; записи йдуть через PostgREST
@@ -178,9 +177,8 @@ demo- і seed-дані, README, коміти, PR, задачі й докумен
   перелічено явно — автовизначення може зіпсувати файл без NUL на початку.
 - **`.prettierignore` — шляхи повністю.** Патерни без якоря: голе `data/`
   сховало б і `apps/web/src/lib/data/`. Prettier не чіпає `*.md` (пишуться
-  руками), `routeTree.gen.ts` і нативні `android`/`ios` (їх малює `cap add`, а
-  `cap sync` кладе туди копію вебзбірки); ті самі `android`/`ios`, `*.md` і
-  `.env` виключає `.dockerignore` — контекст образу корінь репозиторію.
+  руками) і `routeTree.gen.ts`; `*.md` і `.env` виключає `.dockerignore` —
+  контекст образу корінь репозиторію.
 - **`pnpm-workspace.yaml`:** `allowBuilds` — `esbuild`, `lightningcss` (зі
   стартера TanStack Start), `unrs-resolver` (`eslint-plugin-import-x`) і
   `@journeyapps/wa-sqlite` (його postinstall тягне бінарник

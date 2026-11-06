@@ -63,7 +63,7 @@ A starter set of meals is optional. It is a JSON file with meals from the dietit
 
 V2 is the working version of Meridian. Sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email); the Today, Week, Calendar, Meals, Recipe, Shopping and Family screens, reading and writing the on-device database; week generation and manual swap in `packages/core`, with tests; PDF plan import; meal reminders; eight tables syncing across a family's devices. The interface is in Ukrainian, English, Polish and German, switched from the Family screen.
 
-The app ships as a PWA: it installs on a phone straight from the browser and works offline. There is no separate mobile build, and none is planned until an app store or native features are needed — the Capacitor shell stays in `apps/web` as groundwork.
+The app ships as a PWA: it installs on a phone straight from the browser and works offline. There is no separate mobile build: the native Capacitor shell, which was never built for a device, was removed in MER-150. It can be restored from git history if needed.
 
 V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity; it now lives only in git history. The data V1 kept in the browser moves to V2: the [`tools/v1-export.js`](tools/README.md) script captures it on the V1 page, and Family → “Move data from V1” loads the file.
 

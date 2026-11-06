@@ -18,8 +18,6 @@ export default [
     ignores: [
       'public/*',
       '!public/sw.js',
-      'android/',
-      'ios/',
       'dist/',
       '.tanstack/',
       'src/routeTree.gen.ts',

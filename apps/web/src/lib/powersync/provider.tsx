@@ -71,7 +71,7 @@ export function SyncProvider({
     if (!familyId) setDb(null)
   }
 
-  const insecure = import.meta.env.MODE !== 'native' && !window.isSecureContext
+  const insecure = !window.isSecureContext
   const shownFailure =
     familyId && insecure ? openFailure(new Error('insecure context')) : failure
 
