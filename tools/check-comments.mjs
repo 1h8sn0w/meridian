@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 
 const EXCEPTIONS = [
   /^packages\/db\/migrations\/000[0-7]_/,
-  /^apps\/web\/(android|ios)\//,
   /(^|\/)routeTree\.gen\.ts$/,
   /^\.github\/ISSUE_TEMPLATE\//,
 ]

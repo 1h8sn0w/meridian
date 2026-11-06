@@ -5,7 +5,3 @@ dist
 apps/web/src/routeTree.gen.ts
 
 *.md
-
-apps/web/android
-apps/web/ios
-

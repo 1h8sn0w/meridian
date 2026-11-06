@@ -20,10 +20,7 @@ export function enqueue<T>(work: () => Promise<T>): Promise<T> {
 
 async function openDatabase(): Promise<PowerSyncDatabase> {
   if (!database) {
-    const { PowerSyncDatabase } =
-      import.meta.env.MODE === 'native'
-        ? await import('@powersync/capacitor')
-        : await import('@powersync/web')
+    const { PowerSyncDatabase } = await import('@powersync/web')
     database = new PowerSyncDatabase({
       schema: AppSchema,
       database: { dbFilename: DB_FILENAME },
