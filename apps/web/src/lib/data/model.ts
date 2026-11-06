@@ -32,7 +32,7 @@ const SLOT_ORDER: ReadonlyArray<MealType> = [
   'dinner',
 ]
 
-type SlotView = {
+export type SlotView = {
   id: string
   slot: MealType
   mealId: string

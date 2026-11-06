@@ -30,6 +30,7 @@ import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RecipeLink } from './RecipeLink'
 import { RemindersPanel } from './Reminders'
+import { SlotRow } from './SlotRow'
 import { SwapDialog } from './SwapDialog'
 import { ArrowsLeftRight, Heart, Prohibit } from '@phosphor-icons/react'
 import { Button, Hint, Panel, Problems, Tag } from './ui'
@@ -316,33 +317,11 @@ function LaterToday({
   return (
     <Panel title={t.today.later(tomorrow)}>
       {later.map(({ window, slotView }) => (
-        <div
+        <SlotRow
           key={slotView.id}
-          className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 last:pb-0"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs text-muted">
-              {t.common.mealType[window.type]} ·{' '}
-              <span className="font-mono tabular-nums">
-                {formatMinute(window.startMinute)}
-              </span>
-            </span>
-            <span className="block text-sm font-medium leading-snug">
-              {slotView.meal ? (
-                <RecipeLink mealId={slotView.mealId}>
-                  {slotView.meal.name}
-                </RecipeLink>
-              ) : (
-                <span className="text-warning">{t.common.mealRemoved}</span>
-              )}
-            </span>
-          </span>
-          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
-            {slotView.meal
-              ? formatMealCalories(slotView.meal, t.common.kcalUnit)
-              : ''}
-          </span>
-        </div>
+          slotView={slotView}
+          startMinute={window.startMinute}
+        />
       ))}
     </Panel>
   )

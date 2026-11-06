@@ -6,7 +6,6 @@ import {
   dayInCorridor,
   formatCalories,
   formatDayCalories,
-  formatMealCalories,
   generateWeek,
   poolForProfile,
   poolShortageFor,
@@ -39,7 +38,7 @@ import { shareOrCopy } from '../lib/share'
 import { useNow } from '../lib/use-now'
 import { weekMenuText } from '../lib/week-share'
 import { AppShell } from './AppShell'
-import { RecipeLink } from './RecipeLink'
+import { SlotRow } from './SlotRow'
 import { SwapDialog } from './SwapDialog'
 import { TasteMark } from './TodayScreen'
 import {
@@ -416,41 +415,21 @@ function DayCard({
       </div>
 
       {day.slots.map((slotView) => (
-        <div
+        <SlotRow
           key={slotView.id}
-          className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 last:pb-0"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs text-muted">
-              {messages.common.mealType[slotView.slot]}
-            </span>
-            <span className="block text-sm font-medium leading-snug">
-              {slotView.meal ? (
-                <>
-                  <TasteMark value={prefOf(prefs, slotView.mealId)} />{' '}
-                  <RecipeLink mealId={slotView.mealId}>
-                    {slotView.meal.name}
-                  </RecipeLink>
-                </>
-              ) : (
-                <span className="text-warning">
-                  {messages.common.mealRemoved}
-                </span>
-              )}
-            </span>
-          </span>
-          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">
-            {slotView.meal ? formatMealCalories(slotView.meal, unit) : ''}
-          </span>
-          {day.isPast ? null : (
-            <IconButton
-              label={t.swap(slotView.slot)}
-              onClick={() => onSwap(slotView.slot)}
-            >
-              <ArrowsLeftRight size={16} />
-            </IconButton>
-          )}
-        </div>
+          slotView={slotView}
+          mark={<TasteMark value={prefOf(prefs, slotView.mealId)} />}
+          action={
+            day.isPast ? null : (
+              <IconButton
+                label={t.swap(slotView.slot)}
+                onClick={() => onSwap(slotView.slot)}
+              >
+                <ArrowsLeftRight size={16} />
+              </IconButton>
+            )
+          }
+        />
       ))}
     </section>
   )
