@@ -1,21 +1,22 @@
 import type { Ingredient, Portion, PortionLetter } from '@meridian/core'
+import { intlLocale } from './i18n/locale.ts'
 
-function ingredientParts(entry: Ingredient): {
-  name: string
-  qty: string | null
-} {
-  if (typeof entry === 'string') return { name: entry, qty: null }
+function ingredientLine(
+  entry: Ingredient,
+  amountText: (amount: number) => string,
+): string {
+  if (typeof entry === 'string') return entry
   const bits: Array<string> = []
-  if (entry.amount !== undefined)
-    bits.push(entry.amount.toLocaleString('uk-UA'))
+  if (entry.amount !== undefined) bits.push(amountText(entry.amount))
   if (entry.unit) bits.push(entry.unit)
-  return { name: entry.name, qty: bits.length ? bits.join(' ') : null }
+  return bits.length ? entry.name + ' — ' + bits.join(' ') : entry.name
 }
 
 export function ingredientLabel(entry: Ingredient): string {
-  const { name, qty } = ingredientParts(entry)
-  return qty ? name + ' — ' + qty : name
+  return ingredientLine(entry, (amount) => amount.toLocaleString(intlLocale()))
 }
+
+const AMOUNT_RE = /^(\d{1,3}(?:[ \u00A0]\d{3})+|\d+)((?:[.,]\d+)?)\s*(.*)$/
 
 function ingredientFromLine(line: string): Ingredient | null {
   const value = line.trim()
@@ -25,19 +26,19 @@ function ingredientFromLine(line: string): Ingredient | null {
   const name = value.slice(0, at).trim()
   const qty = value.slice(at + 3).trim()
   if (!name || !qty) return value
-  const match = /^(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(qty)
+  const match = AMOUNT_RE.exec(qty)
   if (!match) return { name, unit: qty }
   const out: Ingredient = {
     name,
-    amount: Number(match[1].replace(',', '.')),
+    amount: Number(match[1].replace(/\D/g, '') + match[2].replace(',', '.')),
   }
-  const unit = match[2].trim()
+  const unit = match[3].trim()
   if (unit) out.unit = unit
   return out
 }
 
 export function ingredientsToText(list: ReadonlyArray<Ingredient>): string {
-  return list.map(ingredientLabel).join('\n')
+  return list.map((entry) => ingredientLine(entry, String)).join('\n')
 }
 
 export function ingredientsFromText(text: string): Array<Ingredient> {

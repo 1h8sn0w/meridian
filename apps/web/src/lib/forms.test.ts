@@ -18,6 +18,7 @@ import type {
   RecipeDraft,
 } from './forms.ts'
 import type { AppProfile } from './data/model.ts'
+import { ingredientsToText } from './meal-text.ts'
 
 const MEAL: MealDraft = {
   name: ' Гречка ',
@@ -323,4 +324,17 @@ test('числове поле форми показує нуль, а відсу�
   assert.equal(fieldText(null), '')
   assert.equal(fieldText(undefined), '')
   assert.deepEqual(linesFromText(''), [])
+})
+
+test('MER-146: збереження форми й підтвердження імпорту лишають 1500 г як є', () => {
+  const ingredients = [{ name: 'борошно', amount: 1500, unit: 'г' }]
+  const text = ingredientsToText(ingredients)
+  assert.deepEqual(
+    input(validateMeal({ ...MEAL, ingredients: text })).ingredients,
+    ingredients,
+  )
+  assert.deepEqual(
+    input(validatePlanEntry({ ...ENTRY, ingredients: text })).meal.ingredients,
+    ingredients,
+  )
 })
