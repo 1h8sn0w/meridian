@@ -66,8 +66,10 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 
 Три workflow у `.github/workflows/`:
 
-- `ci.yml` на кожен PR проганяє `pnpm lint`, `typecheck`, `test` і
-  `format:check` — рівно ті самі кореневі скрипти, нічого свого. `pnpm` ставить
+- `ci.yml` на кожен PR проганяє `pnpm lint`, `typecheck`, `test`,
+  `format:check` і `build` — рівно ті самі кореневі скрипти, що й чекліст перед
+  PR, нічого свого. Збірка тут, бо Docker Publish іде лише на пуш: без неї
+  зламаний `vite build` уперше видно на гілці після злиття. `pnpm` ставить
   `pnpm/action-setup` без `version` (версія — `packageManager`; обидва разом —
   помилка дії), і до `setup-node` з `cache: pnpm`, бо той кличе
   `pnpm store path`. Node 22, як в образі. `--frozen-lockfile`: розбіжність
