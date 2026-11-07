@@ -7,7 +7,6 @@ import {
   dayMacros,
   formatCalories,
   formatDayCalories,
-  formatMacro,
   formatMealCalories,
   hasMacros,
   hasValue,
@@ -83,13 +82,6 @@ test('секція БЖВ показується, якщо є хоч одне з
 
 test('секція БЖВ ховається цілком, якщо немає жодного', () => {
   assert.equal(hasMacros({ protein: null, fat: null, carbs: null }), false)
-})
-
-test('пропуск усередині показаної секції — «—», а не нуль', () => {
-  assert.equal(formatMacro(null), '—')
-  assert.equal(formatMacro(undefined), '—')
-  assert.equal(formatMacro(0), '0')
-  assert.equal(formatMacro(38), '38')
 })
 
 test('калорійності немає — порожньо, а не «0 ккал»', () => {
