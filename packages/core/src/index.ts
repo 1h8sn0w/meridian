@@ -34,7 +34,6 @@ export {
   dayMacros,
   formatCalories,
   formatDayCalories,
-  formatMacro,
   formatMealCalories,
   formatPortionCalories,
   hasMacros,

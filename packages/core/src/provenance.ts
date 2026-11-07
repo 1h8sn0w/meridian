@@ -69,10 +69,6 @@ export function nutritionChanges(
   return { calories: differs(['calories']), macros: differs(MACRO_FIELDS) }
 }
 
-export function formatMacro(value: number | null | undefined): string {
-  return hasValue(value) ? (value as number).toLocaleString('uk-UA') : '—'
-}
-
 export function formatCalories(
   value: number | null | undefined,
   approx = false,
