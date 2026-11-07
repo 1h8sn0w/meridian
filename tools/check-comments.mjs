@@ -96,11 +96,8 @@ export function relativeToRoot(file) {
   return path.relative(ROOT, file).split(path.sep).join('/')
 }
 
-if (
-  process.argv[1] &&
-  realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
-  const found = execFileSync(
+export function repoFiles(wanted) {
+  return execFileSync(
     'git',
     ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
     { cwd: ROOT, encoding: 'utf8' },
@@ -108,15 +105,28 @@ if (
     .split('\0')
     .filter(
       (file) =>
-        isCommentFree(file) &&
-        SYNTAXES.some(({ files }) => files.test(file)) &&
+        wanted(file) &&
         statSync(path.join(ROOT, file), { throwIfNoEntry: false })?.isFile(),
     )
-    .flatMap((file) =>
-      commentLines(file, readFileSync(path.join(ROOT, file), 'utf8')).map(
-        (line) => `${file}:${line}`,
-      ),
-    )
+}
+
+export function readRepoFile(file) {
+  return readFileSync(path.join(ROOT, file), 'utf8')
+}
+
+export function isMain(url) {
+  return Boolean(
+    process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(url),
+  )
+}
+
+if (isMain(import.meta.url)) {
+  const found = repoFiles(
+    (file) =>
+      isCommentFree(file) && SYNTAXES.some(({ files }) => files.test(file)),
+  ).flatMap((file) =>
+    commentLines(file, readRepoFile(file)).map((line) => `${file}:${line}`),
+  )
   if (found.length) {
     console.error(`Коментар у коді (tools/README.md):\n${found.join('\n')}`)
     process.exitCode = 1

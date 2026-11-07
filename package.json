@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @meridian/web dev",
     "build": "pnpm --recursive build",
-    "lint": "node tools/check-comments.mjs && pnpm --recursive lint",
+    "lint": "node tools/check-comments.mjs && node tools/check-readme-size.mjs && pnpm --recursive lint",
     "typecheck": "pnpm --recursive typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
