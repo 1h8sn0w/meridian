@@ -21,7 +21,8 @@
 - **Нюанс модуля пишеш у `README.md` його теки**, під заголовком з **ім'ям
   експорту** (`### saveWeek`), щоб `grep` знаходив і код, і нюанс. Інваріант —
   у тест із назвою-реченням; те, що виражається іменем чи типом, — в ім'я чи
-  тип. README теки — не більше ~12 тис. символів.
+  тип. README теки — не більше 12 тис. символів: перевищення валить
+  `pnpm lint` (`tools/check-readme-size.mjs`).
 - **Коментарів у коді не пишемо** (рішення власника): код читають і пишуть лише
   агенти. Лишаються директиви інструментів (`@ts-check`, `/// <reference>`,
   `eslint-disable … -- причина`, `@ts-expect-error`, шебанг,
@@ -38,8 +39,7 @@
 - Змінив шлях, назву чи правило, на яке посилається онбординг у Linear, —
   онови його в тій самій задачі.
 - **Чекліст рев'ю (`code-review`) — ці правила плюс одне питання:** чи оновлено
-  `README.md` кожної теки, де змінився код (нове ім'я, нюанс, стеля), і чи не
-  виріс він понад ~12 тис. символів.
+  `README.md` кожної теки, де змінився код (нове ім'я, нюанс, стеля).
 
 ---
 
@@ -63,7 +63,7 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 | `infra` | Compose-стек, секрети, ролі БД, CI. Людині — `README.md`, агенту — `DECISIONS.md` | [`DECISIONS.md`](infra/DECISIONS.md) |
 | `infra/caddy` | Єдиний вхід (Caddyfile), образ `caddy`, CVE-скани, оновлення Caddy | [`README.md`](infra/caddy/README.md) |
 | `infra/powersync` | Серверні правила синхронізації | [`README.md`](infra/powersync/README.md) |
-| `tools` | `v1-export.js`, `check-comments.mjs` | [`README.md`](tools/README.md) |
+| `tools` | `v1-export.js`, `check-comments.mjs`, `check-readme-size.mjs` | [`README.md`](tools/README.md) |
 | `.github/workflows` | `ci.yml`, `docker-publish.yml`, `image-scan.yml` | `infra/DECISIONS.md` |
 
 **Стек V2 (local-first).** Джерело істини для інтерфейсу — SQLite на пристрої;
