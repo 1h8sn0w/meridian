@@ -609,6 +609,9 @@ export const de: Messages = {
     noPlanFuture:
       ' Eine neue Woche wird auf dem Bildschirm „Woche“ geplant und beginnt mit heute.',
     past: 'Ein vergangener Tag — feste Historie, nur zum Ansehen.',
+    shareDay: 'Tag teilen',
+    dayCopied:
+      'Der Speiseplan des Tages ist kopiert — füge ihn in einen Messenger ein.',
   },
   swap: {
     noDay: 'Den Tag gibt es im Plan nicht — plane die Woche neu.',

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   addDays,
@@ -16,23 +17,28 @@ import {
 } from '../lib/data/queries'
 import { formatDayTitle, formatWeekRange } from '../lib/format'
 import { useMessages } from '../lib/i18n/use-messages'
+import { shareOrCopy } from '../lib/share'
+import type { ShareOutcome } from '../lib/share'
 import { useNow } from '../lib/use-now'
+import { weekMenuText } from '../lib/week-share'
 import type { CalendarSearch } from '../lib/calendar-search'
 import { AppShell } from './AppShell'
 import { DayMacroTotals } from './DayMacroTotals'
 import type { MacroGoals } from './DayMacroTotals'
 import { DayTotal } from './DayTotal'
-import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, ShareNetwork } from '@phosphor-icons/react'
 import { SlotRow } from './SlotRow'
 import {
   Button,
   ButtonLink,
   Hint,
   IconButton,
+  InfoText,
   Meta,
   Panel,
   Problems,
   Tag,
+  Warn,
 } from './ui'
 
 export function CalendarScreen() {
@@ -257,6 +263,16 @@ function DaySection({
   const problems = [daysRead.problems, planRead.problems]
   const messages = useMessages()
   const t = messages.calendar
+  const [shared, setShared] = useState<ShareOutcome | null>(null)
+
+  const menuText = day
+    ? weekMenuText([{ date, isPast: date < todayKey, slots: day.slots }])
+    : ''
+
+  const shareDay = async () =>
+    setShared(
+      await shareOrCopy({ title: messages.week.menuTitle, text: menuText }),
+    )
 
   return (
     <Panel>
@@ -287,6 +303,19 @@ function DaySection({
             plan={ownerCorridorApplies ? planRead.data : null}
           />
           <DayMacroTotals macros={day.macros} goals={goals} />
+
+          {menuText ? (
+            <div className="mt-3">
+              <Button block onClick={() => void shareDay()}>
+                <ShareNetwork aria-hidden size={18} />
+                {t.shareDay}
+              </Button>
+              {shared === 'copied' ? <InfoText>{t.dayCopied}</InfoText> : null}
+              {shared === 'failed' ? (
+                <Warn>{messages.common.shareFailed}</Warn>
+              ) : null}
+            </div>
+          ) : null}
 
           {todayKey && date < todayKey ? <Meta>{t.past}</Meta> : null}
         </>

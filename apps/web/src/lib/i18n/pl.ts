@@ -589,6 +589,8 @@ export const pl: Messages = {
     noPlanFuture:
       ' Nowy tydzień generuje się na ekranie „Tydzień” i zaczyna się od dziś.',
     past: 'Miniony dzień — zamknięta historia, tylko do podglądu.',
+    shareDay: 'Udostępnij dzień',
+    dayCopied: 'Jadłospis dnia skopiowany — wklej go w komunikatorze.',
   },
   swap: {
     noDay: 'W planie nie ma takiego dnia — wygeneruj tydzień ponownie.',
