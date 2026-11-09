@@ -26,8 +26,7 @@
 | Тиждень | `WeekScreen`, `TodayScreen` | `useWeek`, `usePrecedingSlots` | `saveWeek` | `week_plan`, `plan_slot` | `generator.ts`, `calendar.ts` |
 | Ручна заміна | `SwapDialog` | план від `WeekScreen` | `replaceSlotMeal` | `plan_slot` | `replace.ts` |
 | Календар | `CalendarScreen` | `useCalendarDays`, `useDayPlan`, `usePlannedDayCount` | — | `plan_slot` | `calendar.ts` |
-| Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek` | `shopping_check` | `shopping.ts` |
-| Свої пункти | `ShoppingScreen` → `ExtrasPanel` | `useShoppingExtras` | `addShoppingExtra`, `setShoppingExtraChecked`, `removeShoppingExtra` | `shopping_extra` | — |
+| Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks`, `useShoppingExtras` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek`, `addShoppingExtra`, `setShoppingExtraChecked`, `removeShoppingExtra` | `shopping_check`, `shopping_extra` | `shopping.ts` |
 | Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
 | Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
 | Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |
@@ -141,10 +140,9 @@ IS NULL`) і порожній відбиток — не чіпаються.
 
 ### archivePlanSource
 
-**`pdf_import` пишеться через PostgREST, а не через SQLite** — таблиця поза
-синхронізацією. Страви імпортуються офлайн, архів — ні. Помилка архіву не
-валить імпорт, але повертається окремо й показується з повтором. `fileName`
-— `null`, коли текст вставили руками.
+**`pdf_import` — через PostgREST, а не SQLite:** таблиця поза синхронізацією.
+Страви імпортуються офлайн, архів — ні; його помилка не валить імпорт, а
+показується окремо з повтором. `fileName` `null` — текст вставили руками.
 
 ## Правила читань
 
@@ -172,8 +170,8 @@ IS NULL`) і порожній відбиток — не чіпаються.
 
 Одне «найпізніше покоління плану» для `useWeek`, `useDayPlan` і
 `useOwnerWeeks` — інакше «Тиждень», календар і покупки взяли б різні плани.
-`generated_at` у SQLite — текст: пристрій пише ISO з `T`, реплікація — з
-пробілом і `+00`, тож голий `ORDER BY generated_at` сортував би за роздільником.
+`generated_at` у SQLite — текст з `T` (пристрій) або пробілом і `+00`
+(реплікація): голий `ORDER BY generated_at` сортував би за роздільником.
 Правила — у `sql.test.ts`; **не спрощувати до `ORDER BY generated_at DESC`**.
 
 ### useRecipe
@@ -220,9 +218,8 @@ MER-35/MER-40). `null` — рецепта немає, і це нормальни
 
 - **Дірка в плані — не помилка даних.** Страва, видалена на іншому пристрої,
   зникає, а `plan_slot` лишається: `SlotView.meal` nullable, `missing` рахує
-  рядки, а `toWeekPlan` — `null`, якщо слот порожній (домен рахує коридор за
-  всіма слотами дня). `mixed`/`mixPossible` там `false`: ручна заміна на них не
-  дивиться.
+  рядки, `toWeekPlan` з порожнім слотом — `null` (коридор — за всіма слотами
+  дня). `mixed`/`mixPossible` там `false`: заміна на них не дивиться.
 - **Слота без рядка (перекус профілю без перекусу) у дні просто немає.**
   `windowsInPlan` звужує до слотів плану вікна прийомів; `snackSettingDrift`
   звіряє слоти з `withSnack` власника: перемкнутий перекус план бачить лише
