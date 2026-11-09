@@ -144,15 +144,6 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
 
   const [error, setError] = useState<string | null>(null)
 
-  const toggle = (item: ShoppingItem) =>
-    write(() =>
-      setShoppingCheck(db, familyId, {
-        itemKey: item.key,
-        fingerprint,
-        checked: !checksRead.data.get(item.key),
-      }),
-    )
-
   const write = async (work: () => Promise<void>) => {
     setError(null)
     try {
@@ -161,6 +152,15 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
+
+  const toggle = (item: ShoppingItem) =>
+    write(() =>
+      setShoppingCheck(db, familyId, {
+        itemKey: item.key,
+        fingerprint,
+        checked: !checksRead.data.get(item.key),
+      }),
+    )
 
   const extraActions = {
     onToggle: (extra: ShoppingExtra) =>
@@ -275,12 +275,12 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
           )}
 
           <ExtrasPanel
-            extras={extrasToBuy}
             onAdd={(name) =>
               void write(() => addShoppingExtra(db, familyId, name))
             }
-            {...extraActions}
-          />
+          >
+            <ExtraRows extras={extrasToBuy} {...extraActions} />
+          </ExtrasPanel>
 
           {bought ? (
             <Panel>
@@ -447,15 +447,11 @@ function Sections({
 }
 
 function ExtrasPanel({
-  extras,
   onAdd,
-  onToggle,
-  onRemove,
+  children,
 }: {
-  extras: ReadonlyArray<ShoppingExtra>
   onAdd: (name: string) => void
-  onToggle: (extra: ShoppingExtra) => void
-  onRemove: (extra: ShoppingExtra) => void
+  children: ReactNode
 }) {
   const t = useMessages().shopping
   const [name, setName] = useState('')
@@ -484,7 +480,7 @@ function ExtrasPanel({
           <Plus aria-hidden size={16} weight="bold" />
         </IconButton>
       </form>
-      <ExtraRows extras={extras} onToggle={onToggle} onRemove={onRemove} />
+      {children}
     </Panel>
   )
 }

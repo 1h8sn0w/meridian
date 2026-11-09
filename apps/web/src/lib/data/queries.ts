@@ -375,13 +375,12 @@ export function useShoppingChecks(
 
 export function useShoppingExtras(): Read<Array<ShoppingExtra>> {
   return useRead(
-    'SELECT id, name, checked FROM shopping_extra' +
-      " WHERE deleted_at IS NULL AND trim(name) <> ''" +
+    'SELECT id, name, checked FROM shopping_extra WHERE deleted_at IS NULL' +
       ' ORDER BY created_at IS NULL, created_at, id',
     [],
     (row) => ({
       id: String(row.id),
-      name: String(row.name).trim(),
+      name: String(row.name),
       checked: Number(row.checked) !== 0,
     }),
     asList,
