@@ -27,6 +27,7 @@
 | Ручна заміна | `SwapDialog` | план від `WeekScreen` | `replaceSlotMeal` | `plan_slot` | `replace.ts` |
 | Календар | `CalendarScreen` | `useCalendarDays`, `useDayPlan`, `usePlannedDayCount` | — | `plan_slot` | `calendar.ts` |
 | Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek` | `shopping_check` | `shopping.ts` |
+| Свої пункти | `ShoppingScreen` → `ExtrasPanel` | `useShoppingExtras` | `addShoppingExtra`, `setShoppingExtraChecked`, `removeShoppingExtra` | `shopping_extra` | — |
 | Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
 | Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
 | Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |

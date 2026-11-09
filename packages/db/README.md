@@ -22,6 +22,7 @@
 | `0013_meal_portion_w.sql` | MER-79: `meal.calories_w`, `protein_w`, `fat_w`, `carbs_w` — цифри порції Ж; наявні `calories` і БЖВ — порція Ч. `NULL` — немає в джерелі, межі ті самі (`>= 0`) |
 | `0014_profile_with_snack.sql` | MER-78: `profile.with_snack` — чи є в днях профілю перекус, `boolean NOT NULL DEFAULT true`; рядок без колонки читається як «щодня» |
 | `0015_meal_macros_approx.sql` | MER-141: `meal.macros_approx` — «≈» на БЖВ, `boolean NOT NULL DEFAULT false` |
+| `0016_shopping_extra.sql` | MER-154: `shopping_extra` — свої пункти списку покупок, без відбитка плану |
 
 ## Таблиці
 
@@ -36,6 +37,7 @@
 | `pdf_import` | Джерельний текст імпортованого плану (у V1 не зберігався) |
 | `meal_pref` | Смак страви: «улюблене» / «не подобається» |
 | `shopping_check` | Позначка «куплено» в списку покупок |
+| `shopping_extra` | Свій пункт списку покупок поза планом |
 | `family_settings` | Налаштування сім'ї: часові вікна прийомів (V1 `DEFAULT_WINDOWS`), антиповтор |
 | `family_member` | Акаунт GoTrue у сім'ї (MER-45) |
 | `family_invite` | Одноразовий код запрошення (MER-45) |
