@@ -417,6 +417,7 @@ export const en: Messages = {
       plan_slot: 'Meal in the plan',
       shopping_check: 'Shopping list mark',
       family_settings: 'Family settings',
+      shopping_extra: 'Own shopping list item',
     },
     rejectedOp: {
       PUT: 'the creation',
@@ -676,6 +677,13 @@ export const en: Messages = {
     progress: (bought, total) => 'Bought ' + bought + ' of ' + total,
     boughtMark: ' — bought',
     boughtBlock: (n) => 'Bought (' + n + ')',
+    extra: 'Own items',
+    extraHint:
+      'Things that are not in the plan: napkins, water, spare bread. The items are shared by the family.',
+    extraField: 'New item',
+    extraPlaceholder: 'For example, napkins',
+    extraAdd: 'Add',
+    extraRemove: (name) => 'Remove “' + name + '”',
   },
   recipe: {
     readingMeals: 'Reading the meal pool…',

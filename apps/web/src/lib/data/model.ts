@@ -25,6 +25,8 @@ import { messages } from '../i18n/locale.ts'
 
 export type AppProfile = Profile & { color: string }
 
+export type ShoppingExtra = { id: string; name: string; checked: boolean }
+
 const SLOT_ORDER: ReadonlyArray<MealType> = [
   'breakfast',
   'lunch',

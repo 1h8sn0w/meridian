@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
   SHOPPING_CATEGORIES,
@@ -22,9 +23,16 @@ import {
   useOwnerWeeks,
   useProfiles,
   useShoppingChecks,
+  useShoppingExtras,
 } from '../lib/data/queries'
-import type { AppProfile, DayView } from '../lib/data/model'
-import { clearStaleChecks, setShoppingCheck } from '../lib/data/mutations'
+import type { AppProfile, DayView, ShoppingExtra } from '../lib/data/model'
+import {
+  addShoppingExtra,
+  clearStaleChecks,
+  removeShoppingExtra,
+  setShoppingCheck,
+  setShoppingExtraChecked,
+} from '../lib/data/mutations'
 import { formatWeekRange } from '../lib/format'
 import { useMessages } from '../lib/i18n/use-messages'
 import {
@@ -41,6 +49,7 @@ import {
   Chip,
   Empty,
   Hint,
+  IconButton,
   InfoText,
   Meta,
   Panel,
@@ -48,7 +57,7 @@ import {
   SectionLabel,
   Warn,
 } from './ui'
-import { CaretDown, Check, ShareNetwork } from '@phosphor-icons/react'
+import { CaretDown, Check, Plus, ShareNetwork, X } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -84,6 +93,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   )
 
   const checksRead = useShoppingChecks(fingerprint)
+  const extrasRead = useShoppingExtras()
 
   useEffect(() => {
     if (!fingerprint || isLoading) return
@@ -118,27 +128,45 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const toBuy = (list: ReadonlyArray<ShoppingItem>) =>
     list.filter((item) => !checksRead.data.get(item.key))
   const noQtyToBuy = toBuy(noQty)
+  const extras = extrasRead.data
+  const extrasToBuy = extras.filter((extra) => !extra.checked)
+  const extrasBought = extras.filter((extra) => extra.checked)
+  const total = items.length + extras.length
+  const bought = boughtItems.length + extrasBought.length
 
   const problems = [
     mealsRead.problems,
     profilesRead.problems,
     weeksRead.problems,
     checksRead.problems,
+    extrasRead.problems,
   ]
 
   const [error, setError] = useState<string | null>(null)
 
-  const toggle = async (item: ShoppingItem) => {
-    setError(null)
-    try {
-      await setShoppingCheck(db, familyId, {
+  const toggle = (item: ShoppingItem) =>
+    write(() =>
+      setShoppingCheck(db, familyId, {
         itemKey: item.key,
         fingerprint,
         checked: !checksRead.data.get(item.key),
-      })
+      }),
+    )
+
+  const write = async (work: () => Promise<void>) => {
+    setError(null)
+    try {
+      await work()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
+  }
+
+  const extraActions = {
+    onToggle: (extra: ShoppingExtra) =>
+      void write(() => setShoppingExtraChecked(db, extra.id, !extra.checked)),
+    onRemove: (extra: ShoppingExtra) =>
+      void write(() => removeShoppingExtra(db, extra.id)),
   }
 
   const shareText = shoppingListText({
@@ -146,6 +174,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     withQty,
     noQty,
     checks: checksRead.data,
+    extras,
   })
   const [copied, setCopied] = useState(false)
 
@@ -163,11 +192,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   return (
     <AppShell
       title={messages.titles.shopping}
-      subtitle={
-        items.length
-          ? t.bought(boughtItems.length, items.length)
-          : range || t.fromWeek
-      }
+      subtitle={total ? t.bought(bought, total) : range || t.fromWeek}
     >
       <Problems of={problems} />
 
@@ -184,87 +209,105 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
         />
       ) : null}
 
-      {isLoading ? null : !profiles.length ? (
-        <Panel title={messages.common.profileFirst}>
-          <Hint>{t.profileFirstHint}</Hint>
-        </Panel>
-      ) : !weeks.length ? (
-        <Panel>
-          <Hint>{t.noPlan}</Hint>
-          <ButtonLink to="/week" block>
-            {messages.common.openWeekScreen}
-          </ButtonLink>
-        </Panel>
-      ) : !days.length ? (
-        <Panel>
-          <Empty>{t.periodEmpty}</Empty>
-        </Panel>
-      ) : (
+      {isLoading ? null : (
         <>
-          <Panel>
-            <Progress bought={boughtItems.length} total={items.length} />
-            <Meta>
-              {range}
-              {weeks.length > 1 ? t.plans(weeks.length) : ''}
-            </Meta>
-            {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
-            {shareText ? (
-              <div className="mt-3.5">
-                <Button block onClick={() => void share()}>
-                  <ShareNetwork aria-hidden size={18} />
-                  {t.share}
-                </Button>
-                {copied ? <InfoText>{t.copied}</InfoText> : null}
-              </div>
-            ) : null}
-          </Panel>
-
-          {!items.length ? (
+          {!profiles.length ? (
+            <Panel title={messages.common.profileFirst}>
+              <Hint>{t.profileFirstHint}</Hint>
+            </Panel>
+          ) : !weeks.length ? (
             <Panel>
-              <Empty>{t.noIngredients}</Empty>
+              <Hint>{t.noPlan}</Hint>
+              <ButtonLink to="/week" block>
+                {messages.common.openWeekScreen}
+              </ButtonLink>
+            </Panel>
+          ) : !days.length ? (
+            <Panel>
+              <Empty>{t.periodEmpty}</Empty>
             </Panel>
           ) : (
             <>
-              <Sections
-                items={toBuy(withQty)}
-                checked={false}
-                onToggle={(item) => void toggle(item)}
-              />
+              <Panel>
+                <Progress bought={bought} total={total} />
+                <Meta>
+                  {range}
+                  {weeks.length > 1 ? t.plans(weeks.length) : ''}
+                </Meta>
+                {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
+                {shareText ? (
+                  <div className="mt-3.5">
+                    <Button block onClick={() => void share()}>
+                      <ShareNetwork aria-hidden size={18} />
+                      {t.share}
+                    </Button>
+                    {copied ? <InfoText>{t.copied}</InfoText> : null}
+                  </div>
+                ) : null}
+              </Panel>
 
-              {noQtyToBuy.length ? (
-                <Panel title={t.noQty}>
-                  <Hint>{t.noQtyHint}</Hint>
+              {!items.length ? (
+                <Panel>
+                  <Empty>{t.noIngredients}</Empty>
+                </Panel>
+              ) : (
+                <>
                   <Sections
-                    items={noQtyToBuy}
+                    items={toBuy(withQty)}
                     checked={false}
                     onToggle={(item) => void toggle(item)}
-                    flat
                   />
-                </Panel>
-              ) : null}
 
-              {boughtItems.length ? (
-                <Panel>
-                  <details className="group">
-                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-lg font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
-                      {t.boughtBlock(boughtItems.length)}
-                      <CaretDown
-                        aria-hidden
-                        size={18}
-                        className="flex-none text-muted duration-300 ease-spring group-open:rotate-180 motion-safe:transition-transform"
+                  {noQtyToBuy.length ? (
+                    <Panel title={t.noQty}>
+                      <Hint>{t.noQtyHint}</Hint>
+                      <Sections
+                        items={noQtyToBuy}
+                        checked={false}
+                        onToggle={(item) => void toggle(item)}
+                        flat
                       />
-                    </summary>
-                    <Sections
-                      items={boughtItems}
-                      checked
-                      onToggle={(item) => void toggle(item)}
-                      flat
-                    />
-                  </details>
-                </Panel>
-              ) : null}
+                    </Panel>
+                  ) : null}
+                </>
+              )}
             </>
           )}
+
+          <ExtrasPanel
+            extras={extrasToBuy}
+            onAdd={(name) =>
+              void write(() => addShoppingExtra(db, familyId, name))
+            }
+            {...extraActions}
+          />
+
+          {bought ? (
+            <Panel>
+              <details className="group">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-lg font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
+                  {t.boughtBlock(bought)}
+                  <CaretDown
+                    aria-hidden
+                    size={18}
+                    className="flex-none text-muted duration-300 ease-spring group-open:rotate-180 motion-safe:transition-transform"
+                  />
+                </summary>
+                <Sections
+                  items={boughtItems}
+                  checked
+                  onToggle={(item) => void toggle(item)}
+                  flat
+                />
+                {extrasBought.length ? (
+                  <section>
+                    <SectionLabel>{t.extra}</SectionLabel>
+                    <ExtraRows extras={extrasBought} {...extraActions} />
+                  </section>
+                ) : null}
+              </details>
+            </Panel>
+          ) : null}
         </>
       )}
     </AppShell>
@@ -380,9 +423,10 @@ function Sections({
         const inCategory = items.filter((item) => item.category === category.id)
         if (!inCategory.length) return null
         const rows = inCategory.map((item) => (
-          <ItemRow
+          <CheckRow
             key={item.key}
-            item={item}
+            name={item.name}
+            qty={amountText(item)}
             checked={checked}
             onToggle={() => onToggle(item)}
           />
@@ -402,49 +446,125 @@ function Sections({
   )
 }
 
-function ItemRow({
-  item,
-  checked,
+function ExtrasPanel({
+  extras,
+  onAdd,
   onToggle,
+  onRemove,
 }: {
-  item: ShoppingItem
-  checked: boolean
-  onToggle: () => void
+  extras: ReadonlyArray<ShoppingExtra>
+  onAdd: (name: string) => void
+  onToggle: (extra: ShoppingExtra) => void
+  onRemove: (extra: ShoppingExtra) => void
 }) {
   const t = useMessages().shopping
-  const qty = amountText(item)
+  const [name, setName] = useState('')
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    if (!name.trim()) return
+    onAdd(name)
+    setName('')
+  }
+
   return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      aria-label={
-        item.name + (qty ? ', ' + qty : '') + (checked ? t.boughtMark : '')
-      }
-      onClick={onToggle}
-      className="group flex w-full cursor-pointer items-baseline gap-3 border-0 border-b border-line bg-transparent px-0 py-2.5 text-left text-content last:border-b-0"
+    <Panel title={t.extra}>
+      <Hint>{t.extraHint}</Hint>
+      <form onSubmit={submit} className="mb-1 mt-3 flex items-center gap-2">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          aria-label={t.extraField}
+          placeholder={t.extraPlaceholder}
+          enterKeyHint="done"
+          autoComplete="off"
+          className="block min-w-0 flex-1 rounded-2xl border border-line bg-app px-3.5 py-2.5 text-base text-content transition-colors duration-200 focus:border-accent"
+        />
+        <IconButton type="submit" label={t.extraAdd} disabled={!name.trim()}>
+          <Plus aria-hidden size={16} weight="bold" />
+        </IconButton>
+      </form>
+      <ExtraRows extras={extras} onToggle={onToggle} onRemove={onRemove} />
+    </Panel>
+  )
+}
+
+function ExtraRows({
+  extras,
+  onToggle,
+  onRemove,
+}: {
+  extras: ReadonlyArray<ShoppingExtra>
+  onToggle: (extra: ShoppingExtra) => void
+  onRemove: (extra: ShoppingExtra) => void
+}) {
+  const t = useMessages().shopping
+  return extras.map((extra) => (
+    <CheckRow
+      key={extra.id}
+      name={extra.name}
+      checked={extra.checked}
+      onToggle={() => onToggle(extra)}
     >
-      <span
-        aria-hidden
-        className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:group-active:scale-90 ${
-          checked
-            ? 'border-transparent bg-accent-fill text-button-ink'
-            : 'border-line bg-app'
-        }`}
+      <IconButton
+        label={t.extraRemove(extra.name)}
+        onClick={() => onRemove(extra)}
       >
-        {checked ? <Check size={14} weight="bold" /> : null}
-      </span>
-      <span
-        className={`flex-1 text-sm ${checked ? 'text-muted line-through' : ''}`}
+        <X aria-hidden size={14} weight="bold" />
+      </IconButton>
+    </CheckRow>
+  ))
+}
+
+function CheckRow({
+  name,
+  qty = '',
+  checked,
+  onToggle,
+  children,
+}: {
+  name: string
+  qty?: string
+  checked: boolean
+  onToggle: () => void
+  children?: ReactNode
+}) {
+  const t = useMessages().shopping
+  return (
+    <div className="flex items-center gap-2 border-b border-line last:border-b-0">
+      <button
+        type="button"
+        aria-pressed={checked}
+        aria-label={
+          name + (qty ? ', ' + qty : '') + (checked ? t.boughtMark : '')
+        }
+        onClick={onToggle}
+        className="group flex min-w-0 flex-1 cursor-pointer items-baseline gap-3 border-0 bg-transparent px-0 py-2.5 text-left text-content"
       >
-        {item.name}
-      </span>
-      {qty ? (
         <span
-          className={`whitespace-nowrap font-mono text-xs tabular-nums ${checked ? 'text-subtle line-through' : 'text-muted'}`}
+          aria-hidden
+          className={`inline-flex h-6 w-6 flex-none items-center justify-center self-center rounded-full border-2 transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:group-active:scale-90 ${
+            checked
+              ? 'border-transparent bg-accent-fill text-button-ink'
+              : 'border-line bg-app'
+          }`}
         >
-          {qty}
+          {checked ? <Check size={14} weight="bold" /> : null}
         </span>
-      ) : null}
-    </button>
+        <span
+          className={`flex-1 break-words text-sm ${checked ? 'text-muted line-through' : ''}`}
+        >
+          {name}
+        </span>
+        {qty ? (
+          <span
+            className={`whitespace-nowrap font-mono text-xs tabular-nums ${checked ? 'text-subtle line-through' : 'text-muted'}`}
+          >
+            {qty}
+          </span>
+        ) : null}
+      </button>
+      {children}
+    </div>
   )
 }

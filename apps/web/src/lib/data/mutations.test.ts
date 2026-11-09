@@ -9,9 +9,12 @@ import {
 } from '@meridian/core'
 import type { MealType, PlanDay, WeekPlan } from '@meridian/core'
 import {
+  addShoppingExtra,
   clearStaleChecks,
   insertMeal,
+  removeShoppingExtra,
   saveWeek,
+  setShoppingExtraChecked,
   updateMeal,
 } from './mutations.ts'
 import type { Db, MealInput } from './mutations.ts'
@@ -298,4 +301,49 @@ test('MER-141: правка калорій знімає лише «≈» кал�
   await updateMeal(db, id, input, { calories: false, macros: true })
   assert.equal(read().caloriesApprox, true)
   assert.equal(read().macrosApprox, false)
+})
+
+function extrasDb() {
+  const { sqlite, db } = sqliteDb(`
+    CREATE TABLE shopping_extra (id TEXT PRIMARY KEY, family_id TEXT,
+      name TEXT, checked INTEGER, deleted_at TEXT);
+  `)
+  const rows = () =>
+    sqlite
+      .prepare(
+        'SELECT id, family_id, name, checked, deleted_at FROM shopping_extra',
+      )
+      .all() as Array<{
+      id: string
+      family_id: string
+      name: string
+      checked: number
+      deleted_at: string | null
+    }>
+  return { db, rows }
+}
+
+test('свій пункт зберігається обрізаним і некупленим, а порожній — не зберігається', async () => {
+  const { db, rows } = extrasDb()
+  await addShoppingExtra(db, 'family-1', '  Серветки ')
+  await addShoppingExtra(db, 'family-1', '   ')
+  const [row, ...rest] = rows()
+  assert.equal(rest.length, 0)
+  assert.equal(row.name, 'Серветки')
+  assert.equal(row.family_id, 'family-1')
+  assert.equal(row.checked, 0)
+  assert.equal(row.deleted_at, null)
+})
+
+test('прибраний свій пункт м’яко видаляється, і позначка «куплено» його вже не змінює', async () => {
+  const { db, rows } = extrasDb()
+  await addShoppingExtra(db, 'family-1', 'Вода')
+  const [{ id }] = rows()
+  await setShoppingExtraChecked(db, id, true)
+  assert.equal(rows()[0].checked, 1)
+  await removeShoppingExtra(db, id)
+  await setShoppingExtraChecked(db, id, false)
+  const [row] = rows()
+  assert.notEqual(row.deleted_at, null)
+  assert.equal(row.checked, 1)
 })

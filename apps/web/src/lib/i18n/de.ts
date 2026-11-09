@@ -447,6 +447,7 @@ export const de: Messages = {
       plan_slot: 'Gericht im Plan',
       shopping_check: 'Markierung in der Einkaufsliste',
       family_settings: 'Familieneinstellungen',
+      shopping_extra: 'Eigener Eintrag der Einkaufsliste',
     },
     rejectedOp: {
       PUT: 'das Anlegen',
@@ -713,6 +714,13 @@ export const de: Messages = {
     progress: (bought, total) => bought + ' von ' + total + ' gekauft',
     boughtMark: ' — gekauft',
     boughtBlock: (n) => 'Gekauft (' + n + ')',
+    extra: 'Eigenes',
+    extraHint:
+      'Was nicht im Plan steht: Servietten, Wasser, Brot auf Vorrat. Die Einträge teilt die ganze Familie.',
+    extraField: 'Neuer Eintrag',
+    extraPlaceholder: 'Zum Beispiel Servietten',
+    extraAdd: 'Hinzufügen',
+    extraRemove: (name) => 'Entfernen: „' + name + '“',
   },
   recipe: {
     readingMeals: 'Gerichte-Pool wird gelesen…',

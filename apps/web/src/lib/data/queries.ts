@@ -23,7 +23,12 @@ import {
   buildCalendarDays,
   buildWeekView,
 } from './model'
-import type { AppProfile, CalendarDayView, WeekView } from './model'
+import type {
+  AppProfile,
+  CalendarDayView,
+  ShoppingExtra,
+  WeekView,
+} from './model'
 import { LATEST_PLAN_ORDER, NO_DATE, inList, placeholders } from './sql'
 import { errorText } from '../messages'
 import { messages } from '../i18n/locale'
@@ -365,6 +370,21 @@ export function useShoppingChecks(
       }
       return checks
     },
+  )
+}
+
+export function useShoppingExtras(): Read<Array<ShoppingExtra>> {
+  return useRead(
+    'SELECT id, name, checked FROM shopping_extra' +
+      " WHERE deleted_at IS NULL AND trim(name) <> ''" +
+      ' ORDER BY created_at IS NULL, created_at, id',
+    [],
+    (row) => ({
+      id: String(row.id),
+      name: String(row.name).trim(),
+      checked: Number(row.checked) !== 0,
+    }),
+    asList,
   )
 }
 
