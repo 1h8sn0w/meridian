@@ -375,8 +375,8 @@ export function useShoppingChecks(
 
 export function useShoppingExtras(): Read<Array<ShoppingExtra>> {
   return useRead(
-    'SELECT id, name, checked FROM shopping_extra WHERE deleted_at IS NULL' +
-      ' ORDER BY created_at IS NULL, created_at, id',
+    'SELECT id, name, checked FROM shopping_extra' +
+      ' WHERE deleted_at IS NULL ORDER BY name, id',
     [],
     (row) => ({
       id: String(row.id),
