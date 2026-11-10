@@ -1,5 +1,6 @@
 import { SHOPPING_CATEGORIES } from '@meridian/core'
 import type { ShoppingItem } from '@meridian/core'
+import type { ShoppingExtra } from './data/model.ts'
 import { intlLocale, messages } from './i18n/locale.ts'
 
 export function categoryLabel(category: { id: string; label: string }): string {
@@ -24,17 +25,20 @@ export function shoppingListText({
   withQty,
   noQty,
   checks,
+  extras = [],
 }: {
   range: string
   withQty: ReadonlyArray<ShoppingItem>
   noQty: ReadonlyArray<ShoppingItem>
   checks: ReadonlyMap<string, boolean>
+  extras?: ReadonlyArray<ShoppingExtra>
 }): string {
   const left = (items: ReadonlyArray<ShoppingItem>) =>
     items.filter((item) => checks.get(item.key) !== true)
   const counted = left(withQty)
   const uncounted = left(noQty)
-  if (!counted.length && !uncounted.length) return ''
+  const own = extras.filter((extra) => !extra.checked)
+  if (!counted.length && !uncounted.length && !own.length) return ''
 
   const t = messages()
   const blocks = [range ? t.titles.shopping + ' · ' + range : t.titles.shopping]
@@ -45,6 +49,11 @@ export function shoppingListText({
   }
   if (uncounted.length) {
     blocks.push([t.shopping.noQty, ...uncounted.map(line)].join('\n'))
+  }
+  if (own.length) {
+    blocks.push(
+      [t.shopping.extra, ...own.map((extra) => '• ' + extra.name)].join('\n'),
+    )
   }
   return blocks.join('\n\n')
 }

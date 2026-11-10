@@ -436,6 +436,7 @@ export const pl: Messages = {
       plan_slot: 'Danie w planie',
       shopping_check: 'Oznaczenie na liście zakupów',
       family_settings: 'Ustawienia rodziny',
+      shopping_extra: 'Własna pozycja listy zakupów',
     },
     rejectedOp: {
       PUT: 'utworzenia',
@@ -696,6 +697,13 @@ export const pl: Messages = {
     progress: (bought, total) => 'Kupiono ' + bought + ' z ' + total,
     boughtMark: ' — kupione',
     boughtBlock: (n) => 'Kupione (' + n + ')',
+    extra: 'Własne',
+    extraHint:
+      'To, czego nie ma w planie: serwetki, woda, chleb na zapas. Pozycje są wspólne dla rodziny.',
+    extraField: 'Nowa pozycja',
+    extraPlaceholder: 'Na przykład serwetki',
+    extraAdd: 'Dodaj',
+    extraRemove: (name) => 'Usuń „' + name + '”',
   },
   recipe: {
     readingMeals: 'Czytamy pulę dań…',

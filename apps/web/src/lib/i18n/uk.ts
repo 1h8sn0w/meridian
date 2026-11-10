@@ -436,6 +436,7 @@ export const uk = {
       plan_slot: 'Страва в плані',
       shopping_check: 'Позначка в списку покупок',
       family_settings: 'Налаштування сім’ї',
+      shopping_extra: 'Свій пункт списку покупок',
     } as Record<string, string>,
     rejectedOp: {
       PUT: 'створення',
@@ -712,6 +713,13 @@ export const uk = {
       'Куплено ' + bought + ' з ' + total,
     boughtMark: ' — куплено',
     boughtBlock: (n: number) => 'Куплено (' + n + ')',
+    extra: 'Своє',
+    extraHint:
+      'Те, чого немає в плані: серветки, вода, хліб про запас. Пункти спільні для сім’ї.',
+    extraField: 'Новий пункт',
+    extraPlaceholder: 'Наприклад, серветки',
+    extraAdd: 'Додати',
+    extraRemove: (name: string) => 'Прибрати «' + name + '»',
   },
   recipe: {
     readingMeals: 'Читаємо пул страв…',

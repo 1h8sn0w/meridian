@@ -69,3 +69,20 @@ test('усе куплено — ділитися нічим', () => {
   )
   assert.equal(shoppingListText({ range: '', withQty, noQty, checks }), '')
 })
+
+test('некуплені свої пункти йдуть окремим розділом наприкінці, куплені — ні', () => {
+  const checks = new Map(
+    [...withQty, ...noQty].map((entry) => [entry.key, true]),
+  )
+  const text = shoppingListText({
+    range: '',
+    withQty,
+    noQty,
+    checks,
+    extras: [
+      { id: 'a', name: 'Серветки', checked: false },
+      { id: 'b', name: 'Вода', checked: true },
+    ],
+  })
+  assert.equal(text, ['Список покупок', '', 'Своє', '• Серветки'].join('\n'))
+})

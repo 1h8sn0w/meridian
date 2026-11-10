@@ -110,6 +110,12 @@ const shoppingCheck = new Table(
   { indexes: { fingerprint: ['fingerprint'] } },
 )
 
+const shoppingExtra = new Table({
+  ...syncColumns,
+  name: column.text,
+  checked: column.integer,
+})
+
 const familySettings = new Table({
   ...syncColumns,
   breakfast_start: column.integer,
@@ -130,6 +136,7 @@ export const AppSchema = new Schema({
   plan_slot: planSlot,
   shopping_check: shoppingCheck,
   family_settings: familySettings,
+  shopping_extra: shoppingExtra,
 })
 
 export const JSON_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> = {
@@ -145,6 +152,7 @@ export const BOOLEAN_COLUMNS: Readonly<Record<string, ReadonlyArray<string>>> =
     meal: ['calories_approx', 'macros_approx', 'gerd'],
     plan_slot: ['swapped'],
     shopping_check: ['checked'],
+    shopping_extra: ['checked'],
   }
 
 export const SYNCED_TABLES = AppSchema.tables.map((table) => table.name)

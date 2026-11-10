@@ -336,7 +336,7 @@ export function IconButton({
       title={label}
       aria-label={label}
       {...button}
-      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-90"
+      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-90"
     >
       {children}
     </button>

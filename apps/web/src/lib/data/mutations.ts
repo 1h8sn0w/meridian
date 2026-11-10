@@ -473,6 +473,35 @@ export async function clearStaleChecks(
   )
 }
 
+export async function addShoppingExtra(
+  db: Db,
+  familyId: string,
+  name: string,
+): Promise<void> {
+  const trimmed = name.trim()
+  if (!trimmed) return
+  await db.execute(
+    'INSERT INTO shopping_extra (id, family_id, name, checked)' +
+      ' VALUES (?, ?, ?, ?)',
+    [newId(), familyId, trimmed, flag(false)],
+  )
+}
+
+export async function setShoppingExtraChecked(
+  db: Db,
+  id: string,
+  checked: boolean,
+): Promise<void> {
+  await db.execute(
+    'UPDATE shopping_extra SET checked = ? WHERE id = ? AND deleted_at IS NULL',
+    [flag(checked), id],
+  )
+}
+
+export async function removeShoppingExtra(db: Db, id: string): Promise<void> {
+  await softDelete(db, 'shopping_extra', 'id = ?', [id], now())
+}
+
 export type ProfileInput = {
   name: string
   targetCalories: number
