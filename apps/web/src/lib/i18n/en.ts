@@ -572,6 +572,8 @@ export const en: Messages = {
     noPlanFuture:
       ' A new week is generated on the “Week” screen and starts with today.',
     past: 'A past day — fixed history, view only.',
+    shareDay: 'Share the day',
+    dayCopied: 'The day’s menu is copied — paste it into a messenger.',
   },
   swap: {
     noDay: 'The plan has no such day — regenerate the week.',
