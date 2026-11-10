@@ -103,6 +103,15 @@ Play CDN, PostCSS чи JS-конфіг.
 - `stagger` не затримує `<dialog>` усередині `<main>` — модальний аркуш інакше
   лишався б прозорим. Скло шапки (`header-glass`) дає анімація від прокрутки;
   без неї скло є одразу. `prefers-reduced-transparency` вимикає прозорість.
+- **Небо й смуга прокрутки** (`Sky`, MER-115). Небо (`--sky-paint`) —
+  нерухомий `body::before` у `100vw`; на `<html>` лише `--sky-bottom` (iOS без
+  `background-attachment: fixed`). Під смугу зарезервовано місце
+  (`scrollbar-gutter: stable`). Класичну доріжку Chromium і Safari фарбують
+  лише фоном кореня, тож небо — в
+  `html.classic-scrollbar::-webkit-scrollbar-track`, корінь прокручується
+  завжди. Без класу `::-webkit-scrollbar` не стилізується (оверлейна смуга
+  macOS стала б класичною); з класом `scrollbar-color` — `auto`. Під
+  `dialog:modal` доріжка накрита `--ui-overlay`.
 - Правило значень — в `AGENTS.md`, дизайн — у
   [`src/components/README.md`](src/components/README.md#дизайн-сонячна-дуга).
   Після заміни typography-токенів перевіряти line-height, переповнення на

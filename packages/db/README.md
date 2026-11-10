@@ -9,18 +9,18 @@
 | `0000_bootstrap.sql` | `current_family_id()` (основа RLS) і тригерна `touch_updated_at()` |
 | `0001_schema.sql` | Сім таблиць, енум `meal_type`, індекси, RLS і політики |
 | `0002_replication.sql` | Тригери `updated_at`, привілеї ролей, роль і публікація для PowerSync |
-| `0003_prefs_shopping.sql` | MER-55: `meal_pref` і `shopping_check` — таблиці, тригери, права й доповнення публікації в одному файлі |
+| `0003_prefs_shopping.sql` | MER-55: `meal_pref` і `shopping_check` з тригерами, правами й публікацією |
 | `0004_auth.sql` | MER-45: `family_member` і `family_invite`, хук доступу GoTrue (claim `family_id`) і три RPC — створити сім'ю, зробити код, прийняти код |
 | `0005_meal_gerd.sql` | MER-75: `meal.gerd` — маркер «ГЕРХ», `boolean NOT NULL DEFAULT false` |
 | `0006_meal_source_issues.sql` | MER-76: `meal.source_issues` — розбіжності в джерелі, `jsonb` масив рядків, `DEFAULT '[]'` |
 | `0007_starter_set.sql` | MER-77: стартовий набір — `starter.starter_set` поза API, `family.starter_seeded_at` і три RPC: `starter_set_status`, `starter_set`, `claim_starter_set` |
 | `0008_powersync_drop_family_access.sql` | MER-93: `family_member` і `family_invite` поза публікацією `powersync` і без `SELECT` для `powersync_role` — жоден стрім їх не вибирає |
 | `0009_powersync_drop_family_pdf_import.sql` | MER-107: так само `family` і `pdf_import` (вони йдуть через PostgREST); публікація = рівно синхронізовані таблиці |
-| `0010_plan_slot_swapped.sql` | MER-111: `plan_slot.swapped` — слот змінено ручною заміною, `boolean NOT NULL DEFAULT false`. Ставить `replaceSlotMeal`, знімає `saveWeek`; `NULL` у SQLite — «не замінено» |
-| `0011_family_settings.sql` | MER-114: `family_settings` — налаштування сім'ї одним рядком (частковий унікальний індекс на `family_id`), поки що часові вікна сніданку, обіду й вечері в хвилинах доби. Усе — в одному файлі, як у `0003` |
+| `0010_plan_slot_swapped.sql` | MER-111: `plan_slot.swapped` — слот змінено ручною заміною, `boolean NOT NULL DEFAULT false`; `NULL` у SQLite — «не замінено» |
+| `0011_family_settings.sql` | MER-114: `family_settings` — налаштування сім'ї одним рядком, вікна сніданку, обіду й вечері |
 | `0012_family_settings_anti_repeat.sql` | MER-116: `family_settings.anti_repeat_days` — антиповтор сім'ї, `integer` 1–7 (`family_settings_anti_repeat_days_range`); `NULL` — стандартні 3 дні з коду |
 | `0013_meal_portion_w.sql` | MER-79: `meal.calories_w`, `protein_w`, `fat_w`, `carbs_w` — цифри порції Ж; наявні `calories` і БЖВ — порція Ч. `NULL` — немає в джерелі, межі ті самі (`>= 0`) |
-| `0014_profile_with_snack.sql` | MER-78: `profile.with_snack` — чи є в днях профілю перекус, `boolean NOT NULL DEFAULT true`; рядок без колонки читається як «щодня» |
+| `0014_profile_with_snack.sql` | MER-78: `profile.with_snack` — чи є в днях профілю перекус, `boolean NOT NULL DEFAULT true` |
 | `0015_meal_macros_approx.sql` | MER-141: `meal.macros_approx` — «≈» на БЖВ, `boolean NOT NULL DEFAULT false` |
 
 ## Таблиці
@@ -40,14 +40,14 @@
 | `family_member` | Акаунт GoTrue у сім'ї (MER-45) |
 | `family_invite` | Одноразовий код запрошення (MER-45) |
 
-Відповідність ключам V1 — `tools/README.md`. Службовий набір sync скрізь: `id`, `family_id`, `created_at`, `updated_at`,
-`deleted_at`. RLS увімкнено скрізь.
+Відповідність ключам V1 — `tools/README.md`. Службовий набір sync скрізь:
+`id`, `family_id`, `created_at`, `updated_at`, `deleted_at`. RLS — скрізь.
 
 ## Рішення, які тут прийняті
 
-**Модель V1 переїхала як є.** `source` — план дієтолога для міксу, а не
-провенанс-енум; `calories_approx` — «≈» (MER-26); `portions` — дослівний текст
-(MER-24). Провенанс — правило в `packages/core`, не колонка.
+**Модель V1 переїхала як є.** `source` — план дієтолога для міксу;
+`calories_approx` — «≈» (MER-26); `portions` — дослівний текст (MER-24).
+Провенанс — правило в `packages/core`, не колонка.
 
 **Списки — `jsonb`, а не таблиці.** Інгредієнт — рядок («овочі на вибір») або
 `{name, amount?, unit?}`: кількість є лише тоді, коли вона однозначна в
@@ -68,8 +68,7 @@ slot)`, `day_index` — довідковий номер дня в тижні. Р
 
 **Відбиток — на кожному рядку `shopping_check`** (MER-55): один рядок на сім'ю
 став би найгарячішою точкою LWW, а так скидання — фільтр, не руйнівний запис.
-Застарілі позначки клієнт прибирає м'яко й лише відлежані (MER-62; як
-рахується відбиток — `packages/core/README.md`). `checked` — прапорець, а не
+Застарілі позначки клієнт прибирає м'яко й лише відлежані (MER-62). `checked` — прапорець, а не
 наявність рядка: зняти позначку — UPDATE для LWW, а не видалення проти чужої
 вставки.
 
@@ -104,8 +103,8 @@ claim, і клієнт не бачить нічого: це нормальний
 правами власника, а EXECUTE має лише сервер авторизації.
 
 **Членство змінюють лише функції** (`create_family`, `create_family_invite`,
-`accept_family_invite`, `SECURITY DEFINER`): у акаунта без сім'ї немає claim. Акаунт вони беруть **із токена**
-(`public.current_user_id()`), не з аргументу. Член сім'ї може правити рядки
+`accept_family_invite`, `SECURITY DEFINER`): у акаунта без сім'ї немає claim.
+Акаунт вони беруть **із токена** (`public.current_user_id()`), не з аргументу. Член сім'ї може правити рядки
 членства своєї сім'ї (усередині сім'ї всі рівні); `WITH CHECK` не дасть
 вписати себе в чужу.
 
@@ -127,9 +126,9 @@ claim, і клієнт не бачить нічого: це нормальний
 `reminders`), позначки надісланих (`remindersFired`) і активний профіль
 (`meridian.profiles.v1` → `activeId`) — на пристрої.
 
-Нагадування шле сама сторінка (MER-20): синхронізовані `remindersFired`
-погасили б нагадування іншої людини, а `enabled` прив'язане до дозволу
-браузера на пристрої. Охоплення й активний профіль — фільтри показу.
+Синхронізовані `remindersFired` погасили б нагадування іншої людини, а
+`enabled` прив'язане до дозволу браузера (MER-20). Охоплення й активний
+профіль — фільтри показу.
 
 ## Застосувати міграції
 
@@ -166,8 +165,8 @@ migrate.sh`, без змінної — помилка з прикладом ря
 
 ### Стартовий набір у `migrate.sh`
 
-Шлях усередині контейнера — `STARTER_SET_PATH` (задає `compose.yaml`; на
-хості — `STARTER_SET_FILE`, `infra/README.md`). Змінна не задана (ручний
+Шлях у контейнері — `STARTER_SET_PATH` (задає `compose.yaml`; на хості —
+`STARTER_SET_FILE`, `infra/README.md`). Змінна не задана (ручний
 `pnpm db:migrate`) — набору не торкаємось; файл непорожній — вміст іде в
 `starter.starter_set`; порожній (`/dev/null`) — набір видаляється. Вміст читає
 сам psql (`\set` зі зворотними лапками у heredoc): аргумент командного рядка в
@@ -210,6 +209,5 @@ claims із `sub`, `public.create_family(…)`, потім
    робити, — у винятки `sync-contract.test.ts`. Забуте місце — червоний тест.
 
 Приклад усіх чотирьох — `0003_prefs_shopping.sql` (MER-55). Застосовані
-`0000–0007` заморожені як історія й мають коментарі (виняток у
-`tools/check-comments.mjs`); нові міграції — без коментарів, пояснення —
-рядком у таблиці вгорі.
+`0000–0007` заморожені разом із коментарями (`AGENTS.md`); нові — без них,
+пояснення — рядком у таблиці вгорі.
