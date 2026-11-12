@@ -189,6 +189,17 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     if (outcome === 'failed') setError(messages.common.shareFailed)
   }
 
+  const shareButton = shareText ? (
+    <div className="mt-3.5">
+      <Button block onClick={() => void share()}>
+        <ShareNetwork aria-hidden size={18} />
+        {t.share}
+      </Button>
+      {copied ? <InfoText>{t.copied}</InfoText> : null}
+    </div>
+  ) : null
+  const planShown = profiles.length > 0 && weeks.length > 0 && days.length > 0
+
   return (
     <AppShell
       title={messages.titles.shopping}
@@ -235,15 +246,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                   {weeks.length > 1 ? t.plans(weeks.length) : ''}
                 </Meta>
                 {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
-                {shareText ? (
-                  <div className="mt-3.5">
-                    <Button block onClick={() => void share()}>
-                      <ShareNetwork aria-hidden size={18} />
-                      {t.share}
-                    </Button>
-                    {copied ? <InfoText>{t.copied}</InfoText> : null}
-                  </div>
-                ) : null}
+                {shareButton}
               </Panel>
 
               {!items.length ? (
@@ -280,6 +283,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
             }
           >
             <ExtraRows extras={extrasToBuy} {...extraActions} />
+            {planShown ? null : shareButton}
           </ExtrasPanel>
 
           {bought ? (
