@@ -374,6 +374,12 @@ export const de: Messages = {
       ' ' +
       plural(n, 'Änderung', 'Änderungen') +
       ' von diesem Gerät nicht angenommen. Sie wurden verworfen: Sie haben weder den Server noch andere Geräte erreicht — wiederhole die Aktion, falls du sie noch brauchst.',
+    rejectedTab: (n) =>
+      ' — der Server hat ' +
+      n +
+      ' ' +
+      plural(n, 'Änderung', 'Änderungen') +
+      ' nicht angenommen',
     understood: 'Verstanden',
     retrying:
       'Die App versucht es selbst weiter; sobald der Server antwortet, verschwindet der Fehler.',

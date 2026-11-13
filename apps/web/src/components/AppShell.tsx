@@ -13,6 +13,7 @@ import {
   UsersThree,
 } from '@phosphor-icons/react'
 import { catchUpScroll } from '../lib/scroll-catch-up'
+import { useSyncState } from '../lib/powersync/provider'
 import { useMessages } from '../lib/i18n/use-messages'
 import { ScreenHeader } from './ui'
 
@@ -36,6 +37,7 @@ export function AppShell({
   useScrollCatchUp()
   const t = useMessages()
   const path = useLocation({ select: (location) => location.pathname })
+  const rejected = useSyncState().rejected.length
 
   return (
     <>
@@ -46,37 +48,52 @@ export function AppShell({
       </main>
 
       <nav className="glass fixed inset-x-3 bottom-3 z-20 mx-auto flex h-16 max-w-md rounded-full p-1.5 mb-safe-bottom vt-dock">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            search={tab.to === path ? true : undefined}
-            className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-90"
-            activeProps={{ className: 'font-semibold text-accent' }}
-            inactiveProps={{ className: 'font-medium text-muted' }}
-            activeOptions={{ exact: tab.to === '/' }}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive ? (
-                  <span
-                    aria-hidden
-                    className="absolute inset-0 rounded-full bg-accent-soft vt-tab-pill"
-                  />
-                ) : null}
-                <tab.icon
-                  aria-hidden
-                  size={22}
-                  weight={isActive ? 'fill' : 'regular'}
-                  className="relative"
-                />
-                <span className="relative leading-none">
-                  {t.titles[tab.title]}
-                </span>
-              </>
-            )}
-          </Link>
-        ))}
+        {TABS.map((tab) => {
+          const flagged = tab.to === '/family' && rejected > 0
+          return (
+            <Link
+              key={tab.to}
+              to={tab.to}
+              search={tab.to === path ? true : undefined}
+              className="relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full text-xs no-underline motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-90"
+              activeProps={{ className: 'font-semibold text-accent' }}
+              inactiveProps={{ className: 'font-medium text-muted' }}
+              activeOptions={{ exact: tab.to === '/' }}
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive ? (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 rounded-full bg-accent-soft vt-tab-pill"
+                    />
+                  ) : null}
+                  <span className="relative">
+                    <tab.icon
+                      aria-hidden
+                      size={22}
+                      weight={isActive ? 'fill' : 'regular'}
+                    />
+                    {flagged ? (
+                      <span
+                        aria-hidden
+                        className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning ring-2 ring-surface"
+                      />
+                    ) : null}
+                  </span>
+                  <span className="relative leading-none">
+                    {t.titles[tab.title]}
+                    {flagged ? (
+                      <span className="sr-only">
+                        {t.sync.rejectedTab(rejected)}
+                      </span>
+                    ) : null}
+                  </span>
+                </>
+              )}
+            </Link>
+          )
+        })}
       </nav>
     </>
   )

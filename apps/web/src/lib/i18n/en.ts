@@ -352,6 +352,11 @@ export const en: Messages = {
       ' ' +
       plural(n, 'change', 'changes') +
       ' from this device. They were dropped: they did not reach the server or other devices — repeat the action if you still need it.',
+    rejectedTab: (n) =>
+      ' — the server did not accept ' +
+      n +
+      ' ' +
+      plural(n, 'change', 'changes'),
     understood: 'Got it',
     retrying:
       'The app keeps retrying by itself; once the server answers, the error goes away.',
