@@ -37,7 +37,7 @@ export function AppShell({
   useScrollCatchUp()
   const t = useMessages()
   const path = useLocation({ select: (location) => location.pathname })
-  const rejected = useSyncState().rejected.length
+  const rejectedCount = useSyncState().rejected.length
 
   return (
     <>
@@ -49,7 +49,7 @@ export function AppShell({
 
       <nav className="glass fixed inset-x-3 bottom-3 z-20 mx-auto flex h-16 max-w-md rounded-full p-1.5 mb-safe-bottom vt-dock">
         {TABS.map((tab) => {
-          const flagged = tab.to === '/family' && rejected > 0
+          const flagged = tab.to === '/family' && rejectedCount > 0
           return (
             <Link
               key={tab.to}
@@ -85,7 +85,7 @@ export function AppShell({
                     {t.titles[tab.title]}
                     {flagged ? (
                       <span className="sr-only">
-                        {t.sync.rejectedTab(rejected)}
+                        {t.sync.rejectedTab(rejectedCount)}
                       </span>
                     ) : null}
                   </span>
