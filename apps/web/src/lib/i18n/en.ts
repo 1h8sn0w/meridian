@@ -686,6 +686,7 @@ export const en: Messages = {
     extraPlaceholder: 'For example, napkins',
     extraAdd: 'Add',
     extraRemove: (name) => 'Remove “' + name + '”',
+    extraClearBought: (n) => 'Clear bought own items (' + n + ')',
   },
   recipe: {
     readingMeals: 'Reading the meal pool…',

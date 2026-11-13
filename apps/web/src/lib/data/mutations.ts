@@ -502,6 +502,10 @@ export async function removeShoppingExtra(db: Db, id: string): Promise<void> {
   await softDelete(db, 'shopping_extra', 'id = ?', [id], now())
 }
 
+export async function removeBoughtShoppingExtras(db: Db): Promise<void> {
+  await softDelete(db, 'shopping_extra', 'checked = ?', [flag(true)], now())
+}
+
 export type ProfileInput = {
   name: string
   targetCalories: number
