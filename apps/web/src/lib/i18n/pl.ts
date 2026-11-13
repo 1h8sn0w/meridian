@@ -367,6 +367,7 @@ export const pl: Messages = {
       'Serwer odrzucił zmiany z tego urządzenia: ' +
       n +
       '. Zostały porzucone: nie dotarły ani na serwer, ani na inne urządzenia — powtórz czynność, jeśli nadal jest potrzebna.',
+    rejectedTab: (n) => ' — serwer odrzucił zmiany: ' + n,
     understood: 'Rozumiem',
     retrying: 'Aplikacja sama ponawia próby; gdy serwer odpowie, błąd zniknie.',
     hint: 'Aplikacja czyta i zapisuje lokalną bazę danych, więc działa bez sieci. Zmiany trafiają na serwer, gdy tylko sieć wróci.',
