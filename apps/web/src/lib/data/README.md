@@ -25,7 +25,7 @@
 | Тиждень | `WeekScreen`, `TodayScreen` | `useWeek`, `usePrecedingSlots` | `saveWeek` | `week_plan`, `plan_slot` | `generator.ts`, `calendar.ts` |
 | Ручна заміна | `SwapDialog` | план від `WeekScreen` | `replaceSlotMeal` | `plan_slot` | `replace.ts` |
 | Календар | `CalendarScreen` | `useCalendarDays`, `useDayPlan`, `usePlannedDayCount` | — | `plan_slot` | `calendar.ts` |
-| Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks`, `useShoppingExtras` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek`, `addShoppingExtra`, `setShoppingExtraChecked`, `removeShoppingExtra` | `shopping_check`, `shopping_extra` | `shopping.ts` |
+| Покупки | `ShoppingScreen` | `useOwnerWeeks`, `useShoppingChecks`, `useShoppingExtras` | `setShoppingCheck`, `clearStaleChecks`, `saveWeek`, `addShoppingExtra`, `setShoppingExtraChecked`, `removeShoppingExtra`, `removeBoughtShoppingExtras` | `shopping_check`, `shopping_extra` | `shopping.ts` |
 | Стартовий набір | `StarterSet` | — | `seedStarterMeals` | `meal`, `recipe` | `starter-set.ts` |
 | Імпорт PDF | `PdfImportPanel` | `useMeals` | `insertMeal`, `saveRecipe`, `archivePlanSource` | `meal`, `recipe`, `pdf_import` | `parse-plan.ts` |
 | Час прийомів | `TodayScreen` → `MealHoursPanel` | `useMealHours` через `lib/meal-windows.tsx` | `saveMealHours` | `family_settings` | — |
@@ -33,7 +33,7 @@
 | Імпорт V1 | `ImportV1Panel` | — | `importV1` | усі синхронні | `migrate-v1.ts` |
 
 Охоплення й період покупок і активний профіль — стан пристрою
-([`lib`](../README.md#вибір-пристрою), MER-55).
+([`lib`](../README.md#вибір-пристрою)).
 
 ## Правила записів
 
@@ -174,7 +174,7 @@ IS NULL`) і порожній відбиток — не чіпаються.
 
 ### useRecipe
 
-Читається за `meal_id`, тож фото завжди живе, а не копія в плані (MER-35, MER-40).
+Читається за `meal_id`, тож фото завжди живе, а не копія в плані.
 `null` — рецепта немає, це нормальний стан.
 
 ### useProfiles
@@ -202,7 +202,7 @@ IS NULL`) і порожній відбиток — не чіпаються.
 
 ### useShoppingChecks
 
-Фільтр за відбитком **і є** скиданням списку після перегенерації (MER-55):
+Фільтр за відбитком **і є** скиданням списку після перегенерації:
 старі позначки лишаються в базі, але не в новому списку. Порожній відбиток не
 збігається ні з чим.
 

@@ -704,6 +704,7 @@ export const pl: Messages = {
     extraPlaceholder: 'Na przykład serwetki',
     extraAdd: 'Dodaj',
     extraRemove: (name) => 'Usuń „' + name + '”',
+    extraClearBought: (n) => 'Usuń kupione własne (' + n + ')',
   },
   recipe: {
     readingMeals: 'Czytamy pulę dań…',
