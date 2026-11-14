@@ -22,10 +22,12 @@ import {
   appProfileFromRow,
   buildCalendarDays,
   buildWeekView,
+  mealDates,
 } from './model'
 import type {
   AppProfile,
   CalendarDayView,
+  MealDate,
   ShoppingExtra,
   WeekView,
 } from './model'
@@ -244,6 +246,21 @@ export function useCalendarDays(
     (rows) =>
       buildCalendarDays(rows, pool) as ReadonlyMap<string, CalendarDayView>,
     [pool],
+  )
+}
+
+export function useMealDates(
+  ownerId: string | null,
+  mealId: string,
+  fromDate: string,
+): Read<Array<MealDate>> {
+  return useRead(
+    'SELECT * FROM plan_slot WHERE profile_id = ? AND deleted_at IS NULL' +
+      ' AND date >= ? ORDER BY updated_at, id',
+    [ownerId && fromDate ? ownerId : '', fromDate],
+    (row) => row,
+    (rows) => mealDates(rows, mealId),
+    [mealId],
   )
 }
 

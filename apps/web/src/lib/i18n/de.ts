@@ -742,6 +742,8 @@ export const de: Messages = {
       'Der Browser stellt kein Canvas bereit, um das Foto zu verkleinern.',
     calories: (portion) => 'Kalorien · ' + portion,
     prep: 'Zubereitung',
+    inPlan: 'Im Plan',
+    inPlanSlot: (day, type) => day + ' · ' + MEAL_TYPE[type],
     servings: (n) => plural(n, 'Portion', 'Portionen'),
     stayAwake: 'Bildschirm anlassen',
     awakeRefused:

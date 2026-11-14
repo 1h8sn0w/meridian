@@ -281,6 +281,21 @@ export function buildCalendarDays(
   return out
 }
 
+export type MealDate = { date: string; slot: MealType }
+
+export function mealDates(
+  slotRows: ReadonlyArray<Row>,
+  mealId: string,
+): Array<MealDate> {
+  return [...buildCalendarDays(slotRows, new Map()).values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((day) =>
+      day.slots
+        .filter((view) => view.mealId === mealId)
+        .map((view) => ({ date: day.date, slot: view.slot })),
+    )
+}
+
 export function toWeekPlan(
   view: WeekView,
   portion: PortionLetter | null,

@@ -15,6 +15,14 @@ export function formatDayTitle(key: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+export function formatShortDay(key: string): string {
+  return dateFromKey(key).toLocaleDateString(intlLocale(), {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
 export function formatWeekRange(fromKey: string, toKey: string): string {
   const from = dateFromKey(fromKey)
   const to = dateFromKey(toKey)

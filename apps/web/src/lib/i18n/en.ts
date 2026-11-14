@@ -703,6 +703,8 @@ export const en: Messages = {
     noCanvas: 'The browser gave no canvas to shrink the photo.',
     calories: (portion) => 'calories · ' + portion,
     prep: 'to cook',
+    inPlan: 'In the plan',
+    inPlanSlot: (day, type) => day + ' · ' + meal(type),
     servings: (n) => plural(n, 'serving', 'servings'),
     stayAwake: 'Keep the screen on',
     awakeRefused:

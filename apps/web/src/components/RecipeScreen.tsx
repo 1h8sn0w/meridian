@@ -1,21 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { usePowerSync } from '@powersync/react'
-import { formatMealCalories, portionOf } from '@meridian/core'
+import { dateKey, formatMealCalories, portionOf } from '@meridian/core'
 import type { Meal, PortionLetter, Recipe } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
-import { useMeals, useProfiles, useRecipe } from '../lib/data/queries'
+import {
+  useMealDates,
+  useMeals,
+  useProfiles,
+  useRecipe,
+} from '../lib/data/queries'
 import { saveRecipe } from '../lib/data/mutations'
+import { formatShortDay } from '../lib/format'
 import { fieldText, validateRecipe } from '../lib/forms'
 import type { RecipeDraft } from '../lib/forms'
 import { messages as currentMessages } from '../lib/i18n/locale'
 import { useMessages } from '../lib/i18n/use-messages'
 import { recipeText } from '../lib/recipe-share'
 import { shareOrCopy } from '../lib/share'
+import { useNow } from '../lib/use-now'
 import { canKeepScreenAwake, keepScreenAwake } from '../lib/wake-lock'
 import { AppShell } from './AppShell'
 import { MealDetails, MealMarks, SourceIssues } from './MealDetails'
 import {
+  CalendarDots,
   CaretLeft,
   PencilSimple,
   Plus,
@@ -45,7 +53,7 @@ export function RecipeScreen({
   const messages = useMessages()
   const t = messages.recipe
   const profilesRead = useProfiles()
-  const { profile } = useActiveProfile(profilesRead.data)
+  const { profile, planOwnerId } = useActiveProfile(profilesRead.data)
   const mealsRead = useMeals(profile?.portion)
   const recipeRead = useRecipe(mealId)
   const [editing, setEditing] = useState(false)
@@ -85,6 +93,7 @@ export function RecipeScreen({
         <Photo meal={meal} photo={recipe?.photo ?? null} />
         <MealMarks meal={meal} block />
         <Chips meal={meal} recipe={recipe} portion={portionOf(profile)} />
+        <InPlan ownerId={planOwnerId} mealId={meal.id} />
         <StayAwake />
         <MealDetails meal={meal} portion={profile?.portion ?? null} hideEmpty />
         <SourceIssues meal={meal} />
@@ -265,6 +274,44 @@ function Chips({
         </div>
       ))}
     </div>
+  )
+}
+
+function InPlan({
+  ownerId,
+  mealId,
+}: {
+  ownerId: string | null
+  mealId: string
+}) {
+  const messages = useMessages()
+  const todayKey = dateKey(useNow())
+  const { data: dates, problems } = useMealDates(ownerId, mealId, todayKey)
+  return (
+    <>
+      <Problems of={[problems]} />
+      {dates.length ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted">{messages.recipe.inPlan}</span>
+          {dates.map(({ date, slot }) => (
+            <Link
+              key={date + slot}
+              to="/calendar"
+              search={{ day: date }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3.5 py-1.5 text-xs font-medium text-accent no-underline motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:active:scale-95"
+            >
+              <CalendarDots aria-hidden size={14} />
+              {messages.recipe.inPlanSlot(
+                date === todayKey
+                  ? messages.common.todayTag
+                  : formatShortDay(date),
+                slot,
+              )}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </>
   )
 }
 
