@@ -737,6 +737,9 @@ export const uk = {
     noCanvas: 'Браузер не дав полотна для стиснення фото.',
     calories: (portion: string) => 'калорійність · ' + portion,
     prep: 'готувати',
+    inPlan: 'У плані',
+    inPlanSlot: (day: string, type: MealType) =>
+      day + ' · ' + MEAL_TYPE[type].toLowerCase(),
     servings: (n: number) => plural(n, 'порція', 'порції', 'порцій'),
     stayAwake: 'Не гасити екран',
     awakeRefused:

@@ -6,6 +6,7 @@ import {
   buildCalendarDays,
   buildWeekView,
   manualSwapsAhead,
+  mealDates,
   snackSettingDrift,
   toWeekPlan,
   windowsInPlan,
@@ -179,4 +180,21 @@ test('попередження тижня читаються кодами, ст�
   )
   assert.deepEqual(week.warnings, stored.slice(0, 1))
   assert.deepEqual(toWeekPlan(week, null)?.warnings, stored.slice(0, 1))
+})
+
+test('дні страви в плані — за датою, і замінена в слоті страва туди не потрапляє', () => {
+  const rows: Array<Row> = [
+    slot('1', '2026-09-03', 2, 'dinner', 'b'),
+    slot('2', '2026-09-02', 1, 'lunch', 'b'),
+    slot('3', '2026-09-02', 1, 'breakfast', 'b'),
+    slot('4', '2026-09-04', 3, 'breakfast', 'b'),
+    slot('5', '2026-09-04', 3, 'breakfast', 'l'),
+    slot('6', '2026-09-05', 4, 'brunch', 'b'),
+  ]
+  assert.deepEqual(mealDates(rows, 'b'), [
+    { date: '2026-09-02', slot: 'breakfast' },
+    { date: '2026-09-02', slot: 'lunch' },
+    { date: '2026-09-03', slot: 'dinner' },
+  ])
+  assert.deepEqual(mealDates(rows, 'gone'), [])
 })

@@ -721,6 +721,8 @@ export const pl: Messages = {
     noCanvas: 'Przeglądarka nie dała canvasu do zmniejszenia zdjęcia.',
     calories: (portion) => 'kalorie · ' + portion,
     prep: 'przygotowanie',
+    inPlan: 'W planie',
+    inPlanSlot: (day, type) => day + ' · ' + MEAL_TYPE[type].toLowerCase(),
     servings: (n) => plural(n, 'porcja', 'porcje', 'porcji'),
     stayAwake: 'Nie wygaszaj ekranu',
     awakeRefused:

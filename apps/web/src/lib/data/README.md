@@ -20,7 +20,7 @@
 |------|-------|---------|-------|---------|------|
 | Пул страв | `MealsScreen`, `MealForm` | `useMeals`, `useMealUsage` | `insertMeal`, `updateMeal`, `deleteMeal`, `clearMeals` | `meal` | `provenance.ts` |
 | Смаки | `MealsScreen`, `WeekScreen` | `useTastePrefs`, `prefOf` | `setMealPref` | `meal_pref` | `generator.ts` |
-| Рецепт | `RecipeScreen` | `useRecipe` | `saveRecipe` | `recipe` | — |
+| Рецепт | `RecipeScreen` | `useRecipe`, `useMealDates` | `saveRecipe` | `recipe`, `plan_slot` | — |
 | Профілі | `ProfilesSheet` | `useProfiles` | `insertProfile`, `updateProfile`, `deleteProfile` | `profile` | `profile.ts` |
 | Тиждень | `WeekScreen`, `TodayScreen` | `useWeek`, `usePrecedingSlots` | `saveWeek` | `week_plan`, `plan_slot` | `generator.ts`, `calendar.ts` |
 | Ручна заміна | `SwapDialog` | план від `WeekScreen` | `replaceSlotMeal` | `plan_slot` | `replace.ts` |
@@ -67,7 +67,7 @@ id; перегенерація знімає `swapped`. План — від сь�
 
 ### replaceSlotMeal
 
-Один UPDATE рядка `plan_slot` — одиниця LWW; ставить `swapped` (MER-111).
+Один UPDATE рядка `plan_slot` — одиниця LWW; ставить `swapped`.
 `sources` плану перераховується з плану вже із заміною.
 
 ### updateMeal, insertMeal
@@ -155,7 +155,7 @@ IS NULL`) і порожній відбиток — не чіпаються.
   (`toWeekPlan(view, portion)`) рахують у порції власника плану; коридор
   видно, лише коли порції збігаються (`ownerCorridorApplies`).
 - **Слоти читаються за календарним ключем «профіль + дата», а не за
-  `week_plan_id`** (MER-66; `useWeek`, `useCalendarDays`; `usePrecedingSlots`
+  `week_plan_id`** (`useWeek`, `useCalendarDays`; `usePrecedingSlots`
   — з усіх планів профілю, для антиповтору через межу тижнів): двоє офлайн генерують той самий
   тиждень — слоти зливаються, `week_plan` лишається два, а `week_plan_id`
   злитих слотів вказує на один.
@@ -220,7 +220,7 @@ IS NULL`) і порожній відбиток — не чіпаються.
 - **Слота без рядка (перекус профілю без перекусу) у дні просто немає.**
   `windowsInPlan` звужує вікна прийомів до слотів плану; `snackSettingDrift`
   звіряє слоти з `withSnack` власника: перемкнутий перекус план бачить після
-  перегенерації (MER-126).
+  перегенерації.
 - `foldSlotRows` — один згорток для «Тижня» й «Календаря», щоб калорії й БЖВ
   не розійшлися; порядок слотів — хронологічний (`SLOT_ORDER`).
 - `todayKey` — аргумент, а не годинник усередині: «сьогодні» рахується в
