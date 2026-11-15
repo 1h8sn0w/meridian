@@ -50,6 +50,12 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   порожній каталог.
 - **`auth`:** `GOTRUE_MAILER_AUTOCONFIRM=true` типово, бо пошти в стеку немає і
   лист підтвердження нікуди б не пішов (закрити реєстрацію — `README.md`).
+- **`auth`, OAuth (MER-162):** `GOTRUE_EXTERNAL_{GOOGLE,DISCORD,GITHUB}_*` з
+  `.env`, типово вимкнено. `REDIRECT_URI` = `${APP_URL}/auth/v1/callback`:
+  `handle_path /auth/v1/*` віддає його GoTrue, не SPA. `URI_ALLOW_LIST` не
+  треба: GoTrue пускає `redirect_to` з хостом `SITE_URL`
+  (`IsRedirectURLValid`). `API_EXTERNAL_URL` лишився без `/auth/v1`: OAuth
+  вбудованих провайдерів його не бере (лише листи й `custom:`-провайдери).
 - **`powersync`:** імена `PS_*` обов'язкові — `!env` у `service.yaml` приймає
   лише їх. Healthcheck смикає HTTP-пробу `/probes/liveness`
   (`healthcheck.probes.use_http` у `service.yaml`).

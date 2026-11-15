@@ -243,6 +243,8 @@ export const de: Messages = {
       ' — öffne sie und komm zum Anmelden hierher zurück.',
     noAccount: 'Noch kein Konto? ',
     haveAccount: 'Schon ein Konto? ',
+    orContinueWith: 'oder',
+    continueWith: (provider: string) => 'Weiter mit ' + provider,
     signOut: 'Abmelden',
   },
   familySetup: {

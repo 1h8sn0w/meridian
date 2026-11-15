@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { DiscordLogo, GithubLogo, GoogleLogo } from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
 import { useAuth } from '../lib/auth'
+import type { OAuthProvider } from '../lib/oauth'
 import { minutesOf, useNow } from '../lib/use-now'
 import type { Failure } from '../lib/messages'
 import { useMessages } from '../lib/i18n/use-messages'
@@ -17,8 +20,14 @@ import {
 
 type Mode = 'sign-in' | 'sign-up'
 
+const PROVIDER_LOOK: Record<OAuthProvider, { name: string; icon: Icon }> = {
+  google: { name: 'Google', icon: GoogleLogo },
+  discord: { name: 'Discord', icon: DiscordLogo },
+  github: { name: 'GitHub', icon: GithubLogo },
+}
+
 export function AuthScreen() {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, signInWith, providers, redirectFailure } = useAuth()
   const messages = useMessages()
   const t = messages.auth
   const [mode, setMode] = useState<Mode>('sign-in')
@@ -27,10 +36,13 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [confirmSent, setConfirmSent] = useState('')
+  const [attempted, setAttempted] = useState(false)
   const minutes = minutesOf(useNow())
+  const shownFailure = failure ?? (attempted ? null : redirectFailure)
 
   const submit = async () => {
     setBusy(true)
+    setAttempted(true)
     setFailure(null)
     setConfirmSent('')
     const address = email.trim()
@@ -42,6 +54,18 @@ export function AuthScreen() {
     else if (mode === 'sign-up' && result.value === false)
       setConfirmSent(address)
     setBusy(false)
+  }
+
+  const continueWith = async (provider: OAuthProvider) => {
+    setBusy(true)
+    setAttempted(true)
+    setFailure(null)
+    setConfirmSent('')
+    const result = await signInWith(provider)
+    if (!result.ok) {
+      setFailure(result.failure)
+      setBusy(false)
+    }
   }
 
   const switchMode = () => {
@@ -96,7 +120,31 @@ export function AuthScreen() {
           </div>
         </form>
 
-        {failure ? <ErrorText failure={failure} /> : null}
+        {providers.length > 0 ? (
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="m-0 mb-3 text-center text-sm text-muted">
+              {t.orContinueWith}
+            </p>
+            <div className="grid gap-2">
+              {providers.map((provider) => {
+                const { name, icon: Logo } = PROVIDER_LOOK[provider]
+                return (
+                  <Button
+                    key={provider}
+                    block
+                    disabled={busy}
+                    onClick={() => void continueWith(provider)}
+                  >
+                    <Logo aria-hidden size={18} weight="bold" />
+                    {t.continueWith(name)}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {shownFailure ? <ErrorText failure={shownFailure} /> : null}
         {confirmSent ? <InfoText>{t.confirmSent(confirmSent)}</InfoText> : null}
       </Panel>
 

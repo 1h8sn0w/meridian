@@ -241,6 +241,8 @@ export const pl: Messages = {
       ' wysłaliśmy e-mail z potwierdzeniem — otwórz go i wróć tutaj, aby się zalogować.',
     noAccount: 'Nie masz konta? ',
     haveAccount: 'Masz już konto? ',
+    orContinueWith: 'lub',
+    continueWith: (provider: string) => 'Kontynuuj z ' + provider,
     signOut: 'Wyloguj się',
   },
   familySetup: {
