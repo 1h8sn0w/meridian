@@ -2,7 +2,7 @@ import type { AuthError, SupabaseClient } from '@supabase/supabase-js'
 import { isAuthImplicitGrantRedirectError } from '@supabase/supabase-js'
 import type { PublicEnv } from './public-env'
 
-export const OAUTH_PROVIDERS = ['google', 'discord', 'github'] as const
+const OAUTH_PROVIDERS = ['google', 'discord', 'github'] as const
 
 export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 
@@ -20,9 +20,7 @@ export async function fetchEnabledProviders(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Array<OAuthProvider>> {
   try {
-    const response = await fetchImpl(env.supabaseUrl + '/auth/v1/settings', {
-      headers: { apikey: env.supabaseAnonKey },
-    })
+    const response = await fetchImpl(env.supabaseUrl + '/auth/v1/settings')
     return response.ok ? enabledProviders(await response.json()) : []
   } catch {
     return []

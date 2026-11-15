@@ -62,10 +62,8 @@ export function AuthScreen() {
     setFailure(null)
     setConfirmSent('')
     const result = await signInWith(provider)
-    if (!result.ok) {
-      setFailure(result.failure)
-      setBusy(false)
-    }
+    if (!result.ok) setFailure(result.failure)
+    setBusy(false)
   }
 
   const switchMode = () => {

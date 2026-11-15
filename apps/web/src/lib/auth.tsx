@@ -88,13 +88,11 @@ export function AuthProvider({
 
   useEffect(() => {
     if (!configured) return
-    let current = true
+    const stale = new AbortController()
     void fetchEnabledProviders(env).then((enabled) => {
-      if (current) setProviders(enabled)
+      if (!stale.signal.aborted) setProviders(enabled)
     })
-    return () => {
-      current = false
-    }
+    return () => stale.abort()
   }, [configured, env])
 
   useEffect(() => {
