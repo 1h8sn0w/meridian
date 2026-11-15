@@ -5,7 +5,9 @@ import { familyIdFromToken, getSupabase } from './supabase'
 import { isPublicEnvReady } from './public-env'
 import type { PublicEnv } from './public-env'
 import { authFailure, rpcFailure } from './messages'
-import type { Outcome } from './messages'
+import type { Failure, Outcome } from './messages'
+import { fetchEnabledProviders, redirectError, startOAuth } from './oauth'
+import type { OAuthProvider } from './oauth'
 
 type Status =
   'not-configured' | 'loading' | 'signed-out' | 'no-family' | 'ready'
@@ -26,8 +28,11 @@ type AuthValue = {
   family: Family | null
   members: Array<FamilyMember>
   invite: Invite | null
+  providers: Array<OAuthProvider>
+  redirectFailure: Failure | null
   signIn: (email: string, password: string) => Promise<Outcome<null>>
   signUp: (email: string, password: string) => Promise<Outcome<boolean>>
+  signInWith: (provider: OAuthProvider) => Promise<Outcome<null>>
   signOut: () => Promise<void>
   createFamily: (name: string) => Promise<Outcome<null>>
   joinFamily: (code: string) => Promise<Outcome<null>>
@@ -56,6 +61,8 @@ export function AuthProvider({
   const [family, setFamily] = useState<Family | null>(null)
   const [members, setMembers] = useState<Array<FamilyMember>>([])
   const [invite, setInvite] = useState<Invite | null>(null)
+  const [providers, setProviders] = useState<Array<OAuthProvider>>([])
+  const [redirectFailure, setRedirectFailure] = useState<Failure | null>(null)
 
   const familyId = familyIdFromToken(session?.access_token)
   const [shownFamilyId, setShownFamilyId] = useState(familyId)
@@ -73,7 +80,19 @@ export function AuthProvider({
       setSession(next)
       setResolved(true)
     })
+    void supabase.auth.initialize().then(({ error }) => {
+      if (error) setRedirectFailure(authFailure(redirectError(error)))
+    })
     return () => data.subscription.unsubscribe()
+  }, [configured, env])
+
+  useEffect(() => {
+    if (!configured) return
+    const stale = new AbortController()
+    void fetchEnabledProviders(env).then((enabled) => {
+      if (!stale.signal.aborted) setProviders(enabled)
+    })
+    return () => stale.abort()
   }, [configured, env])
 
   useEffect(() => {
@@ -113,7 +132,7 @@ export function AuthProvider({
         (memberRows.data ?? []).map((m) => ({
           id: m.id,
           userId: m.user_id,
-          email: m.email,
+          email: m.email || null,
         })),
       )
       const pending = inviteRows.data?.[0]
@@ -138,12 +157,14 @@ export function AuthProvider({
 
     return {
       status,
-      email: session?.user.email ?? null,
+      email: session?.user.email || null,
       userId: session?.user.id ?? null,
       familyId,
       family,
       members,
       invite,
+      providers,
+      redirectFailure,
       supabase: configured && resolved ? getSupabase(env) : null,
 
       signIn: async (email, password) => {
@@ -163,6 +184,17 @@ export function AuthProvider({
         })
         if (error) return { ok: false, failure: authFailure(error) }
         return { ok: true, value: data.session !== null }
+      },
+
+      signInWith: async (provider) => {
+        const { error } = await startOAuth(
+          getSupabase(env),
+          provider,
+          window.location.origin,
+        )
+        return error
+          ? { ok: false, failure: authFailure(error) }
+          : { ok: true, value: null }
       },
 
       signOut: async () => {
@@ -206,7 +238,18 @@ export function AuthProvider({
         return { ok: true, value: fresh }
       },
     }
-  }, [configured, env, family, familyId, invite, members, resolved, session])
+  }, [
+    configured,
+    env,
+    family,
+    familyId,
+    invite,
+    members,
+    providers,
+    redirectFailure,
+    resolved,
+    session,
+  ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

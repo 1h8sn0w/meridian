@@ -1,16 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type {
+  SupabaseClient,
+  SupabaseClientOptions,
+} from '@supabase/supabase-js'
 import type { PublicEnv } from './public-env'
+
+export const clientAuthOptions = {
+  flowType: 'pkce',
+  detectSessionInUrl: true,
+  storageKey: 'meridian.auth.v2',
+} satisfies SupabaseClientOptions<'public'>['auth']
 
 let client: SupabaseClient | null = null
 
 export function getSupabase(env: PublicEnv): SupabaseClient {
   if (!client) {
     client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-      auth: {
-        detectSessionInUrl: false,
-        storageKey: 'meridian.auth.v2',
-      },
+      auth: clientAuthOptions,
     })
   }
   return client

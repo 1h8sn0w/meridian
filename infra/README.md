@@ -63,17 +63,19 @@ APP_URL=https://meridian.example.com
 а в GUI-обгортках над Compose це не завжди видно як явну помилку. Або звільнити
 порти, або задати `HTTP_PORT`/`HTTPS_PORT` і вказати порт у `APP_URL`.
 
-**Порт у `APP_URL` має збігатися з `HTTP_PORT` або `HTTPS_PORT`** (MER-74).
+**Порт у `APP_URL` має збігатися з `HTTP_PORT` або `HTTPS_PORT`**.
 Caddy слухає саме той порт, що в адресі сайту, а compose публікує його один в
 один: `HTTPS_PORT=8443` + `APP_URL=https://meridian.example.com:8443`. Без порту
 в адресі Caddy слухає `HTTP_PORT`/`HTTPS_PORT` усередині контейнера, тож за
 NAT досить пробросити зовнішні 80/443 на них — і Let's Encrypt працює далі.
 
+Вхід через Google, Discord чи GitHub — `.env.example`, там і обмеження з IP.
+
 ### Домашній сервер без домену
 
 `http://<IP>` для застосунку не годиться: браузер вважає захищеним контекстом
 лише HTTPS і `localhost`, а без нього PowerSync не відкриває локальну базу
-(`navigator.locks` недоступний) — екрани кажуть про це прямо (MER-73). Тож і в
+(`navigator.locks` недоступний) — екрани кажуть про це прямо. Тож і в
 локальній мережі — `https://`:
 
 ```

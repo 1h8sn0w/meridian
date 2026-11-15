@@ -241,6 +241,8 @@ export const uk = {
       ' надіслано лист із підтвердженням — відкрийте його й поверніться сюди, щоб увійти.',
     noAccount: 'Ще немає акаунта? ',
     haveAccount: 'Уже маєте акаунт? ',
+    orContinueWith: 'або',
+    continueWith: (provider: string) => 'Продовжити через ' + provider,
     signOut: 'Вийти',
   },
   familySetup: {

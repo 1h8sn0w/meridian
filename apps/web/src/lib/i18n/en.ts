@@ -225,6 +225,8 @@ export const en: Messages = {
       ' — open it and come back here to sign in.',
     noAccount: 'No account yet? ',
     haveAccount: 'Already have an account? ',
+    orContinueWith: 'or',
+    continueWith: (provider: string) => 'Continue with ' + provider,
     signOut: 'Sign out',
   },
   familySetup: {
