@@ -401,7 +401,7 @@ export const en: Messages = {
       over_email_send_rate_limit: 'Too many emails. Try again later.',
       signup_disabled: 'Sign-up is disabled on this server.',
       identity_already_exists:
-        'This account is already linked to another user. The app cannot merge accounts — sign in with the one it is linked to.',
+        'This provider account is already linked to another user. The app cannot merge accounts — sign in with the account it is linked to.',
       manual_linking_disabled:
         'Linking sign-in methods is disabled on this server.',
       single_identity_not_deletable:

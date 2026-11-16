@@ -429,7 +429,7 @@ export const de: Messages = {
         'Zu viele E-Mails. Versuche es später erneut.',
       signup_disabled: 'Die Registrierung ist auf diesem Server deaktiviert.',
       identity_already_exists:
-        'Dieses Konto ist bereits mit einem anderen Benutzer verknüpft. Die App kann Konten nicht zusammenführen — melde dich mit dem an, mit dem es verknüpft ist.',
+        'Dieses Anbieterkonto ist bereits mit einem anderen Benutzer verknüpft. Die App kann Konten nicht zusammenführen — melde dich mit dem Konto an, mit dem es verknüpft ist.',
       manual_linking_disabled:
         'Das Verknüpfen von Anmeldemethoden ist auf diesem Server deaktiviert.',
       single_identity_not_deletable:

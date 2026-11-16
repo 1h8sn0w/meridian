@@ -73,7 +73,7 @@ export type SignInMethod =
       provider: OAuthProvider | 'email'
       identity: UserIdentity
       address: string | null
-      unlinkable: boolean
+      unlink: 'allowed' | 'last-method' | 'never'
     }
   | { kind: 'available'; provider: OAuthProvider }
 
@@ -81,7 +81,6 @@ export function signInMethods(
   identities: ReadonlyArray<UserIdentity>,
   enabled: ReadonlyArray<OAuthProvider>,
 ): Array<SignInMethod> {
-  if (enabled.length === 0) return []
   const several = identities.length > 1
   return (['email', ...OAUTH_PROVIDERS] as const).flatMap(
     (provider): Array<SignInMethod> => {
@@ -96,7 +95,8 @@ export function signInMethods(
         provider,
         identity,
         address: addressOf(identity),
-        unlinkable: provider !== 'email' && several,
+        unlink:
+          provider === 'email' ? 'never' : several ? 'allowed' : 'last-method',
       }))
     },
   )

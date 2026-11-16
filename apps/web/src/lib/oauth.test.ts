@@ -190,13 +190,13 @@ test('способи входу: прив’язані з адресою, уві
   assert.deepEqual(
     methods.map((m) =>
       m.kind === 'linked'
-        ? [m.kind, m.provider, m.address, m.unlinkable]
+        ? [m.kind, m.provider, m.address, m.unlink]
         : [m.kind, m.provider],
     ),
     [
-      ['linked', 'email', 'user@example.com', false],
+      ['linked', 'email', 'user@example.com', 'never'],
       ['available', 'google'],
-      ['linked', 'github', 'user@example.com', true],
+      ['linked', 'github', 'user@example.com', 'allowed'],
     ],
   )
 })
@@ -208,7 +208,7 @@ test('останній спосіб входу не відв’язується,
       provider: 'github',
       identity: identity('github'),
       address: null,
-      unlinkable: false,
+      unlink: 'last-method',
     },
   ])
 
@@ -217,18 +217,11 @@ test('останній спосіб входу не відв’язується,
     ['discord'],
   )
   assert.deepEqual(
-    methods.map((m) => m.kind === 'linked' && [m.provider, m.unlinkable]),
+    methods.map((m) => m.kind === 'linked' && [m.provider, m.unlink]),
     [
-      ['email', false],
-      ['discord', true],
+      ['email', 'never'],
+      ['discord', 'allowed'],
     ],
-  )
-})
-
-test('жоден провайдер не увімкнений — розділу немає, навіть із прив’язаним', () => {
-  assert.deepEqual(
-    signInMethods([identity('email'), identity('github')], []),
-    [],
   )
 })
 

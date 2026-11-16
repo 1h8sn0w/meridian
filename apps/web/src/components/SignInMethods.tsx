@@ -49,10 +49,7 @@ export function SignInMethodsPanel() {
 
   const methods = identities ? signInMethods(identities, providers) : []
   const lastMethodLocked = methods.some(
-    (method) =>
-      method.kind === 'linked' &&
-      method.provider !== 'email' &&
-      !method.unlinkable,
+    (method) => method.kind === 'linked' && method.unlink === 'last-method',
   )
 
   const link = async (provider: OAuthProvider) => {
@@ -147,10 +144,12 @@ function MethodRow({
         <Button disabled={busy} onClick={() => onLink(method.provider)}>
           {t.link}
         </Button>
-      ) : method.provider === 'email' ? null : (
+      ) : method.unlink === 'never' ? null : (
         <Button
-          disabled={busy || !method.unlinkable}
-          aria-describedby={method.unlinkable ? undefined : lastMethodId}
+          disabled={busy || method.unlink === 'last-method'}
+          aria-describedby={
+            method.unlink === 'last-method' ? lastMethodId : undefined
+          }
           onClick={() => onUnlink(method.identity)}
         >
           {t.unlink}

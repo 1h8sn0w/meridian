@@ -419,7 +419,7 @@ export const pl: Messages = {
       over_email_send_rate_limit: 'Za dużo e-maili. Spróbuj ponownie później.',
       signup_disabled: 'Rejestracja na tym serwerze jest wyłączona.',
       identity_already_exists:
-        'To konto jest już powiązane z innym użytkownikiem. Aplikacja nie łączy kont — zaloguj się tym, z którym jest powiązane.',
+        'To konto dostawcy jest już powiązane z innym użytkownikiem. Aplikacja nie łączy kont — zaloguj się na konto, z którym jest powiązane.',
       manual_linking_disabled:
         'Powiązywanie sposobów logowania jest na tym serwerze wyłączone.',
       single_identity_not_deletable:
