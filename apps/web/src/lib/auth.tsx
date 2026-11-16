@@ -6,7 +6,13 @@ import { isPublicEnvReady } from './public-env'
 import type { PublicEnv } from './public-env'
 import { authFailure, rpcFailure } from './messages'
 import type { Failure, Outcome } from './messages'
-import { fetchEnabledProviders, redirectError, startOAuth } from './oauth'
+import {
+  fetchEnabledProviders,
+  redirectError,
+  startLink,
+  startOAuth,
+  takePendingLink,
+} from './oauth'
 import type { OAuthProvider } from './oauth'
 
 type Status =
@@ -19,6 +25,7 @@ type Invite = { code: string; expiresAt: string }
 type FamilyRow = { id: string; name: string }
 type MemberRow = { id: string; user_id: string; email: string | null }
 type InviteRow = { code: string; expires_at: string }
+type LinkReturn = { provider: OAuthProvider; failure: Failure | null }
 
 type AuthValue = {
   status: Status
@@ -30,9 +37,11 @@ type AuthValue = {
   invite: Invite | null
   providers: Array<OAuthProvider>
   redirectFailure: Failure | null
+  linkReturn: LinkReturn | null
   signIn: (email: string, password: string) => Promise<Outcome<null>>
   signUp: (email: string, password: string) => Promise<Outcome<boolean>>
   signInWith: (provider: OAuthProvider) => Promise<Outcome<null>>
+  linkWith: (provider: OAuthProvider) => Promise<Outcome<null>>
   signOut: () => Promise<void>
   createFamily: (name: string) => Promise<Outcome<null>>
   joinFamily: (code: string) => Promise<Outcome<null>>
@@ -63,6 +72,7 @@ export function AuthProvider({
   const [invite, setInvite] = useState<Invite | null>(null)
   const [providers, setProviders] = useState<Array<OAuthProvider>>([])
   const [redirectFailure, setRedirectFailure] = useState<Failure | null>(null)
+  const [linkReturn, setLinkReturn] = useState<LinkReturn | null>(null)
 
   const familyId = familyIdFromToken(session?.access_token)
   const [shownFamilyId, setShownFamilyId] = useState(familyId)
@@ -81,7 +91,10 @@ export function AuthProvider({
       setResolved(true)
     })
     void supabase.auth.initialize().then(({ error }) => {
-      if (error) setRedirectFailure(authFailure(redirectError(error)))
+      const failure = error ? authFailure(redirectError(error)) : null
+      const provider = takePendingLink(window.sessionStorage)
+      if (provider) setLinkReturn({ provider, failure })
+      else if (failure) setRedirectFailure(failure)
     })
     return () => data.subscription.unsubscribe()
   }, [configured, env])
@@ -165,6 +178,7 @@ export function AuthProvider({
       invite,
       providers,
       redirectFailure,
+      linkReturn,
       supabase: configured && resolved ? getSupabase(env) : null,
 
       signIn: async (email, password) => {
@@ -191,6 +205,18 @@ export function AuthProvider({
           getSupabase(env),
           provider,
           window.location.origin,
+        )
+        return error
+          ? { ok: false, failure: authFailure(error) }
+          : { ok: true, value: null }
+      },
+
+      linkWith: async (provider) => {
+        const { error } = await startLink(
+          getSupabase(env),
+          provider,
+          window.location.origin,
+          window.sessionStorage,
         )
         return error
           ? { ok: false, failure: authFailure(error) }
@@ -244,6 +270,7 @@ export function AuthProvider({
     family,
     familyId,
     invite,
+    linkReturn,
     members,
     providers,
     redirectFailure,

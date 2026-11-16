@@ -281,6 +281,18 @@ export const de: Messages = {
     languageLabel: 'Sprache der Oberfläche',
     languageHint:
       'Die Wahl wird auf diesem Gerät gespeichert. Namen der Gerichte, Rezepte und Pläne der Ernährungsberatung werden nicht übersetzt.',
+    signInMethods: 'Anmeldemethoden',
+    signInMethodsHint: 'Jede öffnet dasselbe Konto und dieselbe Familie.',
+    signInMethodsLoading: 'Anmeldemethoden werden geladen…',
+    emailMethod: 'E-Mail und Passwort',
+    notLinked: 'nicht verknüpft',
+    linkedNoEmail: 'verknüpft, ohne E-Mail',
+    link: 'Verknüpfen',
+    unlink: 'Trennen',
+    lastMethod:
+      'Die letzte Anmeldemethode lässt sich nicht trennen — verknüpfe zuerst eine andere.',
+    linked: (provider: string) =>
+      provider + ' ist verknüpft: Du kannst dich jetzt damit bei diesem Konto anmelden.',
   },
   starter: {
     broken:
@@ -415,6 +427,16 @@ export const de: Messages = {
       over_email_send_rate_limit:
         'Zu viele E-Mails. Versuche es später erneut.',
       signup_disabled: 'Die Registrierung ist auf diesem Server deaktiviert.',
+      identity_already_exists:
+        'Dieses Konto ist bereits mit einem anderen Benutzer verknüpft. Die App kann Konten nicht zusammenführen — melde dich mit dem an, mit dem es verknüpft ist.',
+      manual_linking_disabled:
+        'Das Verknüpfen von Anmeldemethoden ist auf diesem Server deaktiviert.',
+      single_identity_not_deletable:
+        'Das ist die einzige Anmeldemethode — sie lässt sich nicht trennen.',
+      email_conflict_identity_not_deletable:
+        'Trennen fehlgeschlagen: Die E-Mail, die im Konto bliebe, gehört bereits einem anderen Benutzer.',
+      identity_not_found: 'Diese Anmeldemethode ist bereits getrennt.',
+      email_exists: 'Diese E-Mail gehört bereits einem anderen Benutzer.',
     },
     rpc: {
       not_authenticated: 'Die Sitzung ist verloren. Melde dich erneut an.',

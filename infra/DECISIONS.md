@@ -56,6 +56,18 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   треба: GoTrue пускає `redirect_to` з хостом `SITE_URL`
   (`IsRedirectURLValid`). `API_EXTERNAL_URL` лишився без `/auth/v1`: OAuth
   вбудованих провайдерів його не бере (лише листи й `custom:`-провайдери).
+- **`auth`, прив'язка (MER-163):** `GOTRUE_SECURITY_MANUAL_LINKING_ENABLED=true`
+  відкриває `/user/identities/authorize` і `DELETE /user/identities/{id}`.
+  `GOTRUE_EXPERIMENTAL_PROVIDERS_WITH_OWN_LINKING_DOMAIN` типово
+  `google,discord,github` вимикає автоприв'язку за поштою: у GoTrue v2.189.0
+  `DetermineAccountLinking` (`internal/models/linking.go`) рахує пошту
+  підтвердженою, якщо `email.Verified || config.Mailer.Autoconfirm`, а GitHub
+  (`provider/github.go`) віддає всі адреси з `/user/emails`, і непідтверджені.
+  З нашим типовим `AUTOCONFIRM=true` це захоплення акаунта чужим входом.
+  Ціна: вхід через провайдера без ручної прив'язки створює окремий акаунт
+  з `is_sso_user=true`, і `PUT /user` не дає йому задати пароль чи пошту.
+  Ручна прив'язка (`linkIdentityToUser`) пошти не звіряє: людина вже увійшла.
+  Відв'язати останню ідентичність GoTrue не дає (`single_identity_not_deletable`).
 - **`powersync`:** імена `PS_*` обов'язкові — `!env` у `service.yaml` приймає
   лише їх. Healthcheck смикає HTTP-пробу `/probes/liveness`
   (`healthcheck.probes.use_http` у `service.yaml`).

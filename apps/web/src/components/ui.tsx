@@ -275,9 +275,11 @@ export function Problems({ of }: { of: ReadonlyArray<ReadonlyArray<string>> }) {
   )
 }
 
-export function Meta({ children }: { children: ReactNode }) {
+export function Meta({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <p className="mb-0 mt-2 text-xs leading-relaxed text-muted">{children}</p>
+    <p id={id} className="mb-0 mt-2 text-xs leading-relaxed text-muted">
+      {children}
+    </p>
   )
 }
 

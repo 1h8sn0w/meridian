@@ -279,6 +279,18 @@ export const pl: Messages = {
     languageLabel: 'Język interfejsu',
     languageHint:
       'Wybór zapisuje się na tym urządzeniu. Nazwy dań, przepisy i plany dietetyka nie są tłumaczone.',
+    signInMethods: 'Sposoby logowania',
+    signInMethodsHint: 'Każdy z nich otwiera to samo konto i tę samą rodzinę.',
+    signInMethodsLoading: 'Wczytujemy sposoby logowania…',
+    emailMethod: 'E-mail i hasło',
+    notLinked: 'nie powiązano',
+    linkedNoEmail: 'powiązano, bez e-maila',
+    link: 'Powiąż',
+    unlink: 'Odłącz',
+    lastMethod:
+      'Ostatniego sposobu logowania nie można odłączyć — najpierw powiąż inny.',
+    linked: (provider: string) =>
+      provider + ' powiązano: możesz się nim teraz logować do tego konta.',
   },
   starter: {
     broken:
@@ -406,6 +418,16 @@ export const pl: Messages = {
       over_request_rate_limit: 'Za dużo prób. Spróbuj ponownie za minutę.',
       over_email_send_rate_limit: 'Za dużo e-maili. Spróbuj ponownie później.',
       signup_disabled: 'Rejestracja na tym serwerze jest wyłączona.',
+      identity_already_exists:
+        'To konto jest już powiązane z innym użytkownikiem. Aplikacja nie łączy kont — zaloguj się tym, z którym jest powiązane.',
+      manual_linking_disabled:
+        'Powiązywanie sposobów logowania jest na tym serwerze wyłączone.',
+      single_identity_not_deletable:
+        'To jedyny sposób logowania — nie można go odłączyć.',
+      email_conflict_identity_not_deletable:
+        'Nie udało się odłączyć: e-mail, który zostałby na koncie, należy już do innego użytkownika.',
+      identity_not_found: 'Ten sposób logowania jest już odłączony.',
+      email_exists: 'Ten e-mail należy już do innego użytkownika.',
     },
     rpc: {
       not_authenticated: 'Sesja wygasła. Zaloguj się ponownie.',

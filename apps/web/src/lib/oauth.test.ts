@@ -4,13 +4,19 @@ import {
   AuthImplicitGrantRedirectError,
   createClient,
 } from '@supabase/supabase-js'
+import type { UserIdentity } from '@supabase/supabase-js'
 
 import {
   enabledProviders,
   fetchEnabledProviders,
   redirectError,
+  signInMethods,
+  startLink,
   startOAuth,
+  takePendingLink,
 } from './oauth.ts'
+import { authFailure } from './messages.ts'
+import { uk } from './i18n/uk.ts'
 import { clientAuthOptions } from './supabase.ts'
 
 const env = {
@@ -160,5 +166,168 @@ test('помилка з адреси повернення бере код GoTrue
   assert.deepEqual(redirectError(error), {
     code: 'signup_disabled',
     message: 'Signups not allowed',
+  })
+})
+
+function identity(
+  provider: string,
+  email?: string,
+): UserIdentity {
+  return {
+    id: provider + '-sub',
+    user_id: 'user-1',
+    identity_id: provider + '-identity',
+    provider,
+    identity_data: email ? { email } : {},
+  }
+}
+
+test('способи входу: прив’язані з адресою, увімкнені без прив’язки — кнопкою', () => {
+  const methods = signInMethods(
+    [identity('github', 'user@example.com'), identity('email', 'user@example.com')],
+    ['google', 'github'],
+  )
+  assert.deepEqual(
+    methods.map((m) =>
+      m.kind === 'linked'
+        ? [m.kind, m.provider, m.address, m.unlinkable]
+        : [m.kind, m.provider],
+    ),
+    [
+      ['linked', 'email', 'user@example.com', false],
+      ['available', 'google'],
+      ['linked', 'github', 'user@example.com', true],
+    ],
+  )
+})
+
+test('останній спосіб входу не відв’язується, а пошта не відв’язується ніколи', () => {
+  const [onlyGithub] = signInMethods([identity('github')], ['github'])
+  assert.equal(onlyGithub?.kind, 'linked')
+  assert.equal(onlyGithub?.kind === 'linked' && onlyGithub.unlinkable, false)
+  assert.equal(onlyGithub?.kind === 'linked' && onlyGithub.address, null)
+
+  const methods = signInMethods(
+    [identity('email', 'user@example.com'), identity('discord')],
+    ['discord'],
+  )
+  assert.deepEqual(
+    methods.map((m) => m.kind === 'linked' && [m.provider, m.unlinkable]),
+    [
+      ['email', false],
+      ['discord', true],
+    ],
+  )
+})
+
+test('жоден провайдер не увімкнений — розділу немає, навіть із прив’язаним', () => {
+  assert.deepEqual(signInMethods([identity('email'), identity('github')], []), [])
+})
+
+function signedInClient(fetchImpl: typeof fetch) {
+  const { supabase, storage } = clientWith(fetchImpl)
+  storage.setItem(
+    'meridian.auth.v2',
+    JSON.stringify({
+      access_token: 'header.e30.signature',
+      refresh_token: 'refresh-1',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: {
+        id: 'user-1',
+        aud: 'authenticated',
+        app_metadata: {},
+        user_metadata: {},
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    }),
+  )
+  return supabase
+}
+
+test('прив’язка йде на identities/authorize з PKCE, поверненням на «Сім’ю» й позначкою', async () => {
+  const requests: Array<{ url: URL; auth: string | null }> = []
+  const supabase = signedInClient((input, init) => {
+    requests.push({
+      url: new URL(String(input)),
+      auth: new Headers(init?.headers).get('authorization'),
+    })
+    return Promise.resolve(
+      json({ url: 'https://github.com/login/oauth/authorize?state=s' }),
+    )
+  })
+  const pending = memoryStorage()
+
+  const { data, error } = await startLink(
+    supabase,
+    'github',
+    'https://app.example.com',
+    pending,
+  )
+
+  assert.equal(error, null)
+  assert.equal(data.url, 'https://github.com/login/oauth/authorize?state=s')
+  assert.equal(requests.length, 1)
+  const [request] = requests
+  assert.equal(
+    `${request?.url.origin}${request?.url.pathname}`,
+    'https://app.example.com/auth/v1/user/identities/authorize',
+  )
+  assert.equal(request?.url.searchParams.get('provider'), 'github')
+  assert.equal(
+    request?.url.searchParams.get('redirect_to'),
+    'https://app.example.com/family',
+  )
+  assert.equal(request?.url.searchParams.get('skip_http_redirect'), 'true')
+  assert.ok(request?.url.searchParams.get('code_challenge'))
+  assert.equal(request?.auth, 'Bearer header.e30.signature')
+  assert.equal(takePendingLink(pending), 'github')
+  assert.equal(takePendingLink(pending), null)
+})
+
+test('сервер відмовив у прив’язці — позначки немає, а помилка зрозуміла', async () => {
+  const supabase = signedInClient(() =>
+    Promise.resolve(
+      json(
+        {
+          code: 404,
+          error_code: 'manual_linking_disabled',
+          msg: 'Manual linking is disabled',
+        },
+        404,
+      ),
+    ),
+  )
+  const pending = memoryStorage()
+
+  const { error } = await startLink(
+    supabase,
+    'google',
+    'https://app.example.com',
+    pending,
+  )
+
+  assert.ok(error)
+  assert.deepEqual(authFailure(error), {
+    text: uk.errors.auth.manual_linking_disabled,
+  })
+  assert.equal(takePendingLink(pending), null)
+})
+
+test('чужа позначка в сховищі не вважається прив’язкою', () => {
+  const pending = memoryStorage()
+  pending.setItem('meridian.linking', 'apple')
+  assert.equal(takePendingLink(pending), null)
+  assert.equal(pending.items.size, 0)
+})
+
+test('акаунт провайдера вже в іншого користувача — текст без технічних деталей', () => {
+  const error = new AuthImplicitGrantRedirectError(
+    'Identity is already linked to another user',
+    { error: 'server_error', code: 'identity_already_exists' },
+  )
+  assert.deepEqual(authFailure(redirectError(error)), {
+    text: uk.errors.auth.identity_already_exists,
   })
 })
