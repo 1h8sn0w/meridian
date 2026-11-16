@@ -263,6 +263,18 @@ export const en: Messages = {
     languageLabel: 'Interface language',
     languageHint:
       'The choice is stored on this device. Meal names, recipes and dietitian plans are not translated.',
+    signInMethods: 'Sign-in methods',
+    signInMethodsHint: 'Each of them opens this same account and family.',
+    signInMethodsLoading: 'Loading sign-in methods…',
+    emailMethod: 'Email and password',
+    notLinked: 'not linked',
+    linkedNoEmail: 'linked, no email',
+    link: 'Link',
+    unlink: 'Unlink',
+    lastMethod:
+      'The last sign-in method cannot be unlinked — link another one first.',
+    linked: (provider: string) =>
+      provider + ' is linked: you can now sign in to this account with it.',
   },
   starter: {
     broken: 'The starter set on the server is invalid — no meals were added.',
@@ -388,6 +400,16 @@ export const en: Messages = {
       over_request_rate_limit: 'Too many attempts. Try again in a minute.',
       over_email_send_rate_limit: 'Too many emails. Try again later.',
       signup_disabled: 'Sign-up is disabled on this server.',
+      identity_already_exists:
+        'This provider account is already linked to another user. The app cannot merge accounts — sign in with the account it is linked to.',
+      manual_linking_disabled:
+        'Linking sign-in methods is disabled on this server.',
+      single_identity_not_deletable:
+        'This is the only sign-in method — it cannot be unlinked.',
+      email_conflict_identity_not_deletable:
+        'Could not unlink: the email left on the account already belongs to another user.',
+      identity_not_found: 'This sign-in method is already unlinked.',
+      email_exists: 'This email already belongs to another user.',
     },
     rpc: {
       not_authenticated: 'The session is lost. Sign in again.',

@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { DiscordLogo, GithubLogo, GoogleLogo } from '@phosphor-icons/react'
-import type { Icon } from '@phosphor-icons/react'
 import { useAuth } from '../lib/auth'
 import type { OAuthProvider } from '../lib/oauth'
 import { minutesOf, useNow } from '../lib/use-now'
 import type { Failure } from '../lib/messages'
 import { useMessages } from '../lib/i18n/use-messages'
 import { DayClock } from './DayClock'
+import { PROVIDER_LOOK } from './SignInMethods'
 import {
   AuthShell,
   Button,
@@ -19,12 +18,6 @@ import {
 } from './ui'
 
 type Mode = 'sign-in' | 'sign-up'
-
-const PROVIDER_LOOK: Record<OAuthProvider, { name: string; icon: Icon }> = {
-  google: { name: 'Google', icon: GoogleLogo },
-  discord: { name: 'Discord', icon: DiscordLogo },
-  github: { name: 'GitHub', icon: GithubLogo },
-}
 
 export function AuthScreen() {
   const { signIn, signUp, signInWith, providers, redirectFailure } = useAuth()

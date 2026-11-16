@@ -1,4 +1,8 @@
-import type { AuthError, SupabaseClient } from '@supabase/supabase-js'
+import type {
+  AuthError,
+  SupabaseClient,
+  UserIdentity,
+} from '@supabase/supabase-js'
 import { isAuthImplicitGrantRedirectError } from '@supabase/supabase-js'
 import type { PublicEnv } from './public-env'
 
@@ -36,6 +40,71 @@ export function startOAuth(
     provider,
     options: { redirectTo: origin + '/' },
   })
+}
+
+const PENDING_LINK_KEY = 'meridian.linking'
+
+type LinkStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+export async function startLink(
+  supabase: SupabaseClient,
+  provider: OAuthProvider,
+  origin: string,
+  storage: LinkStorage,
+) {
+  storage.setItem(PENDING_LINK_KEY, provider)
+  const result = await supabase.auth.linkIdentity({
+    provider,
+    options: { redirectTo: origin + '/family' },
+  })
+  if (result.error) storage.removeItem(PENDING_LINK_KEY)
+  return result
+}
+
+export function takePendingLink(storage: LinkStorage): OAuthProvider | null {
+  const value = storage.getItem(PENDING_LINK_KEY)
+  storage.removeItem(PENDING_LINK_KEY)
+  return OAUTH_PROVIDERS.find((provider) => provider === value) ?? null
+}
+
+export type SignInMethod =
+  | {
+      kind: 'linked'
+      provider: OAuthProvider | 'email'
+      identity: UserIdentity
+      address: string | null
+      unlink: 'allowed' | 'last-method' | 'never'
+    }
+  | { kind: 'available'; provider: OAuthProvider }
+
+export function signInMethods(
+  identities: ReadonlyArray<UserIdentity>,
+  enabled: ReadonlyArray<OAuthProvider>,
+): Array<SignInMethod> {
+  const several = identities.length > 1
+  return (['email', ...OAUTH_PROVIDERS] as const).flatMap(
+    (provider): Array<SignInMethod> => {
+      const linked = identities.filter((i) => i.provider === provider)
+      if (linked.length === 0) {
+        return provider !== 'email' && enabled.includes(provider)
+          ? [{ kind: 'available', provider }]
+          : []
+      }
+      return linked.map((identity) => ({
+        kind: 'linked',
+        provider,
+        identity,
+        address: addressOf(identity),
+        unlink:
+          provider === 'email' ? 'never' : several ? 'allowed' : 'last-method',
+      }))
+    },
+  )
+}
+
+function addressOf(identity: UserIdentity): string | null {
+  const email: unknown = identity.identity_data?.email
+  return typeof email === 'string' && email !== '' ? email : null
 }
 
 export function redirectError(error: AuthError): {

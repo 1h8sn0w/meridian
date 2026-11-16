@@ -19,6 +19,7 @@ import {
 } from './ui'
 import { SyncPanel } from './SyncPanel'
 import { ImportV1Panel } from './ImportV1Panel'
+import { SignInMethodsPanel } from './SignInMethods'
 
 export function FamilyScreen() {
   const { userId, family, members, invite, createInvite, signOut } = useAuth()
@@ -88,6 +89,8 @@ export function FamilyScreen() {
       <SyncPanel />
 
       <ImportV1Panel />
+
+      <SignInMethodsPanel />
 
       <p className="mt-4 text-center">
         <LinkButton onClick={() => void signOut()}>
