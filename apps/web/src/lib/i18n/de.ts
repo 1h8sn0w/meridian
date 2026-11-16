@@ -292,7 +292,8 @@ export const de: Messages = {
     lastMethod:
       'Die letzte Anmeldemethode lässt sich nicht trennen — verknüpfe zuerst eine andere.',
     linked: (provider: string) =>
-      provider + ' ist verknüpft: Du kannst dich jetzt damit bei diesem Konto anmelden.',
+      provider +
+      ' ist verknüpft: Du kannst dich jetzt damit bei diesem Konto anmelden.',
   },
   starter: {
     broken:

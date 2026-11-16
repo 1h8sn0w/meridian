@@ -15,20 +15,20 @@ import type { OAuthProvider, SignInMethod } from '../lib/oauth'
 import { useMessages } from '../lib/i18n/use-messages'
 import { Button, ErrorText, Hint, InfoText, Meta, Panel } from './ui'
 
-export const PROVIDER_LOOK: Record<OAuthProvider, { name: string; icon: Icon }> =
-  {
-    google: { name: 'Google', icon: GoogleLogo },
-    discord: { name: 'Discord', icon: DiscordLogo },
-    github: { name: 'GitHub', icon: GithubLogo },
-  }
+export const PROVIDER_LOOK: Record<
+  OAuthProvider,
+  { name: string; icon: Icon }
+> = {
+  google: { name: 'Google', icon: GoogleLogo },
+  discord: { name: 'Discord', icon: DiscordLogo },
+  github: { name: 'GitHub', icon: GithubLogo },
+}
 
 export function SignInMethodsPanel() {
   const { supabase, providers, linkReturn, linkWith } = useAuth()
   const messages = useMessages()
   const t = messages.family
-  const [identities, setIdentities] = useState<Array<UserIdentity> | null>(
-    null,
-  )
+  const [identities, setIdentities] = useState<Array<UserIdentity> | null>(null)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const lastMethodId = useId()

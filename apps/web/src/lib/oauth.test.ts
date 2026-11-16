@@ -169,10 +169,7 @@ test('помилка з адреси повернення бере код GoTrue
   })
 })
 
-function identity(
-  provider: string,
-  email?: string,
-): UserIdentity {
+function identity(provider: string, email?: string): UserIdentity {
   return {
     id: provider + '-sub',
     user_id: 'user-1',
@@ -184,7 +181,10 @@ function identity(
 
 test('способи входу: прив’язані з адресою, увімкнені без прив’язки — кнопкою', () => {
   const methods = signInMethods(
-    [identity('github', 'user@example.com'), identity('email', 'user@example.com')],
+    [
+      identity('github', 'user@example.com'),
+      identity('email', 'user@example.com'),
+    ],
     ['google', 'github'],
   )
   assert.deepEqual(
@@ -202,10 +202,15 @@ test('способи входу: прив’язані з адресою, уві
 })
 
 test('останній спосіб входу не відв’язується, а пошта не відв’язується ніколи', () => {
-  const [onlyGithub] = signInMethods([identity('github')], ['github'])
-  assert.equal(onlyGithub?.kind, 'linked')
-  assert.equal(onlyGithub?.kind === 'linked' && onlyGithub.unlinkable, false)
-  assert.equal(onlyGithub?.kind === 'linked' && onlyGithub.address, null)
+  assert.deepEqual(signInMethods([identity('github')], ['github']), [
+    {
+      kind: 'linked',
+      provider: 'github',
+      identity: identity('github'),
+      address: null,
+      unlinkable: false,
+    },
+  ])
 
   const methods = signInMethods(
     [identity('email', 'user@example.com'), identity('discord')],
@@ -221,7 +226,10 @@ test('останній спосіб входу не відв’язується,
 })
 
 test('жоден провайдер не увімкнений — розділу немає, навіть із прив’язаним', () => {
-  assert.deepEqual(signInMethods([identity('email'), identity('github')], []), [])
+  assert.deepEqual(
+    signInMethods([identity('email'), identity('github')], []),
+    [],
+  )
 })
 
 function signedInClient(fetchImpl: typeof fetch) {
@@ -271,17 +279,17 @@ test('прив’язка йде на identities/authorize з PKCE, поверн
   assert.equal(requests.length, 1)
   const [request] = requests
   assert.equal(
-    `${request?.url.origin}${request?.url.pathname}`,
+    `${request.url.origin}${request.url.pathname}`,
     'https://app.example.com/auth/v1/user/identities/authorize',
   )
-  assert.equal(request?.url.searchParams.get('provider'), 'github')
+  assert.equal(request.url.searchParams.get('provider'), 'github')
   assert.equal(
-    request?.url.searchParams.get('redirect_to'),
+    request.url.searchParams.get('redirect_to'),
     'https://app.example.com/family',
   )
-  assert.equal(request?.url.searchParams.get('skip_http_redirect'), 'true')
-  assert.ok(request?.url.searchParams.get('code_challenge'))
-  assert.equal(request?.auth, 'Bearer header.e30.signature')
+  assert.equal(request.url.searchParams.get('skip_http_redirect'), 'true')
+  assert.ok(request.url.searchParams.get('code_challenge'))
+  assert.equal(request.auth, 'Bearer header.e30.signature')
   assert.equal(takePendingLink(pending), 'github')
   assert.equal(takePendingLink(pending), null)
 })

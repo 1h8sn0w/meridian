@@ -402,7 +402,8 @@ export const en: Messages = {
       signup_disabled: 'Sign-up is disabled on this server.',
       identity_already_exists:
         'This account is already linked to another user. The app cannot merge accounts — sign in with the one it is linked to.',
-      manual_linking_disabled: 'Linking sign-in methods is disabled on this server.',
+      manual_linking_disabled:
+        'Linking sign-in methods is disabled on this server.',
       single_identity_not_deletable:
         'This is the only sign-in method — it cannot be unlinked.',
       email_conflict_identity_not_deletable:
