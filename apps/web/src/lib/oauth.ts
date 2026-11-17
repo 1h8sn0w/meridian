@@ -107,7 +107,7 @@ function addressOf(identity: UserIdentity): string | null {
   return typeof email === 'string' && email !== '' ? email : null
 }
 
-const REDIRECT_ERROR_PARAMS = ['error', 'error_code', 'error_description']
+const REDIRECT_ERROR_PARAMS = ['error', 'error_code', 'error_description', 'sb']
 
 export function withoutRedirectError(href: string): string | null {
   const url = new URL(href)

@@ -173,19 +173,21 @@ test('помилка з адреси повернення бере код GoTrue
 test('помилка повернення зникає з адреси, решта адреси лишається', () => {
   assert.equal(
     withoutRedirectError(
-      'https://app.example.com/family?tab=1&error=access_denied&error_code=identity_already_exists&error_description=Identity+is+already+linked',
+      'https://app.example.com/?error=access_denied&error_code=signup_disabled&error_description=Signups+not+allowed#error=access_denied&error_description=Signups+not+allowed&error_code=signup_disabled&sb=',
+    ),
+    'https://app.example.com/',
+  )
+  assert.equal(
+    withoutRedirectError(
+      'https://app.example.com/family?tab=1&error=server_error&error_code=identity_already_exists',
     ),
     'https://app.example.com/family?tab=1',
   )
   assert.equal(
     withoutRedirectError(
-      'https://app.example.com/?error=server_error&error_description=x#error=server_error&error_code=signup_disabled&state=s',
+      'https://app.example.com/#error_code=bad_oauth_state&state=s',
     ),
     'https://app.example.com/#state=s',
-  )
-  assert.equal(
-    withoutRedirectError('https://app.example.com/#error_code=bad_oauth_state'),
-    'https://app.example.com/',
   )
 })
 
