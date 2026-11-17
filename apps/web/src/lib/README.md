@@ -89,8 +89,8 @@ PKCE: повернення з `?code=` клієнт обмінює сам, як�
   каже `auth.tsx`, що повернення — з прив'язки (`linkReturn`), а не вхід.
   Що не відв'язується — тести `signInMethods`.
 - `redirectFailure` гасне з сесією, `linkReturn` — з переходом на інший шлях
-  (`AppGate`). Не в стані екрана: `SyncProvider` перемонтовує дерево, щойно
-  відкрилась база.
+  (`dismissReturnNotices` в `AppGate`). Не в стані екрана: `SyncProvider`
+  перемонтовує дерево, щойно відкрилась база.
 
 ## messages.ts
 
