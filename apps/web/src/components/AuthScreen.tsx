@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../lib/auth'
+import { useAuth, useRedirectFailure } from '../lib/auth'
 import type { OAuthProvider } from '../lib/oauth'
 import { minutesOf, useNow } from '../lib/use-now'
 import type { Failure } from '../lib/messages'
@@ -20,7 +20,8 @@ import {
 type Mode = 'sign-in' | 'sign-up'
 
 export function AuthScreen() {
-  const { signIn, signUp, signInWith, providers, redirectFailure } = useAuth()
+  const { signIn, signUp, signInWith, providers } = useAuth()
+  const redirectFailure = useRedirectFailure()
   const messages = useMessages()
   const t = messages.auth
   const [mode, setMode] = useState<Mode>('sign-in')

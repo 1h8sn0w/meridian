@@ -14,6 +14,7 @@ import {
   startLink,
   startOAuth,
   takePendingLink,
+  withoutRedirectError,
 } from './oauth.ts'
 import { authFailure } from './messages.ts'
 import { uk } from './i18n/uk.ts'
@@ -167,6 +168,33 @@ test('помилка з адреси повернення бере код GoTrue
     code: 'signup_disabled',
     message: 'Signups not allowed',
   })
+})
+
+test('помилка повернення зникає з адреси, решта адреси лишається', () => {
+  assert.equal(
+    withoutRedirectError(
+      'https://app.example.com/family?tab=1&error=access_denied&error_code=identity_already_exists&error_description=Identity+is+already+linked',
+    ),
+    'https://app.example.com/family?tab=1',
+  )
+  assert.equal(
+    withoutRedirectError(
+      'https://app.example.com/?error=server_error&error_description=x#error=server_error&error_code=signup_disabled&state=s',
+    ),
+    'https://app.example.com/#state=s',
+  )
+  assert.equal(
+    withoutRedirectError('https://app.example.com/#error_code=bad_oauth_state'),
+    'https://app.example.com/',
+  )
+})
+
+test('адреса без помилки повернення не переписується', () => {
+  assert.equal(withoutRedirectError('https://app.example.com/family'), null)
+  assert.equal(
+    withoutRedirectError('https://app.example.com/calendar?day=2026-11-17#top'),
+    null,
+  )
 })
 
 function identity(provider: string, email?: string): UserIdentity {

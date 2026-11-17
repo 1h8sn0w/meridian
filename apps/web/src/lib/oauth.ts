@@ -107,6 +107,24 @@ function addressOf(identity: UserIdentity): string | null {
   return typeof email === 'string' && email !== '' ? email : null
 }
 
+const REDIRECT_ERROR_PARAMS = ['error', 'error_code', 'error_description']
+
+export function withoutRedirectError(href: string): string | null {
+  const url = new URL(href)
+  const hash = new URLSearchParams(url.hash.slice(1))
+  const inSearch = REDIRECT_ERROR_PARAMS.some((key) =>
+    url.searchParams.has(key),
+  )
+  const inHash = REDIRECT_ERROR_PARAMS.some((key) => hash.has(key))
+  if (!inSearch && !inHash) return null
+  for (const key of REDIRECT_ERROR_PARAMS) {
+    if (inSearch) url.searchParams.delete(key)
+    hash.delete(key)
+  }
+  if (inHash) url.hash = hash.toString()
+  return url.toString()
+}
+
 export function redirectError(error: AuthError): {
   code?: string
   message: string
