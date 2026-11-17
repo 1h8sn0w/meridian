@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { familyIdFromToken, getSupabase } from './supabase'
@@ -12,6 +19,7 @@ import {
   startLink,
   startOAuth,
   takePendingLink,
+  withoutRedirectError,
 } from './oauth'
 import type { OAuthProvider } from './oauth'
 
@@ -38,6 +46,7 @@ type AuthValue = {
   providers: Array<OAuthProvider>
   redirectFailure: Failure | null
   linkReturn: LinkReturn | null
+  dismissReturnNotices: () => void
   signIn: (email: string, password: string) => Promise<Outcome<null>>
   signUp: (email: string, password: string) => Promise<Outcome<boolean>>
   signInWith: (provider: OAuthProvider) => Promise<Outcome<null>>
@@ -73,6 +82,10 @@ export function AuthProvider({
   const [providers, setProviders] = useState<Array<OAuthProvider>>([])
   const [redirectFailure, setRedirectFailure] = useState<Failure | null>(null)
   const [linkReturn, setLinkReturn] = useState<LinkReturn | null>(null)
+  const dismissReturnNotices = useCallback(() => {
+    setRedirectFailure(null)
+    setLinkReturn(null)
+  }, [])
 
   const familyId = familyIdFromToken(session?.access_token)
   const [shownFamilyId, setShownFamilyId] = useState(familyId)
@@ -89,8 +102,12 @@ export function AuthProvider({
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
       setResolved(true)
+      if (next) setRedirectFailure(null)
     })
     void supabase.auth.initialize().then(({ error }) => {
+      const cleaned = withoutRedirectError(window.location.href)
+      if (cleaned)
+        window.history.replaceState(window.history.state, '', cleaned)
       const failure = error ? authFailure(redirectError(error)) : null
       const provider = takePendingLink(window.sessionStorage)
       if (provider) setLinkReturn({ provider, failure })
@@ -179,6 +196,7 @@ export function AuthProvider({
       providers,
       redirectFailure,
       linkReturn,
+      dismissReturnNotices,
       supabase: configured && resolved ? getSupabase(env) : null,
 
       signIn: async (email, password) => {
@@ -266,6 +284,7 @@ export function AuthProvider({
     }
   }, [
     configured,
+    dismissReturnNotices,
     env,
     family,
     familyId,

@@ -6,9 +6,9 @@
 
 - **Каркас:** `AppGate` (стан входу → екран чи маршрути; такт нагадувань і
   автозасів), `AppShell` (шапка, колонка `max-w-screen-sm`, док вкладок),
-  `RequireLocalDb` (екран лише поверх відкритої бази), `ui` (UI-кіт;
+  `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт;
   `ButtonLink` — `Link` з виглядом `Button`).
-- **Екрани:** `AuthScreen` (вхід типово, реєстрація, провайдери), `FamilySetupScreen` (нова
+- **Екрани:** `AuthScreen` (вхід, реєстрація, OAuth), `FamilySetupScreen` (нова
   сім'я чи вступ за кодом), `FamilyScreen` (склад, запрошення, мова,
   синхронізація, імпорт V1, `SignInMethods`, вихід), `TodayScreen` (годинник і страва
   поточного чи наступного прийому), `WeekScreen` (генерація й перегляд, вхід у
@@ -27,7 +27,7 @@
   `ProfileSwitcher` (активний профіль — стан пристрою), `MealHours` і
   `AntiRepeat` (вікна прийомів, антиповтор), `Reminders` (`MealReminders` —
   такт, `RemindersPanel`), `StarterSet` (`StarterSeed` — автозасів,
-  `StarterOffer` — кнопка), `SyncPanel` (синхронізація й черга).
+  `StarterOffer` — кнопка), `SyncPanel` (стан і черга).
 
 ## Дизайн «Сонячна дуга»
 
