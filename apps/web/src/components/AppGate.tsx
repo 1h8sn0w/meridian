@@ -1,4 +1,5 @@
-import { Outlet } from '@tanstack/react-router'
+import { useEffect, useRef } from 'react'
+import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAuth } from '../lib/auth'
 import { AuthScreen } from './AuthScreen'
 import { FamilySetupScreen } from './FamilySetupScreen'
@@ -9,8 +10,16 @@ import { RichText } from '../lib/i18n/rich-text'
 import { useMessages } from '../lib/i18n/use-messages'
 
 export function AppGate() {
-  const { status } = useAuth()
+  const { status, dismissReturnNotices } = useAuth()
   const t = useMessages()
+  const path = useLocation({ select: (location) => location.pathname })
+  const shownPath = useRef(path)
+
+  useEffect(() => {
+    if (shownPath.current === path) return
+    shownPath.current = path
+    dismissReturnNotices()
+  }, [path, dismissReturnNotices])
 
   switch (status) {
     case 'not-configured':

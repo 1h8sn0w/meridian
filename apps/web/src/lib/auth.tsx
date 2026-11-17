@@ -46,8 +46,7 @@ type AuthValue = {
   providers: Array<OAuthProvider>
   redirectFailure: Failure | null
   linkReturn: LinkReturn | null
-  dismissRedirectFailure: () => void
-  dismissLinkReturn: () => void
+  dismissReturnNotices: () => void
   signIn: (email: string, password: string) => Promise<Outcome<null>>
   signUp: (email: string, password: string) => Promise<Outcome<boolean>>
   signInWith: (provider: OAuthProvider) => Promise<Outcome<null>>
@@ -67,25 +66,6 @@ export function useAuth(): AuthValue {
   return value
 }
 
-export function useRedirectFailure(): Failure | null {
-  const { redirectFailure, dismissRedirectFailure } = useAuth()
-  return useShownOnce(redirectFailure, dismissRedirectFailure)
-}
-
-export function useLinkReturn(): LinkReturn | null {
-  const { linkReturn, dismissLinkReturn } = useAuth()
-  return useShownOnce(linkReturn, dismissLinkReturn)
-}
-
-function useShownOnce<T>(notice: T | null, dismiss: () => void): T | null {
-  const [shown, setShown] = useState(notice)
-  if (notice !== null && notice !== shown) setShown(notice)
-  useEffect(() => {
-    if (notice !== null) dismiss()
-  }, [notice, dismiss])
-  return shown
-}
-
 export function AuthProvider({
   env,
   children,
@@ -102,8 +82,10 @@ export function AuthProvider({
   const [providers, setProviders] = useState<Array<OAuthProvider>>([])
   const [redirectFailure, setRedirectFailure] = useState<Failure | null>(null)
   const [linkReturn, setLinkReturn] = useState<LinkReturn | null>(null)
-  const dismissRedirectFailure = useCallback(() => setRedirectFailure(null), [])
-  const dismissLinkReturn = useCallback(() => setLinkReturn(null), [])
+  const dismissReturnNotices = useCallback(() => {
+    setRedirectFailure(null)
+    setLinkReturn(null)
+  }, [])
 
   const familyId = familyIdFromToken(session?.access_token)
   const [shownFamilyId, setShownFamilyId] = useState(familyId)
@@ -120,6 +102,7 @@ export function AuthProvider({
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
       setResolved(true)
+      if (next) setRedirectFailure(null)
     })
     void supabase.auth.initialize().then(({ error }) => {
       const cleaned = withoutRedirectError(window.location.href)
@@ -213,8 +196,7 @@ export function AuthProvider({
       providers,
       redirectFailure,
       linkReturn,
-      dismissRedirectFailure,
-      dismissLinkReturn,
+      dismissReturnNotices,
       supabase: configured && resolved ? getSupabase(env) : null,
 
       signIn: async (email, password) => {
@@ -302,8 +284,7 @@ export function AuthProvider({
     }
   }, [
     configured,
-    dismissLinkReturn,
-    dismissRedirectFailure,
+    dismissReturnNotices,
     env,
     family,
     familyId,

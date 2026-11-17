@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import type { UserIdentity } from '@supabase/supabase-js'
-import { useAuth, useLinkReturn } from '../lib/auth'
+import { useAuth } from '../lib/auth'
 import { authFailure } from '../lib/messages'
 import type { Failure } from '../lib/messages'
 import { signInMethods } from '../lib/oauth'
@@ -25,8 +25,7 @@ export const PROVIDER_LOOK: Record<
 }
 
 export function SignInMethodsPanel() {
-  const { supabase, providers, linkWith } = useAuth()
-  const linkReturn = useLinkReturn()
+  const { supabase, providers, linkReturn, linkWith } = useAuth()
   const messages = useMessages()
   const t = messages.family
   const [identities, setIdentities] = useState<Array<UserIdentity> | null>(null)

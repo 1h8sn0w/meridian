@@ -82,15 +82,15 @@ PKCE: повернення з `?code=` клієнт обмінює сам, як�
 - Кнопки — лише для `true` у `external` з `/auth/v1/settings`; збій запиту —
   екран як без OAuth. Помилку повернення (`?error_code=`) віддає
   `initialize()`, `redirectError` бере код із `details` для `authFailure`.
-  З адреси (query, fragment, `sb`) її прибирає `withoutRedirectError`:
-  supabase-js чистить лише `code`.
+  `withoutRedirectError` прибирає її з адреси (supabase-js чистить лише
+  `code`).
 - Пошти може не бути (Discord без `email`): `auth.tsx` пише `''` як `null`.
 - Прив'язка (`startLink`) вертає на `/family`; позначка в `sessionStorage`
   каже `auth.tsx`, що повернення — з прив'язки (`linkReturn`), а не вхід.
-- Повідомлення повернення екран бере через `useRedirectFailure` /
-  `useLinkReturn`: тримає, поки відкритий; після виходу чи повернення на
-  екран воно не воскресає.
   Що не відв'язується — тести `signInMethods`.
+- `redirectFailure` гасне з сесією, `linkReturn` — з переходом на інший шлях
+  (`AppGate`). Не в стані екрана: `SyncProvider` перемонтовує дерево, щойно
+  відкрилась база.
 
 ## messages.ts
 
