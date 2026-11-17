@@ -12,6 +12,7 @@ import {
   addShoppingExtra,
   clearStaleChecks,
   insertMeal,
+  removeBoughtShoppingExtras,
   removeShoppingExtra,
   saveWeek,
   setShoppingExtraChecked,
@@ -346,4 +347,22 @@ test('прибраний свій пункт м’яко видаляється,
   const [row] = rows()
   assert.notEqual(row.deleted_at, null)
   assert.equal(row.checked, 1)
+})
+
+test('прибирання купленого м’яко видаляє лише куплені живі свої пункти', async () => {
+  const { db, rows } = extrasDb()
+  for (const name of ['Вода', 'Хліб', 'Серветки']) {
+    await addShoppingExtra(db, 'family-1', name)
+  }
+  const byName = () => new Map(rows().map((row) => [row.name, row]))
+  await setShoppingExtraChecked(db, byName().get('Вода')!.id, true)
+  await setShoppingExtraChecked(db, byName().get('Серветки')!.id, true)
+  await removeShoppingExtra(db, byName().get('Серветки')!.id)
+  const removedEarlier = byName().get('Серветки')!.deleted_at
+  await new Promise((resolve) => setTimeout(resolve, 5))
+  await removeBoughtShoppingExtras(db)
+  const after = byName()
+  assert.notEqual(after.get('Вода')!.deleted_at, null)
+  assert.equal(after.get('Хліб')!.deleted_at, null)
+  assert.equal(after.get('Серветки')!.deleted_at, removedEarlier)
 })

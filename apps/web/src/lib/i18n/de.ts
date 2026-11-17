@@ -749,6 +749,7 @@ export const de: Messages = {
     extraPlaceholder: 'Zum Beispiel Servietten',
     extraAdd: 'Hinzufügen',
     extraRemove: (name) => 'Entfernen: „' + name + '“',
+    extraClearBought: (n) => 'Gekaufte eigene entfernen (' + n + ')',
   },
   recipe: {
     readingMeals: 'Gerichte-Pool wird gelesen…',

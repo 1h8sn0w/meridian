@@ -29,6 +29,7 @@ import type { AppProfile, DayView, ShoppingExtra } from '../lib/data/model'
 import {
   addShoppingExtra,
   clearStaleChecks,
+  removeBoughtShoppingExtras,
   removeShoppingExtra,
   setShoppingCheck,
   setShoppingExtraChecked,
@@ -57,7 +58,14 @@ import {
   SectionLabel,
   Warn,
 } from './ui'
-import { CaretDown, Check, Plus, ShareNetwork, X } from '@phosphor-icons/react'
+import {
+  Broom,
+  CaretDown,
+  Check,
+  Plus,
+  ShareNetwork,
+  X,
+} from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -307,6 +315,17 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                   <section>
                     <SectionLabel>{t.extra}</SectionLabel>
                     <ExtraRows extras={extrasBought} {...extraActions} />
+                    <div className="mt-3">
+                      <Button
+                        block
+                        onClick={() =>
+                          void write(() => removeBoughtShoppingExtras(db))
+                        }
+                      >
+                        <Broom aria-hidden size={18} />
+                        {t.extraClearBought(extrasBought.length)}
+                      </Button>
+                    </div>
                   </section>
                 ) : null}
               </details>

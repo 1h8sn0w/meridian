@@ -745,6 +745,7 @@ export const uk = {
     extraPlaceholder: 'Наприклад, серветки',
     extraAdd: 'Додати',
     extraRemove: (name: string) => 'Прибрати «' + name + '»',
+    extraClearBought: (n: number) => 'Прибрати куплене своє (' + n + ')',
   },
   recipe: {
     readingMeals: 'Читаємо пул страв…',
