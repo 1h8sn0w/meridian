@@ -101,11 +101,11 @@ Everything worth keeping lives in Docker volumes: `db-data` (the database), `sec
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose stop
-docker run --rm $VOLS -v "$PWD/..":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
+docker run --rm $VOLS -v "$PWD/..":/backup alpine sh -c 'umask 077 && tar czf /backup/meridian-backup.tgz -C /v .'
 docker compose up -d
 ```
 
-Restore on a clean host (a clone of the repository and the same `.env`) or after `docker compose down -v`:
+Restore on a clean host (a clone of the repository, the same `.env` and the `STARTER_SET_FILE` file, if set) or after `docker compose down -v`:
 
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
@@ -152,7 +152,7 @@ and `docker compose up -d auth`. The "Continue with …" button appears on the s
 For your own server:
 
 - **Close sign-up** as soon as the whole family has accounts: `GOTRUE_DISABLE_SIGNUP=true` in `.env` and `docker compose up -d auth`. Otherwise anyone who knows the address can sign up. How to check it and how to add a family member later — [`infra/README.md`](infra/README.md).
-- **Rate-limit requests** to `/auth/v1/` at the proxy or tunnel in front of the stack (rate limiting rules, fail2ban) to make password guessing harder.
+- **Rate-limit requests** to `/auth/v1/` if there is a proxy or tunnel in front of the stack (rate limiting rules), to make password guessing harder.
 - Only Caddy is published: don't expose the Postgres port.
 - Update regularly, and keep backup archives encrypted: they contain the stack's keys.
 
@@ -172,7 +172,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm format:check && pnpm build
 
 ## Documentation
 
-Each folder explains its decisions in its own `README.md` (in Ukrainian): [`infra`](infra/README.md) — self-hosting and secrets ([`DECISIONS.md`](infra/DECISIONS.md) — stack decisions), [`packages/core`](packages/core/README.md) — the generator and the starter set format, [`packages/db`](packages/db/README.md) — tables and RLS, [`apps/web`](apps/web/README.md) — the app and PWA. Terms are in [`GLOSSARY.md`](GLOSSARY.md), the map for AI agents in [`AGENTS.md`](AGENTS.md). Tasks and architecture decisions live in Linear.
+Each folder explains its decisions in its own `README.md` (in Ukrainian): [`infra`](infra/README.md) — self-hosting and secrets ([`DECISIONS.md`](infra/DECISIONS.md) — stack decisions), [`packages/core`](packages/core/README.md) — the generator and the starter set format, [`packages/db`](packages/db/README.md) — tables and RLS, [`apps/web`](apps/web/README.md) — the app and PWA, [`tools`](tools/README.md) — migrating data from V1. Terms are in [`GLOSSARY.md`](GLOSSARY.md), the map for AI agents in [`AGENTS.md`](AGENTS.md). Tasks and architecture decisions live in Linear.
 
 ## License
 

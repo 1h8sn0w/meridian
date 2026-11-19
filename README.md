@@ -101,11 +101,11 @@ docker compose up -d --build
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose stop
-docker run --rm $VOLS -v "$PWD/..":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
+docker run --rm $VOLS -v "$PWD/..":/backup alpine sh -c 'umask 077 && tar czf /backup/meridian-backup.tgz -C /v .'
 docker compose up -d
 ```
 
-Відновлення — на чистому хості (клон репозиторію і той самий `.env`) або після `docker compose down -v`:
+Відновлення — на чистому хості (клон репозиторію, той самий `.env` і файл `STARTER_SET_FILE`, якщо його задано) або після `docker compose down -v`:
 
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
@@ -152,7 +152,7 @@ GOTRUE_EXTERNAL_GITHUB_SECRET=<Client secret>
 Для власного сервера:
 
 - **Закрийте реєстрацію**, щойно заведете акаунти всієї сім'ї: `GOTRUE_DISABLE_SIGNUP=true` у `.env` і `docker compose up -d auth`. Інакше зареєструватися може будь-хто, хто знає адресу. Як перевірити й як потім додати нового члена сім'ї — в [`infra/README.md`](infra/README.md).
-- **Обмежте частоту запитів** до `/auth/v1/` на проксі чи тунелі перед стеком (правила rate limiting, fail2ban), щоб ускладнити перебір паролів.
+- **Обмежте частоту запитів** до `/auth/v1/`, якщо перед стеком є проксі чи тунель (правила rate limiting), щоб ускладнити перебір паролів.
 - Назовні публікується лише Caddy: не відкривайте порт Postgres.
 - Оновлюйтеся регулярно, а архів бекапу зберігайте зашифрованим: у ньому ключі стека.
 
@@ -172,7 +172,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm format:check && pnpm build
 
 ## Документація
 
-Кожна тека пояснює свої рішення у власному `README.md`: [`infra`](infra/README.md) — self-host і секрети ([`DECISIONS.md`](infra/DECISIONS.md) — рішення стека), [`packages/core`](packages/core/README.md) — генератор і формат стартового набору, [`packages/db`](packages/db/README.md) — таблиці й RLS, [`apps/web`](apps/web/README.md) — застосунок і PWA. Терміни — у [`GLOSSARY.md`](GLOSSARY.md), карта для AI-агентів — у [`AGENTS.md`](AGENTS.md). Задачі й архітектурні рішення живуть у Linear.
+Кожна тека пояснює свої рішення у власному `README.md`: [`infra`](infra/README.md) — self-host і секрети ([`DECISIONS.md`](infra/DECISIONS.md) — рішення стека), [`packages/core`](packages/core/README.md) — генератор і формат стартового набору, [`packages/db`](packages/db/README.md) — таблиці й RLS, [`apps/web`](apps/web/README.md) — застосунок і PWA, [`tools`](tools/README.md) — перенесення даних із V1. Терміни — у [`GLOSSARY.md`](GLOSSARY.md), карта для AI-агентів — у [`AGENTS.md`](AGENTS.md). Задачі й архітектурні рішення живуть у Linear.
 
 ## Ліцензія
 
