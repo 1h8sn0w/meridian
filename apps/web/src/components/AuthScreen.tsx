@@ -5,7 +5,6 @@ import { minutesOf, useNow } from '../lib/use-now'
 import type { Failure } from '../lib/messages'
 import { useMessages } from '../lib/i18n/use-messages'
 import { DayClock } from './DayClock'
-import { PROVIDER_LOOK } from './SignInMethods'
 import {
   AuthShell,
   Button,
@@ -14,6 +13,7 @@ import {
   Hint,
   InfoText,
   LinkButton,
+  PROVIDER_LOOK,
   Panel,
 } from './ui'
 

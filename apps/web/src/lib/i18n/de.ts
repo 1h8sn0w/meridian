@@ -289,6 +289,8 @@ export const de: Messages = {
     linkedNoEmail: 'verknüpft, ohne E-Mail',
     link: 'Verknüpfen',
     unlink: 'Trennen',
+    linkLabel: (provider: string) => provider + ' verknüpfen',
+    unlinkLabel: (provider: string) => provider + ' trennen',
     lastMethod:
       'Die letzte Anmeldemethode lässt sich nicht trennen — verknüpfe zuerst eine andere.',
     linked: (provider: string) =>

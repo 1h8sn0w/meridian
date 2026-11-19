@@ -271,6 +271,8 @@ export const en: Messages = {
     linkedNoEmail: 'linked, no email',
     link: 'Link',
     unlink: 'Unlink',
+    linkLabel: (provider: string) => 'Link ' + provider,
+    unlinkLabel: (provider: string) => 'Unlink ' + provider,
     lastMethod:
       'The last sign-in method cannot be unlinked — link another one first.',
     linked: (provider: string) =>

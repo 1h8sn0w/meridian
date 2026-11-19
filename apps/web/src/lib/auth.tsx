@@ -99,10 +99,11 @@ export function AuthProvider({
   useEffect(() => {
     if (!configured) return
     const supabase = getSupabase(env)
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next)
       setResolved(true)
       if (next) setRedirectFailure(null)
+      if (event === 'SIGNED_OUT') setLinkReturn(null)
     })
     void supabase.auth.initialize().then(({ error }) => {
       const cleaned = withoutRedirectError(window.location.href)

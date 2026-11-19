@@ -287,6 +287,8 @@ export const pl: Messages = {
     linkedNoEmail: 'powiązano, bez e-maila',
     link: 'Powiąż',
     unlink: 'Odłącz',
+    linkLabel: (provider: string) => 'Powiąż ' + provider,
+    unlinkLabel: (provider: string) => 'Odłącz ' + provider,
     lastMethod:
       'Ostatniego sposobu logowania nie można odłączyć — najpierw powiąż inny.',
     linked: (provider: string) =>
