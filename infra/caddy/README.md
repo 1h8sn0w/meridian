@@ -82,8 +82,8 @@ compose монтує `infra/caddy`. Стадія `build` спершу копію
   (`nobadger,nomysql,nopgx` з `.goreleaser.yml` Caddy), статично
   (`CGO_ENABLED=0`: C-компілятора в `golang:alpine` немає), і піднімає модулі,
   яких бракує в go.mod релізу. Підняті — лише ті, без яких скан червоний
-  (на v2.11.9 — `x/net` 0.62.0 і `klauspost/compress` 1.20.2,
-  CVE-2026-116591, MER-138), точною версією й тим самим `go get`, що й
+  (на v2.11.9 — `x/net` 0.62.0, `klauspost/compress` 1.20.2,
+  CVE-2026-116591, MER-138, і `smallstep/certificates`, нижче), точною версією й тим самим `go get`, що й
   Caddy: якщо новий реліз вимагає вищої версії, `go get`
   падає («requires …, not …»), а не понижує мовчки. Не `@latest`: у
   `golang:alpine` `GOTOOLCHAIN=local`, і щойно модуль вимагатиме новішого Go,
@@ -91,13 +91,17 @@ compose монтує `infra/caddy`. Стадія `build` спершу копію
   те, що згенерував би xcaddy без плагінів: `caddycmd.Main()` і імпорт
   `modules/standard`, без якого бінарник не знає `file_server`,
   `reverse_proxy` і `templates`. Свого коду там бути не повинно.
-- **Без виправлення в апстрімі — `go-jose/v3` (MER-140).** CVE-2026-116587
-  (High, DoS на розборі JWK з RSA-ключем) у v3 не виправлено, а v3 тягне
-  `caddypki` (`smallstep/certificates` v0.30.2 → `go.step.sm/crypto/jose`
-  v0.91.1), на якому стоїть `tls internal`. Чужий JWK наш Caddyfile не
-  розбирає (немає `acme_server`), але скан червоний, доки smallstep не перейде
-  на v4 (`go mod why -m github.com/go-jose/go-jose/v3`). Чекати чи приймати
-  ризик у скані — рішення власника в MER-140.
+- **`smallstep/certificates` — коміт master, а не реліз (MER-167).**
+  CVE-2026-116587 (High) у `go-jose/v3` не виправлено ніколи, а v3 тягнув
+  `caddypki` (`certificates` v0.30.2 → `go.step.sm/crypto/jose` v0.91.1).
+  Прибрати `caddypki` не можна: на ньому внутрішній центр, що видає сертифікат
+  для `https://<IP>`. `go.step.sm/crypto` v0.92.0 перейшов на `go-jose/v4`, а
+  `certificates` — лише в master (smallstep/certificates#2848, 2026-11-05),
+  без релізу, тому в `go get` псевдоверсія коміту master. Вийде реліз
+  `certificates` новіший за цей коміт — поставити його тег. Перевірка, що v3
+  не повернувся: `go mod why -m github.com/go-jose/go-jose/v3` у
+  `caddy-build` — «main module does not need». Винятків у скані немає й не
+  буде (рішення власника в MER-140).
 - **Рантайм без офіційного образу Caddy.** Доки рантайм був `FROM
   caddy:2-alpine` із підміною `/usr/bin/caddy`, старий бінарник лишався в
   нижньому шарі, і Scout знаходив його CVE (MER-87). Тепер база — `alpine` тієї
