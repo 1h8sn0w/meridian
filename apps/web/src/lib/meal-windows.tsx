@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useSyncState } from './powersync/provider'
 import { useMealHours } from './data/queries'
@@ -15,11 +15,13 @@ type MealWindowsValue = {
   problems: ReadonlyArray<string>
 }
 
-const MealWindowsContext = createContext<MealWindowsValue>({
+const DEFAULT_VALUE: MealWindowsValue = {
   hours: null,
   windows: DEFAULT_MEAL_WINDOWS,
   problems: [],
-})
+}
+
+const MealWindowsContext = createContext<MealWindowsValue>(DEFAULT_VALUE)
 
 export function useMealWindows(): MealWindowsValue {
   return useContext(MealWindowsContext)
@@ -27,22 +29,28 @@ export function useMealWindows(): MealWindowsValue {
 
 export function MealWindowsProvider({ children }: { children: ReactNode }) {
   const { db } = useSyncState()
-  return db ? <StoredMealWindows>{children}</StoredMealWindows> : children
-}
-
-function StoredMealWindows({ children }: { children: ReactNode }) {
-  const read = useMealHours()
-  const value = useMemo(
-    () => ({
-      hours: read.data,
-      windows: mealWindows(read.data ?? DEFAULT_MEAL_HOURS),
-      problems: read.problems,
-    }),
-    [read],
-  )
+  const [stored, setStored] = useState(DEFAULT_VALUE)
   return (
-    <MealWindowsContext.Provider value={value}>
+    <MealWindowsContext.Provider value={stored}>
+      {db ? <StoredMealHours onRead={setStored} /> : null}
       {children}
     </MealWindowsContext.Provider>
   )
+}
+
+function StoredMealHours({
+  onRead,
+}: {
+  onRead: (value: MealWindowsValue) => void
+}) {
+  const read = useMealHours()
+  useEffect(() => {
+    onRead({
+      hours: read.data,
+      windows: mealWindows(read.data ?? DEFAULT_MEAL_HOURS),
+      problems: read.problems,
+    })
+  }, [read, onRead])
+  useEffect(() => () => onRead(DEFAULT_VALUE), [onRead])
+  return null
 }
