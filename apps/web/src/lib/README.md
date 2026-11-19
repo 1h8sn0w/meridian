@@ -71,7 +71,7 @@
 ## supabase.ts
 
 Один клієнт на вкладку: другий незалежно оновлював би той самий
-refresh-токен. Сесія — у `localStorage` (типово для supabase-js);
+refresh-токен. Сесія — у `localStorage`;
 PKCE: повернення з `?code=` клієнт обмінює сам, якщо в сховищі є
 верифікатор, тож чужий `code` в адресі не чіпає.
 `familyIdFromToken` читає claim без перевірки підпису: це підказка
@@ -89,8 +89,7 @@ PKCE: повернення з `?code=` клієнт обмінює сам, як�
   каже `auth.tsx`, що повернення — з прив'язки (`linkReturn`), а не вхід.
   Що не відв'язується — тести `signInMethods`.
 - `redirectFailure` гасне з сесією, `linkReturn` — з переходом на інший шлях
-  (`dismissReturnNotices` в `AppGate`). Не в стані екрана: `SyncProvider`
-  перемонтовує дерево, щойно відкрилась база.
+  (`dismissReturnNotices` в `AppGate`).
 
 ## messages.ts
 
@@ -161,8 +160,9 @@ PKCE: повернення з `?code=` клієнт обмінює сам, як�
   `mealHoursFromRow` відкидає битий рядок (тоді діють стандартні вікна, а
   екран показує попередження). Ті самі межі тримають CHECK-и бази.
 - `MealWindow` не має підпису: назва прийому — `common.mealType` словника.
-- **`useMealWindows` працює й без бази**: поза `MealWindowsProvider` або до
-  відкриття локальної бази (екран входу) — стандартні вікна.
+- **`useMealWindows` працює й без бази**: поза провайдером чи до відкриття
+  бази (екран входу) — стандартні вікна. Базу читає сусід `StoredMealHours`,
+  а не обгортка `children` (чому — `SyncProvider` у `powersync`).
 
 ## reminders.ts
 

@@ -151,13 +151,9 @@ export function SyncProvider({
         dismissRejected,
       }}
     >
-      {db ? (
-        <PowerSyncContext.Provider value={db}>
-          {children}
-        </PowerSyncContext.Provider>
-      ) : (
-        children
-      )}
+      <PowerSyncContext.Provider value={db as PowerSyncDatabase}>
+        {children}
+      </PowerSyncContext.Provider>
     </SyncStateContext.Provider>
   )
 }
