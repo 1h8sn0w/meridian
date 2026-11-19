@@ -10,8 +10,16 @@ import type {
   TextareaHTMLAttributes,
 } from 'react'
 import { createLink } from '@tanstack/react-router'
-import { WarningCircle, X } from '@phosphor-icons/react'
+import {
+  DiscordLogo,
+  GithubLogo,
+  GoogleLogo,
+  WarningCircle,
+  X,
+} from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
+import type { OAuthProvider } from '../lib/oauth'
 import { useMessages } from '../lib/i18n/use-messages'
 
 export function ScreenHeader({
@@ -390,4 +398,13 @@ export function Sheet({
       </div>
     </dialog>
   )
+}
+
+export const PROVIDER_LOOK: Record<
+  OAuthProvider,
+  { name: string; icon: Icon }
+> = {
+  google: { name: 'Google', icon: GoogleLogo },
+  discord: { name: 'Discord', icon: DiscordLogo },
+  github: { name: 'GitHub', icon: GithubLogo },
 }

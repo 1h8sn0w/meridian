@@ -1,11 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import {
-  DiscordLogo,
-  EnvelopeSimple,
-  GithubLogo,
-  GoogleLogo,
-} from '@phosphor-icons/react'
-import type { Icon } from '@phosphor-icons/react'
+import { EnvelopeSimple } from '@phosphor-icons/react'
 import type { UserIdentity } from '@supabase/supabase-js'
 import { useAuth } from '../lib/auth'
 import { authFailure } from '../lib/messages'
@@ -13,16 +7,15 @@ import type { Failure } from '../lib/messages'
 import { signInMethods } from '../lib/oauth'
 import type { OAuthProvider, SignInMethod } from '../lib/oauth'
 import { useMessages } from '../lib/i18n/use-messages'
-import { Button, ErrorText, Hint, InfoText, Meta, Panel } from './ui'
-
-export const PROVIDER_LOOK: Record<
-  OAuthProvider,
-  { name: string; icon: Icon }
-> = {
-  google: { name: 'Google', icon: GoogleLogo },
-  discord: { name: 'Discord', icon: DiscordLogo },
-  github: { name: 'GitHub', icon: GithubLogo },
-}
+import {
+  Button,
+  ErrorText,
+  Hint,
+  InfoText,
+  Meta,
+  PROVIDER_LOOK,
+  Panel,
+} from './ui'
 
 export function SignInMethodsPanel() {
   const { supabase, providers, linkReturn, linkWith } = useAuth()
@@ -141,12 +134,17 @@ function MethodRow({
         </span>
       </span>
       {method.kind === 'available' ? (
-        <Button disabled={busy} onClick={() => onLink(method.provider)}>
+        <Button
+          disabled={busy}
+          aria-label={t.linkLabel(name)}
+          onClick={() => onLink(method.provider)}
+        >
           {t.link}
         </Button>
       ) : method.unlink === 'never' ? null : (
         <Button
           disabled={busy || method.unlink === 'last-method'}
+          aria-label={t.unlinkLabel(name)}
           aria-describedby={
             method.unlink === 'last-method' ? lastMethodId : undefined
           }

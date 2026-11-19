@@ -289,6 +289,8 @@ export const uk = {
     linkedNoEmail: 'прив’язано, без пошти',
     link: 'Прив’язати',
     unlink: 'Відв’язати',
+    linkLabel: (provider: string) => 'Прив’язати ' + provider,
+    unlinkLabel: (provider: string) => 'Відв’язати ' + provider,
     lastMethod:
       'Останній спосіб входу не відв’язується — спершу прив’яжіть інший.',
     linked: (provider: string) =>
