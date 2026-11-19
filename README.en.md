@@ -2,14 +2,14 @@
 
 # Meridian
 
-**A meal planner that assembles your week from your dietitian's approved plans.**
+**A family meal planner that assembles your week from your dietitian's plans.**
 
 [![CI](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/1h8sn0w/meridian/actions/workflows/ci.yml)
-![V2](https://img.shields.io/badge/V2-local--first%20·%20PWA-4f9dff)
+![PWA](https://img.shields.io/badge/PWA-local--first-4f9dff)
 ![languages](https://img.shields.io/badge/languages-uk%20·%20en%20·%20pl%20·%20de-f5a524)
 ![license](https://img.shields.io/badge/license-MIT-46c98b)
 
-<img src="docs/screens/today.webp" width="320" alt="Today screen: day clock, the current meal window and its dish with calories, macros and ingredients">
+<img src="docs/screens/today.webp" width="300" alt="Today screen: day clock with meal windows and the current meal with its calories">
 
 [Українською](README.md)
 
@@ -17,104 +17,159 @@
 
 ---
 
-Meridian turns a dietitian's PDF meal plans into a working app. It splits them into individual meals and assembles a new week on its own — keeping the dietitian's calorie targets and meal structure, but mixing dishes across several plans so the rotation doesn't get stale. The home screen answers one question: what to eat right now.
+A dietitian hands you several meal plans as PDFs. Meridian splits them into individual meals and assembles a new week on its own: it keeps the plan's calories and structure but mixes meals across several plans, so the rotation doesn't get stale. The home screen answers one question: what to eat right now.
 
-Unlike general-purpose meal planners, it never invents food. Every meal comes from a plan your dietitian approved.
+For families who eat by a dietitian's plan and want variety without counting. The app never invents food: every meal comes from a plan, a PDF import or your own manual entry.
+
+## Features
+
+- **A week in one tap.** The generator picks a meal for every slot so the day stays inside the profile's target corridor (±100 kcal by default), meals don't repeat more often than the anti-repeat rule allows, and the week draws on several plans.
+- **Today.** A day clock with meal windows, the current meal with macros and ingredients, reminders before each meal. The calendar shows the plan and macros for any day.
+- **Meals and recipes.** A shared meal pool: search, "favourite" and "dislike", manual entry, import from a PDF plan, a starter set provided by the server admin. Estimated calories are marked "≈".
+- **Shopping list** for the week, grouped by store section; "bought" marks are shared across the family.
+- **Family.** Shared plan, pool and shopping; each profile has its own calorie target and portion; new members join with an invite code.
+- **Local-first PWA.** Installs from the browser, works offline and syncs the family's devices.
+- **Interface** in Ukrainian, English, Polish and German. **Sign-in** with email and password or with Google, Discord, GitHub.
 
 <div align="center">
 
-<img src="docs/screens/week.webp" width="240" alt="Week screen: plan days with calories per meal and per day">
-<img src="docs/screens/recipe.webp" width="240" alt="Recipe screen: macros, ingredients, serving size and cooking steps">
-<img src="docs/screens/shopping.webp" width="240" alt="Shopping screen: the week's list grouped by aisle">
+<img src="docs/screens/week.webp" width="200" alt="Week screen: plan days with calories per meal and per day">
+<img src="docs/screens/meals.webp" width="200" alt="Meals screen: the meal pool with type filters, search and PDF import">
+<img src="docs/screens/recipe.webp" width="200" alt="Recipe screen: calories, time, macros, ingredients and steps">
+<img src="docs/screens/shopping.webp" width="200" alt="The week's shopping list, grouped by store section">
 
 Screenshots come from a test account with made-up meals; the UI is shown in Ukrainian.
 
 </div>
 
-## How the generator works
+## Where to try it
 
-For each slot it picks a meal so that the type matches, the day's calories stay inside a corridor around the target (±100 kcal by default), no dish repeats too often, and the week draws on several source plans rather than copying one. It's a constraint satisfaction problem, solved greedily with randomness and bounded backtracking. No ML involved.
+For now Meridian is self-hosted: your own server comes up with one command (below). A hosted version will follow; its address is **TODO: the domain hasn't been bought yet**.
 
-It lives in [`packages/core`](packages/core) as framework-free TypeScript with no storage of its own, and its tests re-run the hard cases across several PRNG seeds — otherwise "greedy with randomness" could pass by luck.
+## Self-host
 
-## Run it
+### Requirements
+
+- Docker with the Compose v2 plugin (`docker compose`). Tested on Docker 27 and Compose 5.6.
+- Memory: the running stack takes about 0.5 GB of RAM. Disk: a few GB for images (Postgres alone is 1.2 GB).
+- Free ports 80 and 443, or your own via `HTTP_PORT`/`HTTPS_PORT`.
+- HTTPS for any address other than `localhost`: without a secure context the browser won't let the app open its local database. For internet access, a domain pointing at this host.
+
+### First run
 
 ```sh
 git clone https://github.com/1h8sn0w/meridian.git
 cd meridian
-docker compose up
+docker compose up -d
 ```
 
-That is the entire installation. Nothing to fill in, no keys to copy, no ports or addresses to reconcile: the stack generates its own secrets, applies its own migrations, and the services find each other by name inside the Compose network. The first run takes a few minutes because the app image is built; after that, seconds. Then open <http://localhost>, sign up, and create a family.
+The first run takes a few minutes while the app image builds. The stack generates its own secrets (Postgres password, `JWT_SECRET`, anon key), keeps them in its own volume and applies the database schema itself. In `docker compose ps`, `init` and `migrate` show `Exited (0)` — that's expected.
 
-Caddy is the only thing published outside — one origin serves the app, auth, the REST endpoint and sync on separate paths, so the browser never sees a port or a second hostname. To reach the stack from the internet, one variable in `.env` next to `compose.yaml`:
+Then open <http://localhost>, sign up, create a family and a profile, add meals (by hand, from a PDF or the starter set) and press "Generate the week" on the Week screen.
+
+### Environment variables
+
+You only need `.env` to change something: `cp .env.example .env`. Every variable is explained there. After a change, run `docker compose up -d`. `.env` holds no secrets.
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `APP_URL` | `http://localhost` | The app's address. `https://` with a domain turns on a Let's Encrypt certificate |
+| `HTTP_PORT`, `HTTPS_PORT` | `80`, `443` | Host ports; the port in `APP_URL` must match one of them |
+| `GOTRUE_DISABLE_SIGNUP` | `false` | `true` closes sign-up (see "Security") |
+| `GOTRUE_MAILER_AUTOCONFIRM` | `true` | The stack has no email, so accounts are confirmed immediately |
+| `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
+| `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
+| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build |
+
+A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).
+
+### Updating
+
+```sh
+git pull
+docker compose up -d --build
+```
+
+`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. Back up before updating.
+
+### Backup and restore
+
+Everything worth keeping lives in Docker volumes: `db-data` (the database), `secrets` (passwords and keys — without them the backed-up database won't open), `db-config` and `caddy-data` (certificates). A backup is an archive of these volumes taken with the stack stopped, from the repository folder:
+
+```sh
+VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
+docker compose stop
+docker run --rm $VOLS -v "$PWD":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
+docker compose up -d
+```
+
+Restore on a clean host (a clone of the repository and the same `.env`) or after `docker compose down -v`:
+
+```sh
+docker compose create
+docker run --rm $VOLS -v "$PWD":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
+docker compose up -d
+```
+
+The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`.
+
+## Sign-in with Google, Discord and GitHub
+
+Off by default: the sign-in screen shows only email and password. Each installation registers its own OAuth app with the provider:
+
+| Provider | Where to create it | Where the callback URL goes |
+|----------|--------------------|-----------------------------|
+| Google | Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID, type "Web application" | Authorized redirect URIs |
+| Discord | Developer Portal → Applications → New Application → OAuth2 | Redirects |
+| GitHub | Settings → Developer settings → OAuth Apps → New OAuth App | Authorization callback URL |
+
+The callback URL is `APP_URL` + `/auth/v1/callback`, e.g. `https://meridian.example.com/auth/v1/callback`. Google doesn't accept an IP address, so it needs a domain. Then in `.env` (the same for `GOOGLE` and `DISCORD`):
 
 ```
-APP_URL=https://meridian.example.com
+GOTRUE_EXTERNAL_GITHUB_ENABLED=true
+GOTRUE_EXTERNAL_GITHUB_CLIENT_ID=<Client ID>
+GOTRUE_EXTERNAL_GITHUB_SECRET=<Client secret>
 ```
 
-The scheme matters: `https://` turns on an automatic Let's Encrypt certificate, once the domain resolves to this host and 80/443 reach it. Those ports have to be free on the host, or set `HTTP_PORT` / `HTTPS_PORT`.
+and `docker compose up -d auth`. The "Continue with …" button appears on the sign-in screen by itself.
 
-Signup is open by default, because a fresh stack has to let someone create the first account — so on a stack reachable from the internet, closing it with `GOTRUE_DISABLE_SIGNUP=true` is the last step of the install rather than an afterthought. Two consequences come with it: adding a new family member needs signup reopened for the length of one registration, and password reset does not work at all until you configure SMTP — there is no mail in the stack. The ordered procedure for all of it, along with the prebuilt image and where the secrets live, is in [`infra/README.md`](infra/README.md).
+**Linking to an existing account.** Family → Sign-in methods → Link: from then on any linked method opens the same account and the same family. There is deliberately no automatic linking by email, so a first sign-in through a provider without linking creates a **new** account, even with the same email. Sign in the usual way first, then link the provider. Everything can be unlinked except email and the last sign-in method. Conflicts and details are in [`.env.example`](.env.example).
 
-A starter set of meals is optional. It is a JSON file with meals from the dietitian's plans, kept on the server outside the repository. Point `STARTER_SET_FILE` in `.env` at it and run `docker compose up migrate`; a new family, or one whose pool is still empty, gets those meals on first open; a family that already has meals adds the missing ones with a button on the Meals screen. The format is in [`packages/core/README.md`](packages/core/README.md#стартовий-набір-формат-файлу-mer-77) and the setup in [`infra/README.md`](infra/README.md#стартовий-набір-страв).
+<div align="center">
 
-## Where it stands
+<img src="docs/screens/login.webp" width="240" alt="Sign-in screen: email and password, with Google, Discord and GitHub sign-in buttons below">
+<img src="docs/screens/family.webp" width="240" alt="Sign-in methods on the family screen: email and buttons to link providers">
 
-V2 is the working version of Meridian. Sign-in and the family model (GoTrue, `family_id` as a token claim, invite codes instead of email); the Today, Week, Calendar, Meals, Recipe, Shopping and Family screens, reading and writing the on-device database; week generation and manual swap in `packages/core`, with tests; PDF plan import; meal reminders; nine tables syncing across a family's devices. The interface is in Ukrainian, English, Polish and German, switched from the Family screen.
+</div>
 
-The app ships as a PWA: it installs on a phone straight from the browser and works offline. There is no separate mobile build: the native Capacitor shell, which was never built for a device, was removed in MER-150. It can be restored from git history if needed.
+## Security
 
-V1 — one HTML file, vanilla JS, `localStorage`, no backend and no bundler — proved the idea and was deleted from the repository in MER-68 once V2 reached parity; it now lives only in git history. The data V1 kept in the browser moves to V2: the [`tools/v1-export.js`](tools/README.md) script captures it on the V1 page, and Family → “Move data from V1” loads the file.
+**Found a vulnerability?** Please don't open a public issue. Report it privately on GitHub: the **Security** tab → **Report a vulnerability**.
 
-## Stack
+For your own server:
 
-The on-device SQLite database is the source of truth for the UI, so nothing ever waits on the network; PowerSync keeps it converged with Postgres in the background, and writes go out through PostgREST — which is why conflicts resolve as plain last-write-wins per slot, with no CRDT. The front end is a static Vite + TanStack Router SPA — there is no application server at all: Caddy serves the files and fills the browser’s three configuration values into `index.html` as it serves them. The server side is a deliberate subset of self-hosted Supabase — Postgres, GoTrue and PostgREST, the three services the app actually calls, not the usual eleven — behind Caddy.
+- **Close sign-up** as soon as the whole family has accounts: `GOTRUE_DISABLE_SIGNUP=true` in `.env` and `docker compose up -d auth`. Otherwise anyone who knows the address can sign up. How to check it and how to add a family member later — [`infra/README.md`](infra/README.md).
+- **Rate-limit requests** to `/auth/v1/` at the proxy or tunnel in front of the stack (rate limiting rules, fail2ban) to make password guessing harder.
+- Only Caddy is published: don't expose the Postgres port and don't add services to the stack's network without need.
+- Update regularly, and keep backup archives encrypted: they contain the stack's keys.
 
-<details>
-<summary>Working on the styles</summary>
+## How it works
 
-There is exactly one Tailwind build in the repository, and it lives in `apps/web`: the official `@tailwindcss/vite` plugin, entry point `apps/web/src/styles.css`. `pnpm dev` picks up changes to the theme immediately — no separate CSS step.
+The UI reads and writes SQLite on the device, so no action waits for the network. PowerSync syncs it with Postgres in the background, and writes go through PostgREST (row-level last-write-wins). The server is a subset of self-hosted Supabase (Postgres, GoTrue, PostgREST) behind Caddy in a single `compose.yaml`; there is no separate app server. The frontend is a static SPA on Vite and TanStack Router. The week generator is plain TypeScript in [`packages/core`](packages/core): a constraint problem solved greedily with randomness and bounded backtracking, no ML.
 
-The old V1 setup — `@tailwindcss/cli` producing a committed `tailwind.css` — was removed in MER-53 along with the `build:css` / `watch:css` scripts. The design tokens moved into `apps/web/src/styles.css` unchanged. Preflight is still deliberately left out so native form controls keep their appearance; the few reset properties that are actually needed are declared in the `base` layer.
-
-Minimum browsers for Tailwind v4: Chrome 111, Safari 16.4, Firefox 128.
-
-</details>
-
-## Repository layout
-
-The repository is a pnpm workspace:
-
-| Path | What |
-|------|------|
-| `compose.yaml` | The self-host stack, whole: seven services, zero manual steps |
-| `apps/web` | Static Vite + TanStack Router app, PWA |
-| `packages/core` | Domain logic in plain TypeScript: week generator, calories, provenance rules |
-| `packages/db` | SQL migrations for Postgres and the script that applies them |
-| `infra` | Dockerfiles, Caddyfile, PowerSync config, secret generation, `compose` overlay |
-| `.github/workflows` | Checks on every PR; the app image published on every push |
-
-Working on the app itself:
+## Development
 
 ```sh
 pnpm install
-pnpm dev             # apps/web on http://localhost:3000
-pnpm build           # every package
-pnpm lint
-pnpm typecheck
-pnpm test            # unit tests of packages/core and apps/web
-pnpm format          # format:check is what CI runs
-pnpm db:migrate
+pnpm dev        # apps/web on http://localhost:3000, next to a running stack
+pnpm lint && pnpm typecheck && pnpm test && pnpm format:check && pnpm build
 ```
 
-`pnpm dev` expects the stack running next to it: it uses the same database, the same GoTrue and the same sync service, just with hot module replacement. It needs `apps/web/.env` first, because the anon key only exists inside the stack — [`infra/README.md`](infra/README.md) has the one command that reads it out. Without that file the app renders an explicit "not configured" screen rather than failing silently.
+`pnpm dev` uses the database, sign-in and sync of the stack running next to it, so it first needs `apps/web/.env` — the command that builds it is in [`infra/README.md`](infra/README.md#розробка-застосунку).
 
-## Docs
+## Documentation
 
-Every directory that made a real decision explains it in its own `README.md`, next to the code: [`infra/README.md`](infra/README.md) — self-host setup, secrets, the published image (the stack's own decisions are in [`infra/DECISIONS.md`](infra/DECISIONS.md)); [`packages/core/README.md`](packages/core/README.md) — the generator and domain rules; [`packages/db/README.md`](packages/db/README.md) — tables, RLS, replication; [`apps/web/README.md`](apps/web/README.md) — the app, PWA and the groundwork for a native shell. Domain terms are in [`GLOSSARY.md`](GLOSSARY.md) and context for AI agents in [`AGENTS.md`](AGENTS.md). Architecture decisions, research and the task board live in Linear, not in this repository.
-
-This file is a translation of the Ukrainian [`README.md`](README.md); change that one first.
+Each folder explains its decisions in its own `README.md` (in Ukrainian): [`infra`](infra/README.md) — self-hosting and secrets ([`DECISIONS.md`](infra/DECISIONS.md) — stack decisions), [`packages/core`](packages/core/README.md) — the generator and the starter set format, [`packages/db`](packages/db/README.md) — tables and RLS, [`apps/web`](apps/web/README.md) — the app and PWA. Terms are in [`GLOSSARY.md`](GLOSSARY.md), the map for AI agents in [`AGENTS.md`](AGENTS.md). Tasks and architecture decisions live in Linear.
 
 ## License
 
