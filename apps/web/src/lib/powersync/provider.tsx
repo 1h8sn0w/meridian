@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from 'react'
-import type { Context, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { PowerSyncContext } from '@powersync/react'
 import type { PowerSyncDatabase } from '@powersync/web'
 import { useAuth } from '../auth'
@@ -25,8 +25,6 @@ type SyncState = {
   rejected: ReadonlyArray<Rejection>
   dismissRejected: () => void
 }
-
-const PowerSyncDbContext = PowerSyncContext as Context<PowerSyncDatabase | null>
 
 const SyncStateContext = createContext<SyncState>({
   configured: false,
@@ -153,9 +151,9 @@ export function SyncProvider({
         dismissRejected,
       }}
     >
-      <PowerSyncDbContext.Provider value={db}>
+      <PowerSyncContext.Provider value={db as PowerSyncDatabase}>
         {children}
-      </PowerSyncDbContext.Provider>
+      </PowerSyncContext.Provider>
     </SyncStateContext.Provider>
   )
 }
