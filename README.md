@@ -51,7 +51,7 @@
 ### Вимоги
 
 - Docker із плагіном Compose (`docker compose`, не старий `docker-compose`). Перевірено на Docker 27 і Compose 5.6.
-- Пам'ять: стек у роботі займає близько 0,5 ГБ RAM. Диск: кілька ГБ під образи (лише Postgres — 1,2 ГБ).
+- Пам'ять: у простої стек займає близько 0,5 ГБ RAM, під навантаженням синхронізації — більше; закладайте 1–2 ГБ. Диск: кілька ГБ під образи (лише Postgres — 1,2 ГБ).
 - Вільні порти 80 і 443 або свої через `HTTP_PORT`/`HTTPS_PORT`.
 - HTTPS для будь-якої адреси, крім `localhost`: без захищеного контексту браузер не дасть застосунку відкрити локальну базу. Для доступу з інтернету — домен, що вказує на цей хост.
 
@@ -79,27 +79,29 @@ docker compose up -d
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | Пошти в стеку немає, тож акаунт підтверджується одразу |
 | `GOTRUE_EXTERNAL_<ПРОВАЙДЕР>_*` | вимкнено | Вхід через Google, Discord, GitHub (нижче) |
 | `STARTER_SET_FILE` | порожньо | JSON стартового набору страв, поза репозиторієм |
-| `WEB_IMAGE` | порожньо | Готовий образ застосунку замість збірки, разом із накладкою `infra/compose.prebuilt.yaml` |
+| `WEB_IMAGE` | порожньо | Готовий образ застосунку замість збірки; працює лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 Домашній сервер без домену (`https://<IP>:<порт>` і локальний центр сертифікації), стартовий набір і готовий образ описано в [`infra/README.md`](infra/README.md).
 
 ### Оновлення
+
+Спершу зробіть бекап (нижче), потім:
 
 ```sh
 git pull
 docker compose up -d --build
 ```
 
-`--build` перезбирає образ застосунку з нових вихідників: без нього Compose лишить старий. Нові міграції бази `migrate` накотить сам. З готовим образом замість `--build` спершу підтягніть новий: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, далі `up -d` з тими самими `-f`. Перед оновленням зробіть бекап.
+`--build` перезбирає образ застосунку з нових вихідників: без нього Compose лишить старий. Нові міграції бази `migrate` накотить сам. З готовим образом замість `--build` спершу підтягніть новий: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, далі `up -d` з тими самими `-f`.
 
 ### Бекап і відновлення
 
-Усе, що треба зберегти, лежить у томах Docker: `db-data` (база), `secrets` (паролі й ключі — без них база з бекапу не відкриється), `db-config` і `caddy-data` (сертифікати). Бекап — архів цих томів при зупиненому стеку, з теки репозиторію:
+Усе, що треба зберегти, лежить у томах Docker: `db-data` (база), `secrets` (паролі й ключі — без них база з бекапу не відкриється), `db-config` і `caddy-data` (сертифікати). Бекап — архів цих томів при зупиненому стеку. Команди виконуються з теки репозиторію, а архів лягає поруч із нею, щоб випадково не потрапити в git:
 
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose stop
-docker run --rm $VOLS -v "$PWD":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
+docker run --rm $VOLS -v "$PWD/..":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
 docker compose up -d
 ```
 
@@ -108,11 +110,11 @@ docker compose up -d
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose create
-docker run --rm $VOLS -v "$PWD":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
+docker run --rm $VOLS -v "$PWD/..":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
 docker compose up -d
 ```
 
-Архів містить секрети стека, тож зберігайте його так само, як паролі. Префікс `meridian_` — ім'я проєкту з `compose.yaml`; якщо запускаєте з `-p` чи `COMPOSE_PROJECT_NAME`, підставте своє.
+Архів містить секрети стека, тож зберігайте його так само, як паролі. Префікс `meridian_` — ім'я проєкту з `compose.yaml`; якщо запускаєте з `-p` чи `COMPOSE_PROJECT_NAME`, підставте своє. З готовим образом `create` і `up -d` запускайте з тими самими `-f`, що й при оновленні.
 
 ## Вхід через Google, Discord і GitHub
 

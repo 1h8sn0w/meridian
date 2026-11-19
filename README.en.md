@@ -25,7 +25,7 @@ For families who eat by a dietitian's plan and want variety without counting. Th
 
 - **A week in one tap.** The generator picks a meal for every slot so the day stays inside the profile's target corridor (±100 kcal by default), meals don't repeat more often than the anti-repeat rule allows, and the week draws on several plans.
 - **Today.** A day clock with meal windows, the current meal with macros and ingredients, reminders before each meal. The calendar shows the plan and macros for any day.
-- **Meals and recipes.** A shared meal pool: search, "favourite" and "dislike", manual entry, import from a PDF plan, a starter set provided by the server admin.
+- **Meals and recipes.** A shared meal pool: search, "Favourite" and "Disliked", manual entry, import from a PDF plan, a starter set provided by the server admin.
 - **Shopping list** for the week, grouped by store section; "bought" marks are shared across the family.
 - **Family.** Shared plan, pool and shopping; each profile has its own calorie target and portion; new members join with an invite code.
 - **Local-first PWA.** Installs from the browser, works offline and syncs the family's devices.
@@ -51,7 +51,7 @@ For now Meridian is self-hosted: your own server comes up with one command (belo
 ### Requirements
 
 - Docker with the Compose plugin (`docker compose`, not the old `docker-compose`). Tested on Docker 27 and Compose 5.6.
-- Memory: the running stack takes about 0.5 GB of RAM. Disk: a few GB for images (Postgres alone is 1.2 GB).
+- Memory: idle, the stack takes about 0.5 GB of RAM, more under sync load; plan for 1–2 GB. Disk: a few GB for images (Postgres alone is 1.2 GB).
 - Free ports 80 and 443, or your own via `HTTP_PORT`/`HTTPS_PORT`.
 - HTTPS for any address other than `localhost`: without a secure context the browser won't let the app open its local database. For internet access, a domain pointing at this host.
 
@@ -79,27 +79,29 @@ You only need `.env` to change something: `cp .env.example .env`. After a change
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | The stack has no email, so accounts are confirmed immediately |
 | `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
 | `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
-| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build, together with the `infra/compose.prebuilt.yaml` overlay |
+| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build; only works with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).
 
 ### Updating
+
+Back up first (below), then:
 
 ```sh
 git pull
 docker compose up -d --build
 ```
 
-`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. With a prebuilt image, pull the new one instead of `--build`: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, then `up -d` with the same `-f` flags. Back up before updating.
+`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. With a prebuilt image, pull the new one instead of `--build`: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, then `up -d` with the same `-f` flags.
 
 ### Backup and restore
 
-Everything worth keeping lives in Docker volumes: `db-data` (the database), `secrets` (passwords and keys — without them the backed-up database won't open), `db-config` and `caddy-data` (certificates). A backup is an archive of these volumes taken with the stack stopped, from the repository folder:
+Everything worth keeping lives in Docker volumes: `db-data` (the database), `secrets` (passwords and keys — without them the backed-up database won't open), `db-config` and `caddy-data` (certificates). A backup is an archive of these volumes taken with the stack stopped. The commands run from the repository folder, and the archive lands next to it so it can't end up in git by accident:
 
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose stop
-docker run --rm $VOLS -v "$PWD":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
+docker run --rm $VOLS -v "$PWD/..":/backup alpine tar czf /backup/meridian-backup.tgz -C /v .
 docker compose up -d
 ```
 
@@ -108,11 +110,11 @@ Restore on a clean host (a clone of the repository and the same `.env`) or after
 ```sh
 VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose create
-docker run --rm $VOLS -v "$PWD":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
+docker run --rm $VOLS -v "$PWD/..":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
 docker compose up -d
 ```
 
-The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`; if you run with `-p` or `COMPOSE_PROJECT_NAME`, use yours.
+The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`; if you run with `-p` or `COMPOSE_PROJECT_NAME`, use yours. With a prebuilt image, run `create` and `up -d` with the same `-f` flags as for updating.
 
 ## Sign-in with Google, Discord and GitHub
 
