@@ -50,7 +50,7 @@ function StoredMealHours({
       windows: mealWindows(read.data ?? DEFAULT_MEAL_HOURS),
       problems: read.problems,
     })
+    return () => onRead(DEFAULT_VALUE)
   }, [read, onRead])
-  useEffect(() => () => onRead(DEFAULT_VALUE), [onRead])
   return null
 }
