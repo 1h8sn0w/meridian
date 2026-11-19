@@ -50,7 +50,7 @@ For now Meridian is self-hosted: your own server comes up with one command (belo
 
 ### Requirements
 
-- Docker with the Compose v2 plugin (`docker compose`). Tested on Docker 27 and Compose 5.6.
+- Docker with the Compose plugin (`docker compose`, not the old `docker-compose`). Tested on Docker 27 and Compose 5.6.
 - Memory: the running stack takes about 0.5 GB of RAM. Disk: a few GB for images (Postgres alone is 1.2 GB).
 - Free ports 80 and 443, or your own via `HTTP_PORT`/`HTTPS_PORT`.
 - HTTPS for any address other than `localhost`: without a secure context the browser won't let the app open its local database. For internet access, a domain pointing at this host.
@@ -63,13 +63,13 @@ cd meridian
 docker compose up -d
 ```
 
-The first run takes a few minutes while the app image builds. The stack generates its own secrets (Postgres password, `JWT_SECRET`, anon key), keeps them in its own volume and applies the database schema itself. In `docker compose ps`, `init` and `migrate` show `Exited (0)` — that's expected.
+The first run takes a few minutes while the app image builds. The stack generates its own secrets (Postgres password, `JWT_SECRET`, anon key), keeps them in its own volume and applies the database schema itself. In `docker compose ps -a`, `init` and `migrate` show `Exited (0)` — that's expected.
 
 Then open <http://localhost>, sign up, create a family and a profile, add meals (by hand, from a PDF or the starter set) and press "Generate the week" on the Week screen.
 
 ### Environment variables
 
-You only need `.env` to change something: `cp .env.example .env`. Every variable is explained there. After a change, run `docker compose up -d`. `.env` holds no secrets.
+You only need `.env` to change something: `cp .env.example .env`. Every variable is explained there. After a change, run `docker compose up -d`. The stack's secrets never go into `.env`; it only holds OAuth keys if you turn on provider sign-in.
 
 | Variable | Default | What it does |
 |----------|---------|--------------|
@@ -79,7 +79,7 @@ You only need `.env` to change something: `cp .env.example .env`. Every variable
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | The stack has no email, so accounts are confirmed immediately |
 | `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
 | `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
-| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build |
+| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build, together with the `infra/compose.prebuilt.yaml` overlay |
 
 A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).
 
@@ -90,7 +90,7 @@ git pull
 docker compose up -d --build
 ```
 
-`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. Back up before updating.
+`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. With a prebuilt image, pull the new one instead of `--build`: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, then `up -d` with the same `-f` flags. Back up before updating.
 
 ### Backup and restore
 
@@ -106,12 +106,13 @@ docker compose up -d
 Restore on a clean host (a clone of the repository and the same `.env`) or after `docker compose down -v`:
 
 ```sh
+VOLS="-v meridian_secrets:/v/secrets -v meridian_db-data:/v/db-data -v meridian_db-config:/v/db-config -v meridian_caddy-data:/v/caddy-data"
 docker compose create
 docker run --rm $VOLS -v "$PWD":/backup alpine tar xzf /backup/meridian-backup.tgz -C /v
 docker compose up -d
 ```
 
-The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`.
+The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`; if you run with `-p` or `COMPOSE_PROJECT_NAME`, use yours.
 
 ## Sign-in with Google, Discord and GitHub
 
