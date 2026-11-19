@@ -82,9 +82,10 @@ compose монтує `infra/caddy`. Стадія `build` спершу копію
   (`nobadger,nomysql,nopgx` з `.goreleaser.yml` Caddy), статично
   (`CGO_ENABLED=0`: C-компілятора в `golang:alpine` немає), і піднімає модулі,
   яких бракує в go.mod релізу. Підняті — лише ті, без яких скан червоний
-  (на v2.11.9 — `x/net` 0.62.0, `klauspost/compress` 1.20.2,
-  CVE-2026-116591, MER-138, і `smallstep/certificates`, нижче), точною версією й тим самим `go get`, що й
-  Caddy: якщо новий реліз вимагає вищої версії, `go get`
+  (на v2.11.9 — `x/net` 0.62.0 і `klauspost/compress` 1.20.2,
+  CVE-2026-116591, MER-138; `smallstep/certificates` — нижче), точною
+  версією й тим самим `go get`, що й Caddy: якщо новий реліз вимагає вищої
+  версії, `go get`
   падає («requires …, not …»), а не понижує мовчки. Не `@latest`: у
   `golang:alpine` `GOTOOLCHAIN=local`, і щойно модуль вимагатиме новішого Go,
   збірка зламається без жодної зміни в репозиторії. `caddy-build/main.go` —
