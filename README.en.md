@@ -25,7 +25,7 @@ For families who eat by a dietitian's plan and want variety without counting. Th
 
 - **A week in one tap.** The generator picks a meal for every slot so the day stays inside the profile's target corridor (±100 kcal by default), meals don't repeat more often than the anti-repeat rule allows, and the week draws on several plans.
 - **Today.** A day clock with meal windows, the current meal with macros and ingredients, reminders before each meal. The calendar shows the plan and macros for any day.
-- **Meals and recipes.** A shared meal pool: search, "favourite" and "dislike", manual entry, import from a PDF plan, a starter set provided by the server admin. Estimated calories are marked "≈".
+- **Meals and recipes.** A shared meal pool: search, "favourite" and "dislike", manual entry, import from a PDF plan, a starter set provided by the server admin.
 - **Shopping list** for the week, grouped by store section; "bought" marks are shared across the family.
 - **Family.** Shared plan, pool and shopping; each profile has its own calorie target and portion; new members join with an invite code.
 - **Local-first PWA.** Installs from the browser, works offline and syncs the family's devices.
@@ -69,7 +69,7 @@ Then open <http://localhost>, sign up, create a family and a profile, add meals 
 
 ### Environment variables
 
-You only need `.env` to change something: `cp .env.example .env`. Every variable is explained there. After a change, run `docker compose up -d`. The stack's secrets never go into `.env`; it only holds OAuth keys if you turn on provider sign-in.
+You only need `.env` to change something: `cp .env.example .env`. After a change, run `docker compose up -d`. The stack's secrets never go into `.env`; it only holds OAuth keys if you turn on provider sign-in.
 
 | Variable | Default | What it does |
 |----------|---------|--------------|
@@ -151,7 +151,7 @@ For your own server:
 
 - **Close sign-up** as soon as the whole family has accounts: `GOTRUE_DISABLE_SIGNUP=true` in `.env` and `docker compose up -d auth`. Otherwise anyone who knows the address can sign up. How to check it and how to add a family member later — [`infra/README.md`](infra/README.md).
 - **Rate-limit requests** to `/auth/v1/` at the proxy or tunnel in front of the stack (rate limiting rules, fail2ban) to make password guessing harder.
-- Only Caddy is published: don't expose the Postgres port and don't add services to the stack's network without need.
+- Only Caddy is published: don't expose the Postgres port.
 - Update regularly, and keep backup archives encrypted: they contain the stack's keys.
 
 ## How it works
