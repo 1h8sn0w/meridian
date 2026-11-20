@@ -23,7 +23,7 @@ const GRECHKA = {
   steps: [],
   prepTime: null,
   servings: null,
-  portions: [{ component: null, text: 'Ж - 130 г; Ч - 200 г' }],
+  portions: [{ component: null, text: 'Ж - 140 г; Ч - 210 г' }],
   photo: null,
 }
 
@@ -130,7 +130,7 @@ test('страва переїжджає дослівно — план, «≈», 
     'овочі на вибір',
   ])
   assert.deepEqual(meal.portions, [
-    { component: null, text: 'Ж - 130 г; Ч - 200 г' },
+    { component: null, text: 'Ж - 140 г; Ч - 210 г' },
   ])
 })
 
