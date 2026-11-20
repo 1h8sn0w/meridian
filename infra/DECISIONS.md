@@ -72,9 +72,10 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   списку, а за довіреним проксі перше значення XFF пише клієнт. Заголовок
   ставить Caddy (`caddy/README.md`). `Sb-Forwarded-For` вимкнений типово
   (`GOTRUE_SECURITY_SB_FORWARDED_FOR_ENABLED`), його не вмикати.
-  `GOTRUE_PASSWORD_MIN_LENGTH=10` діє на реєстрацію й зміну пароля, а не на
-  вхід: наявні коротші паролі працюють, тож форма вимагає мінімум лише при
-  реєстрації (`NEW_PASSWORD_MIN_LENGTH` в `AuthScreen`).
+  `GOTRUE_PASSWORD_MIN_LENGTH=10` діє на реєстрацію й зміну пароля; вхід
+  коротшим наявним паролем проходить (у відповіді лише поле `weak_password`),
+  тож форма вимагає мінімум лише при реєстрації (`NEW_PASSWORD_MIN_LENGTH` в
+  `AuthScreen`).
   Ціна: вхід через провайдера без ручної прив'язки створює окремий акаунт
   з `is_sso_user=true`, і `PUT /user` не дає йому задати пароль чи пошту.
   Ручна прив'язка (`linkIdentityToUser`) пошти не звіряє: людина вже увійшла.
