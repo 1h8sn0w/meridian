@@ -808,7 +808,7 @@ export const en: Messages = {
     portions: 'Ready portion Ж/Ч',
     portionsHint:
       'Word for word from the plan; the component goes before “ — ”. Empty — no section.',
-    portionsPlaceholder: 'Ж - 130 g; Ч - 200 g\nSide — Ж - 100 g; Ч - 150 g',
+    portionsPlaceholder: 'Ж - 140 g; Ч - 210 g\nSide — Ж - 90 g; Ч - 140 g',
     source: 'Source (dietitian’s plan)',
     sourceHint: 'E.g. “Week 2” — the generator mixes the week by it.',
     sourcePlaceholder: 'Week 2',

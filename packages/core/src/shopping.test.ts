@@ -32,11 +32,11 @@ test('ключ назви ігнорує регістр і зайві пробі
 test('категорія — лише за точним збігом назви, без вгадування за підрядком', () => {
   assert.equal(categoryOf('гречка'), 'grain')
   assert.equal(categoryOf('Куряче філе'), 'meat')
-  assert.equal(categoryOf('Сирок «Волошкове поле»'), 'sweet')
+  assert.equal(categoryOf('Кисломолочний сир 5%'), 'dairy')
   assert.equal(
     categoryOf('сир'),
     'other',
-    '«сир» є всередині «сирок», але окремою назвою словник її не знає.',
+    '«сир» є всередині «кисломолочний сир 5%», але окремою назвою словник її не знає.',
   )
   assert.equal(categoryOf('драконів фрукт'), 'other')
 })
@@ -87,14 +87,14 @@ test('кожне входження страви в тиждень рахуєт�
 
 test('інгредієнт без кількості лишається без кількості', () => {
   const { withQty, noQty } = aggregate([
-    withIngredients('a', ['овочі на вибір (окрім томатів)']),
+    withIngredients('a', ['зелень на вибір (кріп чи петрушка)']),
     withIngredients('b', [{ name: 'сіль', unit: 'до смаку' }]),
-    withIngredients('c', ['Овочі на вибір (окрім томатів)']),
+    withIngredients('c', ['Зелень на вибір (кріп чи петрушка)']),
   ])
 
   assert.equal(withQty.length, 0)
   assert.deepEqual(noQty.map((item) => item.key).sort(), [
-    'n:овочі на вибір (окрім томатів)',
+    'n:зелень на вибір (кріп чи петрушка)',
     'n:сіль',
   ])
   for (const item of noQty) {

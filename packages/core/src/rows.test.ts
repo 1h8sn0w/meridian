@@ -21,7 +21,7 @@ const mealRow = {
   carbs: null,
   ingredients: '[{"name":"сирок","amount":40,"unit":"г"},"овочі на вибір"]',
   source: 'Тиждень 2',
-  portions: '[{"component":null,"text":"Ж - 130 г; Ч - 200 г"}]',
+  portions: '[{"component":null,"text":"Ж - 140 г; Ч - 210 г"}]',
 }
 
 test('рядок страви розбирається зі значень, які реально дає SQLite', () => {
@@ -37,7 +37,7 @@ test('рядок страви розбирається зі значень, як
     'овочі на вибір',
   ])
   assert.deepEqual(meal.portions, [
-    { component: null, text: 'Ж - 130 г; Ч - 200 г' },
+    { component: null, text: 'Ж - 140 г; Ч - 210 г' },
   ])
 })
 
