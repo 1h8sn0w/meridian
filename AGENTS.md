@@ -29,7 +29,7 @@
   `# yaml-language-server:`, `# syntax=`). Винятки для людини, що хостить
   сама: `.env.example`, шаблони issue й PR. Застосовані міграції `0000–0007`
   заморожені як історія; нові міграції — без коментарів, пояснення рядком у
-  таблиці міграцій `packages/db/README.md`. Храповик на весь репозиторій —
+  таблиці `packages/db/migrations/README.md`. Храповик на весь репозиторій —
   `tools/check-comments.mjs` і `eslint.config.base.mjs`: новий коментар будь-де
   валить `pnpm lint` і CI.
 - **Спрощення з відомою межею (`ponytail:`) — у README теки** під
@@ -60,6 +60,7 @@ pnpm-воркспейс. Команди — скрипти кореневого 
 | `apps/web/src/routes` | Тонкі маршрути TanStack; `routeTree.gen.ts` генерується й комітиться | `apps/web/README.md` |
 | `packages/core` | Домен чистим TS: генератор, заміна, провенанс, покупки, стартовий набір, виведені id | [`README.md`](packages/core/README.md) |
 | `packages/db` | SQL-міграції Postgres, `migrate.sh`, RLS, модель сім'ї | [`README.md`](packages/db/README.md) |
+| `packages/db/migrations` | Файли міграцій і таблиця «міграція → що робить» | [`README.md`](packages/db/migrations/README.md) |
 | `infra` | Compose-стек, секрети, ролі БД, CI. Людині — `README.md`, агенту — `DECISIONS.md` | [`DECISIONS.md`](infra/DECISIONS.md) |
 | `infra/caddy` | Єдиний вхід (Caddyfile), образ `caddy`, CVE-скани, оновлення Caddy | [`README.md`](infra/caddy/README.md) |
 | `infra/powersync` | Серверні правила синхронізації | [`README.md`](infra/powersync/README.md) |
