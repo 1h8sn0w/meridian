@@ -1,10 +1,9 @@
 # @meridian/db — схема Supabase Postgres
 
-Міграції серверної БД V2 (`migrations/`) — чистий SQL, який накочує `psql`.
-Джерело істини між пристроями — цей Postgres; для інтерфейсу — локальний SQLite,
-який наповнює PowerSync.
-
-Міграції по одній — у [`migrations/README.md`](migrations/README.md).
+Міграції серверної БД V2 ([`migrations/`](migrations/README.md), там і що
+робить кожна) — чистий SQL, який накочує `psql`. Джерело істини між
+пристроями — цей Postgres; для інтерфейсу — локальний SQLite, який наповнює
+PowerSync.
 
 ## Таблиці
 
