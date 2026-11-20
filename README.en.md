@@ -44,7 +44,7 @@ Screenshots come from a test account with made-up meals; the UI is shown in Ukra
 
 ## Where to try it
 
-For now Meridian is self-hosted: your own server comes up with one command (below). A hosted version will follow; its address is **TODO: the domain hasn't been bought yet**.
+For now Meridian is self-hosted: your own server comes up with one command (below). A hosted version will follow; it will live at **meridianplan.app**.
 
 ## Self-host
 
