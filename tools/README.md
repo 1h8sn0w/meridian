@@ -106,7 +106,7 @@ id рядків виводяться з id V1 (`derivedId` у `@meridian/core`).
 
 `EXCEPTIONS` у `check-comments.mjs` — єдине, що храповик не перевіряє:
 застосовані міграції `0000–0007` (історія, не переписуємо; нові міграції без
-коментарів, пояснення — рядком у таблиці «Міграції» в `packages/db/README.md`),
+коментарів, пояснення — рядком у таблиці `packages/db/migrations/README.md`),
 згенерований `routeTree.gen.ts`,
 шаблони issue в `.github/ISSUE_TEMPLATE/` (їх читає людина, що хостить сама).
 Шаблон PR (Markdown) і `.env.example` не скануються взагалі — їхніх форматів
