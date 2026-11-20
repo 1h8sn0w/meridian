@@ -91,10 +91,7 @@ test('підсумок розбору: страви, повтори, дублі�
 })
 
 test('назви дослівно з PDF, типи — за підписом слота', () => {
-  assert.equal(
-    byName('Яєчня').name,
-    'Яєчня з помідорами і сиром + житній тост',
-  )
+  assert.equal(byName('Яєчня').name, 'Яєчня з помідорами і сиром + житній тост')
   assert.equal(byName('Яєчня').type, 'breakfast')
   assert.equal(byName('Гарбузовий суп').type, 'lunch')
   assert.equal(byName('Тушкована тріска').type, 'dinner')
