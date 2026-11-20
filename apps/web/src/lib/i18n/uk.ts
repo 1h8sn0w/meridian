@@ -232,7 +232,7 @@ export const uk = {
       'Після реєстрації створите сім’ю або приєднаєтесь до наявної за кодом.',
     email: 'Пошта',
     password: 'Пароль',
-    passwordHint: 'Мінімум 6 символів.',
+    passwordHint: 'Мінімум 10 символів.',
     submitSignIn: 'Увійти',
     submitSignUp: 'Зареєструватися',
     confirmSent: (address: string) =>
@@ -419,7 +419,7 @@ export const uk = {
       invalid_credentials: 'Невірна пошта або пароль.',
       email_not_confirmed: 'Пошту ще не підтверджено — перевірте лист.',
       user_already_exists: 'Такий акаунт уже є. Спробуйте увійти.',
-      weak_password: 'Пароль закороткий. Мінімум 6 символів.',
+      weak_password: 'Пароль закороткий. Мінімум 10 символів.',
       validation_failed: 'Перевірте пошту й пароль.',
       over_request_rate_limit: 'Забагато спроб. Спробуйте за хвилину.',
       over_email_send_rate_limit: 'Забагато листів. Спробуйте пізніше.',
