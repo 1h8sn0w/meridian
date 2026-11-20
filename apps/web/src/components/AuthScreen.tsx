@@ -19,6 +19,8 @@ import {
 
 type Mode = 'sign-in' | 'sign-up'
 
+const NEW_PASSWORD_MIN_LENGTH = 10
+
 export function AuthScreen() {
   const { signIn, signUp, signInWith, providers, redirectFailure } = useAuth()
   const messages = useMessages()
@@ -95,7 +97,7 @@ export function AuthScreen() {
               mode === 'sign-in' ? 'current-password' : 'new-password'
             }
             required
-            minLength={6}
+            minLength={mode === 'sign-up' ? NEW_PASSWORD_MIN_LENGTH : undefined}
             hint={mode === 'sign-up' ? t.passwordHint : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
