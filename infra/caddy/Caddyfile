@@ -2,6 +2,10 @@
 	http_port {$HTTP_PORT:80}
 	https_port {$HTTPS_PORT:443}
 	default_sni {$APP_HOST:localhost}
+	servers {
+		trusted_proxies static {$TRUSTED_PROXIES}
+		client_ip_headers {$CLIENT_IP_HEADER:X-Forwarded-For}
+	}
 }
 
 {$APP_URL:http://localhost} {
@@ -15,7 +19,9 @@
 	}
 
 	handle_path /auth/v1/* {
-		reverse_proxy auth:9999
+		reverse_proxy auth:9999 {
+			header_up X-Real-IP {client_ip}
+		}
 	}
 
 	handle_path /rest/v1/* {

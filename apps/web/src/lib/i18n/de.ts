@@ -234,7 +234,7 @@ export const de: Messages = {
       'Nach der Registrierung gründest du eine Familie oder trittst einer bestehenden mit einem Code bei.',
     email: 'E-Mail',
     password: 'Passwort',
-    passwordHint: 'Mindestens 6 Zeichen.',
+    passwordHint: 'Mindestens 10 Zeichen.',
     submitSignIn: 'Anmelden',
     submitSignUp: 'Registrieren',
     confirmSent: (address) =>
@@ -429,7 +429,7 @@ export const de: Messages = {
         'Die E-Mail ist noch nicht bestätigt — sieh in dein Postfach.',
       user_already_exists:
         'Dieses Konto existiert bereits. Versuche, dich anzumelden.',
-      weak_password: 'Das Passwort ist zu kurz. Mindestens 6 Zeichen.',
+      weak_password: 'Das Passwort ist zu kurz. Mindestens 10 Zeichen.',
       validation_failed: 'Prüfe E-Mail und Passwort.',
       over_request_rate_limit:
         'Zu viele Versuche. Versuche es in einer Minute erneut.',

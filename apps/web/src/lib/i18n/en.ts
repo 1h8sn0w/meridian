@@ -216,7 +216,7 @@ export const en: Messages = {
       'After signing up you create a family or join an existing one with a code.',
     email: 'Email',
     password: 'Password',
-    passwordHint: 'At least 6 characters.',
+    passwordHint: 'At least 10 characters.',
     submitSignIn: 'Sign in',
     submitSignUp: 'Sign up',
     confirmSent: (address) =>
@@ -402,7 +402,7 @@ export const en: Messages = {
       invalid_credentials: 'Wrong email or password.',
       email_not_confirmed: 'The email is not confirmed yet — check your inbox.',
       user_already_exists: 'This account already exists. Try signing in.',
-      weak_password: 'The password is too short. At least 6 characters.',
+      weak_password: 'The password is too short. At least 10 characters.',
       validation_failed: 'Check the email and password.',
       over_request_rate_limit: 'Too many attempts. Try again in a minute.',
       over_email_send_rate_limit: 'Too many emails. Try again later.',

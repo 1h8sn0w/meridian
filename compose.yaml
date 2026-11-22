@@ -88,6 +88,8 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
       GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
+      GOTRUE_PASSWORD_MIN_LENGTH: 10
+      GOTRUE_RATE_LIMIT_HEADER: X-Real-IP
       GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: 'true'
       GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: 'pg-functions://postgres/public/custom_access_token_hook'
       GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOTRUE_EXTERNAL_GOOGLE_ENABLED:-false}
@@ -195,6 +197,8 @@ services:
       HTTPS_PORT: ${HTTPS_PORT:-443}
       PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
       PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-X-Forwarded-For}
     depends_on:
       init:
         condition: service_completed_successfully

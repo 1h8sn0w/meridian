@@ -232,7 +232,7 @@ export const pl: Messages = {
       'Po rejestracji założysz rodzinę albo dołączysz do istniejącej za pomocą kodu.',
     email: 'E-mail',
     password: 'Hasło',
-    passwordHint: 'Co najmniej 6 znaków.',
+    passwordHint: 'Co najmniej 10 znaków.',
     submitSignIn: 'Zaloguj się',
     submitSignUp: 'Zarejestruj się',
     confirmSent: (address) =>
@@ -416,7 +416,7 @@ export const pl: Messages = {
       email_not_confirmed:
         'E-mail nie jest jeszcze potwierdzony — sprawdź skrzynkę.',
       user_already_exists: 'To konto już istnieje. Spróbuj się zalogować.',
-      weak_password: 'Hasło jest za krótkie. Co najmniej 6 znaków.',
+      weak_password: 'Hasło jest za krótkie. Co najmniej 10 znaków.',
       validation_failed: 'Sprawdź e-mail i hasło.',
       over_request_rate_limit: 'Za dużo prób. Spróbuj ponownie za minutę.',
       over_email_send_rate_limit: 'Za dużo e-maili. Spróbuj ponownie później.',
