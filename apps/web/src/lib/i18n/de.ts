@@ -851,7 +851,7 @@ export const de: Messages = {
     portions: 'Fertige Portion Ж/Ч',
     portionsHint:
       'Wörtlich aus dem Plan; die Komponente steht vor „ — “. Leer — kein Abschnitt.',
-    portionsPlaceholder: 'Ж - 130 g; Ч - 200 g\nBeilage — Ж - 100 g; Ч - 150 g',
+    portionsPlaceholder: 'Ж - 140 g; Ч - 210 g\nBeilage — Ж - 90 g; Ч - 140 g',
     source: 'Quelle (Plan der Ernährungsberatung)',
     sourceHint: 'Z. B. „Woche 2“ — danach mischt der Generator die Woche.',
     sourcePlaceholder: 'Woche 2',

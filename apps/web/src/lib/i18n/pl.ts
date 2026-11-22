@@ -818,7 +818,7 @@ export const pl: Messages = {
     portions: 'Gotowa porcja Ж/Ч',
     portionsHint:
       'Dosłownie z planu; składnik przed „ — ”. Puste — bez sekcji.',
-    portionsPlaceholder: 'Ж - 130 g; Ч - 200 g\nDodatek — Ж - 100 g; Ч - 150 g',
+    portionsPlaceholder: 'Ж - 140 g; Ч - 210 g\nDodatek — Ж - 90 g; Ч - 140 g',
     source: 'Źródło (plan dietetyka)',
     sourceHint: 'Np. „Tydzień 2” — według tego generator miesza tydzień.',
     sourcePlaceholder: 'Tydzień 2',

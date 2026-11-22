@@ -96,10 +96,10 @@ test('MER-26: «≈» лише коли піднято прапорець при
   assert.equal(formatCalories(460, true), '≈460 ккал')
   assert.equal(
     formatMealCalories(
-      meal({ id: 'demo-wb-s2', type: 'snack', calories: 185 }),
+      meal({ id: 'demo-wb-s2', type: 'snack', calories: 190 }),
     ),
-    '185 ккал',
-    'Банановий хліб — єдина цифра з PDF, тож без «≈».',
+    '190 ккал',
+    'Десерт з єдиною цифрою з PDF — без «≈».',
   )
   assert.equal(
     formatMealCalories(
