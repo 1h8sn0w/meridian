@@ -30,7 +30,10 @@ const MEAL_TYPE_OF: Record<MealType, string> = {
   snack: 'перекусу',
 }
 
-const days = (n: number) => n + ' ' + plural(n, 'день', 'дні', 'днів')
+const dayWord = (n: number) => plural(n, 'день', 'дні', 'днів')
+const hourWord = (n: number) => plural(n, 'година', 'години', 'годин')
+const minuteWord = (n: number) => plural(n, 'хвилина', 'хвилини', 'хвилин')
+const days = (n: number) => n + ' ' + dayWord(n)
 const meals = (n: number) => n + ' ' + plural(n, 'страва', 'страви', 'страв')
 const mealsAccusative = (n: number) =>
   n + ' ' + plural(n, 'страву', 'страви', 'страв')
@@ -244,6 +247,26 @@ export const uk = {
     orContinueWith: 'або',
     continueWith: (provider: string) => 'Продовжити через ' + provider,
     signOut: 'Вийти',
+  },
+  release: {
+    title: 'Скоро запуск',
+    about:
+      'Meridian складає раціон сім’ї на тиждень за планами дієтолога: тримає калорійність, міксує страви з кількох планів і збирає список покупок.',
+    opens: (date: string) => 'Відкриваємося ' + date,
+    dayUnit: dayWord,
+    hourUnit: hourWord,
+    minuteUnit: minuteWord,
+    timer: (d: number, h: number, m: number) =>
+      'До запуску ' +
+      days(d) +
+      ', ' +
+      h +
+      ' ' +
+      hourWord(h) +
+      ', ' +
+      m +
+      ' ' +
+      minuteWord(m),
   },
   familySetup: {
     signedInAs: (email: string | null) =>

@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { AuthScreen } from './AuthScreen'
 import { FamilySetupScreen } from './FamilySetupScreen'
 import { MealReminders } from './Reminders'
+import { ReleaseGate } from './ReleaseGate'
 import { StarterSeed } from './StarterSet'
 import { AuthShell, Panel } from './ui'
 import { RichText } from '../lib/i18n/rich-text'
@@ -52,7 +53,11 @@ export function AppGate() {
     case 'loading':
       return <AuthShell title="Meridian" subtitle={t.gate.loading} />
     case 'signed-out':
-      return <AuthScreen />
+      return (
+        <ReleaseGate>
+          <AuthScreen />
+        </ReleaseGate>
+      )
     case 'no-family':
       return <FamilySetupScreen />
     case 'ready':

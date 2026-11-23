@@ -79,6 +79,7 @@ docker compose up -d
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | Пошти в стеку немає, тож акаунт підтверджується одразу |
 | `GOTRUE_EXTERNAL_<ПРОВАЙДЕР>_*` | вимкнено | Вхід через Google, Discord, GitHub (нижче) |
 | `STARTER_SET_FILE` | порожньо | JSON стартового набору страв, поза репозиторієм |
+| `RELEASE_AT` | порожньо | Мить запуску: до неї відвідувач без входу бачить відлік, вхід — на `/login` |
 | `WEB_IMAGE` | порожньо | Готовий образ застосунку замість збірки; працює лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 Домашній сервер без домену (`https://<IP>:<порт>` і локальний центр сертифікації), стартовий набір і готовий образ описано в [`infra/README.md`](infra/README.md).

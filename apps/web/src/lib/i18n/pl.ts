@@ -29,7 +29,10 @@ const MEAL_TYPE_OF: Record<MealType, string> = {
   snack: 'przekąski',
 }
 
-const days = (n: number) => n + ' ' + plural(n, 'dzień', 'dni', 'dni')
+const dayWord = (n: number) => plural(n, 'dzień', 'dni', 'dni')
+const hourWord = (n: number) => plural(n, 'godzina', 'godziny', 'godzin')
+const minuteWord = (n: number) => plural(n, 'minuta', 'minuty', 'minut')
+const days = (n: number) => n + ' ' + dayWord(n)
 const meals = (n: number) => n + ' ' + plural(n, 'danie', 'dania', 'dań')
 const mealsOf = (n: number) => n + ' ' + plural(n, 'dania', 'dań', 'dań')
 const slots = (n: number) => n + ' ' + plural(n, 'slot', 'sloty', 'slotów')
@@ -244,6 +247,26 @@ export const pl: Messages = {
     orContinueWith: 'lub',
     continueWith: (provider: string) => 'Kontynuuj z ' + provider,
     signOut: 'Wyloguj się',
+  },
+  release: {
+    title: 'Wkrótce start',
+    about:
+      'Meridian układa rodzinny jadłospis na tydzień według planów dietetyka: pilnuje kaloryczności, łączy dania z kilku planów i tworzy listę zakupów.',
+    opens: (date: string) => 'Startujemy ' + date,
+    dayUnit: dayWord,
+    hourUnit: hourWord,
+    minuteUnit: minuteWord,
+    timer: (d: number, h: number, m: number) =>
+      'Do startu: ' +
+      days(d) +
+      ', ' +
+      h +
+      ' ' +
+      hourWord(h) +
+      ', ' +
+      m +
+      ' ' +
+      minuteWord(m),
   },
   familySetup: {
     signedInAs: (email) => 'Zalogowano jako ' + (email ?? 'nieznane konto'),

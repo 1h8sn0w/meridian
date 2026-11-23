@@ -37,7 +37,7 @@ pnpm dev                      # http://localhost:3000
 ## Публічний конфіг береться рантаймом (MER-45)
 
 Браузер ходить у Supabase сам, тож йому потрібні адреса проєкту, anon-ключ і
-адреса sync. У стеку їх вписує в `public/env.js` **Caddy, на кожній відповіді** —
+адреса sync, а відліку до запуску — його мить (`PUBLIC_RELEASE_AT`). У стеку їх вписує в `public/env.js` **Caddy, на кожній відповіді** —
 директивою `templates` ([`infra/caddy/Caddyfile`](../../infra/caddy/Caddyfile)),
 зі свого оточення (`compose.yaml`). Тому один образ їде на будь-який self-host
 без перезбірки, і заповнювати не треба нічого.
@@ -57,7 +57,7 @@ pnpm dev                      # http://localhost:3000
 | `index.html` | Розмітка сторінки й PWA-мети |
 | `public/env.js` | Шаблон публічного конфігу; воркер бере його з мережі, офлайн — із кешу |
 | `src/main.tsx` | Вхід: роутер, провайдери входу й синхронізації, реєстрація воркера |
-| `src/routes` | Маршрути (MER-49, MER-61…63): `/` — «Сьогодні», `/week`, `/calendar`, `/meals`, `/recipe/$mealId`, `/shopping`, `/family` |
+| `src/routes` | Маршрути (MER-49, MER-61…63): `/` — «Сьогодні», `/week`, `/calendar`, `/meals`, `/recipe/$mealId`, `/shopping`, `/family`; `/login` — вхід повз відлік до запуску |
 | `src/components` | Екрани й спільні елементи, дизайн «Сонячна дуга» ([README](src/components/README.md)) |
 | `src/lib` | Логіка пристрою: вхід, годинник дня, нагадування, стартовий набір ([README](src/lib/README.md)) |
 | `src/lib/data` | Читання (`queries.ts`) і записи (`mutations.ts`) локальної бази ([README](src/lib/data/README.md)) |

@@ -79,6 +79,7 @@ You only need `.env` to change something: `cp .env.example .env`. After a change
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | The stack has no email, so accounts are confirmed immediately |
 | `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
 | `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
+| `RELEASE_AT` | empty | Launch moment: until then a signed-out visitor sees a countdown, sign-in is at `/login` |
 | `WEB_IMAGE` | empty | A prebuilt app image instead of a local build; only works with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).

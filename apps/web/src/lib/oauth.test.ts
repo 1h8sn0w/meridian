@@ -24,6 +24,7 @@ const env = {
   supabaseUrl: 'https://app.example.com',
   supabaseAnonKey: 'anon-key',
   powersyncUrl: '',
+  releaseAt: '',
 }
 
 function memoryStorage() {
