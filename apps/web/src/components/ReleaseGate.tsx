@@ -69,9 +69,15 @@ function ReleaseCountdown({
           aria-label={t.release.timer(left.days, left.hours, left.minutes)}
           className="flex gap-2"
         >
-          <Unit value={left.days} label={t.release.dayUnit(left.days)} />
-          <Unit value={left.hours} label={t.release.hourUnit(left.hours)} />
-          <Unit
+          <CountdownUnit
+            value={left.days}
+            label={t.release.dayUnit(left.days)}
+          />
+          <CountdownUnit
+            value={left.hours}
+            label={t.release.hourUnit(left.hours)}
+          />
+          <CountdownUnit
             value={left.minutes}
             label={t.release.minuteUnit(left.minutes)}
           />
@@ -82,7 +88,7 @@ function ReleaseCountdown({
   )
 }
 
-function Unit({ value, label }: { value: number; label: string }) {
+function CountdownUnit({ value, label }: { value: number; label: string }) {
   return (
     <div
       aria-hidden

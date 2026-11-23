@@ -1,7 +1,7 @@
 import { Navigate, createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/login')({ component: SignedIn })
+export const Route = createFileRoute('/login')({ component: ToToday })
 
-function SignedIn() {
+function ToToday() {
   return <Navigate to="/" replace />
 }
