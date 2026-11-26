@@ -11,6 +11,7 @@
 | `supabase.ts` | Один клієнт Supabase на вкладку |
 | `oauth.ts` | Вхід і прив'язка Google, Discord, GitHub |
 | `public-env.ts` | Публічний конфіг рантаймом (`apps/web/README.md`) |
+| `release-gate.ts` | Мить запуску з `RELEASE_AT` і відлік до неї |
 | `day-clock.ts` | Вікна прийомів їжі, їх валідація й геометрія годинника дня |
 | `meal-windows.tsx` | Вікна сім'ї з `family_settings` для всього застосунку (`useMealWindows`) |
 | `use-now.ts` | Одне «зараз» на весь застосунок |

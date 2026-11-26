@@ -16,7 +16,10 @@ const MEAL_TYPE: Record<MealType, string> = {
 
 const meal = (type: MealType) => MEAL_TYPE[type].toLowerCase()
 
-const days = (n: number) => n + ' ' + plural(n, 'day', 'days')
+const dayWord = (n: number) => plural(n, 'day', 'days')
+const hourWord = (n: number) => plural(n, 'hour', 'hours')
+const minuteWord = (n: number) => plural(n, 'minute', 'minutes')
+const days = (n: number) => n + ' ' + dayWord(n)
 const meals = (n: number) => n + ' ' + plural(n, 'meal', 'meals')
 const slots = (n: number) => n + ' ' + plural(n, 'slot', 'slots')
 
@@ -228,6 +231,26 @@ export const en: Messages = {
     orContinueWith: 'or',
     continueWith: (provider: string) => 'Continue with ' + provider,
     signOut: 'Sign out',
+  },
+  release: {
+    title: 'Launching soon',
+    about:
+      'Meridian plans the family’s week of meals from dietitian plans: it keeps calories on target, mixes meals from several plans and builds the shopping list.',
+    opens: (date: string) => 'Opening on ' + date,
+    dayUnit: dayWord,
+    hourUnit: hourWord,
+    minuteUnit: minuteWord,
+    timer: (d: number, h: number, m: number) =>
+      'Launch in ' +
+      days(d) +
+      ', ' +
+      h +
+      ' ' +
+      hourWord(h) +
+      ', ' +
+      m +
+      ' ' +
+      minuteWord(m),
   },
   familySetup: {
     signedInAs: (email) => 'Signed in as ' + (email ?? 'an unknown account'),

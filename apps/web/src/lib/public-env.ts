@@ -2,6 +2,7 @@ export type PublicEnv = {
   supabaseUrl: string
   supabaseAnonKey: string
   powersyncUrl: string
+  releaseAt: string
 }
 
 declare global {
@@ -24,6 +25,8 @@ export function readPublicEnv(): PublicEnv {
       (import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? ''),
     powersyncUrl:
       fromPage('powersyncUrl') || (import.meta.env.PUBLIC_POWERSYNC_URL ?? ''),
+    releaseAt:
+      fromPage('releaseAt') || (import.meta.env.PUBLIC_RELEASE_AT ?? ''),
   }
 }
 

@@ -197,6 +197,7 @@ services:
       HTTPS_PORT: ${HTTPS_PORT:-443}
       PUBLIC_SUPABASE_URL: ${APP_URL:-http://localhost}
       PUBLIC_POWERSYNC_URL: ${APP_URL:-http://localhost}/sync
+      PUBLIC_RELEASE_AT: ${RELEASE_AT:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-X-Forwarded-For}
     depends_on:

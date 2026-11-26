@@ -28,7 +28,10 @@ const MEAL_TIME: Record<MealType, string> = {
   snack: 'Zeit für einen Snack',
 }
 
-const days = (n: number) => n + ' ' + plural(n, 'Tag', 'Tage')
+const dayWord = (n: number) => plural(n, 'Tag', 'Tage')
+const hourWord = (n: number) => plural(n, 'Stunde', 'Stunden')
+const minuteWord = (n: number) => plural(n, 'Minute', 'Minuten')
+const days = (n: number) => n + ' ' + dayWord(n)
 const meals = (n: number) => n + ' ' + plural(n, 'Gericht', 'Gerichte')
 const slots = (n: number) => n + ' ' + plural(n, 'Slot', 'Slots')
 
@@ -246,6 +249,27 @@ export const de: Messages = {
     orContinueWith: 'oder',
     continueWith: (provider: string) => 'Weiter mit ' + provider,
     signOut: 'Abmelden',
+  },
+  release: {
+    title: 'Bald geht es los',
+    about:
+      'Meridian plant den Wochenspeiseplan der Familie nach Plänen der Ernährungsberatung: hält die Kalorien im Ziel, mischt Gerichte aus mehreren Plänen und erstellt die Einkaufsliste.',
+    opens: (date: string) => 'Start am ' + date,
+    dayUnit: dayWord,
+    hourUnit: hourWord,
+    minuteUnit: minuteWord,
+    timer: (d: number, h: number, m: number) =>
+      'Noch ' +
+      days(d) +
+      ', ' +
+      h +
+      ' ' +
+      hourWord(h) +
+      ', ' +
+      m +
+      ' ' +
+      minuteWord(m) +
+      ' bis zum Start',
   },
   familySetup: {
     signedInAs: (email) => 'Angemeldet als ' + (email ?? 'unbekanntes Konto'),
