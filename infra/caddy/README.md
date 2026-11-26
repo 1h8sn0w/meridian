@@ -24,10 +24,15 @@ Caddy віддає весь стек з одного походження, ро�
 
 ## Caddyfile
 
-- **Адреса сайту — `{$APP_URL:http://localhost}`.** `{$VAR:default}`
-  підставляється до парсингу конфігу. Схема значуща: `http://localhost` —
-  простий HTTP без сертифікатів (локально браузер не лається на невідомий
-  центр), `https://домен` — сертифікат Let's Encrypt.
+- **Адреса сайту — `{$SITE_ADDRESS}`, типово `APP_URL`** (оболонка сервісу
+  `caddy`). `{$VAR:default}` підставляється до парсингу конфігу. Схема
+  значуща: `http://localhost` — простий HTTP без сертифікатів (локально
+  браузер не лається на невідомий центр), `https://домен` — сертифікат Let's
+  Encrypt.
+- **За тунелем (Cloudflare Tunnel) — `SITE_ADDRESS=http://`.** TLS закінчується
+  в Cloudflare, Let's Encrypt до Caddy не достукається, тож Caddy слухає
+  простий HTTP на `HTTP_PORT` для будь-якого імені. `APP_URL` лишається
+  `https://домен`: з нього беруть адреси браузер і GoTrue.
 - **Порти — `http_port`/`https_port` з `HTTP_PORT`/`HTTPS_PORT`.** Порт у
   `APP_URL` Caddy слухає сам; compose публікує обидва випадки один в один, тож
   порт у `APP_URL` має збігатися з `HTTP_PORT` або `HTTPS_PORT` (MER-74).
