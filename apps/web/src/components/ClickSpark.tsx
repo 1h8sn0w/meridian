@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react'
 
 const RAYS = 8
+const LAYER = 'pointer-events-none fixed inset-0 z-50 overflow-hidden'
 
 function burstAt(x: number, y: number) {
+  const layer = document.createElement('div')
+  layer.className = LAYER
   const burst = document.createElement('div')
   burst.className = 'absolute'
   burst.style.left = `${x}px`
@@ -18,14 +21,15 @@ function burstAt(x: number, y: number) {
     line.style.setProperty('--spark-angle', `${(360 / RAYS) * ray}deg`)
     burst.append(line)
   }
-  return burst
+  layer.append(burst)
+  return layer
 }
 
 export function ClickSpark() {
   const layer = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const allowed = window.matchMedia(
-      '(pointer: fine) and (prefers-reduced-motion: no-preference)',
+      '(any-pointer: fine) and (prefers-reduced-motion: no-preference)',
     )
     const spark = (event: PointerEvent) => {
       if (event.pointerType !== 'mouse' || event.button !== 0) return
@@ -43,11 +47,5 @@ export function ClickSpark() {
     document.addEventListener('pointerdown', spark)
     return () => document.removeEventListener('pointerdown', spark)
   }, [])
-  return (
-    <div
-      ref={layer}
-      aria-hidden
-      className="vt-spark pointer-events-none fixed inset-0 z-50 overflow-hidden"
-    />
-  )
+  return <div ref={layer} aria-hidden className={`vt-spark ${LAYER}`} />
 }

@@ -424,7 +424,7 @@ export function Sheet({
       onClick={(event) => {
         if (event.target === event.currentTarget) close()
       }}
-      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end overflow-hidden justify-center border-0 bg-overlay p-0 text-content backdrop-blur-sm open:flex motion-safe:animate-fade dialog:items-center"
+      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end justify-center border-0 bg-overlay p-0 text-content backdrop-blur-sm open:flex motion-safe:animate-fade dialog:items-center"
     >
       <div className="glass m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-3xl px-5 py-4 motion-safe:animate-sheet">
         <div className="mb-2 flex items-center justify-between gap-2.5">
