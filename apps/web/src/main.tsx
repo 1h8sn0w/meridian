@@ -5,6 +5,7 @@ import { readPublicEnv } from './lib/public-env'
 import { AuthProvider } from './lib/auth'
 import { SyncProvider } from './lib/powersync/provider'
 import { Sky, applySky, markClassicScrollbar } from './components/Sky'
+import { ClickSpark } from './components/ClickSpark'
 import { DEFAULT_MEAL_WINDOWS } from './lib/day-clock'
 import { MealWindowsProvider } from './lib/meal-windows'
 import { minutesOf } from './lib/use-now'
@@ -43,6 +44,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     <SyncProvider env={env}>
       <MealWindowsProvider>
         <Sky />
+        <ClickSpark />
         <RouterProvider router={router} />
       </MealWindowsProvider>
     </SyncProvider>

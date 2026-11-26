@@ -5,7 +5,8 @@
 
 - **Каркас:** `AppGate` (стан входу → екран чи маршрути; такт нагадувань і
   автозасів), `AppShell` (шапка, колонка `max-w-screen-sm`, док вкладок),
-  `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт).
+  `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт), `ClickSpark`
+  (іскра кліку мишею).
 - **Екрани:** `AuthScreen` (вхід, реєстрація, OAuth), `FamilySetupScreen` (нова
   сім'я чи вступ за кодом), `FamilyScreen` (склад, запрошення, мова,
   синхронізація, імпорт V1, `SignInMethods`, вихід), `TodayScreen` (годинник і страва
@@ -236,6 +237,11 @@
 оверлею закриває. Спершу `close()`, потім `onClose()` (і для Escape): фокус
 повертається, лише поки діалог у DOM. Елемент — у стані, не в `useRef`:
 `close` іде в `children` у рендері (`react-hooks/refs`).
+
+### ClickSpark
+
+Шар `fixed inset-0 overflow-hidden`; у відкритому `<dialog>` — у ньому, бо
+top layer вище. Прибирається з `finished` усіх анімацій, і скасованих теж.
 
 ### Sky
 
