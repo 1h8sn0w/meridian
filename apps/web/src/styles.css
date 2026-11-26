@@ -505,3 +505,12 @@
 @utility vt-tab-pill {
   view-transition-name: tab-pill;
 }
+@utility vt-spark {
+  view-transition-name: click-spark;
+}
+::view-transition-old(click-spark) {
+  display: none;
+}
+::view-transition-new(click-spark) {
+  animation: none;
+}

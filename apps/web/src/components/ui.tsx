@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import type {
   AnchorHTMLAttributes,
-  AnimationEvent,
   ButtonHTMLAttributes,
   CSSProperties,
   DOMAttributes,
@@ -112,32 +111,32 @@ export function Field({
 
 const PRESS = 'motion-safe:data-pressed:animate-press'
 
-function tick() {
-  if ('vibrate' in navigator) navigator.vibrate(8)
+function press(target: HTMLElement) {
+  const replay = target.hasAttribute('data-pressed')
+  target.setAttribute('data-pressed', '')
+  const run = target
+    .getAnimations()
+    .find((it) => it instanceof CSSAnimation && it.animationName === 'press')
+  const release = () => target.removeAttribute('data-pressed')
+  if (!run) release()
+  else if (replay) run.currentTime = 0
+  else run.finished.then(release, release)
 }
 
 function feedback<T extends HTMLElement>(
   haptic: boolean,
-  { onPointerDown, onClick, onAnimationEnd }: DOMAttributes<T>,
+  { onPointerDown, onClick }: DOMAttributes<T>,
 ) {
   return {
     onPointerDown: (event: PointerEvent<T>) => {
-      const target = event.currentTarget
-      if (!target.matches(':disabled')) {
-        target.removeAttribute('data-pressed')
-        void target.offsetWidth
-        target.setAttribute('data-pressed', '')
-      }
+      if (event.button === 0 && !event.currentTarget.matches(':disabled'))
+        press(event.currentTarget)
       onPointerDown?.(event)
     },
     onClick: (event: MouseEvent<T>) => {
-      if (haptic) tick()
+      if (event.detail === 0) press(event.currentTarget)
+      if (haptic && 'vibrate' in navigator) navigator.vibrate(8)
       onClick?.(event)
-    },
-    onAnimationEnd: (event: AnimationEvent<T>) => {
-      if (event.animationName === 'press')
-        event.currentTarget.removeAttribute('data-pressed')
-      onAnimationEnd?.(event)
     },
   }
 }
@@ -284,7 +283,7 @@ export function Chip({
       aria-pressed={active}
       {...button}
       {...feedback(true, button)}
-      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-300 ${PRESS} ${
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-300 motion-safe:transition motion-safe:ease-spring ${PRESS} ${
         active
           ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
           : 'border-line bg-app text-muted hover:text-content'
@@ -386,7 +385,7 @@ export function IconButton({
       aria-label={label}
       {...button}
       {...feedback(false, button)}
-      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content disabled:cursor-not-allowed disabled:opacity-50 ${PRESS}`}
+      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition motion-safe:ease-spring ${PRESS}`}
     >
       {children}
     </button>
@@ -425,7 +424,7 @@ export function Sheet({
       onClick={(event) => {
         if (event.target === event.currentTarget) close()
       }}
-      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end justify-center border-0 bg-overlay p-0 text-content backdrop-blur-sm open:flex motion-safe:animate-fade dialog:items-center"
+      className="fixed inset-0 m-0 h-full max-h-full w-full max-w-full items-end overflow-hidden justify-center border-0 bg-overlay p-0 text-content backdrop-blur-sm open:flex motion-safe:animate-fade dialog:items-center"
     >
       <div className="glass m-2.5 max-h-3/4 w-full max-w-xl overflow-y-auto rounded-3xl px-5 py-4 motion-safe:animate-sheet">
         <div className="mb-2 flex items-center justify-between gap-2.5">

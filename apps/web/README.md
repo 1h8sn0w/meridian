@@ -112,10 +112,6 @@ Play CDN, PostCSS чи JS-конфіг.
   завжди. Без класу `::-webkit-scrollbar` не стилізується (оверлейна смуга
   macOS стала б класичною); з класом `scrollbar-color` — `auto`. Під
   `dialog:modal` доріжка накрита `--ui-overlay`.
-- **Натиск** (`press`, `ui.tsx`) — атрибут `data-pressed` від `pointerdown`
-  до `animationend`: `:active` на тапі живе ~50 мс. Анімується `scale`, тож
-  підйом `translate` на наведенні лишається. Хаптика — на `click` основних
-  кнопок і `Chip`: на `pointerdown` дзижчало б на початку прокрутки.
 - Правило значень — в `AGENTS.md`, дизайн — у
   [`src/components/README.md`](src/components/README.md#дизайн-сонячна-дуга).
   Після заміни typography-токенів перевіряти line-height, переповнення на
