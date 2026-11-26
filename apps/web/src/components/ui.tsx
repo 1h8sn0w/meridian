@@ -3,7 +3,10 @@ import type {
   AnchorHTMLAttributes,
   ButtonHTMLAttributes,
   CSSProperties,
+  DOMAttributes,
   InputHTMLAttributes,
+  MouseEvent,
+  PointerEvent,
   ReactNode,
   Ref,
   SelectHTMLAttributes,
@@ -106,6 +109,38 @@ export function Field({
   )
 }
 
+const PRESS = 'motion-safe:data-pressed:animate-press'
+
+function press(target: HTMLElement) {
+  const replay = target.hasAttribute('data-pressed')
+  target.setAttribute('data-pressed', '')
+  const run = target
+    .getAnimations()
+    .find((it) => it instanceof CSSAnimation && it.animationName === 'press')
+  const release = () => target.removeAttribute('data-pressed')
+  if (!run) release()
+  else if (replay) run.currentTime = 0
+  else run.finished.then(release, release)
+}
+
+function feedback<T extends HTMLElement>(
+  haptic: boolean,
+  { onPointerDown, onClick }: DOMAttributes<T>,
+) {
+  return {
+    onPointerDown: (event: PointerEvent<T>) => {
+      if (event.button === 0 && !event.currentTarget.matches(':disabled'))
+        press(event.currentTarget)
+      onPointerDown?.(event)
+    },
+    onClick: (event: MouseEvent<T>) => {
+      if (event.detail === 0) press(event.currentTarget)
+      if (haptic && 'vibrate' in navigator) navigator.vibrate(8)
+      onClick?.(event)
+    },
+  }
+}
+
 type ButtonLook = {
   variant?: 'default' | 'primary'
   block?: boolean
@@ -116,7 +151,7 @@ function buttonClass({ variant = 'default', block = false }: ButtonLook) {
     variant === 'primary'
       ? 'border-transparent bg-accent-fill font-semibold text-button-ink shadow-accent'
       : 'border-line bg-surface-strong font-medium text-content'
-  return `inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-97 motion-safe:disabled:hover:translate-y-0 ${look} ${block ? 'w-full' : ''}`
+  return `inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-spring motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:disabled:hover:translate-y-0 ${PRESS} ${look} ${block ? 'w-full' : ''}`
 }
 
 export function Button({
@@ -129,6 +164,7 @@ export function Button({
     <button
       type="button"
       {...button}
+      {...feedback(variant === 'primary', button)}
       className={buttonClass({ variant, block })}
     >
       {children}
@@ -146,6 +182,7 @@ function ButtonAnchor({
   return (
     <a
       {...anchor}
+      {...feedback(variant === 'primary', anchor)}
       className={`${buttonClass({ variant, block })} no-underline ${className}`}
     />
   )
@@ -245,7 +282,8 @@ export function Chip({
       type="button"
       aria-pressed={active}
       {...button}
-      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-300 motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-95 ${
+      {...feedback(true, button)}
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-300 motion-safe:transition motion-safe:ease-spring ${PRESS} ${
         active
           ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
           : 'border-line bg-app text-muted hover:text-content'
@@ -346,7 +384,8 @@ export function IconButton({
       title={label}
       aria-label={label}
       {...button}
-      className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-90"
+      {...feedback(false, button)}
+      className={`inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full border border-line bg-app p-0 text-muted transition-colors duration-300 hover:text-content disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition motion-safe:ease-spring ${PRESS}`}
     >
       {children}
     </button>

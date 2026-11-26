@@ -5,7 +5,8 @@
 
 - **Каркас:** `AppGate` (стан входу → екран чи маршрути; такт нагадувань і
   автозасів), `AppShell` (шапка, колонка `max-w-screen-sm`, док вкладок),
-  `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт).
+  `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт), `ClickSpark`
+  (іскра миші).
 - **Екрани:** `AuthScreen` (вхід, реєстрація, OAuth), `FamilySetupScreen` (нова
   сім'я чи вступ за кодом), `FamilyScreen` (склад, запрошення, мова,
   синхронізація, імпорт V1, `SignInMethods`, вихід), `TodayScreen` (годинник і страва
@@ -237,12 +238,23 @@
 повертається, лише поки діалог у DOM. Елемент — у стані, не в `useRef`:
 `close` іде в `children` у рендері (`react-hooks/refs`).
 
+### Button
+
+`data-pressed` — від `pointerdown` чи клавіатурного `click` до кінця `press`
+(`:active` на тапі ~50 мс); анімує `scale`, не `translate`. Хаптика — на
+`click`, не `pointerdown` (прокрутка).
+
+### ClickSpark
+
+`vt-spark`: без двійника у View Transition. У `<dialog>` сплеск — у ньому
+(top layer).
+
 ### Sky
 
 `applySky` і `markClassicScrollbar` — ще до першого рендеру (`main.tsx`).
 `markClassicScrollbar` міряє пробний елемент з `overflow: scroll`
-(`clientWidth` кореня жолоба не бачить) і ставить клас `classic-scrollbar`, під
-яким CSS фарбує доріжку небом (`apps/web/README.md`).
+(`clientWidth` кореня жолоба не бачить); клас `classic-scrollbar` — у
+[`apps/web/README.md`](../../README.md).
 
 ## Відомі стелі (ponytail)
 
