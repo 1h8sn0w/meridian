@@ -22,7 +22,7 @@
   --animate-breathe: breathe 4s ease-in-out infinite;
   --animate-draw: draw 1.1s var(--ease-out-expo) both;
   --animate-press: press 0.45s ease-out;
-  --animate-spark: spark 0.4s var(--ease-out-expo) both;
+  --animate-spark: spark 0.4s ease-out both;
   --animate-spark-glow: spark-glow 0.4s ease-out both;
 
   @keyframes rise {
@@ -88,10 +88,10 @@
   }
   @keyframes spark {
     from {
-      transform: rotate(var(--spark-angle)) translateX(5px) scaleX(1);
+      transform: rotate(var(--spark-angle)) translateX(6px) scaleX(1);
     }
     to {
-      transform: rotate(var(--spark-angle)) translateX(20px) scaleX(0);
+      transform: rotate(var(--spark-angle)) translateX(22px) scaleX(0);
       opacity: 0;
     }
   }

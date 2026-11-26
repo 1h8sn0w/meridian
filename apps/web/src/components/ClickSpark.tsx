@@ -17,7 +17,7 @@ function burstAt(x: number, y: number) {
   for (let ray = 0; ray < RAYS; ray++) {
     const line = document.createElement('div')
     line.className =
-      'absolute -top-px left-0 h-0.5 w-2 origin-left rounded-full bg-accent-fill motion-safe:animate-spark'
+      'absolute -top-px left-0 h-0.5 w-3 origin-left rounded-full bg-accent-fill ring-1 ring-surface-strong motion-safe:animate-spark'
     line.style.setProperty('--spark-angle', `${(360 / RAYS) * ray}deg`)
     burst.append(line)
   }
