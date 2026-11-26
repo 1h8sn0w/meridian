@@ -10,7 +10,7 @@ services:
     restart: 'no'
 
   db:
-    image: supabase/postgres:17.6.1.136
+    image: supabase/postgres:17.12.0.002
     restart: unless-stopped
     entrypoint:
       - /bin/sh
@@ -38,7 +38,7 @@ services:
         condition: service_completed_successfully
 
   migrate:
-    image: supabase/postgres:17.6.1.136
+    image: supabase/postgres:17.12.0.002
     restart: 'no'
     entrypoint:
       - /bin/sh
@@ -65,7 +65,7 @@ services:
         condition: service_healthy
 
   auth:
-    image: supabase/gotrue:v2.189.0
+    image: supabase/gotrue:v2.199.0
     restart: unless-stopped
     entrypoint:
       - /bin/sh
@@ -120,7 +120,7 @@ services:
         condition: service_completed_successfully
 
   rest:
-    image: postgrest/postgrest:v14.12
+    image: postgrest/postgrest:v14.18
     restart: unless-stopped
     command: ['/bin/postgrest', '/secrets/postgrest.conf']
     volumes:
@@ -132,7 +132,7 @@ services:
         condition: service_completed_successfully
 
   powersync:
-    image: journeyapps/powersync-service:1.23.3
+    image: journeyapps/powersync-service:1.29.1
     restart: unless-stopped
     entrypoint:
       - /bin/sh

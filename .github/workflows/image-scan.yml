@@ -24,6 +24,40 @@ jobs:
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  stack-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: staging
+
+      - id: list
+        run: echo "images=$(docker compose -f compose.yaml config --format json | jq -c '[.services[] | select(.build == null) | .image] | unique')" >> "$GITHUB_OUTPUT"
+
+  stack:
+    needs: stack-images
+    runs-on: ubuntu-latest
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.stack-images.outputs.images) }}
+    steps:
+      - uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: registry://${{ matrix.image }}
+          only-severities: critical,high
+          only-fixed: true
+          exit-code: true
+          summary: true
+          dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+
   deps:
     runs-on: ubuntu-latest
     permissions:

@@ -35,6 +35,12 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 
 ### compose.yaml
 
+- **Версії образів (MER-171)** новіші за офіційний compose Supabase: той пінить
+  образи з CVE, для яких уже є виправлення. Новий тег — це реліз-нотатки й
+  міграції між версіями (GoTrue й PowerSync мігрують свої таблиці на старті),
+  потім стек із наявним томом і з нуля: вхід, `create_family`, запис через
+  PostgREST, `rpc/starter_set`, потік sync. Postgres — лише в межах мажору 17:
+  том той самий, `pg_upgrade` не потрібен.
 - **`$$` в оболонках сервісів** — екранований долар: Compose перетворює його
   на `$`, і змінна доходить до `sh` нерозкритою. Один `$` Compose підставив би
   сам, порожнім рядком.
@@ -59,13 +65,17 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 - **`auth`, прив'язка (MER-163):** `GOTRUE_SECURITY_MANUAL_LINKING_ENABLED=true`
   відкриває `/user/identities/authorize` і `DELETE /user/identities/{id}`.
   `GOTRUE_EXPERIMENTAL_PROVIDERS_WITH_OWN_LINKING_DOMAIN` типово
-  `google,discord,github` вимикає автоприв'язку за поштою: у GoTrue v2.189.0
+  `google,discord,github` вимикає автоприв'язку за поштою: у GoTrue v2.199.0
   `DetermineAccountLinking` (`internal/models/linking.go`) рахує пошту
   підтвердженою, якщо `email.Verified || config.Mailer.Autoconfirm`, а GitHub
   (`provider/github.go`) віддає всі адреси з `/user/emails`, і непідтверджені.
   З нашим типовим `AUTOCONFIRM=true` це захоплення акаунта чужим входом.
+  З v2.198.0 змінна застаріла, але діє: `ApplyDefaults`
+  (`internal/conf/configuration.go`) переносить список у
+  `GOTRUE_EXPERIMENTAL_PROVIDER_LINKING_DOMAINS` як `провайдер=провайдер`, тобто
+  кожен провайдер і далі у власному домені.
 - **`auth`, ліміти (MER-170):** `GOTRUE_RATE_LIMIT_HEADER=X-Real-IP`. Без
-  нього GoTrue v2.189.0 не застосовує жодного ліміту за IP
+  нього GoTrue v2.199.0 не застосовує жодного ліміту за IP
   (`performRateLimitingWithHeader`). Вхід паролем і оновлення токена — лімітер
   `Token`: сплеск 30, далі `GOTRUE_RATE_LIMIT_TOKEN_REFRESH` (150) на 5 хв з
   адреси. `X-Real-IP`, а не `X-Forwarded-For`: GoTrue бере перше значення
@@ -111,8 +121,12 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   за дайджестом щойно зібраного образу: це тривога, а не шлагбаум (свіжа CVE в
   базі інакше глушила б публікацію), і паралельна публікація не підмінить
   перевірене.
-- `image-scan.yml` раз на тиждень сканує вже опублікований `staging` і
-  JS-залежності цієї гілки (`pnpm audit`). Той самий файл лежить і на `main`:
+- `image-scan.yml` раз на тиждень сканує вже опублікований `staging`,
+  JS-залежності цієї гілки (`pnpm audit`) і сторонні образи стека (MER-171):
+  job `stack-images` бере з `docker compose config` образи сервісів без
+  `build`, матриця `stack` сканує кожен із реєстру. Там `only-fixed`: CVE, для якої
+  нема виправленої версії пакета, нам нема чим закрити. Червоний скан —
+  сигнал шукати новіший тег для `compose.yaml` або чекати на постачальника. Той самий файл лежить і на `main`:
   розклад GitHub бере лише звідти. `latest` додається на релізі (MER-109).
 
 Перші два перелічують у тригерах і `main`, і `staging`, хоч на `main` досі V1:
