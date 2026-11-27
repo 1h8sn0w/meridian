@@ -37,19 +37,19 @@ export function ScreenHeader({
 }) {
   return (
     <header className="header-glass sticky top-0 z-10 px-5 pb-3 pt-6">
-      <div className="mx-auto flex max-w-screen-sm items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="m-0 text-3xl font-semibold tracking-tight wrap-break-word">
+      <div className="mx-auto max-w-screen-sm">
+        <div className="flex flex-wrap-reverse items-center gap-x-3 gap-y-2">
+          <h1 className="m-0 min-w-0 grow text-3xl font-semibold tracking-tight wrap-break-word">
             {title}
           </h1>
-          {subtitle ? (
-            <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
-          ) : null}
+          <div className="ml-auto flex flex-none items-center gap-1.5">
+            {actions}
+            <LocaleSwitcher />
+          </div>
         </div>
-        <div className="flex flex-none items-center gap-1.5">
-          {actions}
-          <LocaleSwitcher />
-        </div>
+        {subtitle ? (
+          <p className="mb-0 mt-1 text-sm text-muted">{subtitle}</p>
+        ) : null}
       </div>
     </header>
   )
