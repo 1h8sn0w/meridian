@@ -45,6 +45,8 @@
 		@not_hashed not path /assets/*
 		header @not_hashed Cache-Control no-cache
 		try_files {path} /index.html
+		@shell path / /index.html
+		templates @shell
 		file_server
 	}
 }
