@@ -30,14 +30,13 @@ jobs:
             type=sha,format=short
             type=semver,pattern={{version}}
 
-      - id: build
-        uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: infra/web.Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          provenance: false
+          tags: meridian:scan
           cache-from: type=gha
           cache-to: type=gha,mode=max
           no-cache-filters: runtime
@@ -45,9 +44,17 @@ jobs:
       - uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/meridian@${{ steps.build.outputs.digest }}
+          image: local://meridian:scan
           only-severities: critical,high
           exit-code: true
           summary: true
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/web.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
