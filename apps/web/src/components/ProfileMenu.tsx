@@ -45,16 +45,16 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
           <span
             key={member.id}
             className={`rounded-full ring-2 ${
-              index === 0
-                ? 'ring-accent [&>span]:inset-ring-2 [&>span]:inset-ring-app-solid'
-                : '-ml-2.5 ring-app-solid'
-            } ${index < stack.length - 1 || wideMore > 0 ? '[&>span]:pr-2' : ''} ${
-              index >= STACK_NARROW
-                ? 'hidden min-[360px]:inline-flex'
-                : 'inline-flex'
-            }`}
+              index === 0 ? 'ring-accent' : '-ml-2.5 ring-app-solid'
+            } ${index >= STACK_NARROW ? 'hidden min-[360px]:inline-flex' : 'inline-flex'}`}
           >
-            <Avatar letter={initial(member)} color={member.color} />
+            <Avatar
+              letter={initial(member)}
+              color={member.color}
+              className={`${index === 0 ? 'inset-ring-2 inset-ring-app-solid' : ''} ${
+                index < stack.length - 1 || wideMore > 0 ? 'pr-2' : ''
+              }`}
+            />
           </span>
         ))}
         {narrowMore > 0 ? (

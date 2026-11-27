@@ -23,6 +23,7 @@ import {
 import type { Icon } from '@phosphor-icons/react'
 import type { Failure } from '../lib/messages'
 import type { OAuthProvider } from '../lib/oauth'
+import { darkInkReads } from '../lib/contrast'
 import { useMessages } from '../lib/i18n/use-messages'
 import { LocaleSwitcher } from './LocaleSwitcher'
 
@@ -246,13 +247,23 @@ export function InfoText({ children }: { children: ReactNode }) {
   )
 }
 
-export function Avatar({ letter, color }: { letter: string; color?: string }) {
+export function Avatar({
+  letter,
+  color,
+  className = '',
+}: {
+  letter: string
+  color?: string
+  className?: string
+}) {
   return (
     <span
       style={
         color ? ({ '--profile-color': color } as CSSProperties) : undefined
       }
-      className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-profile-fill text-sm font-semibold text-button-ink"
+      className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-profile-fill text-sm font-semibold ${
+        color && !darkInkReads(color) ? 'text-white' : 'text-button-ink'
+      } ${className}`}
     >
       {letter}
     </span>

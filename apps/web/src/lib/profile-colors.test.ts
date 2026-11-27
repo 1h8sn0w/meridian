@@ -2,32 +2,32 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+import { DARK_INK, contrast, darkInkReads } from './contrast.ts'
+
 const read = (path: string) =>
   readFileSync(new URL(path, import.meta.url), 'utf8')
 const palette = /PROFILE_COLORS = \[([^\]]*)\]/.exec(
   read('./active-profile.ts'),
-)
-const colors = palette?.[1].match(/#[0-9a-f]{6}/g) ?? []
-const styles = read('../styles.css')
-const ink = /--color-button-ink:\s*(#[0-9a-f]{6})/.exec(styles)?.[1]
+)?.[1]
+const colors = [...(palette ?? '').matchAll(/'([^']*)'/g)].map((m) => m[1])
 
-const luminance = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const c = parseInt(hex.slice(i, i + 2), 16) / 255
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  })
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
+test('темне чорнило аватара — те саме, що --color-button-ink', () => {
+  assert.match(
+    read('../styles.css'),
+    new RegExp(`--color-button-ink:\\s*${DARK_INK};`),
+  )
+})
 
-const contrast = (a: string, b: string) => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
-
-test('літера аватара читається на кожному кольорі профілю (≥ 4.5:1)', () => {
-  assert.ok(ink)
+test('кожен колір палітри — hex, і темна літера на ньому ≥ 4.5:1', () => {
   assert.ok(colors.length > 0)
   for (const color of colors) {
-    assert.ok(contrast(ink, color) >= 4.5, `${color}: ${contrast(ink, color)}`)
+    assert.match(color, /^#[0-9a-f]{6}$/)
+    assert.ok(darkInkReads(color), color)
+    assert.ok(contrast(DARK_INK, color) >= 4.5, color)
   }
+})
+
+test('на темному кольорі поза палітрою літера світла', () => {
+  assert.equal(darkInkReads('#1f1a3a'), false)
+  assert.ok(contrast('#ffffff', '#1f1a3a') >= 4.5)
 })
