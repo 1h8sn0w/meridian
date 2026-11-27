@@ -46,14 +46,16 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
             key={member.id}
             style={{ zIndex: stack.length - index }}
             className={`relative rounded-full ring-2 ${
-              index === 0 ? 'ring-accent' : '-ml-2.5 ring-app-solid'
+              index === 0 ? 'ring-accent' : '-ml-3 ring-app-solid'
             } ${index >= STACK_NARROW ? 'hidden min-[360px]:inline-flex' : 'inline-flex'}`}
           >
             <Avatar
               letter={initial(member)}
               color={member.color}
               className={
-                index === 0 ? 'inset-ring-2 inset-ring-app-solid' : 'pl-3'
+                index === 0
+                  ? 'inset-ring-2 inset-ring-app-solid'
+                  : 'pl-3.5 pr-px'
               }
             />
           </span>
@@ -97,7 +99,7 @@ function MoreChip({ count, className }: { count: number; className: string }) {
   return (
     <span
       aria-hidden
-      className={`-ml-2.5 h-8 min-w-8 items-center justify-center rounded-full bg-chip pl-4 pr-1.5 font-mono text-xs font-semibold tabular-nums text-content ring-2 ring-app-solid ${className}`}
+      className={`relative z-0 -ml-3 h-8 min-w-8 items-center justify-center rounded-full bg-chip pl-4 pr-0.5 font-mono text-xs font-semibold tabular-nums text-content ring-2 ring-app-solid ${className}`}
     >
       +{count}
     </span>
