@@ -260,7 +260,9 @@ export function Avatar({
       style={
         color ? ({ '--profile-color': color } as CSSProperties) : undefined
       }
-      className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-profile-fill text-sm font-semibold text-button-ink ${className}`}
+      className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold ${
+        color ? 'bg-profile-fill text-button-ink' : 'bg-accent-soft text-accent'
+      } ${className}`}
     >
       {letter}
     </span>

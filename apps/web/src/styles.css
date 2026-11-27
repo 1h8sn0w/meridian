@@ -134,7 +134,7 @@
     var(--accent, #4f9dff) 16%,
     transparent
   );
-  --color-profile-fill: var(--profile-color, var(--accent, #4f9dff));
+  --color-profile-fill: var(--profile-color);
   --color-app-solid: var(--ui-well-solid);
   --color-chip: color-mix(
     in oklab,
