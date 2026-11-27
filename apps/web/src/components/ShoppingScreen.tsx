@@ -42,6 +42,7 @@ import {
   shoppingListText,
 } from '../lib/shopping-share'
 import { shareOrCopy } from '../lib/share'
+import { splitBought, useJustBought } from '../lib/just-bought'
 import { useNow } from '../lib/use-now'
 import { AppShell } from './AppShell'
 import {
@@ -58,14 +59,7 @@ import {
   SectionLabel,
   Warn,
 } from './ui'
-import {
-  Broom,
-  CaretDown,
-  Check,
-  Plus,
-  ShareNetwork,
-  X,
-} from '@phosphor-icons/react'
+import { Broom, CaretDown, Plus, ShareNetwork, X } from '@phosphor-icons/react'
 
 export function ShoppingScreen({ familyId }: { familyId: string }) {
   const db = usePowerSync()
@@ -101,6 +95,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   )
 
   const checksRead = useShoppingChecks(fingerprint)
+  const { justBought, markBought } = useJustBought()
   const extrasRead = useShoppingExtras()
 
   useEffect(() => {
@@ -132,15 +127,27 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
 
   const { withQty, noQty } = aggregate(slotMeals)
   const items = [...withQty, ...noQty]
-  const boughtItems = items.filter((item) => checksRead.data.get(item.key))
-  const toBuy = (list: ReadonlyArray<ShoppingItem>) =>
-    list.filter((item) => !checksRead.data.get(item.key))
-  const noQtyToBuy = toBuy(noQty)
+  const isChecked = (item: ShoppingItem) =>
+    checksRead.data.get(item.key) === true
+  const { toBuy: itemsToBuy, bought: boughtItems } = splitBought(
+    items,
+    isChecked,
+    (item) => item.key,
+    justBought,
+  )
+  const withQtyToBuy = itemsToBuy.filter((item) => item.amount !== null)
+  const noQtyToBuy = itemsToBuy.filter((item) => item.amount === null)
   const extras = extrasRead.data
-  const extrasToBuy = extras.filter((extra) => !extra.checked)
-  const extrasBought = extras.filter((extra) => extra.checked)
+  const { toBuy: extrasToBuy, bought: extrasBought } = splitBought(
+    extras,
+    (extra) => extra.checked,
+    (extra) => extra.id,
+    justBought,
+  )
   const total = items.length + extras.length
-  const bought = boughtItems.length + extrasBought.length
+  const bought =
+    items.filter(isChecked).length +
+    extras.filter((extra) => extra.checked).length
 
   const problems = [
     mealsRead.problems,
@@ -161,18 +168,24 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     }
   }
 
-  const toggle = (item: ShoppingItem) =>
-    write(() =>
+  const toggle = (item: ShoppingItem) => {
+    const checked = !checksRead.data.get(item.key)
+    if (checked) markBought(item.key)
+    return write(() =>
       setShoppingCheck(db, familyId, {
         itemKey: item.key,
         fingerprint,
-        checked: !checksRead.data.get(item.key),
+        checked,
       }),
     )
+  }
 
   const extraActions = {
-    onToggle: (extra: ShoppingExtra) =>
-      void write(() => setShoppingExtraChecked(db, extra.id, !extra.checked)),
+    justBought,
+    onToggle: (extra: ShoppingExtra) => {
+      if (!extra.checked) markBought(extra.id)
+      void write(() => setShoppingExtraChecked(db, extra.id, !extra.checked))
+    },
     onRemove: (extra: ShoppingExtra) =>
       void write(() => removeShoppingExtra(db, extra.id)),
   }
@@ -264,8 +277,9 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
               ) : (
                 <>
                   <Sections
-                    items={toBuy(withQty)}
+                    items={withQtyToBuy}
                     checked={false}
+                    justBought={justBought}
                     onToggle={(item) => void toggle(item)}
                   />
 
@@ -275,6 +289,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                       <Sections
                         items={noQtyToBuy}
                         checked={false}
+                        justBought={justBought}
                         onToggle={(item) => void toggle(item)}
                         flat
                       />
@@ -334,6 +349,23 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
         </>
       )}
     </AppShell>
+  )
+}
+
+function CheckGlyph({ drawing }: { drawing: boolean }) {
+  return (
+    <svg aria-hidden width={14} height={14} viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3.5 8.5 6.5 11.5 12.5 4.5"
+        pathLength={1}
+        strokeDasharray={1}
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={drawing ? 'motion-safe:animate-draw' : ''}
+      />
+    </svg>
   )
 }
 
@@ -432,11 +464,13 @@ function Progress({ bought, total }: { bought: number; total: number }) {
 function Sections({
   items,
   checked,
+  justBought = new Set<string>(),
   onToggle,
   flat = false,
 }: {
   items: ReadonlyArray<ShoppingItem>
   checked: boolean
+  justBought?: ReadonlySet<string>
   onToggle: (item: ShoppingItem) => void
   flat?: boolean
 }) {
@@ -450,7 +484,8 @@ function Sections({
             key={item.key}
             name={item.name}
             qty={amountText(item)}
-            checked={checked}
+            checked={checked || justBought.has(item.key)}
+            drawing={justBought.has(item.key)}
             onToggle={() => onToggle(item)}
           />
         ))
@@ -510,10 +545,12 @@ function ExtrasPanel({
 
 function ExtraRows({
   extras,
+  justBought,
   onToggle,
   onRemove,
 }: {
   extras: ReadonlyArray<ShoppingExtra>
+  justBought: ReadonlySet<string>
   onToggle: (extra: ShoppingExtra) => void
   onRemove: (extra: ShoppingExtra) => void
 }) {
@@ -523,6 +560,7 @@ function ExtraRows({
       key={extra.id}
       name={extra.name}
       checked={extra.checked}
+      drawing={justBought.has(extra.id)}
       onToggle={() => onToggle(extra)}
     >
       <IconButton
@@ -539,12 +577,14 @@ function CheckRow({
   name,
   qty = '',
   checked,
+  drawing = false,
   onToggle,
   children,
 }: {
   name: string
   qty?: string
   checked: boolean
+  drawing?: boolean
   onToggle: () => void
   children?: ReactNode
 }) {
@@ -568,7 +608,7 @@ function CheckRow({
               : 'border-line bg-app'
           }`}
         >
-          {checked ? <Check size={14} weight="bold" /> : null}
+          {checked ? <CheckGlyph drawing={drawing} /> : null}
         </span>
         <span
           className={`flex-1 break-words text-sm ${checked ? 'text-muted line-through' : ''}`}
