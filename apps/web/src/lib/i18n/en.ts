@@ -712,6 +712,7 @@ export const en: Messages = {
     noPlan:
       'There is no week plan yet. Generate it on the “Week” screen — the list is built from the meals’ ingredients, with nothing made up.',
     plans: (n) => ' · plans: ' + n,
+    people: (n) => ' · people: ' + n,
     missing: (n) =>
       slots(n) +
       ' without a meal — it was removed from the pool, so its ingredients are not in the list.',

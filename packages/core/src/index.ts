@@ -69,7 +69,12 @@ export {
 } from './calendar.ts'
 export type { CalendarSlot } from './calendar.ts'
 
-export { SHOPPING_CATEGORIES, aggregate, planFingerprint } from './shopping.ts'
+export {
+  SHOPPING_CATEGORIES,
+  aggregatePlans,
+  planEaters,
+  planFingerprint,
+} from './shopping.ts'
 export type { ShoppingItem } from './shopping.ts'
 
 export {

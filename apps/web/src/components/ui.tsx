@@ -294,21 +294,33 @@ export function Tag({
 export function Chip({
   active = false,
   children,
+  onClick,
   ...button
 }: { active?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  const [turnedOn, setTurnedOn] = useState(false)
   return (
     <button
       type="button"
       aria-pressed={active}
       {...button}
-      {...feedback(true, button)}
+      {...feedback(true, {
+        onPointerDown: button.onPointerDown,
+        onClick: (event: MouseEvent<HTMLButtonElement>) => {
+          if (!active) setTurnedOn(true)
+          onClick?.(event)
+        },
+      })}
       className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-300 motion-safe:transition motion-safe:ease-spring ${PRESS} ${
         active
           ? 'border-transparent bg-accent-fill text-button-ink shadow-accent'
           : 'border-line bg-app text-muted hover:text-content'
       }`}
     >
-      {children}
+      <span
+        className={`inline-flex items-center gap-1.5 ${active && turnedOn ? 'motion-safe:animate-pop' : ''}`}
+      >
+        {children}
+      </span>
     </button>
   )
 }
