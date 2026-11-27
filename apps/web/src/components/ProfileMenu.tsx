@@ -46,16 +46,14 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
             key={member.id}
             style={{ zIndex: stack.length - index }}
             className={`relative rounded-full ring-2 ${
-              index === 0 ? 'ring-accent' : '-ml-2.25 ring-app-solid'
-            } ${index >= STACK_NARROW ? 'hidden min-[360px]:inline-flex' : 'inline-flex'}`}
+              index === 0 ? 'ring-accent' : '-ml-2.5 ring-app-solid'
+            } ${index >= STACK_NARROW ? 'hidden header-md:inline-flex' : 'inline-flex'}`}
           >
             <Avatar
               letter={initial(member)}
               color={member.color}
               className={
-                index === 0
-                  ? 'inset-ring-2 inset-ring-app-solid'
-                  : 'pl-2.75 pr-px'
+                index === 0 ? 'inset-ring-2 inset-ring-app-solid' : undefined
               }
             />
           </span>
@@ -63,14 +61,11 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
         {narrowMore > 0 ? (
           <MoreChip
             count={narrowMore}
-            className="inline-flex min-[360px]:hidden"
+            className="inline-flex header-md:hidden"
           />
         ) : null}
         {wideMore > 0 ? (
-          <MoreChip
-            count={wideMore}
-            className="hidden min-[360px]:inline-flex"
-          />
+          <MoreChip count={wideMore} className="hidden header-md:inline-flex" />
         ) : null}
       </button>
 
@@ -99,7 +94,7 @@ function MoreChip({ count, className }: { count: number; className: string }) {
   return (
     <span
       aria-hidden
-      className={`relative z-0 -ml-2.25 h-8 min-w-8 items-center justify-center rounded-full bg-chip pl-3.75 pr-1 font-mono text-xs font-semibold tabular-nums text-content ring-2 ring-app-solid ${className}`}
+      className={`relative z-0 -ml-2.5 h-8 min-w-8 items-center justify-center rounded-full bg-chip px-2 font-mono text-xs font-semibold tabular-nums text-content ring-2 ring-app-solid ${className}`}
     >
       +{count}
     </span>

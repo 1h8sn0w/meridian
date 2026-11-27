@@ -1,6 +1,7 @@
 import { Translate } from '@phosphor-icons/react'
 import {
   LOCALES,
+  LOCALE_FLAG,
   LOCALE_NAMES,
   LOCALE_SHORT,
   setLocale,
@@ -14,10 +15,15 @@ export function LocaleSwitcher() {
   return (
     <label
       title={t.languageHint}
-      className="relative inline-flex h-9 flex-none cursor-pointer items-center gap-1 rounded-full border border-line bg-app-solid px-2.5 text-xs font-semibold text-muted transition-colors duration-300 hover:text-content has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+      className="relative inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center gap-1 rounded-full border border-line bg-app-solid text-xs header-lg:w-auto header-lg:pl-2 header-lg:pr-2.5 font-semibold text-muted transition-colors duration-300 hover:text-content has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
     >
-      <Translate aria-hidden size={16} />
-      <span aria-hidden>{LOCALE_SHORT[locale]}</span>
+      <span aria-hidden className="text-base leading-none header-lg:hidden">
+        {LOCALE_FLAG[locale]}
+      </span>
+      <Translate aria-hidden size={16} className="hidden header-lg:block" />
+      <span aria-hidden className="hidden header-lg:inline">
+        {LOCALE_SHORT[locale]}
+      </span>
       <select
         aria-label={t.language}
         value={locale}

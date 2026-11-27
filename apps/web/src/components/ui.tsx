@@ -38,11 +38,11 @@ export function ScreenHeader({
   return (
     <header className="header-glass sticky top-0 z-10 px-5 pb-3 pt-6">
       <div className="mx-auto max-w-screen-sm">
-        <div className="flex flex-wrap-reverse items-center gap-x-3 gap-y-2">
+        <div className="flex flex-wrap-reverse items-center gap-x-2 gap-y-2 header-md:gap-x-3">
           <h1 className="m-0 min-w-0 grow text-3xl font-semibold tracking-tight wrap-break-word">
             {title}
           </h1>
-          <div className="ml-auto flex flex-none items-center gap-1.5">
+          <div className="ml-auto flex flex-none items-center gap-1 header-md:gap-1.5">
             {actions}
             <LocaleSwitcher />
           </div>

@@ -22,6 +22,13 @@ export const LOCALE_SHORT: Record<Locale, string> = {
   de: 'DEU',
 }
 
+export const LOCALE_FLAG: Record<Locale, string> = {
+  uk: '🇺🇦',
+  en: '🇬🇧',
+  pl: '🇵🇱',
+  de: '🇩🇪',
+}
+
 const DICTIONARIES: Record<Locale, Messages> = { uk, en, pl, de }
 
 const INTL_TAGS: Record<Locale, string> = {
