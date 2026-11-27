@@ -278,7 +278,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                 <>
                   <Sections
                     items={withQtyToBuy}
-                    checked={false}
+                    isChecked={isChecked}
                     justBought={justBought}
                     onToggle={(item) => void toggle(item)}
                   />
@@ -288,7 +288,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                       <Hint>{t.noQtyHint}</Hint>
                       <Sections
                         items={noQtyToBuy}
-                        checked={false}
+                        isChecked={isChecked}
                         justBought={justBought}
                         onToggle={(item) => void toggle(item)}
                         flat
@@ -322,7 +322,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                 </summary>
                 <Sections
                   items={boughtItems}
-                  checked
+                  isChecked={isChecked}
                   onToggle={(item) => void toggle(item)}
                   flat
                 />
@@ -463,13 +463,13 @@ function Progress({ bought, total }: { bought: number; total: number }) {
 
 function Sections({
   items,
-  checked,
-  justBought = new Set<string>(),
+  isChecked,
+  justBought,
   onToggle,
   flat = false,
 }: {
   items: ReadonlyArray<ShoppingItem>
-  checked: boolean
+  isChecked: (item: ShoppingItem) => boolean
   justBought?: ReadonlySet<string>
   onToggle: (item: ShoppingItem) => void
   flat?: boolean
@@ -484,8 +484,8 @@ function Sections({
             key={item.key}
             name={item.name}
             qty={amountText(item)}
-            checked={checked || justBought.has(item.key)}
-            drawing={justBought.has(item.key)}
+            checked={isChecked(item)}
+            drawing={isChecked(item) && justBought?.has(item.key) === true}
             onToggle={() => onToggle(item)}
           />
         ))
@@ -560,7 +560,7 @@ function ExtraRows({
       key={extra.id}
       name={extra.name}
       checked={extra.checked}
-      drawing={justBought.has(extra.id)}
+      drawing={extra.checked && justBought.has(extra.id)}
       onToggle={() => onToggle(extra)}
     >
       <IconButton
