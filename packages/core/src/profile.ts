@@ -11,7 +11,9 @@ export function poolForProfile(
   return meals.filter((meal) => allowed.has(meal.id))
 }
 
-export function planOwnerId(profile: Profile): string {
+export function planOwnerId(
+  profile: Pick<Profile, 'id' | 'sharedPlanWith'>,
+): string {
   return profile.sharedPlanWith ?? profile.id
 }
 

@@ -3,12 +3,12 @@ import type { FormEvent, ReactNode } from 'react'
 import { usePowerSync } from '@powersync/react'
 import {
   SHOPPING_CATEGORIES,
-  aggregate,
+  aggregatePlans,
   dateKey,
+  planEaters,
   planFingerprint,
-  planOwnerId,
 } from '@meridian/core'
-import type { Meal, ShoppingItem } from '@meridian/core'
+import type { ShoppingItem } from '@meridian/core'
 import { useActiveProfile } from '../lib/active-profile'
 import { ALL_PROFILES, useShoppingScope } from '../lib/shopping-scope'
 import type { ShoppingScope } from '../lib/shopping-scope'
@@ -25,7 +25,12 @@ import {
   useShoppingChecks,
   useShoppingExtras,
 } from '../lib/data/queries'
-import type { AppProfile, DayView, ShoppingExtra } from '../lib/data/model'
+import type {
+  AppProfile,
+  DayView,
+  ShoppingExtra,
+  WeekView,
+} from '../lib/data/model'
 import {
   addShoppingExtra,
   clearStaleChecks,
@@ -80,7 +85,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
   const { scope, setScope } = useShoppingScope(profiles)
   const { period, setPeriod } = useShoppingPeriod()
 
-  const allOwners = [...new Set(profiles.map(planOwnerId))]
+  const allOwners = [...planEaters(profiles, null).keys()]
   const weeksRead = useOwnerWeeks(allOwners, mealsRead.data, todayKey)
 
   const isLoading =
@@ -108,29 +113,30 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
     void clearStaleChecks(db, fingerprint).catch(() => {})
   }, [db, fingerprint, isLoading])
 
-  const scopeOwners =
-    scope === ALL_PROFILES
-      ? allOwners
-      : [...new Set(profiles.filter((p) => p.id === scope).map(planOwnerId))]
-  const weeks = weeksRead.data.filter((week) =>
-    scopeOwners.includes(week.profileId),
-  )
+  const eaters = planEaters(profiles, scope === ALL_PROFILES ? null : scope)
+  const weeks = weeksRead.data.filter((week) => eaters.has(week.profileId))
+  const periodDays = (week: WeekView) =>
+    week.days.filter((day) => inShoppingPeriod(day.date, period, todayKey))
 
-  const days = weeks.flatMap((week) =>
-    week.days.filter((day) => inShoppingPeriod(day.date, period, todayKey)),
-  )
+  const days = weeks.flatMap(periodDays)
   const range = rangeOf(days)
+  const missing = days
+    .flatMap((day) => day.slots)
+    .filter((slot) => !slot.meal).length
+  const people = weeks.reduce(
+    (sum, week) => sum + (eaters.get(week.profileId) ?? 0),
+    0,
+  )
 
-  const slotMeals: Array<Meal> = []
-  let missing = 0
-  for (const day of days) {
-    for (const slot of day.slots) {
-      if (slot.meal) slotMeals.push(slot.meal)
-      else missing += 1
-    }
-  }
-
-  const { withQty, noQty } = aggregate(slotMeals)
+  const { withQty, noQty } = aggregatePlans(
+    weeks.map((week) => ({
+      ownerId: week.profileId,
+      meals: periodDays(week).flatMap((day) =>
+        day.slots.flatMap((slot) => (slot.meal ? [slot.meal] : [])),
+      ),
+    })),
+    eaters,
+  )
   const items = [...withQty, ...noQty]
   const boughtItems = items.filter((item) => checksRead.data.get(item.key))
   const toBuy = (list: ReadonlyArray<ShoppingItem>) =>
@@ -252,6 +258,7 @@ export function ShoppingScreen({ familyId }: { familyId: string }) {
                 <Meta>
                   {range}
                   {weeks.length > 1 ? t.plans(weeks.length) : ''}
+                  {people > weeks.length ? t.people(people) : ''}
                 </Meta>
                 {missing > 0 ? <Warn>{t.missing(missing)}</Warn> : null}
                 {shareButton}

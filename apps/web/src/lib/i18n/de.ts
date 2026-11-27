@@ -750,6 +750,7 @@ export const de: Messages = {
     noPlan:
       'Noch kein Wochenplan. Plane ihn auf dem Bildschirm „Woche“ — die Liste entsteht aus den Zutaten der Gerichte, ohne Erfundenes.',
     plans: (n) => ' · Pläne: ' + n,
+    people: (n) => ' · Personen: ' + n,
     missing: (n) =>
       slots(n) +
       ' ohne Gericht — es wurde aus dem Pool entfernt, seine Zutaten fehlen in der Liste.',
