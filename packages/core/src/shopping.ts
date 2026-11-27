@@ -1,5 +1,6 @@
+import { planOwnerId } from './profile.ts'
 import { derive } from './sync-ids.ts'
-import type { Meal } from './types.ts'
+import type { Meal, Profile } from './types.ts'
 
 type ShoppingCategory = { id: string; label: string }
 
@@ -202,6 +203,32 @@ export function aggregate(meals: ReadonlyArray<Meal>): ShoppingItems {
     withQty: [...withQty.values()].sort(bySection),
     noQty: [...noQty.values()].sort(bySection),
   }
+}
+
+export function planEaters(
+  profiles: ReadonlyArray<Pick<Profile, 'id' | 'sharedPlanWith'>>,
+  onlyProfileId: string | null,
+): Map<string, number> {
+  const eaters = new Map<string, number>()
+  for (const profile of profiles) {
+    if (onlyProfileId !== null && profile.id !== onlyProfileId) continue
+    const ownerId = planOwnerId(profile)
+    eaters.set(ownerId, (eaters.get(ownerId) ?? 0) + 1)
+  }
+  return eaters
+}
+
+type PlanMeals = { ownerId: string; meals: ReadonlyArray<Meal> }
+
+export function aggregatePlans(
+  plans: ReadonlyArray<PlanMeals>,
+  eaters: ReadonlyMap<string, number>,
+): ShoppingItems {
+  return aggregate(
+    plans.flatMap(({ ownerId, meals }) =>
+      Array.from({ length: eaters.get(ownerId) ?? 0 }, () => meals).flat(),
+    ),
+  )
 }
 
 type PlannedSlot = { slotId: string; mealId: string }

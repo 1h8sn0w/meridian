@@ -722,6 +722,7 @@ export const pl: Messages = {
     noPlan:
       'Nie ma jeszcze planu tygodnia. Wygeneruj go na ekranie „Tydzień” — lista powstanie ze składników dań, bez niczego wymyślonego.',
     plans: (n) => ' · plany: ' + n,
+    people: (n) => ' · osób: ' + n,
     missing: (n) =>
       'Sloty bez dania: ' +
       n +

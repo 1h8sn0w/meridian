@@ -4,11 +4,13 @@ import assert from 'node:assert/strict'
 import {
   SHOPPING_CATEGORIES,
   aggregate,
+  aggregatePlans,
   categoryOf,
   nameKey,
+  planEaters,
   planFingerprint,
 } from './shopping.ts'
-import { meal } from './test-support.ts'
+import { meal, profile } from './test-support.ts'
 import type { ShoppingItem } from './shopping.ts'
 import type { Ingredient, Meal } from './types.ts'
 
@@ -161,6 +163,66 @@ test('назва показується як у джерелі, а нормал�
   const fillet = only(withQty)
   assert.equal(fillet.name, 'Куряче Філе')
   assert.equal(fillet.key, 'q:куряче філе|г')
+})
+
+const onion = withIngredients('onion', [
+  { name: 'цибуля', amount: 1, unit: 'шт' },
+  'сіль до смаку',
+])
+
+function onions(items: ReturnType<typeof aggregatePlans>): number | null {
+  return only(items.withQty).amount
+}
+
+test('план на одного дає N, той самий план на двох — 2N, два плани — суму', () => {
+  const solo = [profile({ id: 'a' })]
+  const shared = [
+    profile({ id: 'a' }),
+    profile({ id: 'b', sharedPlanWith: 'a' }),
+  ]
+  const separate = [profile({ id: 'a' }), profile({ id: 'b' })]
+  const planA = { ownerId: 'a', meals: [onion, onion] }
+  const planB = { ownerId: 'b', meals: [onion] }
+
+  assert.equal(onions(aggregatePlans([planA], planEaters(solo, null))), 2)
+  assert.equal(onions(aggregatePlans([planA], planEaters(shared, null))), 4)
+  assert.equal(
+    onions(aggregatePlans([planA, planB], planEaters(separate, null))),
+    3,
+  )
+})
+
+test('один обраний профіль — одна порція його плану, навіть якщо план спільний', () => {
+  const shared = [
+    profile({ id: 'a' }),
+    profile({ id: 'b', sharedPlanWith: 'a' }),
+  ]
+  const planA = { ownerId: 'a', meals: [onion] }
+
+  assert.deepEqual([...planEaters(shared, 'a')], [['a', 1]])
+  assert.deepEqual([...planEaters(shared, 'b')], [['a', 1]])
+  assert.equal(onions(aggregatePlans([planA], planEaters(shared, 'b'))), 1)
+})
+
+test('план без їдців у список не потрапляє', () => {
+  const items = aggregatePlans(
+    [{ ownerId: 'other', meals: [onion] }],
+    planEaters([profile({ id: 'a' })], null),
+  )
+  assert.equal(items.withQty.length, 0)
+  assert.equal(items.noQty.length, 0)
+})
+
+test('кількість їдців не міняє ключі позицій і не множить позиції без кількості', () => {
+  const plan = [{ ownerId: 'a', meals: [onion] }]
+  const one = aggregatePlans(plan, new Map([['a', 1]]))
+  const three = aggregatePlans(plan, new Map([['a', 3]]))
+
+  assert.deepEqual(
+    [...three.withQty, ...three.noQty].map((item) => item.key),
+    [...one.withQty, ...one.noQty].map((item) => item.key),
+  )
+  assert.equal(only(three.noQty).amount, null)
 })
 
 test('відбиток не залежить від порядку рядків із бази', () => {
