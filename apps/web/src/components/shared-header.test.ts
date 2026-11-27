@@ -24,6 +24,15 @@ test('шапка з перемикачем мови — одна на всі е�
   )
 })
 
+test('у стеку профілів активний диск першим і над усіма, решта — під попереднім', () => {
+  const menu = read(componentsDir, 'ProfileMenu.tsx')
+  assert.match(menu, /const stack = activeFirst\(/)
+  assert.match(
+    menu,
+    /style=\{\{ zIndex: stack\.length - index \}\}\s+className=\{`relative /,
+  )
+})
+
 test('інших шапок і заголовків екрана, окрім ScreenHeader, немає', () => {
   const own = [...sources(componentsDir), ...sources(routesDir)].filter(
     ({ file, source }) => file !== 'ui.tsx' && /<(header|h1)\b/.test(source),
