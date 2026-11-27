@@ -51,9 +51,12 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
             <Avatar
               letter={initial(member)}
               color={member.color}
-              className={`${index === 0 ? 'inset-ring-2 inset-ring-app-solid' : ''} ${
-                index < stack.length - 1 || wideMore > 0 ? 'pr-2' : ''
-              }`}
+              className={[
+                index === 0 && 'inset-ring-2 inset-ring-app-solid',
+                (index < stack.length - 1 || wideMore > 0) && 'pr-2',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             />
           </span>
         ))}
