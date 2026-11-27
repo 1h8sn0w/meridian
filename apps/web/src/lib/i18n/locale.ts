@@ -15,6 +15,13 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   de: 'Deutsch',
 }
 
+export const LOCALE_SHORT: Record<Locale, string> = {
+  uk: 'УКР',
+  en: 'ENG',
+  pl: 'POL',
+  de: 'DEU',
+}
+
 const DICTIONARIES: Record<Locale, Messages> = { uk, en, pl, de }
 
 const INTL_TAGS: Record<Locale, string> = {
@@ -41,10 +48,16 @@ export function pickLocale(languages: ReadonlyArray<string>): Locale {
   return 'uk'
 }
 
+export function resolveLocale(
+  stored: string | null,
+  languages: ReadonlyArray<string>,
+): Locale {
+  return isLocale(stored) ? stored : pickLocale(languages)
+}
+
 function initialLocale(): Locale {
   if (typeof window === 'undefined') return 'uk'
-  const stored = window.localStorage.getItem(KEY)
-  return isLocale(stored) ? stored : pickLocale(navigator.languages)
+  return resolveLocale(window.localStorage.getItem(KEY), navigator.languages)
 }
 
 let current: Locale = initialLocale()

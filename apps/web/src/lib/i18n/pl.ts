@@ -98,10 +98,17 @@ export const pl: Messages = {
     loading: 'Chwileczkę…',
     localDbPending: 'Przygotowujemy lokalną bazę danych…',
   },
+  header: {
+    language: 'Język interfejsu',
+    languageHint:
+      'Wybór zapisuje się na tym urządzeniu. Nazwy dań, przepisy i plany dietetyka nie są tłumaczone.',
+  },
   profileSwitcher: {
+    open: (name, total) =>
+      'Profil: ' + name + '. Wszystkich profili: ' + total + '. Zmień',
+    search: 'Znajdź profil',
+    notFound: 'Nie ma profilu o takiej nazwie.',
     manage: 'Zarządzaj profilami',
-    summary: (name, target, corridor) =>
-      name + ' · ' + target + ' ± ' + corridor + ' kcal/dzień',
   },
   antiRepeat: {
     title: 'Bez powtórek',
@@ -298,10 +305,6 @@ export const pl: Messages = {
     preparing: 'Przygotowujemy kod…',
     newCode: 'Nowy kod',
     createCode: 'Utwórz kod',
-    language: 'Język',
-    languageLabel: 'Język interfejsu',
-    languageHint:
-      'Wybór zapisuje się na tym urządzeniu. Nazwy dań, przepisy i plany dietetyka nie są tłumaczone.',
     signInMethods: 'Sposoby logowania',
     signInMethodsHint: 'Każdy z nich otwiera to samo konto i tę samą rodzinę.',
     signInMethodsLoading: 'Wczytujemy sposoby logowania…',

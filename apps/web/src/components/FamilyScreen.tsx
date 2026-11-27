@@ -2,21 +2,9 @@ import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { formatDate, formatInviteCode } from '../lib/format'
 import type { Failure } from '../lib/messages'
-import { LOCALES, LOCALE_NAMES, setLocale } from '../lib/i18n/locale'
-import type { Locale } from '../lib/i18n/locale'
-import { useLocale, useMessages } from '../lib/i18n/use-messages'
+import { useMessages } from '../lib/i18n/use-messages'
 import { AppShell } from './AppShell'
-import {
-  Avatar,
-  Button,
-  ErrorText,
-  Hint,
-  LinkButton,
-  Meta,
-  Panel,
-  SelectField,
-  Tag,
-} from './ui'
+import { Avatar, Button, ErrorText, Hint, LinkButton, Panel, Tag } from './ui'
 import { SyncPanel } from './SyncPanel'
 import { ImportV1Panel } from './ImportV1Panel'
 import { SignInMethodsPanel } from './SignInMethods'
@@ -84,8 +72,6 @@ export function FamilyScreen() {
         {failure ? <ErrorText failure={failure} /> : null}
       </Panel>
 
-      <LanguagePanel />
-
       <SyncPanel />
 
       <ImportV1Panel />
@@ -98,26 +84,5 @@ export function FamilyScreen() {
         </LinkButton>
       </p>
     </AppShell>
-  )
-}
-
-function LanguagePanel() {
-  const locale = useLocale()
-  const t = useMessages().family
-  return (
-    <Panel title={t.language}>
-      <SelectField
-        label={t.languageLabel}
-        value={locale}
-        onChange={(event) => setLocale(event.target.value as Locale)}
-      >
-        {LOCALES.map((option) => (
-          <option key={option} value={option} lang={option}>
-            {LOCALE_NAMES[option]}
-          </option>
-        ))}
-      </SelectField>
-      <Meta>{t.languageHint}</Meta>
-    </Panel>
   )
 }

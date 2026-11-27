@@ -96,10 +96,17 @@ export const de: Messages = {
     loading: 'Einen Moment…',
     localDbPending: 'Lokale Datenbank wird vorbereitet…',
   },
+  header: {
+    language: 'Sprache der Oberfläche',
+    languageHint:
+      'Die Wahl wird auf diesem Gerät gespeichert. Namen der Gerichte, Rezepte und Pläne der Ernährungsberatung werden nicht übersetzt.',
+  },
   profileSwitcher: {
+    open: (name, total) =>
+      'Profil: ' + name + '. Profile insgesamt: ' + total + '. Ändern',
+    search: 'Profil suchen',
+    notFound: 'Kein Profil mit diesem Namen.',
     manage: 'Profile verwalten',
-    summary: (name, target, corridor) =>
-      name + ' · ' + target + ' ± ' + corridor + ' kcal/Tag',
   },
   antiRepeat: {
     title: 'Keine Wiederholungen',
@@ -301,10 +308,6 @@ export const de: Messages = {
     preparing: 'Code wird vorbereitet…',
     newCode: 'Neuer Code',
     createCode: 'Code erstellen',
-    language: 'Sprache',
-    languageLabel: 'Sprache der Oberfläche',
-    languageHint:
-      'Die Wahl wird auf diesem Gerät gespeichert. Namen der Gerichte, Rezepte und Pläne der Ernährungsberatung werden nicht übersetzt.',
     signInMethods: 'Anmeldemethoden',
     signInMethodsHint: 'Jede öffnet dasselbe Konto und dieselbe Familie.',
     signInMethodsLoading: 'Anmeldemethoden werden geladen…',

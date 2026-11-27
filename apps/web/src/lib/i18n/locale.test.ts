@@ -2,7 +2,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { de } from './de.ts'
 import { en } from './en.ts'
-import { getLocale, intlLocale, messages, pickLocale } from './locale.ts'
+import {
+  getLocale,
+  intlLocale,
+  messages,
+  pickLocale,
+  resolveLocale,
+} from './locale.ts'
 import { pl } from './pl.ts'
 import { uk } from './uk.ts'
 
@@ -84,6 +90,16 @@ test('без підтримуваної мови в браузері — укр�
 
 test('браузер із ru отримує українську, а не наступну мову списку', () => {
   assert.equal(pickLocale(['ru-RU', 'en-US']), 'uk')
+})
+
+test('мова, обрана до входу, переважає мову браузера і після входу', () => {
+  assert.equal(resolveLocale('en', ['uk-UA']), 'en')
+  assert.equal(resolveLocale('de', ['pl-PL', 'uk']), 'de')
+})
+
+test('без збереженої або з невідомою збереженою мовою — мова браузера', () => {
+  assert.equal(resolveLocale(null, ['pl-PL']), 'pl')
+  assert.equal(resolveLocale('ru', ['de-DE']), 'de')
 })
 
 test('без браузера (node) діє українська', () => {

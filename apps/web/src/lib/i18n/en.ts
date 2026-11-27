@@ -84,10 +84,17 @@ export const en: Messages = {
     loading: 'One moment…',
     localDbPending: 'Preparing the local database…',
   },
+  header: {
+    language: 'Interface language',
+    languageHint:
+      'The choice is stored on this device. Meal names, recipes and dietitian plans are not translated.',
+  },
   profileSwitcher: {
+    open: (name, total) =>
+      'Profile: ' + name + '. Profiles in total: ' + total + '. Change',
+    search: 'Find a profile',
+    notFound: 'No profile with that name.',
     manage: 'Manage profiles',
-    summary: (name, target, corridor) =>
-      name + ' · ' + target + ' ± ' + corridor + ' kcal/day',
   },
   antiRepeat: {
     title: 'No repeats',
@@ -282,10 +289,6 @@ export const en: Messages = {
     preparing: 'Preparing the code…',
     newCode: 'New code',
     createCode: 'Create code',
-    language: 'Language',
-    languageLabel: 'Interface language',
-    languageHint:
-      'The choice is stored on this device. Meal names, recipes and dietitian plans are not translated.',
     signInMethods: 'Sign-in methods',
     signInMethodsHint: 'Each of them opens this same account and family.',
     signInMethodsLoading: 'Loading sign-in methods…',

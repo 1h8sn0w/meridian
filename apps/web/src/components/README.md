@@ -22,10 +22,9 @@
   `SourceIssues`), `MealForm`, `MealSearch` (для «Страв» і `SwapDialog`),
   `SwapDialog`, `RecipeLink` (пам'ятає екран-джерело).
 - **Імпорт і налаштування:** `PdfImportPanel`, `ImportV1Panel`, `ProfilesSheet`,
-  `ProfileSwitcher` (активний профіль — стан пристрою), `MealHours` і
-  `AntiRepeat` (вікна прийомів, антиповтор), `Reminders` (`MealReminders` —
-  такт, `RemindersPanel`), `StarterSet` (`StarterSeed` — автозасів,
-  `StarterOffer` — кнопка), `SyncPanel` (стан і черга).
+  `MealHours` і `AntiRepeat` (вікна прийомів, антиповтор), `Reminders`
+  (`MealReminders` — такт, `RemindersPanel`), `StarterSet` (`StarterSeed` —
+  автозасів, `StarterOffer` — кнопка), `SyncPanel` (стан і черга).
 
 ## Дизайн «Сонячна дуга»
 
@@ -52,8 +51,9 @@
 - На телефоні тип прийому — над назвою страви, не колонкою.
 - `Field` не прибирає нативний фокус: без Preflight обведення браузера —
   єдиний індикатор із клавіатури.
-- `ScreenHeader` спільний для `AuthShell` і `AppShell`; скло — лише над
-  вмістом (`header-glass`). Поки `AppGate` читає сесію, видно той самий каркас.
+- `ScreenHeader` спільний для `AuthShell` і `AppShell`, з `LocaleSwitcher` (і
+  до входу); `AppShell` додає `ProfileMenu`. Скло — лише над вмістом
+  (`header-glass`). Поки `AppGate` читає сесію, видно той самий каркас.
 
 ## Спільні прийоми
 
