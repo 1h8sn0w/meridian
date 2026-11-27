@@ -39,14 +39,20 @@ export function ProfileMenu({ familyId }: { familyId: string }) {
         aria-label={t.open(profile.name, profiles.length)}
         title={t.open(profile.name, profiles.length)}
         onClick={() => setOpen(true)}
-        className="flex h-9 flex-none cursor-pointer items-center rounded-full border border-line bg-app p-0.5 transition-colors duration-300 hover:border-accent motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-97"
+        className="flex h-9 flex-none cursor-pointer items-center rounded-full border border-line bg-app-solid p-0.5 transition-colors duration-300 hover:border-accent motion-safe:transition motion-safe:ease-spring motion-safe:active:scale-97"
       >
         {stack.map((member, index) => (
           <span
             key={member.id}
             className={`rounded-full ring-2 ${
-              index === 0 ? 'ring-accent' : '-ml-2.5 ring-app'
-            } ${index >= STACK_NARROW ? 'hidden min-[360px]:inline-flex' : 'inline-flex'}`}
+              index === 0
+                ? 'ring-accent [&>span]:inset-ring-2 [&>span]:inset-ring-app-solid'
+                : '-ml-2.5 ring-app-solid'
+            } ${index < stack.length - 1 || wideMore > 0 ? '[&>span]:pr-2' : ''} ${
+              index >= STACK_NARROW
+                ? 'hidden min-[360px]:inline-flex'
+                : 'inline-flex'
+            }`}
           >
             <Avatar letter={initial(member)} color={member.color} />
           </span>
@@ -90,7 +96,7 @@ function MoreChip({ count, className }: { count: number; className: string }) {
   return (
     <span
       aria-hidden
-      className={`-ml-2.5 h-8 min-w-8 items-center justify-center rounded-full bg-surface px-1.5 font-mono text-xs font-semibold tabular-nums text-muted ring-2 ring-app ${className}`}
+      className={`-ml-2.5 h-8 min-w-8 items-center justify-center rounded-full bg-chip px-1.5 font-mono text-xs font-semibold tabular-nums text-content ring-2 ring-app-solid ${className}`}
     >
       +{count}
     </span>

@@ -14,7 +14,7 @@ export function LocaleSwitcher() {
   return (
     <label
       title={t.languageHint}
-      className="relative inline-flex h-9 flex-none cursor-pointer items-center gap-1 rounded-full border border-line bg-app px-2.5 text-xs font-semibold text-muted transition-colors duration-300 hover:text-content has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+      className="relative inline-flex h-9 flex-none cursor-pointer items-center gap-1 rounded-full border border-line bg-app-solid px-2.5 text-xs font-semibold text-muted transition-colors duration-300 hover:text-content has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
     >
       <Translate aria-hidden size={16} />
       <span aria-hidden>{LOCALE_SHORT[locale]}</span>
