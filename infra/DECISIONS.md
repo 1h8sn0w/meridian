@@ -188,9 +188,8 @@ Alpine; `x/net` і `go-jose` у GoTrue). Upstream їх не перезбирає
 - **Self-host збирає їх сам**, як `caddy`: namespace Docker Hub у
   репозиторії не зашитий (`README.md`, «Готовий образ»), тож `compose.yaml`
   не може назвати опублікований образ. Готові — накладкою
-  `compose.prebuilt.yaml` (`IMAGE_NAMESPACE`, `IMAGE_TAG`). `db` і `migrate`
-  мають спільний `build` (якір `&db-build`): два теги одного образу, друга
-  збірка — з кешу.
+  `compose.prebuilt.yaml` (`IMAGE_NAMESPACE`, `IMAGE_TAG`). `migrate`
+  збирається з того самого `build`, що й `db` (якір `&db-build`).
 
 ## Caddy й образ застосунку
 
