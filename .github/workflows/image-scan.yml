@@ -8,7 +8,8 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -20,11 +21,18 @@ jobs:
           - meridian-init
         tag: [staging]
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: staging
+
       - uses: docker/scout-action@v1
         with:
           command: cves
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ matrix.tag }}
           only-severities: critical,high
+          only-fixed: ${{ matrix.image != 'meridian' }}
+          vex-location: infra/images/vex.json
+          vex-author: meridian
           exit-code: true
           summary: true
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}

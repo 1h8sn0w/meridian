@@ -171,9 +171,10 @@ Alpine; `x/net` і `go-jose` у GoTrue). Upstream їх не перезбирає
   `apk` перемикається на `root` і повертається на `901`, як в оригіналі.
   Postgres тут із Nix, тож `apk upgrade` чіпає лише базові пакети Alpine, не
   сам сервер.
-- **`init` — `node:22-alpine` без npm, npx, corepack і yarn.** Сервіс лише
+- **`init` — `node:22-alpine3.23` без npm, npx, corepack і yarn.** Сервіс лише
   запускає `node generate-secrets.mjs` на вбудованих модулях, а всі
-  npm-знахідки сканера сиділи у вбудованому npm.
+  npm-знахідки сканера сиділи у вбудованому npm. Alpine 3.23, а не плаваюча
+  3.24: там Scout хибно червоний на musl (нижче, `vex.json`).
 - **`auth` — GoTrue з вихідного коду за тегом**, за зразком
   `caddy-build` і upstream-Dockerfile `supabase/auth`: `git clone` тега з
   перевіркою коміту (`GOTRUE_COMMIT` — тег у git можна пересунути), бамп
@@ -183,6 +184,16 @@ Alpine; `x/net` і `go-jose` у GoTrue). Upstream їх не перезбирає
   uid 1000 і міграції в `GOTRUE_DB_MIGRATIONS_PATH` — як в оригіналі; симлінка
   `gotrue` немає, compose кличе `auth`. Go-стадія — версія з `go.mod` GoTrue
   (`go 1.27.4`), а не `caddy-build`.
+- **Шлагбаум похідних — `only-fixed`** (Docker Publish і job `scan` в Image
+  Scan), як у `stack`: CVE без виправленої версії нам нема чим закрити. Зараз
+  це `pgproto3/v2` 2.3.3 у GoTrue v2.199.0 (гілку v2 закрито). Образ
+  застосунку `meridian` лишається суворим: усе в ньому — наше.
+- **`vex.json` — винятки Scout (OpenVEX, автор `meridian`)**, лише для
+  хибних спрацювань з перевіреним джерелом. Зараз один: CVE-2026-107891 у
+  musl 1.2.6-r3 Alpine 3.24 (PowerSync). Scout бере версію виправлення з edge
+  (1.2.6-r6), а secdb v3.24 Alpine показує backport у 1.2.6-r3. Прибрати, коли
+  Scout виправить дані або база перейде на іншу ревізію musl. Локально —
+  `docker scout cves … --vex-location infra/images/vex.json --vex-author meridian`.
 - **Прибрати бамп**, коли upstream оновить модулі: видалити рядок `go get …`
   у `auth.Dockerfile`. Перевірка — `grep` версій у `go.mod` нового тега.
 - **Self-host збирає їх сам**, як `caddy`: namespace Docker Hub у

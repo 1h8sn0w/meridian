@@ -72,6 +72,9 @@ jobs:
           command: cves
           image: local://${{ matrix.name }}:scan
           only-severities: critical,high
+          only-fixed: ${{ matrix.name != 'meridian' }}
+          vex-location: infra/images/vex.json
+          vex-author: meridian
           exit-code: true
           summary: true
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
