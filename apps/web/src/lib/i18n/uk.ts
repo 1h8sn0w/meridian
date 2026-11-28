@@ -100,10 +100,17 @@ export const uk = {
     loading: 'Хвилинку…',
     localDbPending: 'Готуємо локальну базу…',
   },
+  header: {
+    language: 'Мова інтерфейсу',
+    languageHint:
+      'Вибір зберігається на цьому пристрої. Назви страв, рецепти й плани дієтолога не перекладаються.',
+  },
   profileSwitcher: {
+    open: (name: string, total: number) =>
+      'Профіль: ' + name + '. Усього профілів: ' + total + '. Змінити',
+    search: 'Знайти профіль',
+    notFound: 'Немає профілю з таким ім’ям.',
     manage: 'Керувати профілями',
-    summary: (name: string, target: number, corridor: number) =>
-      name + ' · ' + target + ' ± ' + corridor + ' ккал/день',
   },
   antiRepeat: {
     title: 'Антиповтор',
@@ -299,10 +306,6 @@ export const uk = {
     preparing: 'Готуємо код…',
     newCode: 'Новий код',
     createCode: 'Створити код',
-    language: 'Мова',
-    languageLabel: 'Мова інтерфейсу',
-    languageHint:
-      'Вибір зберігається на цьому пристрої. Назви страв, рецепти й плани дієтолога не перекладаються.',
     signInMethods: 'Способи входу',
     signInMethodsHint:
       'Будь-який із них відкриває цей самий акаунт і цю саму сім’ю.',

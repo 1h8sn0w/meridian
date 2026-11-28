@@ -12,9 +12,11 @@ import {
   SunHorizon,
   UsersThree,
 } from '@phosphor-icons/react'
+import { useAuth } from '../lib/auth'
 import { catchUpScroll } from '../lib/scroll-catch-up'
 import { useSyncState } from '../lib/powersync/provider'
 import { useMessages } from '../lib/i18n/use-messages'
+import { ProfileMenu } from './ProfileMenu'
 import { ScreenHeader } from './ui'
 
 const TABS = [
@@ -37,11 +39,16 @@ export function AppShell({
   useScrollCatchUp()
   const t = useMessages()
   const path = useLocation({ select: (location) => location.pathname })
-  const rejectedCount = useSyncState().rejected.length
+  const { rejected, db } = useSyncState()
+  const { familyId } = useAuth()
 
   return (
     <>
-      <ScreenHeader title={title} subtitle={subtitle} />
+      <ScreenHeader
+        title={title}
+        subtitle={subtitle}
+        actions={familyId && db ? <ProfileMenu familyId={familyId} /> : null}
+      />
 
       <main className="stagger mx-auto max-w-screen-sm px-4 pb-app-content pt-4">
         {children}
@@ -49,7 +56,7 @@ export function AppShell({
 
       <nav className="glass fixed inset-x-3 bottom-3 z-20 mx-auto flex h-16 max-w-md rounded-full p-1.5 mb-safe-bottom vt-dock">
         {TABS.map((tab) => {
-          const flagged = tab.to === '/family' && rejectedCount > 0
+          const flagged = tab.to === '/family' && rejected.length > 0
           return (
             <Link
               key={tab.to}
@@ -85,7 +92,7 @@ export function AppShell({
                     {t.titles[tab.title]}
                     {flagged ? (
                       <span className="sr-only">
-                        {t.sync.rejectedTab(rejectedCount)}
+                        {t.sync.rejectedTab(rejected.length)}
                       </span>
                     ) : null}
                   </span>

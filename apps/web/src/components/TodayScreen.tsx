@@ -26,7 +26,6 @@ import { DayTotal } from './DayTotal'
 import { FirstSteps } from './FirstSteps'
 import { MealDetails, MealMarks } from './MealDetails'
 import { MealHoursPanel } from './MealHours'
-import { ProfileSwitcher } from './ProfileSwitcher'
 import { ProfilesSheet } from './ProfilesSheet'
 import { RecipeLink } from './RecipeLink'
 import { RemindersPanel } from './Reminders'
@@ -71,7 +70,6 @@ export function TodayScreen({ familyId }: { familyId: string }) {
     planOwnerId: ownerId,
     planOwner: owner,
     ownerCorridorApplies,
-    setActive,
   } = useActiveProfile(profilesRead.data)
   const mealsRead = useMeals(profile?.portion)
   const prefsRead = useTastePrefs()
@@ -96,15 +94,6 @@ export function TodayScreen({ familyId }: { familyId: string }) {
   return (
     <AppShell title={t.titles.today} subtitle={formatToday(now)}>
       <Problems of={problems} />
-
-      {profilesRead.data.length ? (
-        <ProfileSwitcher
-          profiles={profilesRead.data}
-          activeId={profile?.id ?? null}
-          onSelect={setActive}
-          onManage={() => setManaging(true)}
-        />
-      ) : null}
 
       <div className="clock-hero mb-4 px-2">
         <DayClock minutes={minutes} full />

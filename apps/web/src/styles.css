@@ -11,6 +11,8 @@
   --spacing-app-content: calc(104px + env(safe-area-inset-bottom));
 
   --breakpoint-dialog: 520px;
+  --breakpoint-header-md: 360px;
+  --breakpoint-header-lg: 390px;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -134,11 +136,12 @@
     var(--accent, #4f9dff) 16%,
     transparent
   );
-  --color-profile: var(--profile-color, var(--ui-accent-ink));
-  --color-profile-soft: color-mix(
+  --color-profile-fill: var(--profile-color);
+  --color-app-solid: var(--ui-well-solid);
+  --color-chip: color-mix(
     in oklab,
-    var(--profile-color, var(--accent, #4f9dff)) 22%,
-    transparent
+    var(--ui-content) 12%,
+    var(--ui-well-solid)
   );
   --color-swatch: var(--swatch-color, #4f9dff);
 
@@ -183,6 +186,8 @@
   --ui-warning: #a8540a;
   --ui-overlay: rgb(20 18 30 / 0.32);
   --ui-accent-ink: color-mix(in oklab, var(--accent, #4f9dff) 55%, #15131c);
+  --ui-backdrop: color-mix(in oklab, var(--sun) 30%, var(--sky-top));
+  --ui-well-solid: color-mix(in oklab, #ffffff 72%, var(--ui-backdrop));
 
   --phase-top: #bfe3ff;
   --phase-bottom: #f4f6fb;
@@ -239,6 +244,7 @@
     --ui-warning: #ffb454;
     --ui-overlay: rgb(5 4 10 / 0.6);
     --ui-accent-ink: var(--accent, #4f9dff);
+    --ui-well-solid: color-mix(in oklab, #08070e 45%, var(--ui-backdrop));
   }
   :root[data-phase='dawn'] {
     --phase-top: #3b2231;

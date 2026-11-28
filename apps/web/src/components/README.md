@@ -8,7 +8,7 @@
   `RequireLocalDb` (екран поверх відкритої бази), `ui` (UI-кіт), `ClickSpark`
   (іскра миші).
 - **Екрани:** `AuthScreen` (вхід, реєстрація, OAuth), `FamilySetupScreen` (нова
-  сім'я чи вступ за кодом), `FamilyScreen` (склад, запрошення, мова,
+  сім'я чи вступ за кодом), `FamilyScreen` (склад, запрошення,
   синхронізація, імпорт V1, `SignInMethods`, вихід), `TodayScreen` (годинник і страва
   поточного чи наступного прийому), `WeekScreen` (генерація й перегляд, вхід у
   покупки, меню текстом), `CalendarScreen` (пн–нд і вибраний день, лише
@@ -22,10 +22,9 @@
   `SourceIssues`), `MealForm`, `MealSearch` (для «Страв» і `SwapDialog`),
   `SwapDialog`, `RecipeLink` (пам'ятає екран-джерело).
 - **Імпорт і налаштування:** `PdfImportPanel`, `ImportV1Panel`, `ProfilesSheet`,
-  `ProfileSwitcher` (активний профіль — стан пристрою), `MealHours` і
-  `AntiRepeat` (вікна прийомів, антиповтор), `Reminders` (`MealReminders` —
-  такт, `RemindersPanel`), `StarterSet` (`StarterSeed` — автозасів,
-  `StarterOffer` — кнопка), `SyncPanel` (стан і черга).
+  `MealHours` і `AntiRepeat` (вікна прийомів, антиповтор), `Reminders`
+  (`MealReminders` — такт, `RemindersPanel`), `StarterSet` (`StarterSeed` —
+  автозасів, `StarterOffer` — кнопка), `SyncPanel` (стан і черга).
 
 ## Дизайн «Сонячна дуга»
 
@@ -52,8 +51,9 @@
 - На телефоні тип прийому — над назвою страви, не колонкою.
 - `Field` не прибирає нативний фокус: без Preflight обведення браузера —
   єдиний індикатор із клавіатури.
-- `ScreenHeader` спільний для `AuthShell` і `AppShell`; скло — лише над
-  вмістом (`header-glass`). Поки `AppGate` читає сесію, видно той самий каркас.
+- `ScreenHeader` для `AuthShell` і `AppShell`, з `LocaleSwitcher` (вузький —
+  прапор, `lib/i18n`); `AppShell` додає `ProfileMenu`. До `header-md` проміжки
+  вужчі. Скло — лише над вмістом (`header-glass`). Поки `AppGate` читає сесію, видно той самий каркас.
 
 ## Спільні прийоми
 
@@ -174,8 +174,7 @@
 
 ### StarterSet
 
-Рішення — `autoSeed` (`lib/starter-set.ts`), запис — `seedStarterMeals`
-(`lib/data`); без набору на сервері кнопки немає.
+Без набору на сервері кнопки немає.
 
 ### ReleaseGate
 
@@ -228,6 +227,10 @@
 - Спільний план генерує лише власник. Нестача пулу (`week.poolShortage`)
   видна до генерації й рахується лише після читання страв і антиповтору.
 - Антиповтор бере реальні попередні дні (`precedingMealIds`).
+
+### ProfileMenu
+
+Активний згори, решта й `+N` під ним (`zIndex`), текст по центру.
 
 ### Sheet
 
