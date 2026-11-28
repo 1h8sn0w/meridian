@@ -80,7 +80,7 @@ docker compose up -d
 | `GOTRUE_EXTERNAL_<ПРОВАЙДЕР>_*` | вимкнено | Вхід через Google, Discord, GitHub (нижче) |
 | `STARTER_SET_FILE` | порожньо | JSON стартового набору страв, поза репозиторієм |
 | `RELEASE_AT` | порожньо | Мить запуску: до неї відвідувач без входу бачить відлік, вхід — на `/login` |
-| `IMAGE_NAMESPACE`, `IMAGE_TAG` | порожньо, `staging` | Готові образи стека з Docker Hub замість збірки; працюють лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
+| `IMAGE_NAMESPACE`, `IMAGE_TAG`, `WEB_IMAGE` | порожньо, `staging`, порожньо | Готові образи стека з Docker Hub замість збірки (`WEB_IMAGE` — образ застосунку з іншого місця); працюють лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 Домашній сервер без домену (`https://<IP>:<порт>` і локальний центр сертифікації), стартовий набір і готовий образ описано в [`infra/README.md`](infra/README.md).
 

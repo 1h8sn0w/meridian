@@ -80,7 +80,7 @@ You only need `.env` to change something: `cp .env.example .env`. After a change
 | `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
 | `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
 | `RELEASE_AT` | empty | Launch moment: until then a signed-out visitor sees a countdown, sign-in is at `/login` |
-| `IMAGE_NAMESPACE`, `IMAGE_TAG` | empty, `staging` | Prebuilt stack images from Docker Hub instead of a local build; only work with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
+| `IMAGE_NAMESPACE`, `IMAGE_TAG`, `WEB_IMAGE` | empty, `staging`, empty | Prebuilt stack images from Docker Hub instead of a local build (`WEB_IMAGE` is an app image from elsewhere); only work with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).
 

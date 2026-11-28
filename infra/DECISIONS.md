@@ -39,8 +39,8 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 - **Версії образів (MER-171)** новіші за офіційний compose Supabase: той пінить
   образи з CVE, для яких уже є виправлення. Тег стороннього образу живе в
   `FROM` його `images/*.Dockerfile` (у GoTrue — `ARG GOTRUE_VERSION` і
-  `GOTRUE_COMMIT`), у `compose.yaml` лише PostgREST. Новий тег — це реліз-нотатки й
-  міграції між версіями (GoTrue й PowerSync мігрують свої таблиці на старті),
+  `GOTRUE_COMMIT`), у `compose.yaml` лише PostgREST. Новий тег — це
+  реліз-нотатки й міграції між версіями (GoTrue й PowerSync мігрують свої таблиці на старті),
   потім стек із наявним томом і з нуля: вхід, `create_family`, запис через
   PostgREST, `rpc/starter_set`, потік sync. Postgres — лише в межах мажору 17:
   том той самий, `pg_upgrade` не потрібен.
@@ -120,10 +120,10 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 - `docker-publish.yml` на пуш у гілку чи тег `v*` матрицею збирає п'ять
   образів — `meridian` (`web.Dockerfile`, контекст — корінь) і
   `meridian-{db,auth,powersync,init}` (`images/`, контекст — `images/`),
-  сканує кожен і публікує на Docker Hub. Кеш GHA — окремий `scope` на образ,
-  інакше матриця перетирала б кеш одне одному.
+  сканує кожен і публікує на Docker Hub.
   Namespace береться з секрету `DOCKERHUB_USERNAME`, логін — токеном, а не
-  паролем (відкликається окремо). Кеш шарів — `type=gha`. Скан — шлагбаум
+  паролем (відкликається окремо). Кеш шарів — `type=gha`, окремий `scope` на
+  образ, інакше матриця перетирала б кеш одне одному. Скан — шлагбаум
   (MER-174): образ збирається в локальне сховище раннера (`load`;
   `provenance: false`, бо образ з атестацією туди не завантажиться), Scout
   сканує його як `local://meridian:scan`, і лише за 0 Critical/High друга
@@ -137,9 +137,9 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   і публікує лише тег `staging`: runtime-стадії без кешу підтягують свіжі
   пакети Alpine без жодного коміту. `latest`, тег гілки й `sha-*` — лише з
   пушу: інакше розклад, що живе на `main`, назвав би збірку `staging` тегом
-  `latest`. Мітки образу (`revision`) тоді бере з git-checkout (`context: git`),
-  а не з події, у якій SHA — `main`. Розклад і кнопку GitHub бере з копії файла на `main` (як
-  `image-scan.yml`, MER-149); до релізу пуш у `main` збирати похідні образи не
+  `latest`. Мітки образу (`revision`) тоді беруться з git-checkout
+  (`context: git`), а не з події, у якій SHA — `main`. Розклад і кнопку GitHub
+  бере з копії файла на `main` (як `image-scan.yml`, MER-149); до релізу пуш у `main` збирати похідні образи не
   може — там немає `images/`. На релізі (MER-109) розклад перемикається на
   `main` і `latest`.
 - `image-scan.yml` раз на тиждень сканує вже опублікований `staging`,
@@ -178,9 +178,10 @@ Alpine; `x/net` і `go-jose` у GoTrue). Upstream їх не перезбирає
   `caddy-build` і upstream-Dockerfile `supabase/auth`: `git clone` тега з
   перевіркою коміту (`GOTRUE_COMMIT` — тег у git можна пересунути), бамп
   Go-модулів окремим `RUN`, `make auth` (лише один бінарник, не всі
-  платформи `make build`). Runtime — `alpine:3.23` з `apk upgrade`, користувач
-  `supabase` з uid 1000, міграції в `GOTRUE_DB_MIGRATIONS_PATH` — як в
-  оригіналі; симлінка `gotrue` немає, compose кличе `auth`. Go-стадія — версія з `go.mod` GoTrue
+  платформи `make build`). Runtime — `alpine:3.23` з `apk upgrade`, як у
+  `caddy` (upstream бере плаваючий `alpine:3`); користувач `supabase` з
+  uid 1000 і міграції в `GOTRUE_DB_MIGRATIONS_PATH` — як в оригіналі; симлінка
+  `gotrue` немає, compose кличе `auth`. Go-стадія — версія з `go.mod` GoTrue
   (`go 1.27.4`), а не `caddy-build`.
 - **Прибрати бамп**, коли upstream оновить модулі: видалити рядок `go get …`
   у `auth.Dockerfile`. Перевірка — `grep` версій у `go.mod` нового тега.
