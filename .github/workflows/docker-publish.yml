@@ -4,14 +4,38 @@ on:
   push:
     branches: [main, staging]
     tags: ['v*']
+  schedule:
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: meridian
+            context: .
+            file: infra/web.Dockerfile
+          - name: meridian-db
+            context: infra/images
+            file: infra/images/db.Dockerfile
+          - name: meridian-auth
+            context: infra/images
+            file: infra/images/auth.Dockerfile
+          - name: meridian-powersync
+            context: infra/images
+            file: infra/images/powersync.Dockerfile
+          - name: meridian-init
+            context: infra/images
+            file: infra/images/init.Dockerfile
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || 'staging' }}
 
       - uses: docker/setup-buildx-action@v4
 
@@ -23,28 +47,30 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/meridian
+          context: ${{ github.event_name == 'push' && 'workflow' || 'git' }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.name }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=ref,event=branch,enable=${{ github.event_name == 'push' }}
+            type=sha,format=short,enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{version}}
+            type=raw,value=staging,enable=${{ github.event_name != 'push' }}
 
       - uses: docker/build-push-action@v7
         with:
-          context: .
-          file: infra/web.Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           load: true
           provenance: false
-          tags: meridian:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ matrix.name }}:scan
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
           no-cache-filters: runtime
 
       - uses: docker/scout-action@v1
         with:
           command: cves
-          image: local://meridian:scan
+          image: local://${{ matrix.name }}:scan
           only-severities: critical,high
           exit-code: true
           summary: true
@@ -53,8 +79,8 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: .
-          file: infra/web.Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

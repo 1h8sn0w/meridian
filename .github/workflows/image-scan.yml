@@ -12,12 +12,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        image:
+          - meridian
+          - meridian-db
+          - meridian-auth
+          - meridian-powersync
+          - meridian-init
         tag: [staging]
     steps:
       - uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/meridian:${{ matrix.tag }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ matrix.tag }}
           only-severities: critical,high
           exit-code: true
           summary: true
