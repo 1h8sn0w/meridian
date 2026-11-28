@@ -11,11 +11,12 @@ Docker Compose стека, Caddy, PowerSync, образ застосунку й 
 | `../.env.example` | Необов'язковий: усе має типові значення. Секретів тут немає й не буде |
 | `init/generate-secrets.mjs` | Генерує секрети у спільний том при першому запуску |
 | `db/roles.sql` | Паролі службових ролей Postgres — раз, під час ініціалізації бази |
+| `images/*.Dockerfile` | Похідні образи `init`, `db` (його ж бере `migrate`), `auth`, `powersync`: свіжі пакети Alpine, GoTrue з вихідного коду (нижче, MER-181) |
 | `web.Dockerfile` | Образ `caddy`: Caddy зі статичною збіркою `apps/web`. Контекст збірки — корінь репозиторію ([README](caddy/README.md#образ-застосунку)) |
 | `caddy-build/main.go` | Точка входу Caddy для власної збірки бінарника ([README](caddy/README.md#що-всередині-образу)) |
 | `caddy/Caddyfile` | Єдиний вхід: одне походження, чотири маршрути ([README](caddy/README.md)) |
 | `powersync/` | Конфіг PowerSync Service і правила синхронізації ([README](powersync/README.md)) |
-| `compose.prebuilt.yaml` | Накладка: `caddy` готовим образом замість збірки |
+| `compose.prebuilt.yaml` | Накладка: усі образи стека готовими з Docker Hub замість збірки |
 | `starter-set.example.json` | Вигаданий приклад стартового набору страв (MER-77) — формат і перевірка, не дані |
 
 ## Стек одним файлом (MER-43)
@@ -36,8 +37,10 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
 ### compose.yaml
 
 - **Версії образів (MER-171)** новіші за офіційний compose Supabase: той пінить
-  образи з CVE, для яких уже є виправлення. Новий тег — це реліз-нотатки й
-  міграції між версіями (GoTrue й PowerSync мігрують свої таблиці на старті),
+  образи з CVE, для яких уже є виправлення. Тег стороннього образу живе в
+  `FROM` його `images/*.Dockerfile` (у GoTrue — `ARG GOTRUE_VERSION` і
+  `GOTRUE_COMMIT`), у `compose.yaml` лише PostgREST. Новий тег — це
+  реліз-нотатки й міграції між версіями (GoTrue й PowerSync мігрують свої таблиці на старті),
   потім стек із наявним томом і з нуля: вхід, `create_family`, запис через
   PostgREST, `rpc/starter_set`, потік sync. Postgres — лише в межах мажору 17:
   том той самий, `pg_upgrade` не потрібен.
@@ -114,10 +117,13 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   помилка дії), і до `setup-node` з `cache: pnpm`, бо той кличе
   `pnpm store path`. Node 22, як в образі. `--frozen-lockfile`: розбіжність
   лок-файлу валить збірку.
-- `docker-publish.yml` на пуш у гілку чи тег `v*` збирає `web.Dockerfile`
-  (контекст — корінь), сканує образ і публікує `meridian` на Docker Hub.
+- `docker-publish.yml` на пуш у гілку чи тег `v*` матрицею збирає п'ять
+  образів — `meridian` (`web.Dockerfile`, контекст — корінь) і
+  `meridian-{db,auth,powersync,init}` (`images/`, контекст — `images/`),
+  сканує кожен і публікує на Docker Hub.
   Namespace береться з секрету `DOCKERHUB_USERNAME`, логін — токеном, а не
-  паролем (відкликається окремо). Кеш шарів — `type=gha`. Скан — шлагбаум
+  паролем (відкликається окремо). Кеш шарів — `type=gha`, окремий `scope` на
+  образ, інакше матриця перетирала б кеш одне одному. Скан — шлагбаум
   (MER-174): образ збирається в локальне сховище раннера (`load`;
   `provenance: false`, бо образ з атестацією туди не завантажиться), Scout
   сканує його як `local://meridian:scan`, і лише за 0 Critical/High друга
@@ -126,10 +132,21 @@ Dockerfile офіційного образу (`caddyserver/caddy-docker`). Ін�
   публікує нічого: тег на Docker Hub лишається попереднім, зеленим. Скан
   локального образу не чекає на індексацію реєстру, а саме на щойно
   запушеному дайджесті Scout давав нестабільний 403 (2026-11-23…25).
+  **Перезбірка за розкладом (MER-181):** щопонеділка о 04:41 UTC, до Image
+  Scan, і вручну (`workflow_dispatch`) той самий workflow бере `ref: staging`
+  і публікує лише тег `staging`: runtime-стадії без кешу підтягують свіжі
+  пакети Alpine без жодного коміту. `latest`, тег гілки й `sha-*` — лише з
+  пушу: інакше розклад, що живе на `main`, назвав би збірку `staging` тегом
+  `latest`. Мітки образу (`revision`) тоді беруться з git-checkout
+  (`context: git`), а не з події, у якій SHA — `main`. Розклад і кнопку GitHub
+  бере з копії файла на `main` (як `image-scan.yml`, MER-149); до релізу пуш у `main` збирати похідні образи не
+  може — там немає `images/`. На релізі (MER-109) розклад перемикається на
+  `main` і `latest`.
 - `image-scan.yml` раз на тиждень сканує вже опублікований `staging`,
   JS-залежності цієї гілки (`pnpm audit`) і сторонні образи стека (MER-171):
-  job `stack-images` бере з `docker compose config` образи сервісів без
-  `build`, матриця `stack` сканує кожен із реєстру. Там `only-fixed`: CVE, для якої
+  job `scan` — п'ять наших опублікованих образів, job `stack-images` бере з
+  `docker compose config` образи сервісів без `build` (після MER-181 це лише
+  PostgREST), матриця `stack` сканує кожен із реєстру. Там `only-fixed`: CVE, для якої
   нема виправленої версії пакета, нам нема чим закрити. Червоний скан —
   сигнал шукати новіший тег для `compose.yaml` або чекати на постачальника. Той самий файл лежить і на `main`:
   розклад GitHub бере лише звідти. `latest` додається на релізі (MER-109).
@@ -140,6 +157,50 @@ workflow запускається лише з тієї гілки, в якій �
 репозиторію — у [`README.md`](README.md#готовий-образ).
 
 ---
+
+## Похідні образи (MER-181)
+
+Реліз — лише з зеленими сканами, а готові образи Supabase й PowerSync
+тягнуть Critical/High, для яких виправлення вже є (zlib, openssl, musl в
+Alpine; `x/net` і `go-jose` у GoTrue). Upstream їх не перезбирає тижнями, тож
+кожен образ стека, крім PostgREST (0/0 і без оболонки), — тонка надбудова в
+`images/` з тією ж відповіддю, що й runtime-стадія `caddy`:
+
+- **`db`, `powersync` — `FROM` оригіналу й `apk upgrade`.** `USER`,
+  `ENTRYPOINT`, `CMD` і `HEALTHCHECK` успадковуються; PowerSync для
+  `apk` перемикається на `root` і повертається на `901`, як в оригіналі.
+  Postgres тут із Nix, тож `apk upgrade` чіпає лише базові пакети Alpine, не
+  сам сервер.
+- **`init` — `node:22-alpine3.23` без npm, npx, corepack і yarn.** Сервіс лише
+  запускає `node generate-secrets.mjs` на вбудованих модулях, а всі
+  npm-знахідки сканера сиділи у вбудованому npm. Alpine 3.23, а не плаваюча
+  3.24: там Scout хибно червоний на musl (нижче, `vex.json`).
+- **`auth` — GoTrue з вихідного коду за тегом**, за зразком
+  `caddy-build` і upstream-Dockerfile `supabase/auth`: `git clone` тега з
+  перевіркою коміту (`GOTRUE_COMMIT` — тег у git можна пересунути), бамп
+  Go-модулів окремим `RUN`, `make auth` (лише один бінарник, не всі
+  платформи `make build`). Runtime — `alpine:3.23` з `apk upgrade`, як у
+  `caddy` (upstream бере плаваючий `alpine:3`); користувач `supabase` з
+  uid 1000 і міграції в `GOTRUE_DB_MIGRATIONS_PATH` — як в оригіналі; симлінка
+  `gotrue` немає, compose кличе `auth`. Go-стадія — версія з `go.mod` GoTrue
+  (`go 1.27.4`), а не `caddy-build`.
+- **Шлагбаум похідних — `only-fixed`** (Docker Publish і job `scan` в Image
+  Scan), як у `stack`: CVE без виправленої версії нам нема чим закрити. Зараз
+  це `pgproto3/v2` 2.3.3 у GoTrue v2.199.0 (гілку v2 закрито). Образ
+  застосунку `meridian` лишається суворим: усе в ньому — наше.
+- **`vex.json` — винятки Scout (OpenVEX, автор `meridian`)**, лише для
+  хибних спрацювань з перевіреним джерелом. Зараз один: CVE-2026-107891 у
+  musl 1.2.6-r3 Alpine 3.24 (PowerSync). Scout бере версію виправлення з edge
+  (1.2.6-r6), а secdb v3.24 Alpine показує backport у 1.2.6-r3. Прибрати, коли
+  Scout виправить дані або база перейде на іншу ревізію musl. Локально —
+  `docker scout cves … --vex-location infra/images/vex.json --vex-author meridian`.
+- **Прибрати бамп**, коли upstream оновить модулі: видалити рядок `go get …`
+  у `auth.Dockerfile`. Перевірка — `grep` версій у `go.mod` нового тега.
+- **Self-host збирає їх сам**, як `caddy`: namespace Docker Hub у
+  репозиторії не зашитий (`README.md`, «Готовий образ»), тож `compose.yaml`
+  не може назвати опублікований образ. Готові — накладкою
+  `compose.prebuilt.yaml` (`IMAGE_NAMESPACE`, `IMAGE_TAG`). `migrate`
+  збирається з того самого `build`, що й `db` (якір `&db-build`).
 
 ## Caddy й образ застосунку
 

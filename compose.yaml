@@ -2,7 +2,9 @@ name: meridian
 
 services:
   init:
-    image: node:22-alpine
+    build:
+      context: infra/images
+      dockerfile: init.Dockerfile
     command: ['node', '/init/generate-secrets.mjs']
     volumes:
       - ./infra/init:/init:ro
@@ -10,7 +12,9 @@ services:
     restart: 'no'
 
   db:
-    image: supabase/postgres:17.12.0.002
+    build: &db-build
+      context: infra/images
+      dockerfile: db.Dockerfile
     restart: unless-stopped
     entrypoint:
       - /bin/sh
@@ -38,7 +42,7 @@ services:
         condition: service_completed_successfully
 
   migrate:
-    image: supabase/postgres:17.12.0.002
+    build: *db-build
     restart: 'no'
     entrypoint:
       - /bin/sh
@@ -65,7 +69,9 @@ services:
         condition: service_healthy
 
   auth:
-    image: supabase/gotrue:v2.199.0
+    build:
+      context: infra/images
+      dockerfile: auth.Dockerfile
     restart: unless-stopped
     entrypoint:
       - /bin/sh
@@ -132,7 +138,9 @@ services:
         condition: service_completed_successfully
 
   powersync:
-    image: journeyapps/powersync-service:1.29.1
+    build:
+      context: infra/images
+      dockerfile: powersync.Dockerfile
     restart: unless-stopped
     entrypoint:
       - /bin/sh

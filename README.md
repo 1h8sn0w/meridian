@@ -80,7 +80,7 @@ docker compose up -d
 | `GOTRUE_EXTERNAL_<ПРОВАЙДЕР>_*` | вимкнено | Вхід через Google, Discord, GitHub (нижче) |
 | `STARTER_SET_FILE` | порожньо | JSON стартового набору страв, поза репозиторієм |
 | `RELEASE_AT` | порожньо | Мить запуску: до неї відвідувач без входу бачить відлік, вхід — на `/login` |
-| `WEB_IMAGE` | порожньо | Готовий образ застосунку замість збірки; працює лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
+| `IMAGE_NAMESPACE`, `IMAGE_TAG`, `WEB_IMAGE` | порожньо, `staging`, порожньо | Готові образи стека з Docker Hub замість збірки (`WEB_IMAGE` — образ застосунку з іншого місця); працюють лише з накладкою: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 Домашній сервер без домену (`https://<IP>:<порт>` і локальний центр сертифікації), стартовий набір і готовий образ описано в [`infra/README.md`](infra/README.md).
 
@@ -93,7 +93,7 @@ git pull
 docker compose up -d --build
 ```
 
-`--build` перезбирає образ застосунку з нових вихідників: без нього Compose лишить старий. Нові міграції бази `migrate` накотить сам. З готовим образом замість `--build` спершу підтягніть новий: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, далі `up -d` з тими самими `-f`.
+`--build` перезбирає образи стека з нових вихідників: без нього Compose лишить старі. Нові міграції бази `migrate` накотить сам. З готовими образами замість `--build` спершу підтягніть нові: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull`, далі `up -d` з тими самими `-f`.
 
 ### Бекап і відновлення
 
@@ -115,7 +115,7 @@ docker run --rm $VOLS -v "$PWD/..":/backup alpine tar xzf /backup/meridian-backu
 docker compose up -d
 ```
 
-Архів містить секрети стека, тож зберігайте його так само, як паролі. Префікс `meridian_` — ім'я проєкту з `compose.yaml`; якщо запускаєте з `-p` чи `COMPOSE_PROJECT_NAME`, підставте своє. З готовим образом `create` і `up -d` запускайте з тими самими `-f`, що й при оновленні.
+Архів містить секрети стека, тож зберігайте його так само, як паролі. Префікс `meridian_` — ім'я проєкту з `compose.yaml`; якщо запускаєте з `-p` чи `COMPOSE_PROJECT_NAME`, підставте своє. З готовими образами `create` і `up -d` запускайте з тими самими `-f`, що й при оновленні.
 
 ## Вхід через Google, Discord і GitHub
 

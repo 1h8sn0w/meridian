@@ -1,0 +1,18 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "urn:meridian:vex:musl-cve-2026-107891",
+  "author": "meridian",
+  "timestamp": "2026-11-28T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": { "name": "CVE-2026-107891" },
+      "products": [
+        { "@id": "pkg:apk/alpine/musl@1.2.6-r3?os_name=alpine&os_version=3.24" }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Alpine v3.24 secdb: CVE-2026-107891 fixed in musl 1.2.6-r3; 1.2.6-r6 is the edge revision."
+    }
+  ]
+}

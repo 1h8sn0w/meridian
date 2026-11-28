@@ -1,4 +1,19 @@
 services:
+  init:
+    image: ${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian-init:${IMAGE_TAG:-staging}
+    build: !reset null
+  db:
+    image: ${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian-db:${IMAGE_TAG:-staging}
+    build: !reset null
+  migrate:
+    image: ${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian-db:${IMAGE_TAG:-staging}
+    build: !reset null
+  auth:
+    image: ${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian-auth:${IMAGE_TAG:-staging}
+    build: !reset null
+  powersync:
+    image: ${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian-powersync:${IMAGE_TAG:-staging}
+    build: !reset null
   caddy:
-    image: ${WEB_IMAGE:?задайте WEB_IMAGE у .env, напр. <namespace>/meridian:staging}
+    image: ${WEB_IMAGE:-${IMAGE_NAMESPACE:?задайте IMAGE_NAMESPACE у .env}/meridian:${IMAGE_TAG:-staging}}
     build: !reset null

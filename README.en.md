@@ -80,7 +80,7 @@ You only need `.env` to change something: `cp .env.example .env`. After a change
 | `GOTRUE_EXTERNAL_<PROVIDER>_*` | off | Sign-in with Google, Discord, GitHub (below) |
 | `STARTER_SET_FILE` | empty | Starter meal set JSON, kept outside the repository |
 | `RELEASE_AT` | empty | Launch moment: until then a signed-out visitor sees a countdown, sign-in is at `/login` |
-| `WEB_IMAGE` | empty | A prebuilt app image instead of a local build; only works with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
+| `IMAGE_NAMESPACE`, `IMAGE_TAG`, `WEB_IMAGE` | empty, `staging`, empty | Prebuilt stack images from Docker Hub instead of a local build (`WEB_IMAGE` is an app image from elsewhere); only work with the overlay: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml up -d` |
 
 A home server without a domain (`https://<IP>:<port>` and the local certificate authority), the starter set and the prebuilt image are covered in [`infra/README.md`](infra/README.md) (in Ukrainian).
 
@@ -93,7 +93,7 @@ git pull
 docker compose up -d --build
 ```
 
-`--build` rebuilds the app image from the new sources: without it Compose keeps the old one. `migrate` applies new database migrations on its own. With a prebuilt image, pull the new one instead of `--build`: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull caddy`, then `up -d` with the same `-f` flags.
+`--build` rebuilds the stack images from the new sources: without it Compose keeps the old ones. `migrate` applies new database migrations on its own. With prebuilt images, pull the new ones instead of `--build`: `docker compose -f compose.yaml -f infra/compose.prebuilt.yaml pull`, then `up -d` with the same `-f` flags.
 
 ### Backup and restore
 
@@ -115,7 +115,7 @@ docker run --rm $VOLS -v "$PWD/..":/backup alpine tar xzf /backup/meridian-backu
 docker compose up -d
 ```
 
-The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`; if you run with `-p` or `COMPOSE_PROJECT_NAME`, use yours. With a prebuilt image, run `create` and `up -d` with the same `-f` flags as for updating.
+The archive contains the stack's secrets, so keep it as safe as your passwords. The `meridian_` prefix is the project name from `compose.yaml`; if you run with `-p` or `COMPOSE_PROJECT_NAME`, use yours. With prebuilt images, run `create` and `up -d` with the same `-f` flags as for updating.
 
 ## Sign-in with Google, Discord and GitHub
 
